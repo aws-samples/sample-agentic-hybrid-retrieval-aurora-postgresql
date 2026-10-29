@@ -21,7 +21,7 @@ from starlette.responses import StreamingResponse
 from service.agent_setup import AgentSetupError, agent_setup_message
 from service.config import get_settings
 from service.models import AgentRequest, AgentResponse
-from service.participant_commands import DEPLOY_AGENT, VERIFY_AGENT
+from service.participant_commands import DEPLOY_AGENT, VERIFY_AGENT, reset
 
 logger = logging.getLogger(__name__)
 
@@ -96,9 +96,18 @@ def invoke(
     destination = runtime_arn()
     if destination is None:
         raise RuntimeError("Runtime is not configured; fix: load the workshop .env.")
-    digest = application_digest()
+    try:
+        digest = application_digest()
+        problem = lab3_problem() if operation != "status" else None
+    except OSError as error:
+        # A deleted or unreadable lab file would otherwise surface as a bare 500.
+        raise AgentSetupError(
+            "Your Retrieval agent files cannot be read "
+            f"({type(error).__name__}). "
+            f"Next: run {reset(3)} to put back the starting code, then deploy with "
+            f"{DEPLOY_AGENT} and ask your question again."
+        ) from error
     if operation != "status":
-        problem = lab3_problem()
         if problem is not None:
             raise AgentSetupError(agent_setup_message(problem))
         try:
@@ -181,6 +190,9 @@ def answer(request: AgentRequest, http_request: Request | None) -> AgentResponse
         return AgentResponse.model_validate_json(body.read())
 
 
+_STREAM_INTERRUPTED = "Retrieval agent stream was interrupted; ask again"
+
+
 def _as_received(body, notice: str | None = None) -> Iterator[bytes]:
     if notice:
         payload = json.dumps(
@@ -194,8 +206,17 @@ def _as_received(body, notice: str | None = None) -> Iterator[bytes]:
     # A sized read waits for that many bytes, so a tool call sat in the relay until
     # later events filled the chunk; read1 passes on whatever the Runtime has sent.
     with body as raw:
-        while chunk := raw.read1(1024):
-            yield chunk
+        try:
+            while chunk := raw.read1(1024):
+                yield chunk
+        except Exception as error:  # noqa: BLE001 - any transport fault cuts the stream
+            # Headers are sent, so a status can no longer change; an error frame is
+            # the only way the browser and ask_agent.py learn the stream was cut.
+            logger.warning(
+                "Runtime stream interrupted: error_type=%s", type(error).__name__
+            )
+            payload = json.dumps({"status": 503, "detail": _STREAM_INTERRUPTED})
+            yield f"event: error\ndata: {payload}\n\n".encode()
 
 
 def stream(request: AgentRequest, http_request: Request | None) -> StreamingResponse:

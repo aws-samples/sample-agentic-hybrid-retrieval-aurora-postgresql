@@ -739,10 +739,11 @@ class ProductDiscoveryAgent:
                 f"The agent run exceeded its {deadline:g}s turn deadline."
             )
             logger.warning("Strands streaming agent loop exceeded its turn deadline")
-        except Exception as caught:
+        except Exception as caught:  # noqa: BLE001 - a failed run is reported, never logged with its payload
             error = _loop_error(caught)
             logger.warning(
-                "Strands streaming agent loop failed: %s", caught, exc_info=True
+                "Strands streaming agent loop failed: error_type=%s",
+                type(caught).__name__,
             )
         yield {"loop_outcome": (result, error)}
 

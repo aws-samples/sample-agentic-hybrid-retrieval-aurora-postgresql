@@ -979,6 +979,12 @@ def register_evidence(
     for another product must not change this product's list.
     """
     for item in evidence:
+        if item.product_id != product_id:
+            raise ValueError(
+                f"Evidence {item.evidence_id} belongs to product {item.product_id}, "
+                f"not product {product_id}; refusing to authorize it for citation"
+            )
+    for item in evidence:
         state["evidence"][item.evidence_id] = item
         product_evidence = state["evidence_by_product"].setdefault(product_id, [])
         if item.evidence_id not in product_evidence:
@@ -1577,6 +1583,7 @@ def synthesize_cited_answer(
             products,
             evidence,
             limits=_reported_limits(state),
+            current_request=state["question"],
         )
     except SynthesisDeclined as decline:
         record_unsupported_answer(state, decline)
@@ -1882,6 +1889,7 @@ def _synthesize_supported(
             selection,
             _evidence_for_products(state, [p.product_id for p in selection]),
             limits=_reported_limits(state),
+            current_request=state["question"],
         )
 
     try:

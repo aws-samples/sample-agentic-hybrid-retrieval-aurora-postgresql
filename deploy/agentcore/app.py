@@ -14,6 +14,10 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request
 
+from service.access_control import (
+    acquire_model_admission_slot,
+    release_model_admission_slot,
+)
 from service.agentcore_transport import (
     RuntimeInvocation,
     require_current_source,
@@ -89,7 +93,14 @@ async def invocations(request: RuntimeInvocation | AgentRequest, http_request: R
             503, "Runtime cannot forward to itself; unset MOSAIC_AGENTCORE_RUNTIME_ARN."
         )
     if isinstance(request, AgentRequest):
-        return await asyncio.to_thread(agent_answer, request)
+        # Calling the route function skips its admission dependency, and this form
+        # carries no digest to check against the workspace, so admission is the one
+        # guard it can honour. The envelope form is admitted by the API in front of it.
+        slot = acquire_model_admission_slot()
+        try:
+            return await asyncio.to_thread(agent_answer, request)
+        finally:
+            release_model_admission_slot(slot)
     digest = await asyncio.to_thread(require_current_source, request.application_sha256)
     if request.operation == "status":
         return {

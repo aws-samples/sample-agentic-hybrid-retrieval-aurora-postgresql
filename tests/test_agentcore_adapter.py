@@ -199,3 +199,33 @@ def test_the_workshop_application_gains_no_platform_route():
     assert client.get("/api/health").status_code == 200
     assert client.get("/ping").status_code == 404
     assert client.post("/invocations", json={}).status_code == 404
+
+
+def test_a_bare_invocation_is_refused_when_admission_is_exhausted(agent, monkeypatch):
+    """Falsifier: without the guard the model-backed agent runs past the process budget."""
+    from fastapi import HTTPException
+
+    def exhausted():
+        raise HTTPException(429, "concurrent-run limit", headers={"Retry-After": "5"})
+
+    monkeypatch.setattr("deploy.agentcore.app.acquire_model_admission_slot", exhausted)
+    response = TestClient(adapter_app).post("/invocations", json={"question": "a desk"})
+    assert response.status_code == 429
+    assert agent.requests == []
+
+
+def test_a_bare_invocation_releases_its_slot_after_success_and_failure(
+    agent, monkeypatch
+):
+    released = []
+    monkeypatch.setattr(
+        "deploy.agentcore.app.acquire_model_admission_slot", lambda: "slot"
+    )
+    monkeypatch.setattr(
+        "deploy.agentcore.app.release_model_admission_slot", released.append
+    )
+    client = TestClient(adapter_app)
+    assert client.post("/invocations", json={"question": "a desk"}).status_code == 200
+    agent.failure = RuntimeError("model down")
+    assert client.post("/invocations", json={"question": "a desk"}).status_code == 503
+    assert released == ["slot", "slot"]

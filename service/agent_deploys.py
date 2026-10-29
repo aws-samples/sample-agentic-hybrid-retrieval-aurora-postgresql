@@ -10,12 +10,15 @@ version. Provisioning records nothing and `verify` deploys nothing, so neither c
 
 from __future__ import annotations
 
+import fcntl
 import json
+import os
+import tempfile
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
-from service.participant_commands import DEPLOY_AGENT, complete_lab_3
+from service.participant_commands import DEPLOY_AGENT, complete_lab_3, reset
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -27,6 +30,11 @@ class Deploy:
     deployed_at: datetime
     runtime_version: str
     application_sha256: str
+
+
+def _aware(moment: datetime) -> datetime:
+    """A timestamp without a zone was written by this workspace's tools in UTC."""
+    return moment if moment.tzinfo else moment.replace(tzinfo=UTC)
 
 
 def deploys_path(root: Path | None = None) -> Path:
@@ -44,20 +52,23 @@ def load_deploys(root: Path | None = None) -> list[Deploy]:
     if not path.exists():
         return []
     try:
-        deploys = [
-            Deploy(
-                datetime.fromisoformat(row["deployed_at"]),
-                str(row["runtime_version"]),
-                str(row["application_sha256"]),
-            )
-            for row in json.loads(path.read_text(encoding="utf-8"))
-        ]
+        deploys = sorted(
+            (
+                Deploy(
+                    _aware(datetime.fromisoformat(row["deployed_at"])),
+                    str(row["runtime_version"]),
+                    str(row["application_sha256"]),
+                )
+                for row in json.loads(path.read_text(encoding="utf-8"))
+            ),
+            key=lambda deploy: deploy.deployed_at,
+        )
     except (ValueError, KeyError, TypeError) as error:
         raise ValueError(
             f"Deploy record rule: {path} cannot be read ({type(error).__name__}); "
             f"fix: deploy with {DEPLOY_AGENT}, which writes it again."
         ) from error
-    return sorted(deploys, key=lambda deploy: deploy.deployed_at)
+    return deploys
 
 
 def record_deploy(
@@ -67,25 +78,35 @@ def record_deploy(
     root: Path | None = None,
     now: datetime | None = None,
 ) -> Deploy:
-    """Add one deploy to the record; an unreadable record is replaced, not extended."""
-    try:
-        earlier = load_deploys(root)
-    except ValueError:
-        earlier = []
-    deploy = Deploy(now or datetime.now(UTC), runtime_version, application_sha256)
-    rows = [
-        {
-            "deployed_at": item.deployed_at.isoformat(),
-            "runtime_version": item.runtime_version,
-            "application_sha256": item.application_sha256,
-        }
-        for item in [*earlier, deploy]
-    ]
+    """Add one deploy to the record; an unreadable record is replaced, not extended.
+
+    The read-modify-write holds a file lock, so two deploys recorded together both
+    survive, and the record is replaced atomically from a temporary file of its own.
+    """
     path = deploys_path(root)
     path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_suffix(".tmp")
-    temporary.write_text(json.dumps(rows, indent=2) + "\n", encoding="utf-8")
-    temporary.replace(path)
+    deploy = Deploy(
+        _aware(now or datetime.now(UTC)), runtime_version, application_sha256
+    )
+    with (path.parent / "deploys.lock").open("w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        try:
+            earlier = load_deploys(root)
+        except ValueError:
+            earlier = []
+        rows = [
+            {
+                "deployed_at": item.deployed_at.isoformat(),
+                "runtime_version": item.runtime_version,
+                "application_sha256": item.application_sha256,
+            }
+            for item in [*earlier, deploy]
+        ]
+        with tempfile.NamedTemporaryFile(
+            "w", dir=path.parent, suffix=".tmp", delete=False, encoding="utf-8"
+        ) as temporary:
+            temporary.write(json.dumps(rows, indent=2) + "\n")
+        os.replace(temporary.name, path)
     return deploy
 
 
@@ -93,8 +114,15 @@ def lab_3_started_at(root: Path | None = None) -> datetime | None:
     """When Lab 3 last started (Lab 2's hand-off, a start or a reset), or None."""
     from scripts.lab_entry import load_record
 
-    started = (load_record(3, root or ROOT) or {}).get("completed_at")
-    return datetime.fromisoformat(started) if started else None
+    try:
+        started = (load_record(3, root or ROOT) or {}).get("completed_at")
+        return _aware(datetime.fromisoformat(started)) if started else None
+    except (OSError, AttributeError, TypeError, ValueError) as error:
+        # A hand-edited, truncated or unreadable record would otherwise be a bare 500.
+        raise ValueError(
+            f"Lab 3 start record rule: the saved start of Lab 3 cannot be read "
+            f"({type(error).__name__}); fix: run {reset(3)}."
+        ) from error
 
 
 def _clock(moment: datetime) -> str:
@@ -160,6 +188,7 @@ def run_deploy_problem(
     started = lab_3_started_at(root)
     if started is None:
         return None
+    run_created_at = _aware(run_created_at)
     since = _since(started, root)
     if not since:
         return (
