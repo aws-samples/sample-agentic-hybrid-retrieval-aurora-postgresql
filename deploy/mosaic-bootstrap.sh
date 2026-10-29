@@ -1,6 +1,6 @@
 #!/bin/bash
 set -Eeuo pipefail
-exec > >(tee /var/log/mosaic-bootstrap.log | logger -t mosaic-bootstrap -s 2>/dev/console) 2>&1
+exec > >(tee -a /var/log/mosaic-bootstrap.log | logger -t mosaic-bootstrap -s 2>/dev/console) 2>&1
 
 # The tail of this log, JSON-escaped for a wait-condition Reason.
 #
@@ -58,15 +58,8 @@ sys.stdout.write(encoded)
 signal_failure() {
   rc="$1"
   trap - ERR
-  # Until the runtime image is published, the stack also waits on the
-  # image-ready condition, which would otherwise hold it until its timeout.
-  # CloudFormation ignores this signal once that condition has completed.
-  if [[ -n "${IMAGE_READY_WAIT_HANDLE:-}" ]]; then
-    curl --silent --show-error --fail -X PUT -H 'Content-Type:' \
-      --data-binary \
-      '{"Status":"FAILURE","Reason":"Mosaic bootstrap failed before the runtime image was ready; BootstrapWaitCondition carries the cause.","UniqueId":"image-ready","Data":"failed"}' \
-      "$IMAGE_READY_WAIT_HANDLE" || true
-  fi
+  # The cause goes first: CloudFormation can begin rolling back, and stop this host,
+  # on the first FAILURE it hears, and only the bootstrap handle carries the cause.
   if [[ -n "${BOOTSTRAP_WAIT_HANDLE:-}" ]]; then
     if curl --silent --show-error --fail -X PUT -H 'Content-Type:' \
       --data-binary \
@@ -77,6 +70,15 @@ signal_failure() {
     fi
   else
     echo "Mosaic bootstrap cannot signal failure: BOOTSTRAP_WAIT_HANDLE is unset"
+  fi
+  # Until the runtime image is published, the stack also waits on the
+  # image-ready condition, which would otherwise hold it until its timeout.
+  # CloudFormation ignores this signal once that condition has completed.
+  if [[ -n "${IMAGE_READY_WAIT_HANDLE:-}" ]]; then
+    curl --silent --show-error --fail -X PUT -H 'Content-Type:' \
+      --data-binary \
+      '{"Status":"FAILURE","Reason":"Mosaic bootstrap failed before the runtime image was ready; BootstrapWaitCondition carries the cause.","UniqueId":"image-ready","Data":"failed"}' \
+      "$IMAGE_READY_WAIT_HANDLE" || true
   fi
   exit "$rc"
 }
@@ -878,8 +880,11 @@ print(
 )
 PY
 )
-(cd "$REPO" && MOSAIC_RUNTIME_DATABASE_URL="$APP_DATABASE_URL" \
-  .venv/bin/python scripts/deploy_agentcore.py stage-bootstrap)
+# Image build and push are network-bound (dnf, pip, uv sync, the RDS bundle), and
+# image_digest makes a rerun resume rather than rebuild. The URL travels in the
+# environment, not argv, so it never appears in a process listing.
+MOSAIC_RUNTIME_DATABASE_URL="$APP_DATABASE_URL" network_retry bash -c \
+  'cd "$1" && .venv/bin/python scripts/deploy_agentcore.py stage-bootstrap' _ "$REPO"
 # The editor launcher, not CloudFormation, starts this host, so the stack cannot
 # take a signal for the instance itself; this wait-condition handle needs no IAM.
 IMAGE_READY_OK=''
@@ -971,8 +976,9 @@ sudo -u "$CODE_EDITOR_USER" -H bash -lc "
 # name all leave the variable unset, and the storefront then hides the link. The
 # lookup runs as an `if` condition so a failed call cannot reach the ERR trap and
 # roll back an otherwise working stack over a convenience link.
-# CloudFront depends on this instance's success signal, which stage-bootstrap
-# sends before the catalog restore, so the distribution normally exists by now.
+# Both distributions depend on EditorInstance (the launcher custom resource), which
+# CloudFormation completes before this host runs, so the distribution normally
+# exists by now.
 # One lookup, without waiting: a distribution not yet created only hides the link.
 CODE_EDITOR_DOMAIN=''
 if [[ -n "${WORKSHOP_NAME:-}" ]]; then
@@ -1213,7 +1219,8 @@ for attempt in $(seq 1 60); do
     printf 'services did not answer after 60 attempts; last error and unit status follow\n'
     curl -fsS http://127.0.0.1:8000/api/health || true
     systemctl status mosaic-api mosaic-ui --no-pager || true
-    exit 1
+    # A bare exit skips the ERR trap and loses the redacted log tail.
+    signal_failure 1
   fi
   sleep 5
 done

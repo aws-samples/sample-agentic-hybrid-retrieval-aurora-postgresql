@@ -894,8 +894,8 @@ signal_failure 17
     )
     assert result.returncode == 17, result.stderr
     assert calls.read_text().split() == [
-        "https://image-ready.invalid",
         "https://bootstrap.invalid",
+        "https://image-ready.invalid",
     ]
     assert marker.exists()
 
@@ -932,3 +932,80 @@ def test_claude_code_is_pinned_to_an_exact_version(script: str) -> None:
     assert re.fullmatch(r"\d+\.\d+\.\d+", installs[0]), (
         f"Claude Code is installed as @{installs[0]}; pin an exact version such as 2.1.312"
     )
+
+
+def _executable_lines(script: str) -> list[str]:
+    """The script's own commands: no comment lines, no heredoc bodies.
+
+    A heredoc body is data written to another file (a git hook, a unit file), so an
+    `exit 1` inside it is not this script's exit.
+    """
+    lines: list[str] = []
+    terminator: str | None = None
+    for line in script.splitlines():
+        if terminator is not None:
+            if line.strip() == terminator:
+                terminator = None
+            continue
+        opener = re.search(r"<<-?\s*(['\"]?)([A-Za-z_]+)\1", line)
+        if opener and not line.lstrip().startswith("#"):
+            terminator = opener.group(2)
+        if not line.lstrip().startswith("#"):
+            lines.append(line)
+    return lines
+
+
+def test_heredoc_filter_drops_bodies_and_comments() -> None:
+    sample = "a\n# exit 1\ncat >f <<'EOF'\nexit 1\nEOF\nb\n"
+    assert _executable_lines(sample) == ["a", "cat >f <<'EOF'", "b"]
+
+
+def test_every_exit_one_after_the_trap_reports_its_cause(script: str) -> None:
+    """A bare `exit 1` skips the ERR trap, so the redacted log tail never leaves the host.
+
+    The one sanctioned bare exit follows a failed SUCCESS signal: the wait condition
+    already refused signals, so the UserData wrapper's FAILURE path owns that case.
+    """
+    lines = _executable_lines(script)
+    trap = next(i for i, line in enumerate(lines) if "trap 'signal_failure" in line)
+    sanctioned = 0
+    offenders = []
+    for number, line in enumerate(lines[trap:], start=trap):
+        if not re.search(r"\bexit 1\b", line):
+            continue
+        if "SUCCESS signal failed" in "\n".join(lines[number - 3 : number]):
+            sanctioned += 1
+        else:
+            offenders.append(line.strip())
+    assert not offenders, (
+        f"exit 1 bypasses the ERR trap; use signal_failure 1: {offenders}"
+    )
+    assert sanctioned == 1
+
+
+def test_bootstrap_log_is_appended_not_truncated(script: str) -> None:
+    """The UserData loader already tees its own output into this file."""
+    first_exec = next(
+        line for line in _executable_lines(script) if line.startswith("exec >")
+    )
+    assert "tee -a /var/log/mosaic-bootstrap.log" in first_exec, first_exec
+
+
+def test_failure_cause_is_signalled_before_image_ready(script: str) -> None:
+    """Rollback can begin after the first signal; the cause must already be sent."""
+    body = re.search(r"^signal_failure\(\) \{[\s\S]*?^\}", script, re.MULTILINE).group()
+    assert body.index('"$BOOTSTRAP_WAIT_HANDLE"') < body.index(
+        '"$IMAGE_READY_WAIT_HANDLE"'
+    )
+
+
+def test_stage_bootstrap_retries_network_failures(script: str) -> None:
+    """Image build and push are network-bound; image_digest makes a rerun resumable."""
+    lines = _executable_lines(script)
+    index = next(
+        i
+        for i, line in enumerate(lines)
+        if "deploy_agentcore.py stage-bootstrap" in line
+    )
+    call = " ".join(lines[index - 1 : index + 1])
+    assert "network_retry" in call, call
