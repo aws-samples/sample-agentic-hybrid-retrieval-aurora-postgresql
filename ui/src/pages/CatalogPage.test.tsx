@@ -61,6 +61,22 @@ import { CatalogPage } from "./CatalogPage";
 import { HintsContext } from "../useHint";
 import { completeLab3Command } from "../participantCommands";
 
+// The label appears only after three timed stages have run in sequence: the
+// progress phases hold for `stageDwellMs` each (three of them), the answer
+// waits 180 ms to become visible, and then the soft reveal paces itself with
+// each rAF frame earning at most 64 ms of progress. Under a busy full-suite run
+// the frames stretch, so the reveal takes several times its nominal 3.6 s.
+// The budget scales with the dwell and costs nothing on success.
+// The progress status reaches its later phases after three dwells, on real timers too.
+const STAGE_PHASES_TIMEOUT_MS = stageDwellMs * 3 + 8000;
+const FINAL_RECOMMENDATION_TIMEOUT_MS = stageDwellMs * 4 + 8000;
+
+function finalRecommendation(scope: Pick<typeof screen, "findByText">) {
+  return scope.findByText("Final recommendation", {}, {
+    timeout: FINAL_RECOMMENDATION_TIMEOUT_MS,
+  });
+}
+
 vi.mock("../api", () => ({
   api: {
     labsState: vi.fn().mockResolvedValue({ labs: [] }),
@@ -559,7 +575,7 @@ describe("CatalogPage", () => {
     // comparing phase after a few of them.
     await waitFor(
       () => expect(within(progress).getByRole("status").textContent).toBe("Comparing the picks"),
-      { timeout: stageDwellMs * 3 + 2000 },
+      { timeout: STAGE_PHASES_TIMEOUT_MS },
     );
     const chips = within(progress).getByRole("list", { name: "Tools the Retrieval agent called" });
     const chip = (name: string) => within(chips).getByText(name).closest("li")!;
@@ -573,7 +589,7 @@ describe("CatalogPage", () => {
     expect(within(dialog).queryByText("Final recommendation")).toBeNull();
 
     release();
-    await within(dialog).findByText("Final recommendation");
+    await finalRecommendation(within(dialog));
     expect(within(dialog).queryByLabelText("Progress")).toBeNull();
     expect(within(dialog).getByRole("button", { name: /How the tools work/ })).toBeTruthy();
   }, stageDwellMs * 8 + 10_000);
@@ -615,12 +631,12 @@ describe("CatalogPage", () => {
     const status = within(progress).getByRole("status");
     // The same element changes its words as the phases are presented; no digits tick.
     await waitFor(() => expect(status.textContent).toBe("Checking the sources"), {
-      timeout: stageDwellMs * 3 + 2000,
+      timeout: STAGE_PHASES_TIMEOUT_MS,
     });
     expect(status.textContent).not.toMatch(/\d/);
 
     release();
-    await within(dialog).findByText("Final recommendation");
+    await finalRecommendation(within(dialog));
     // The spinner line goes once the answer starts; the finished tools stay.
     expect(within(dialog).queryByLabelText("Progress")).toBeNull();
     expect(within(dialog).getByLabelText("Tools used")).toBeTruthy();
@@ -642,7 +658,7 @@ describe("CatalogPage", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Send request" }));
     const dialog = screen.getByRole("complementary", { name: "Ask Mosaic" });
-    await within(dialog).findByText("Final recommendation");
+    await finalRecommendation(within(dialog));
 
     fireEvent.click(within(dialog).getByRole("button", { name: "New conversation" }));
     expect(
@@ -704,7 +720,7 @@ describe("CatalogPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Send request" }));
 
     const dialog = screen.getByRole("complementary", { name: "Ask Mosaic" });
-    await within(dialog).findByText("Final recommendation");
+    await finalRecommendation(within(dialog));
     const top = within(dialog).getByLabelText(/Top pick/);
     const others = await within(dialog).findByLabelText("Other picks");
     expect(within(others).getAllByRole("listitem")).toHaveLength(recommendations.slice(0, 3).length - 1);
@@ -728,7 +744,7 @@ describe("CatalogPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Send request" }));
 
     const dialog = screen.getByRole("complementary", { name: "Ask Mosaic" });
-    await within(dialog).findByText("Final recommendation");
+    await finalRecommendation(within(dialog));
     const top = within(dialog).getByLabelText(/Top pick/);
     fireEvent.click(within(top).getByRole("button", { name: /^Open / }));
 
@@ -1732,7 +1748,7 @@ describe("CatalogPage", () => {
 
     const dialog = screen.getByRole("complementary", { name: "Ask Mosaic" });
     // The settled state: the progress has given way to the answer and a fold.
-    await within(dialog).findByText("Final recommendation");
+    await finalRecommendation(within(dialog));
     expect(within(dialog).queryByLabelText("Progress")).toBeNull();
     const fold = within(dialog).getByRole("button", { name: /How the tools work/ });
     expect(fold.getAttribute("aria-expanded")).toBe("false");
@@ -1854,14 +1870,17 @@ describe("CatalogPage", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Send request" }));
     const dialog = screen.getByRole("complementary", { name: "Ask Mosaic" });
-    await within(dialog).findByText("Final recommendation");
+    await finalRecommendation(within(dialog));
 
     fireEvent.click(within(dialog).getByRole("button", { name: "Compare top two" }));
     await waitFor(() => expect(api.agentStream).toHaveBeenCalledTimes(2));
 
     await within(dialog).findByRole("button", { name: /Previous messages/ });
     fireEvent.click(within(dialog).getByRole("button", { name: /Previous messages/ }));
-    await waitFor(() => expect(within(dialog).getAllByRole("button", { name: /How the tools work/ })).toHaveLength(2));
+    await waitFor(
+      () => expect(within(dialog).getAllByRole("button", { name: /How the tools work/ })).toHaveLength(2),
+      { timeout: FINAL_RECOMMENDATION_TIMEOUT_MS },
+    );
     const folds = within(dialog).getAllByRole("button", { name: /How the tools work/ });
     expect(folds[0].textContent).toContain("4 steps");
     expect(folds[1].textContent).toContain("3 steps");
@@ -1895,7 +1914,7 @@ describe("CatalogPage", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Send request" }));
     const dialog = screen.getByRole("complementary", { name: "Ask Mosaic" });
-    await within(dialog).findByText("Final recommendation");
+    await finalRecommendation(within(dialog));
 
     fireEvent.change(
       within(dialog).getByRole("textbox", { name: "Ask Mosaic request" }),
@@ -1906,7 +1925,10 @@ describe("CatalogPage", () => {
 
     await within(dialog).findByRole("button", { name: /Previous messages/ });
     fireEvent.click(within(dialog).getByRole("button", { name: /Previous messages/ }));
-    await waitFor(() => expect(within(dialog).getAllByRole("button", { name: /How the tools work/ })).toHaveLength(2));
+    await waitFor(
+      () => expect(within(dialog).getAllByRole("button", { name: /How the tools work/ })).toHaveLength(2),
+      { timeout: FINAL_RECOMMENDATION_TIMEOUT_MS },
+    );
     const folds = within(dialog).getAllByRole("button", { name: /How the tools work/ });
     expect(folds[1].textContent).toContain("4 steps");
     expect(invocation).toBe(2);
@@ -1952,7 +1974,7 @@ describe("CatalogPage", () => {
     ).toBeNull();
 
     await act(async () => release());
-    await within(dialog).findByText("Final recommendation");
+    await finalRecommendation(within(dialog));
     expect(await within(dialog).findByRole("region", { name: "Sources" })).toBeTruthy();
     expect(
       within(dialog).getByRole("button", { name: "Compare top two" }),
@@ -2049,7 +2071,7 @@ describe("CatalogPage", () => {
       () => expect(
         within(within(dialog).getByLabelText("Progress")).getByRole("status").textContent,
       ).toContain("Comparing the picks"),
-      { timeout: stageDwellMs * 3 + 2000 },
+      { timeout: STAGE_PHASES_TIMEOUT_MS },
     );
     expect(thread.scrollTop).toBe(120);
     release();
@@ -2574,7 +2596,7 @@ describe("CatalogPage", () => {
       { target: { value: agentResponse.question } },
     );
     fireEvent.click(screen.getByRole("button", { name: "Send request" }));
-    await screen.findByText("Final recommendation");
+    await finalRecommendation(screen);
 
     fireEvent.click(
       within(screen.getByRole("complementary", { name: "Ask Mosaic" }))
@@ -2606,7 +2628,7 @@ describe("CatalogPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Send request" }));
 
     const assist = screen.getByRole("complementary", { name: "Ask Mosaic" });
-    await within(assist).findByText("Final recommendation");
+    await finalRecommendation(within(assist));
     fireEvent.click(
       within(assist).getAllByRole("button", { name: /Add to bag/ })[0],
     );

@@ -186,6 +186,90 @@ describe("agentStream", () => {
     ]);
   });
 
+  it("turns an unreadable event into a bounded error instead of a SyntaxError", async () => {
+    vi.stubGlobal("fetch", streamFetch(sseResponse(["event: stage\ndata: {not json\n\n"])));
+    const error = await api.agentStream("question", {}, () => {}).catch((cause: unknown) => cause);
+
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error).toMatchObject({
+      status: 503, message: "Retrieval agent stream sent an unreadable event",
+    });
+  });
+
+  it("cancels the response body when an error event ends the stream", async () => {
+    const cancel = vi.fn();
+    const encoder = new TextEncoder();
+    const open = new Response(new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode('event: error\ndata: {"detail":"Grounding refused"}\n\n'));
+      },
+      cancel,
+    }), { status: 200 });
+    vi.stubGlobal("fetch", streamFetch(open));
+
+    await expect(api.agentStream("question", {}, () => {})).rejects.toMatchObject({
+      message: "Grounding refused",
+    });
+    expect(cancel).toHaveBeenCalledTimes(1);
+  });
+
+  it("skips a notice that carries neither a title nor a detail", async () => {
+    vi.stubGlobal("fetch", streamFetch(sseResponse([
+      'event: notice\ndata: {"code":"reference_agent"}\n\n',
+      `event: complete\ndata: ${JSON.stringify({ response })}\n\n`,
+    ])));
+    const events: AgentStreamEvent[] = [];
+    await api.agentStream("question", {}, (event) => events.push(event));
+
+    expect(events).toEqual([{ type: "complete", response }]);
+  });
+
+  describe("frame boundaries", () => {
+    const complete = `event: complete\ndata: ${JSON.stringify({ response })}`;
+
+    it("reads two frames that arrive in one chunk", async () => {
+      const delta = `event: answer_delta\ndata: ${JSON.stringify({ delta: "hi" })}`;
+      vi.stubGlobal("fetch", streamFetch(sseResponse([`${delta}\n\n${complete}\n\n`])));
+      const events: AgentStreamEvent[] = [];
+      await api.agentStream("question", {}, (event) => events.push(event));
+
+      expect(events.map((event) => event.type)).toEqual(["answer_delta", "complete"]);
+    });
+
+    it("reads one frame that is split across two chunks", async () => {
+      const text = `${complete}\n\n`;
+      const cut = Math.floor(text.length / 2);
+      vi.stubGlobal("fetch", streamFetch(sseResponse([text.slice(0, cut), text.slice(cut)])));
+      const events: AgentStreamEvent[] = [];
+      await api.agentStream("question", {}, (event) => events.push(event));
+
+      expect(events).toEqual([{ type: "complete", response }]);
+    });
+
+    it("reads CRLF-framed events the same as LF", async () => {
+      const delta = `event: answer_delta\ndata: ${JSON.stringify({ delta: "hi" })}`;
+      const crlf = `${delta}\n\n${complete}\n\n`.replace(/\n/g, "\r\n");
+      vi.stubGlobal("fetch", streamFetch(sseResponse([crlf])));
+      const events: AgentStreamEvent[] = [];
+      await api.agentStream("question", {}, (event) => events.push(event));
+
+      expect(events).toEqual([
+        { type: "answer_delta", delta: "hi" },
+        { type: "complete", response },
+      ]);
+    });
+
+    it("reads a CRLF pair that is split between two chunks", async () => {
+      const crlf = `${complete}\n\n`.replace(/\n/g, "\r\n");
+      const cut = crlf.indexOf("\r\n") + 1;
+      vi.stubGlobal("fetch", streamFetch(sseResponse([crlf.slice(0, cut), crlf.slice(cut)])));
+      const events: AgentStreamEvent[] = [];
+      await api.agentStream("question", {}, (event) => events.push(event));
+
+      expect(events).toEqual([{ type: "complete", response }]);
+    });
+  });
+
   it("ignores frames after the terminal complete event", async () => {
     vi.stubGlobal(
       "fetch",

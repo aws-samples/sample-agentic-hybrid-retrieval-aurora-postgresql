@@ -246,6 +246,7 @@ export const api = {
       while (true) {
         const { done, value } = await reader.read();
         buffer += decoder.decode(value ?? new Uint8Array(), { stream: !done });
+        buffer = buffer.replace(/\r\n/g, "\n");
 
         let boundary = buffer.indexOf("\n\n");
         while (boundary >= 0) {
@@ -253,7 +254,12 @@ export const api = {
           buffer = buffer.slice(boundary + 2);
           const parsed = parseSseFrame(frame);
           if (parsed) {
-            const payload = JSON.parse(parsed.data) as Record<string, unknown>;
+            let payload: Record<string, unknown>;
+            try {
+              payload = JSON.parse(parsed.data) as Record<string, unknown>;
+            } catch {
+              throw new ApiError(503, "Retrieval agent stream sent an unreadable event");
+            }
             if (parsed.event === "error") {
               throw new ApiError(
                 typeof payload.status === "number" ? payload.status : 503,
@@ -263,12 +269,11 @@ export const api = {
               );
             }
             if (parsed.event === "notice") {
-              onEvent({
-                type: "notice",
-                code: String(payload.code ?? ""),
-                title: String(payload.title ?? ""),
-                detail: String(payload.detail ?? ""),
-              });
+              const title = String(payload.title ?? "");
+              const detail = String(payload.detail ?? "");
+              if (title || detail) {
+                onEvent({ type: "notice", code: String(payload.code ?? ""), title, detail });
+              }
             } else if (parsed.event === "stage") {
               onEvent({ type: "stage", ...payload } as AgentStreamEvent);
             } else if (parsed.event === "partial") {
@@ -303,6 +308,8 @@ export const api = {
         }
       }
     } finally {
+      // The throw paths leave the body open until the server closes it.
+      await reader.cancel().catch(() => {});
       reader.releaseLock();
     }
   },

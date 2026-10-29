@@ -10,6 +10,8 @@ import { ProductAnswer } from "../components/ProductAnswer";
 import { MosaicLabsTabs } from "../components/MosaicLabsTabs";
 import { MosaicLabsMasthead } from "../components/MosaicLabsMasthead";
 import { MosaicRunButton } from "../components/MosaicRunButton";
+import { isSetupCardMessage, splitSetupCommand } from "../components/ask-mosaic/setupMessage";
+import { DEPLOY_AGENT } from "../participantCommands";
 import { playgroundQueryHref } from "../navigation";
 import type { AgentResponse, MemoryEvent, MemoryRecord, SessionMemoryResponse, ShopperSession } from "../types";
 import "../inspector.css";
@@ -26,6 +28,14 @@ const strategies = [
   { type: "SUMMARIZATION", name: "Summaries", technical: "Conversation recap", title: "Where the conversation got to.", description: "Condenses the topics and decisions within one session so an agent can pick up a longer conversation.", scope: "This session", process: "Update the conversation summary", detail: "One session can have several summary records. A new session has its own summary.", example: "We’ve settled on making calls clearer first, then choosing a monitor with more room for code and docs. The chair can wait until I’ve measured the desk.", source: "summary-strategy.html" },
   { type: "EPISODIC", name: "Past outcomes", technical: "What worked", title: "What happened, and what worked.", description: "Keeps what Alex tried and how it turned out. AgentCore can compare past outcomes to find what worked.", scope: "Outcomes from this session · lessons from Alex’s earlier sessions", process: "Identify the outcome → update records → learn from past results", detail: "AgentCore saves an outcome after it detects that an interaction is complete. A single message may not produce one.", example: "My laptop screen felt cramped. I compared larger monitors, checked USB-C video and charging support, and chose one that lets me keep code and docs visible together.", source: "episodic-memory-strategy.html" },
 ];
+/** What to do next: an unbuilt or undeployed agent needs the deploy command, not just a retry. */
+function recoveryStep(message: string): string {
+  if (!isSetupCardMessage(message)) return "Choose Ask Mosaic to retry.";
+  const step = splitSetupCommand(message).command
+    ? "Run the command in the message"
+    : `Run ${DEPLOY_AGENT} in the terminal`;
+  return `${step}, then choose Ask Mosaic to retry.`;
+}
 const date = (value: string) => new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(value));
 
 
@@ -233,7 +243,7 @@ export function SessionMemoryPage() {
             <p className="memory-empty">{useMemory ? "Reads relevant memories and saves this conversation. Product claims must still cite records from Aurora." : "This request uses Aurora without reading or writing AgentCore Memory."}</p>
           </form>
           {useMemory && !connected && <p className="memory-empty">Memory is not connected. Reconnect AgentCore Memory, or turn off “Use AgentCore Memory for this request” to ask without it.</p>}
-          {askError && <div className="memory-error memory-ask-error" role="alert"><strong>Mosaic could not finish this request.</strong><p>{askError}</p><p>Follow the recovery step above, then choose Ask Mosaic to retry. Your question is still here.</p></div>}
+          {askError && <div className="memory-error memory-ask-error" role="alert"><strong>Mosaic could not finish this request.</strong><p>{askError}</p><p>{recoveryStep(askError)} Your question is still here.</p></div>}
           {answerNotice && <p className="memory-empty" role="status">{answerNotice}</p>}
           {recalled !== null && <div className="memory-recall-results" aria-live="polite"><h3>{recalled.length} relevant memor{recalled.length === 1 ? "y" : "ies"} returned</h3><Records records={recalled} />{!recalled.length && <p>No saved memories matched this request.</p>}</div>}
           {agentNotice && <AgentNoticeNote notice={agentNotice} />}

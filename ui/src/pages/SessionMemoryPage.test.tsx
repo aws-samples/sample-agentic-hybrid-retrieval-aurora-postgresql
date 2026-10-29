@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { api } from "../api";
+import { api, ApiError } from "../api";
 import type { SessionMemoryResponse, ShopperSession } from "../types";
 import { SessionMemoryPage } from "./SessionMemoryPage";
 import missionManifest from "../../../data/evals/mosaic_labs_missions.json";
@@ -230,4 +230,69 @@ it.each(["stale", "failed"])("keeps the completed answer when the history refres
   await waitFor(() => expect(screen.getByRole("button", { name: "Ask Mosaic" })).toHaveProperty("disabled", false));
   expect(screen.getByText("The monitor listing states USB-C charging.")).toBeTruthy();
   expect(screen.queryByText("Your answer will appear here after you ask Mosaic.")).toBeNull();
+});
+
+const DEPLOY = "uv run python scripts/deploy_agentcore.py deploy";
+
+it.each([
+  ["names the command already in the message", `Your Retrieval agent is not built yet. Run ${DEPLOY}`, /Run the command in the message/],
+  ["points at the deploy command when the message omits it", "Your Retrieval agent is not built yet.", new RegExp(DEPLOY)],
+])("tells the participant what to do for an agent_setup error: %s", async (_label, detail, expected) => {
+  vi.spyOn(api, "agentStream").mockRejectedValue(new ApiError(503, detail, undefined, "agent_setup"));
+  render(<SessionMemoryPage />);
+  fireEvent.click(await screen.findByRole("button", { name: "Ask Mosaic" }));
+  const failure = await screen.findByText("Mosaic could not finish this request.");
+  expect(failure.parentElement?.textContent).toMatch(expected);
+  expect(failure.parentElement?.textContent).not.toContain("recovery step above");
+});
+
+async function failAfterNotice() {
+  vi.spyOn(api, "agentStream").mockImplementation(async (_q, _f, onEvent) => {
+    onEvent({ type: "notice", code: "reference_agent", title: "Reference Retrieval agent", detail: "From the reference agent." });
+    throw new Error("Paused test request");
+  });
+  fireEvent.click(await screen.findByRole("button", { name: "Ask Mosaic" }));
+  await screen.findByText("Paused test request");
+  expect(screen.getByRole("note", { name: "Reference Retrieval agent" })).toBeTruthy();
+}
+
+function expectCleared() {
+  expect(screen.queryByRole("note", { name: "Reference Retrieval agent" })).toBeNull();
+  expect(screen.queryByText("Paused test request")).toBeNull();
+}
+
+it("clears the notice and the failure when the next ask starts", async () => {
+  render(<SessionMemoryPage />);
+  await failAfterNotice();
+  let release: () => void = () => {};
+  vi.spyOn(api, "agentStream").mockImplementation(() => new Promise<void>((resolve) => { release = resolve; }));
+  fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
+  await waitFor(expectCleared);
+  release();
+});
+
+it("clears the notice and the failure when the session changes", async () => {
+  const session: ShopperSession = { agent_session_id: "session-a", started_at: "2026-09-26T12:00:00Z", ended_at: null, label: "Monitor planning", turns: [] };
+  vi.mocked(api.sessionMemory).mockResolvedValue({ ...response, active_session_id: "session-a", sessions: [session] });
+  render(<SessionMemoryPage />);
+  await failAfterNotice();
+  fireEvent.change(screen.getByLabelText("Session"), { target: { value: "" } });
+  expectCleared();
+});
+
+it("clears the notice and the failure on a new session", async () => {
+  render(<SessionMemoryPage />);
+  await failAfterNotice();
+  fireEvent.click(screen.getByRole("button", { name: "New session" }));
+  await screen.findByText(/New session. Alex keeps the same user ID/);
+  expectCleared();
+});
+
+it("clears the notice and the failure when Alex is reset", async () => {
+  vi.spyOn(api, "resetAlex").mockResolvedValue(undefined);
+  render(<SessionMemoryPage />);
+  await failAfterNotice();
+  fireEvent.click(screen.getByRole("button", { name: "Start fresh" }));
+  await screen.findByText(/A fresh start for Alex/);
+  expectCleared();
 });
