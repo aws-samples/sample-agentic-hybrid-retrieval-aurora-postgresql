@@ -846,9 +846,13 @@ def test_participant_owns_the_lab_record_directory(script: str) -> None:
 
 def test_bootstrap_requires_both_wait_handles(script: str) -> None:
     """The launcher-started host releases two gates; a missing handle stops it at once."""
-    block = re.search(r"^required_environment=\((.*?)^\)", script, re.MULTILINE | re.DOTALL)
+    block = re.search(
+        r"^required_environment=\((.*?)^\)", script, re.MULTILINE | re.DOTALL
+    )
     assert block, "the bootstrap's required_environment list could not be found"
-    assert {"BOOTSTRAP_WAIT_HANDLE", "IMAGE_READY_WAIT_HANDLE"} <= set(block.group(1).split())
+    assert {"BOOTSTRAP_WAIT_HANDLE", "IMAGE_READY_WAIT_HANDLE"} <= set(
+        block.group(1).split()
+    )
 
 
 def test_failure_releases_the_image_ready_gate_too(script, tmp_path):

@@ -178,10 +178,13 @@ def test_bootstrap_stage_leaves_the_stack_to_the_image_ready_signal(monkeypatch)
 
     monkeypatch.setattr(deploy, "client", recorded_client)
     monkeypatch.setattr(
-        deploy, "publish_image", lambda repository, *, bootstrap: f"{repository}@sha256:{'0' * 64}"
+        deploy,
+        "publish_image",
+        lambda repository, *, bootstrap: f"{repository}@sha256:{'0' * 64}",
     )
     monkeypatch.setenv(
-        "MOSAIC_RUNTIME_IMAGE_REPOSITORY", "123456789012.dkr.ecr.us-east-1.amazonaws.com/mosaic"
+        "MOSAIC_RUNTIME_IMAGE_REPOSITORY",
+        "123456789012.dkr.ecr.us-east-1.amazonaws.com/mosaic",
     )
     monkeypatch.setenv(
         "MOSAIC_RUNTIME_DATABASE_URL",
