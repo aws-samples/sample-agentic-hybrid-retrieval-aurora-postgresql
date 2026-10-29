@@ -59,7 +59,10 @@ export type AgentStreamEvent =
   | { type: "answer_delta"; delta: string }
   | { type: "complete"; response: AgentResponse }
   /** Something the reader should know about this answer, such as which agent gave it. */
-  | { type: "notice"; code: string; title: string; detail: string };
+  | ({ type: "notice"; code: string } & AgentNotice);
+
+/** What the service said about an agent answer before it began, in its own words. */
+export type AgentNotice = { title: string; detail: string };
 
 export type AgentStreamOptions = {
   signal?: AbortSignal;

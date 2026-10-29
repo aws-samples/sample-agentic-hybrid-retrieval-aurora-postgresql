@@ -1,7 +1,8 @@
-import { CircleStop, Info, PencilLine, RotateCcw } from "lucide-react";
+import { CircleStop, PencilLine, RotateCcw } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from "react";
 import type { AgentCitation, AgentPlanStep, AgentResponse, ProductSummary, ToolTraceStep } from "../../types";
+import { AgentNoticeNote } from "../AgentNoticeNote";
 import { DeclinedAnswer } from "../DeclinedAnswer";
 import { MemoryReceipt } from "../AskMosaicMemory";
 import { AgentSetupCard } from "./AgentSetupCard";
@@ -279,15 +280,7 @@ export function Turn(props: TurnProps) {
       </p>
       <TurnQuestion turn={turn} isLatest={isLatest} onEdit={props.onEdit} onRun={props.onRun} />
 
-      {turn.notice ? (
-        <div className="ask-mosaic-notice" role="note" aria-label={turn.notice.title}>
-          <span className="ask-mosaic-notice-heading">
-            <Info size={15} aria-hidden="true" />
-            {turn.notice.title}
-          </span>
-          <small>{turn.notice.detail}</small>
-        </div>
-      ) : null}
+      {turn.notice ? <AgentNoticeNote notice={turn.notice} /> : null}
 
       {!needsSetup && (answerVisible || turn.loading || turn.stage || turn.cancelled || turn.error) ? (
         <RunProgress

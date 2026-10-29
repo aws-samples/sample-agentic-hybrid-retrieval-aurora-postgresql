@@ -39,6 +39,27 @@ describe("one pipeline run", () => {
     expect(result.current.running).toBe(false);
   });
 
+  it("keeps the service's notice for its run and drops it on the next run", async () => {
+    const notice = {
+      title: "Reference Retrieval agent",
+      detail: "This answer comes from the reference Retrieval agent this account was "
+        + "prepared with.",
+    };
+    vi.spyOn(api, "agentStream")
+      .mockImplementationOnce(async (_question, _filters, emit) => {
+        emit({ type: "notice", code: "reference_agent", ...notice });
+        emit({ type: "complete", response: answer([]) });
+      })
+      .mockImplementationOnce(async (_question, _filters, emit) => {
+        emit({ type: "complete", response: answer([]) });
+      });
+    const { result } = renderHook(() => usePipelineRun("monitor", null));
+    await act(() => result.current.play("monitor", {}));
+    expect(result.current.notice).toEqual(notice);
+    await act(() => result.current.play("monitor", {}));
+    expect(result.current.notice).toBeNull();
+  });
+
   it("removes interrupted answer text while keeping the available candidate receipt", async () => {
     vi.spyOn(api, "agentStream").mockImplementation(async (_question, _filters, emit) => {
       emit({ type: "partial", partial: { plan: [], candidates: [], trace: [] } });

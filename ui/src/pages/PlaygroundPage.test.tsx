@@ -290,6 +290,21 @@ it("shows no tip unless the app allows them", async () => {
   expect(screen.queryByRole("dialog")).toBeNull();
 });
 
+it("says when the reference Retrieval agent answered the run", async () => {
+  const detail = "This answer comes from the reference Retrieval agent this account was "
+    + "prepared with. In Lab 3 you build and deploy your own, and from then on your "
+    + "questions go to it.";
+  vi.spyOn(api, "retrievalEventResponse").mockResolvedValue(savedSearch(firstSearchId, []));
+  vi.spyOn(api, "agentStream").mockImplementation(async (_question, _filters, emit) => {
+    emit({ type: "notice", code: "reference_agent", title: "Reference Retrieval agent", detail });
+    emit({ type: "complete", response: { agent_run_id: agentId, question: defaultRequest.query, answer: "The recorded answer.", plan: [], recommendations: [], citations: [], trace: [searchStep(firstSearchId, 1)] } });
+  });
+  render(<PlaygroundPage />);
+  await askAboutThisNeed();
+  const note = await screen.findByRole("note", { name: "Reference Retrieval agent" });
+  expect(within(note).getByText(detail)).toBeTruthy();
+});
+
 it("points at Agent steps and sources once the first answer has been read out", async () => {
   window.localStorage.removeItem("mosaic-hint-agent-steps");
   const products = fixtureCatalogPage({}, 0, 2).products.map((product, index) => ranked(product, index + 4, index + 1));

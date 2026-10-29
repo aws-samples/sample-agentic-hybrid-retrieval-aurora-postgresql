@@ -37,6 +37,7 @@ import { SOURCE_REPOSITORY_URL, forwardedSearchEvent, forwardedSearchFilters, us
 import type { AgentCitation, AgentResponse, ProductSummary, ReadinessResponse, ScorecardStageAblation, SearchFilters, SearchResponse, ToolTraceStep } from "../types";
 import { useLabStates } from "../useLabStates";
 import { usePipelineRun, type PipelineReceipt } from "../usePipelineRun";
+import { AgentNoticeNote } from "../components/AgentNoticeNote";
 import { SpotlightTour } from "../components/SpotlightTour";
 import { AGENT_STEPS_HINT, ASK_AGENT_HINT, SEARCH_FIRST_HINT } from "../tour";
 import { useHint } from "../useHint";
@@ -464,6 +465,7 @@ function PipelineInspector() {
     <RequestStage selectedId={selectedRequest?.id} carried={params.has("q") || Boolean(carriedEvent)} question={question} context={context} runButton={runButton} onChoose={(id) => setParams(new URLSearchParams({ scene: id }))} />
     <section className="pg-run" aria-label="This run" data-tour={chips.length ? "pg-chips" : undefined}>
       <p className="pg-run-status" role="status">{pipeline.reading ? "Reading the saved Shop search…" : pipeline.status || (carriedEvent ? "Saved Shop search" : "Ready to follow Alex’s request.")}</p>
+      {pipeline.notice ? <AgentNoticeNote notice={pipeline.notice} /> : null}
       {rankNotOpen ? null : <RunSteps chips={chips} label={pipeline.started ? "The Retrieval agent’s steps" : "How this search ran"} />}
       {pipeline.answer ? <RevealedAnswer key={pipeline.answer.agent_run_id} answer={pipeline.answer} streamed={pipeline.streamed} completed={pipeline.completed} renderSearchLink={renderSearchLink} multipleSearches={pipeline.receipts.length > 1} onSettled={onSettled} /> : null}
       {pipeline.completed && pipeline.answer && !held ? <RunSummary answer={pipeline.answer} receipts={pipeline.receipts} onInspect={inspectProduct} /> : null}

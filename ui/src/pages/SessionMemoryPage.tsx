@@ -4,7 +4,8 @@ import { PulseDot } from "../components/PulseDot";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import Markdown from "react-markdown";
 import { Link } from "wouter";
-import { api } from "../api";
+import { api, type AgentNotice } from "../api";
+import { AgentNoticeNote } from "../components/AgentNoticeNote";
 import { ProductAnswer } from "../components/ProductAnswer";
 import { MosaicLabsTabs } from "../components/MosaicLabsTabs";
 import { MosaicLabsMasthead } from "../components/MosaicLabsMasthead";
@@ -69,6 +70,7 @@ export function SessionMemoryPage() {
   const [completedResponse, setCompletedResponse] = useState<AgentResponse | null>(null);
   const [askError, setAskError] = useState("");
   const [answerNotice, setAnswerNotice] = useState("");
+  const [agentNotice, setAgentNotice] = useState<AgentNotice | null>(null);
   const [currentRunId, setCurrentRunId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [readError, setReadError] = useState("");
@@ -131,18 +133,18 @@ export function SessionMemoryPage() {
     await act(async () => {
       const result = await api.addMemoryEvent(text, selected ?? undefined);
       if (!mounted.current) return;
-      setSelected(result.session_id); setRecalled(null); setCurrentRunId(null); setCompletedResponse(null); setAskError(""); setAnswerNotice(""); setAnswer("");
+      setSelected(result.session_id); setRecalled(null); setCurrentRunId(null); setCompletedResponse(null); setAskError(""); setAnswerNotice(""); setAgentNotice(null); setAnswer("");
       await refresh(); setNotice("Message saved in AgentCore. It processes useful details in the background; refresh to see any new memories.");
     });
   }
   async function startNew() {
-    await act(async () => { await api.newSession(); if (!mounted.current) return; setSelected(null); setAnswer(""); setCurrentRunId(null); setCompletedResponse(null); setAskError(""); setAnswerNotice(""); setRecalled(null); await refresh(); setNotice("New session. Alex keeps the same user ID, so his earlier memories remain available."); });
+    await act(async () => { await api.newSession(); if (!mounted.current) return; setSelected(null); setAnswer(""); setCurrentRunId(null); setCompletedResponse(null); setAskError(""); setAnswerNotice(""); setAgentNotice(null); setRecalled(null); await refresh(); setNotice("New session. Alex keeps the same user ID, so his earlier memories remain available."); });
   }
   async function resetAlex() {
     await act(async () => {
       await api.resetAlex();
       if (!mounted.current) return;
-      setData(null); setSelected(null); setAnswer(""); setCurrentRunId(null); setCompletedResponse(null); setAskError(""); setAnswerNotice(""); setRecalled(null);
+      setData(null); setSelected(null); setAnswer(""); setCurrentRunId(null); setCompletedResponse(null); setAskError(""); setAnswerNotice(""); setAgentNotice(null); setRecalled(null);
       setEvents([]); setRecords([]); setReadError(""); setHasMore(false); setEventsMore(false);
       setType("USER_PREFERENCE"); setText(memoryLab.opening_message);
       setQuestion(memoryLab.request); setUseMemory(true);
@@ -151,13 +153,14 @@ export function SessionMemoryPage() {
     });
   }
   async function ask(event: FormEvent) {
-    event.preventDefault(); setPending(true); setError(""); setAnswer(""); setCurrentRunId(null); setCompletedResponse(null); setAskError(""); setAnswerNotice(""); setStage(useMemory ? "Reading memories" : "Reading the request");
+    event.preventDefault(); setPending(true); setError(""); setAnswer(""); setCurrentRunId(null); setCompletedResponse(null); setAskError(""); setAnswerNotice(""); setAgentNotice(null); setStage(useMemory ? "Reading memories" : "Reading the request");
     const controller = new AbortController(); abort.current = controller;
     let completed: AgentResponse | undefined;
     try {
       await api.agentStream(question, {}, (event) => {
         if (!mounted.current) return;
-        if (event.type === "stage") setStage(({ understand: "Reading the request", retrieve: "Finding products", rank: "Comparing matches", answer: "Preparing the answer" })[event.id]);
+        if (event.type === "notice") setAgentNotice({ title: event.title, detail: event.detail });
+        else if (event.type === "stage") setStage(({ understand: "Reading the request", retrieve: "Finding products", rank: "Comparing matches", answer: "Preparing the answer" })[event.id]);
         else if (event.type === "answer_delta") setAnswer((value) => value + event.delta);
         else if (event.type === "complete") { completed = event.response; setCompletedResponse(event.response); setAnswer(event.response.answer); setCurrentRunId(event.response.agent_run_id); }
       }, undefined, { signal: controller.signal, sessionId: selected ?? undefined, useMemory });
@@ -183,7 +186,7 @@ export function SessionMemoryPage() {
     {error && <div className="memory-error" role="alert"><p>{error}</p>{!data && <button className="secondary-button" onClick={() => { setError(""); refresh(true).catch((cause) => setError(cause.message)); }}>Retry</button>}</div>}
     {!data ? (error ? null : <p className="memory-loading" role="status"><PulseDot />Loading conversations and memory settings…</p>) : <>
       <div className="memory-profile"><img src="/assets/images/mosaic/alex-headshot-v1.jpg" alt="Alex" width={56} height={56} /><div><strong>Alex’s conversations</strong><span className="memory-connection" data-connected={connected} data-failed={data.memory_status === "unavailable"}>{connected ? "Connected to AgentCore Memory" : data.memory_status === "unavailable" ? "AgentCore Memory is temporarily unavailable" : "AgentCore Memory is not connected"}</span></div><div className="memory-session-actions"><button className="secondary-button" onClick={startNew} disabled={locked}><Plus size={16} aria-hidden="true" />New session</button><button className="secondary-button" onClick={resetAlex} disabled={locked}><RotateCcw size={16} aria-hidden="true" />Start fresh</button><small>New session keeps his memories. Start fresh resets Alex.</small></div>
-        <div className="memory-session-bar"><label>Session<select value={selected ?? ""} disabled={locked} onChange={(event) => { setSelected(event.target.value || null); setRecalled(null); setAnswer(""); setCurrentRunId(null); setCompletedResponse(null); setAskError(""); setAnswerNotice(""); }}><option value="">New conversation</option>{data.sessions.map((item) => <option key={item.agent_session_id} value={item.agent_session_id}>{date(item.started_at)} · {item.label || item.turns[0]?.question.slice(0, 70) || "Conversation"}</option>)}</select></label><button className="secondary-button" onClick={() => act(async () => { await refresh(); })} disabled={locked || loading}><RotateCcw size={16} aria-hidden="true" />Refresh memories</button></div>
+        <div className="memory-session-bar"><label>Session<select value={selected ?? ""} disabled={locked} onChange={(event) => { setSelected(event.target.value || null); setRecalled(null); setAnswer(""); setCurrentRunId(null); setCompletedResponse(null); setAskError(""); setAnswerNotice(""); setAgentNotice(null); }}><option value="">New conversation</option>{data.sessions.map((item) => <option key={item.agent_session_id} value={item.agent_session_id}>{date(item.started_at)} · {item.label || item.turns[0]?.question.slice(0, 70) || "Conversation"}</option>)}</select></label><button className="secondary-button" onClick={() => act(async () => { await refresh(); })} disabled={locked || loading}><RotateCcw size={16} aria-hidden="true" />Refresh memories</button></div>
       </div>
       <p className="memory-notice" role="status">{notice}</p>
       <div className="memory-layout">
@@ -233,6 +236,7 @@ export function SessionMemoryPage() {
           {askError && <div className="memory-error memory-ask-error" role="alert"><strong>Mosaic could not finish this request.</strong><p>{askError}</p><p>Follow the recovery step above, then choose Ask Mosaic to retry. Your question is still here.</p></div>}
           {answerNotice && <p className="memory-empty" role="status">{answerNotice}</p>}
           {recalled !== null && <div className="memory-recall-results" aria-live="polite"><h3>{recalled.length} relevant memor{recalled.length === 1 ? "y" : "ies"} returned</h3><Records records={recalled} />{!recalled.length && <p>No saved memories matched this request.</p>}</div>}
+          {agentNotice && <AgentNoticeNote notice={agentNotice} />}
           {pending && <p className="memory-progress" role="status"><PulseDot />{stage}</p>}{answer && !currentTurn && <div className="memory-answer-copy"><Markdown>{answer}</Markdown></div>}
           {currentTurn && <div className="memory-current-answer"><Turn turn={currentTurn} /></div>}
           {!pending && !answer && !currentTurn && !askError && <p className="memory-empty">Choose Ask Mosaic to run the question above. Saving a message or finding memories does not generate an answer.</p>}

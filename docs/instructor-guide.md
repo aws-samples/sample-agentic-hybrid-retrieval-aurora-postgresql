@@ -183,8 +183,9 @@ its deployed source and its SQL searches without another model invocation. Quest
 and completion wait for a deploy made since Lab 3 started: a participant who pastes the
 reference answer and skips the deploy is told to deploy, because the provisioned
 reference Retrieval agent has the same code digest. Before Lab 3 starts, that reference
-agent answers Ask Mosaic and `ask_agent.py`, and each answer carries a **Reference Retrieval
-agent** note, so a participant who tries Ask Mosaic early does not mistake it for their own.
+agent answers Ask Mosaic, the Playground, the Memory page and `ask_agent.py`, and each answer
+carries a **Reference Retrieval agent** note, so a participant who tries one early does not
+mistake it for their own.
 
 
 ### Advanced Labs (OPTIONAL)

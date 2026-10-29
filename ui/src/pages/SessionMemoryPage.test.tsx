@@ -127,6 +127,21 @@ it("memory opt-out reaches the agent while visible progress remains", async () =
   expect(stream).toHaveBeenCalledWith(expect.any(String), {}, expect.any(Function), undefined, expect.objectContaining({ useMemory: false }));
 });
 
+it("says when the reference Retrieval agent answered", async () => {
+  const detail = "This answer comes from the reference Retrieval agent this account was "
+    + "prepared with.";
+  vi.spyOn(api, "agentStream").mockImplementation(async (_q, _f, onEvent) => {
+    const title = "Reference Retrieval agent";
+    onEvent({ type: "notice", code: "reference_agent", title, detail });
+    throw new Error("Paused test request");
+  });
+  render(<SessionMemoryPage />);
+  fireEvent.click(await screen.findByRole("button", { name: "Ask Mosaic" }));
+  await screen.findByText("Paused test request");
+  expect(screen.getByRole("note", { name: "Reference Retrieval agent" }).textContent)
+    .toContain(detail);
+});
+
 it("keeps saved answers collapsed and shows only a newly requested answer inline", async () => {
   const oldTurn: ShopperSession["turns"][number] = {
     run_id: "old-run", question: "An earlier question", answer: "Previously saved answer.",

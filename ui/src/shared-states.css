@@ -749,3 +749,27 @@
   gap: 10px;
   margin-top: 12px;
 }
+
+/* What the service said about an agent answer, such as which agent gave it. */
+
+.agent-notice {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: var(--surface-muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.agent-notice-heading {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.agent-notice small {
+  color: var(--ink-soft);
+  font-size: 12px;
+}

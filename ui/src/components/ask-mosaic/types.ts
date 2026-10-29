@@ -1,3 +1,4 @@
+import type { AgentNotice } from "../../api";
 import type { AgentPartial, AgentResponse } from "../../types";
 
 /**
@@ -58,7 +59,7 @@ export interface AskMosaicTurn {
    * reference Retrieval agent the account was prepared with gave it, not the
    * participant's own Lab 3 agent.
    */
-  notice?: { title: string; detail: string };
+  notice?: AgentNotice;
   /**
    * True once a reader presses Stop, or a follow-up filter change replaces
    * this turn before it finished. A normal terminal state, not a failure:

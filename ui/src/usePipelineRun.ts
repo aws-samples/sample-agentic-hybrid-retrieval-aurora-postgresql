@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { api, ApiError } from "./api";
+import { api, ApiError, type AgentNotice } from "./api";
 import type { AgentPartial, AgentResponse, SearchFilters, SearchResponse, ToolTraceStep } from "./types";
 
 export interface PipelineReceipt {
@@ -27,6 +27,7 @@ export function usePipelineRun(requestKey: string, carriedEvent: string | null) 
   const [runId, setRunId] = useState<string | null>(null);
   const [savedResponse, setSavedResponse] = useState<SearchResponse | null>(null);
   const [started, setStarted] = useState(false);
+  const [notice, setNotice] = useState<AgentNotice | null>(null);
   const [replay, setReplay] = useState(0);
   const version = useRef(0);
   const controller = useRef<AbortController | null>(null);
@@ -45,6 +46,7 @@ export function usePipelineRun(requestKey: string, carriedEvent: string | null) 
     setRunId(null);
     setSavedResponse(null);
     setStarted(false);
+    setNotice(null);
     setError("");
     setStatus("");
     setPhase(null);
@@ -82,6 +84,7 @@ export function usePipelineRun(requestKey: string, carriedEvent: string | null) 
     setReading(false);
     setRunning(true);
     setStarted(true);
+    setNotice(null);
     setError("");
     setAnswer(null);
     setPartial(null);
@@ -115,6 +118,7 @@ export function usePipelineRun(requestKey: string, carriedEvent: string | null) 
     try {
       await api.agentStream(question, filters, (event) => {
         if (current !== version.current) return;
+        if (event.type === "notice") setNotice({ title: event.title, detail: event.detail });
         if (event.type === "stage") {
           // Agent comparison/evidence activity happens after each search has already ranked.
           const next = event.id === "retrieve" ? "retrieve" : "reason";
@@ -170,6 +174,7 @@ export function usePipelineRun(requestKey: string, carriedEvent: string | null) 
     setRunning(true);
     setReading(false);
     setStarted(false);
+    setNotice(null);
     setError("");
     setAnswer(null);
     setPartial(null);
@@ -205,5 +210,5 @@ export function usePipelineRun(requestKey: string, carriedEvent: string | null) 
     if (carriedEvent && !inFlight.current) setReplay((value) => value + 1);
   }
 
-  return { receipts, trace, answer, partial, streamed, completed, running, reading, status, phase, error, runId, savedResponse, started, play, search, restoreSavedSearch };
+  return { receipts, trace, answer, partial, streamed, completed, running, reading, status, phase, error, runId, savedResponse, started, notice, play, search, restoreSavedSearch };
 }
