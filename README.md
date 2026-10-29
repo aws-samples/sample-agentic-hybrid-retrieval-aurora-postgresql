@@ -69,7 +69,7 @@ rank fusion and building your own retrieval tool.
 
 ## Architecture
 
-![Hybrid retrieval architecture with an Ask Mosaic path and a Shop path. Alex uses the Mosaic API on CloudFront and EC2. On the Ask Mosaic path, the Retrieval agent runs on AgentCore Runtime with Strands and Claude Sonnet 5.5 and calls MCP tools through AgentCore Gateway; the SQL tools embed and rerank with Cohere models in Amazon Bedrock and query hybrid SQL and evidence in Aurora PostgreSQL. AgentCore Memory is optional. On the Shop path, the Mosaic API runs the same search without the agent: Cohere Embed v4 and Cohere Rerank 3.5 in Amazon Bedrock, then Aurora. Only the agent uses Claude.](docs/images/architecture.png)
+![Hybrid retrieval architecture with an Ask Mosaic path and a Shop path. Alex uses the Mosaic API on CloudFront and EC2. On the Ask Mosaic path, the Retrieval agent runs on AgentCore Runtime with Strands and Claude Sonnet 5.5 and calls MCP tools through AgentCore Gateway; the SQL tools, on a second AgentCore Runtime, embed and rerank with Cohere models in Amazon Bedrock and query hybrid SQL and evidence in Aurora PostgreSQL. AgentCore Memory is optional. On the Shop path, the Mosaic API runs the same search without the agent: Cohere Embed v4 and Cohere Rerank 3.5 in Amazon Bedrock, then Aurora. Only the agent uses Claude.](docs/images/architecture.png)
 
 | Component | Role |
 |---|---|
