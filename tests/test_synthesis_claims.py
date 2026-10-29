@@ -577,6 +577,60 @@ def test_laptop_uncertainty_can_be_stated():
     )
 
 
+# Drafts the 29 October fresh event's answer checks rejected, reworded for this product.
+@pytest.mark.parametrize(
+    "sentence",
+    [
+        "The sources do not state whether AuriLogic Flight ANC works with your laptop [1].",
+        "The sources do not state that AuriLogic Flight ANC works with your laptop [1].",
+        "The sources don’t say whether AuriLogic Flight ANC will charge your laptop [1].",
+        (
+            "AuriLogic Flight ANC sources do not identify your laptop or confirm it would"
+            " work with this headset [1]."
+        ),
+        (
+            "Find your laptop's charging needs for AuriLogic Flight ANC, and whether it"
+            " can charge or run at a lower wattage [1]."
+        ),
+        "Check whether AuriLogic Flight ANC works with your laptop [1].",
+    ],
+)
+def test_a_relationship_the_sources_do_not_state_can_be_said_so(sentence):
+    validate(sentence, [evidence("Connections: USB-C.")])
+
+
+@pytest.mark.parametrize(
+    "sentence",
+    [
+        (
+            "The sources do not state the weight and AuriLogic Flight ANC works with"
+            " your laptop [1]."
+        ),
+        (
+            "The sources do not state the weight, but AuriLogic Flight ANC works with"
+            " your laptop [1]."
+        ),
+        "The sources do not mention a case; AuriLogic Flight ANC works with your laptop [1].",
+        "Whether or not you travel, AuriLogic Flight ANC works with your laptop [1].",
+        (
+            "The sources do not state whether it folds so AuriLogic Flight ANC works"
+            " with your laptop [1]."
+        ),
+    ],
+)
+def test_a_hedge_in_another_clause_does_not_excuse_the_claim(sentence):
+    with pytest.raises(SynthesisOutputError, match="unsupported compatibility claim"):
+        validate(sentence, [evidence("Connections: USB-C.")])
+
+
+def test_a_source_that_does_not_state_the_relationship_does_not_support_it():
+    with pytest.raises(SynthesisOutputError, match="unsupported compatibility claim"):
+        validate(
+            "AuriLogic Flight ANC works with your laptop [1].",
+            [evidence("The listing does not state whether it works with your laptop.")],
+        )
+
+
 def test_compatibility_cannot_borrow_a_cited_siblings_positive_relationship():
     first = product()
     second = product(product_id=2, title="AuriLogic Office ANC", model="Office ANC")

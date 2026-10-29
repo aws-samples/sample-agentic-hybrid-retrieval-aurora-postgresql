@@ -1288,10 +1288,16 @@ _COMPATIBILITY_CLAIM = re.compile(
     r"[a-z0-9][a-z0-9'’/-]*)*)",
     re.IGNORECASE,
 )
+# A hedge covers only its own clause: punctuation or and/but/so/yet starts another.
+_SAME_CLAUSE = r"(?:(?!\b(?:and|but|so|yet)\b)[^.!?,;:])"
 _NEGATED_COMPATIBILITY_PREFIX = re.compile(
     r"\b(?:not|never)\s+$|"
     r"\b(?:not|never)\s+(?:verified|confirmed|tested|established)(?:\s+to(?: be)?)?\s+$|"
-    r"\b(?:cannot|can't)\s+(?:confirm|establish|verify)\b[^.!?]{0,60}$",
+    r"\b(?:cannot|can't)\s+(?:confirm|establish|verify)\b[^.!?]{0,60}$|"
+    r"\b(?:(?:do|does|did)\s+not|don[’']t|doesn[’']t|didn[’']t)\s+"
+    r"(?:state|say|show|mention|confirm|establish|verify|identify|specify|indicate|list)\b"
+    rf"{_SAME_CLAUSE}{{0,80}}$|"
+    rf"\bwhether\b{_SAME_CLAUSE}{{0,60}}$",
     re.IGNORECASE,
 )
 
