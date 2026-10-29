@@ -616,9 +616,31 @@ def test_a_relationship_the_sources_do_not_state_can_be_said_so(sentence):
             "The sources do not state whether it folds so AuriLogic Flight ANC works"
             " with your laptop [1]."
         ),
+        "Regardless of whether you travel AuriLogic Flight ANC works with your laptop [1].",
+        (
+            "Whether you work at home or in an office AuriLogic Flight ANC works with"
+            " your laptop [1]."
+        ),
+        (
+            "The listing does not mention a case although AuriLogic Flight ANC works with"
+            " your laptop [1]."
+        ),
+        "The sources do not mention a case AuriLogic Flight ANC works with your laptop [1].",
+        (
+            "The sources do not state that the case is included AuriLogic Flight ANC works"
+            " with your laptop [1]."
+        ),
+        (
+            "The listing cannot confirm the weight and AuriLogic Flight ANC works with"
+            " your laptop [1]."
+        ),
+        (
+            "The listing doesn't say whether it is heavy AuriLogic Flight ANC works with"
+            " your laptop [1]."
+        ),
     ],
 )
-def test_a_hedge_in_another_clause_does_not_excuse_the_claim(sentence):
+def test_a_hedge_that_does_not_govern_the_claim_does_not_excuse_it(sentence):
     with pytest.raises(SynthesisOutputError, match="unsupported compatibility claim"):
         validate(sentence, [evidence("Connections: USB-C.")])
 

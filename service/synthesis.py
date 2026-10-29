@@ -1288,16 +1288,38 @@ _COMPATIBILITY_CLAIM = re.compile(
     r"[a-z0-9][a-z0-9'’/-]*)*)",
     re.IGNORECASE,
 )
-# A hedge covers only its own clause: punctuation or and/but/so/yet starts another.
-_SAME_CLAUSE = r"(?:(?!\b(?:and|but|so|yet)\b)[^.!?,;:])"
+# A hedge excuses a claim only when it governs it: the claim's subject, at most six
+# words with no clause break or verb of its own, follows the hedge directly. So
+# "regardless of whether you travel it works with" or "does not mention a case
+# although it works with" still state the relationship.
+_HEDGE_BREAK = (
+    r"\b(?:and|but|so|yet|nor|though|although|while|whereas|because|since|unless)\b"
+)
+_SAME_CLAUSE = rf"(?:(?!{_HEDGE_BREAK})[^.!?,;:])"
+_CLAIM_SUBJECT = (
+    r"(?:\s+(?!(?:and|but|so|yet|or|nor|though|although|while|whereas|because|since|"
+    r"unless|is|are|was|were|has|have|had|be|been)\b)[^\s.!?,;:]+){1,6}\s+$"
+)
+_STATING_VERB = (
+    r"(?:state|say|show|mention|confirm|establish|"
+    r"verify|identify|specify|indicate|list)"
+)
+_CHECKING_VERB = (
+    r"(?:check(?:s|ed|ing)?|confirm(?:s|ed|ing)?|verif(?:y|ies|ied|ying)|ask(?:s|ed)?|"
+    r"know(?:s|n)?|see|tell(?:s)?|test(?:s|ed)?|find\s+out|found\s+out|unclear|unknown|"
+    r"clear|sure)"
+)
 _NEGATED_COMPATIBILITY_PREFIX = re.compile(
     r"\b(?:not|never)\s+$|"
     r"\b(?:not|never)\s+(?:verified|confirmed|tested|established)(?:\s+to(?: be)?)?\s+$|"
-    r"\b(?:cannot|can't)\s+(?:confirm|establish|verify)\b[^.!?]{0,60}$|"
+    r"\b(?:cannot|can't|can’t)\s+(?:confirm|establish|verify)(?:\s+(?:whether|that|if)\b)?"
+    rf"{_CLAIM_SUBJECT}|"
     r"\b(?:(?:do|does|did)\s+not|don[’']t|doesn[’']t|didn[’']t)\s+"
-    r"(?:state|say|show|mention|confirm|establish|verify|identify|specify|indicate|list)\b"
-    rf"{_SAME_CLAUSE}{{0,80}}$|"
-    rf"\bwhether\b{_SAME_CLAUSE}{{0,60}}$",
+    rf"{_STATING_VERB}\b(?:\s+(?:whether|that|if)\b|{_SAME_CLAUSE}{{0,60}}?\bor\s+"
+    rf"{_STATING_VERB}\b){_CLAIM_SUBJECT}|"
+    rf"\b{_CHECKING_VERB}\s+whether{_CLAIM_SUBJECT}|"
+    r"^\s*(?:[-*•]\s*)?(?:find(?:\s+out)?|check|confirm|verify|ask|see|look\s+up|"
+    rf"make\s+sure)\b[^.!?;:]{{0,120}}?\s(?:and|or)\s+whether{_CLAIM_SUBJECT}",
     re.IGNORECASE,
 )
 
