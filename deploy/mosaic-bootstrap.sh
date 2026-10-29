@@ -58,6 +58,15 @@ sys.stdout.write(encoded)
 signal_failure() {
   rc="$1"
   trap - ERR
+  # Until the runtime image is published, the stack also waits on the
+  # image-ready condition, which would otherwise hold it until its timeout.
+  # CloudFormation ignores this signal once that condition has completed.
+  if [[ -n "${IMAGE_READY_WAIT_HANDLE:-}" ]]; then
+    curl --silent --show-error --fail -X PUT -H 'Content-Type:' \
+      --data-binary \
+      '{"Status":"FAILURE","Reason":"Mosaic bootstrap failed before the runtime image was ready; BootstrapWaitCondition carries the cause.","UniqueId":"image-ready","Data":"failed"}' \
+      "$IMAGE_READY_WAIT_HANDLE" || true
+  fi
   if [[ -n "${BOOTSTRAP_WAIT_HANDLE:-}" ]]; then
     if curl --silent --show-error --fail -X PUT -H 'Content-Type:' \
       --data-binary \
@@ -93,6 +102,7 @@ network_retry() {
 
 required_environment=(
   BOOTSTRAP_WAIT_HANDLE
+  IMAGE_READY_WAIT_HANDLE
   CODE_EDITOR_USER
   HOME_FOLDER
   REPO_URL
@@ -390,10 +400,13 @@ nginx -t
 systemctl enable nginx code-editor
 systemctl restart nginx code-editor
 
-# The latest Claude Code, not a pin (owner, 20 October 2026): the pinned 2.1.233
-# refused Sonnet 5.5 with "version 2.1.280 or newer is required". The npm path,
-# not `command -v claude`, which can be the link itself and loop.
-network_retry npm install -g "@anthropic-ai/claude-code@latest"
+# A pin, not the latest release: on 21 October the latest release moved every
+# new event to auto mode overnight. 2.1.312 passed the fresh-event checks on 28
+# October (manual mode, Shift+Tab without auto mode, Sonnet 5.5 through
+# Bedrock). Versions before 2.1.280 refuse Sonnet 5.5, so move the pin forward
+# with the model and repeat those checks. The npm path, not `command -v claude`,
+# which can be the link itself and loop.
+network_retry npm install -g "@anthropic-ai/claude-code@2.1.312"
 CLAUDE_BIN="$(npm prefix -g)/bin/claude"
 test -x "$CLAUDE_BIN"
 ln -sfn "$CLAUDE_BIN" /usr/local/bin/claude
@@ -817,10 +830,10 @@ network_retry sudo -u "$CODE_EDITOR_USER" -H bash -lc \
   "cd '$REPO' && uv sync --frozen"
 sudo -u "$CODE_EDITOR_USER" -H bash -lc "cd '$REPO' && uv pip check"
 
-# CloudFormation creates the two runtimes, Gateway and both CloudFront
-# distributions only after this instance signals, and they take 11 to 12
-# minutes. Publishing the image before the catalog restore lets them build
-# during it; on 20 October they started after it and ended the deployment.
+# CloudFormation creates the two runtimes and Gateway only after the image-ready
+# wait condition below completes, and they take 11 to 12 minutes. Publishing the
+# image before the catalog restore lets them build during it; on 20 October they
+# started after it and ended the deployment.
 # The runtimes need only the runtime role's DSN in their secret: they connect
 # on first use. The role's table grants follow the restore, which creates the
 # tables, and connect-bootstrap proves the tools against the restored catalog.
@@ -865,6 +878,20 @@ PY
 )
 (cd "$REPO" && MOSAIC_RUNTIME_DATABASE_URL="$APP_DATABASE_URL" \
   .venv/bin/python scripts/deploy_agentcore.py stage-bootstrap)
+# The editor launcher, not CloudFormation, starts this host, so the stack cannot
+# take a signal for the instance itself; this wait-condition handle needs no IAM.
+IMAGE_READY_OK=''
+for image_attempt in 1 2 3 4 5; do
+  if curl --silent --show-error --fail -X PUT -H 'Content-Type:' \
+      --data-binary '{"Status":"SUCCESS","Reason":"Runtime image published","UniqueId":"image-ready","Data":"ready"}' \
+      "$IMAGE_READY_WAIT_HANDLE"; then
+    IMAGE_READY_OK=1
+    break
+  fi
+  echo "Image-ready signal attempt $image_attempt failed; retrying in 10s"
+  sleep 10
+done
+test -n "$IMAGE_READY_OK"
 network_retry sudo -u "$CODE_EDITOR_USER" -H bash -lc \
   "cd '$REPO/ui' && npm ci"
 sudo -u "$CODE_EDITOR_USER" -H bash -lc "cd '$REPO/ui' && npm run build"

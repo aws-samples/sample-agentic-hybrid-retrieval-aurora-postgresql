@@ -91,14 +91,15 @@ def test_bootstrap_prepares_lab2_cache_on_its_own_catalog(script: str) -> None:
 
 
 def test_runtimes_are_released_before_the_catalog_restore(script: str) -> None:
-    """CloudFront and both runtimes build during the restore, not after it.
+    """Both runtimes and Gateway build during the restore, not after it.
 
-    They wait for this instance's signal and take 11 to 12 minutes; on the 20
-    October workshop they started after the restore and ended the deployment.
+    They wait for the image-ready wait condition and take 11 to 12 minutes; on the
+    20 October workshop they started after the restore and ended the deployment.
     """
     stage = script.index("scripts/deploy_agentcore.py stage-bootstrap")
+    signal = script.index('"UniqueId":"image-ready","Data":"ready"')
     restore = script.index("real_catalog_cache.py restore")
-    assert script.index("uv sync --frozen") < stage < restore
+    assert script.index("uv sync --frozen") < stage < signal < restore
     assert script.index("CREATE ROLE %I LOGIN") < stage
     # The table grants need the tables the restore creates.
     assert restore < script.index("GRANT USAGE ON SCHEMA mosaic, mosaic_search")
@@ -841,3 +842,67 @@ def test_participant_owns_the_lab_record_directory(script: str) -> None:
     check = script.find('sudo -u "$CODE_EDITOR_USER" -H test -w "$REPO/.local"')
     assert last_root_step < chown < check
     assert "deploy_agentcore.py" not in script[check:].split("\nchown", 1)[0]
+
+
+def test_bootstrap_requires_both_wait_handles(script: str) -> None:
+    """The launcher-started host releases two gates; a missing handle stops it at once."""
+    block = re.search(r"^required_environment=\((.*?)^\)", script, re.MULTILINE | re.DOTALL)
+    assert block, "the bootstrap's required_environment list could not be found"
+    assert {"BOOTSTRAP_WAIT_HANDLE", "IMAGE_READY_WAIT_HANDLE"} <= set(block.group(1).split())
+
+
+def test_failure_releases_the_image_ready_gate_too(script, tmp_path):
+    """A failure before the image is published must not hold the stack for two hours.
+
+    The image-ready condition hears the failure first, and an unreachable image-ready
+    handle must not cost the bootstrap condition its redacted cause.
+    """
+    import subprocess
+
+    calls = tmp_path / "calls"
+    marker = tmp_path / "failure-signalled"
+    handler = re.search(
+        r"^signal_failure\(\) \{[\s\S]*?^\}", script, re.MULTILINE
+    ).group()
+    handler = handler.replace("/run/mosaic-bootstrap-failure-signalled", str(marker))
+    result = subprocess.run(
+        [
+            "bash",
+            "-c",
+            f"""
+set -Eeuo pipefail
+BOOTSTRAP_WAIT_HANDLE=https://bootstrap.invalid
+IMAGE_READY_WAIT_HANDLE=https://image-ready.invalid
+failure_reason() {{ printf 'Memory acceptance failed'; }}
+curl() {{
+  local url="${{*: -1}}"
+  printf '%s\\n' "$url" >> '{calls}'
+  [[ "$url" == *image-ready* ]] && return 22
+  return 0
+}}
+{handler}
+signal_failure 17
+""",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 17, result.stderr
+    assert calls.read_text().split() == [
+        "https://image-ready.invalid",
+        "https://bootstrap.invalid",
+    ]
+    assert marker.exists()
+
+
+def test_claude_code_is_pinned_to_an_exact_version(script: str) -> None:
+    """@latest moved every new event into auto mode overnight on 21 October.
+
+    A pin changes only when someone moves it and repeats the fresh-event checks.
+    """
+    installs = re.findall(r'npm install -g "@anthropic-ai/claude-code@([^"]+)"', script)
+    assert len(installs) == 1, f"expected one Claude Code install, found {installs}"
+    assert re.fullmatch(r"\d+\.\d+\.\d+", installs[0]), (
+        f"Claude Code is installed as @{installs[0]}; pin an exact version such as 2.1.312"
+    )

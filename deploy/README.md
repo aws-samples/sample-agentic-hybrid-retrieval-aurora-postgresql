@@ -81,8 +81,10 @@ verification.
 ### Coding coach in Code Editor
 
 Participants open `CodeEditorURL` and run `claude` in its terminal. The
-bootstrap installs the latest Claude Code, enables Amazon Bedrock, and pins
-`ANTHROPIC_MODEL=global.anthropic.claude-sonnet-5-5`. It uses the instance role;
+bootstrap installs Claude Code 2.1.312, a pinned version, enables Amazon
+Bedrock, and pins `ANTHROPIC_MODEL=global.anthropic.claude-sonnet-5-5`. Move
+the Claude Code pin only with a fresh-event check that sessions start in manual
+mode and Shift+Tab never offers auto mode. It uses the instance role;
 participants do not need a personal Anthropic login. The lab's third hint
 provides a scoped coaching prompt. `~/.claude/CLAUDE.md` requires diagnosis,
 an edit limited to the current marked seam, and production validation.

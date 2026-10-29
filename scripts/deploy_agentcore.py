@@ -247,7 +247,7 @@ def publish_image(repository_uri: str, *, bootstrap: bool) -> str:
 
 
 def stage(*, bootstrap: bool = False) -> str:
-    """Publish the image before releasing CloudFormation's runtime dependency."""
+    """Publish the image; the bootstrap then releases CloudFormation's runtime dependency."""
     image_uri = publish_image(
         required("MOSAIC_RUNTIME_IMAGE_REPOSITORY"), bootstrap=bootstrap
     )
@@ -263,12 +263,6 @@ def stage(*, bootstrap: bool = False) -> str:
         client("secretsmanager").put_secret_value(
             SecretId=required("MOSAIC_RUNTIME_DATABASE_SECRET_ARN"),
             SecretString=json.dumps({"DATABASE_URL": runtime_dsn}),
-        )
-        client("cloudformation").signal_resource(
-            StackName=required("MOSAIC_EDITOR_STACK"),
-            LogicalResourceId="CodeEditorInstance",
-            UniqueId="userdata",
-            Status="SUCCESS",
         )
     return image_uri
 

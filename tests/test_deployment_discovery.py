@@ -51,7 +51,7 @@ def test_failed_tools_are_found_when_agent_does_not_exist(discovery, status):
     stub.add_response(
         "list_stack_resources",
         {
-            "StackResourceSummaries": [resource("CodeEditorInstance")],
+            "StackResourceSummaries": [resource("EditorInstance")],
             "NextToken": "page2",
         },
         {"StackName": "workshop"},
@@ -160,3 +160,37 @@ def test_discovery_permission_errors_are_not_hidden_as_timeout(discovery):
     with pytest.raises(deploy.ClientError, match="AccessDenied"):
         deploy.discover()
     sleep.assert_not_called()
+
+
+def test_bootstrap_stage_leaves_the_stack_to_the_image_ready_signal(monkeypatch):
+    """The editor launcher starts the host, so CloudFormation takes no signal for it.
+
+    stage-bootstrap publishes the image and the runtime secret, and the bootstrap then
+    PUTs the image-ready wait condition. A signal_resource call for the instance fails
+    on a launcher-started host and stops the deployment.
+    """
+    services = []
+    secrets = Mock()
+
+    def recorded_client(service):
+        services.append(service)
+        return secrets
+
+    monkeypatch.setattr(deploy, "client", recorded_client)
+    monkeypatch.setattr(
+        deploy, "publish_image", lambda repository, *, bootstrap: f"{repository}@sha256:{'0' * 64}"
+    )
+    monkeypatch.setenv(
+        "MOSAIC_RUNTIME_IMAGE_REPOSITORY", "123456789012.dkr.ecr.us-east-1.amazonaws.com/mosaic"
+    )
+    monkeypatch.setenv(
+        "MOSAIC_RUNTIME_DATABASE_URL",
+        "postgresql://runtime:secret@aurora.example:5432/mosaic_catalog?sslmode=verify-full",
+    )
+    monkeypatch.setenv(
+        "MOSAIC_RUNTIME_DATABASE_SECRET_ARN",
+        "arn:aws:secretsmanager:us-east-1:123456789012:secret:runtime",
+    )
+    deploy.stage(bootstrap=True)
+    assert services == ["secretsmanager"]
+    secrets.put_secret_value.assert_called_once()
