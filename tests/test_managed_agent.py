@@ -91,6 +91,43 @@ def test_question_before_lab_3_starts_reaches_the_reference_agent(source, runtim
     runtime.invoke_agent_runtime.assert_called_once()
 
 
+RUNTIME_FRAMES = 'event: complete\ndata: {"response": {}}\n\n'
+
+
+def _streamed(runtime) -> str:
+    from service.main import app
+
+    runtime.invoke_agent_runtime.side_effect = lambda **_: {
+        "response": io.BytesIO(RUNTIME_FRAMES.encode())
+    }
+    response = TestClient(app).post(
+        "/api/agent/answer/stream", json={"question": "A monitor", "filters": {}}
+    )
+    assert response.status_code == 200
+    return response.text
+
+
+def test_a_question_before_lab_3_starts_is_told_the_reference_agent_answered(
+    source, runtime
+):
+    """Someone trying Ask Mosaic before Lab 3 must not take the provisioned agent for theirs."""
+    notice, rest = _streamed(runtime).split("\n\n", 1)
+    name, data = notice.split("\n", 1)
+    payload = json.loads(data.removeprefix("data: "))
+    assert name == "event: notice"
+    assert payload["code"] == "reference_agent"
+    assert payload["title"] == "Reference Retrieval agent"
+    assert "reference Retrieval agent" in payload["detail"]
+    assert "Lab 3" in payload["detail"]
+    assert rest == RUNTIME_FRAMES
+
+
+def test_a_question_to_the_participants_own_deploy_carries_no_notice(source, runtime):
+    _lab_3_started()
+    _deployed("2026-10-25T10:05:00+00:00")
+    assert _streamed(runtime) == RUNTIME_FRAMES
+
+
 def test_question_after_lab_3_starts_waits_for_a_deploy(source, runtime):
     """A pasted reference answer has the provisioned agent's digest: Runtime would answer."""
     _lab_3_started()
@@ -473,6 +510,7 @@ def test_stream_relays_each_runtime_event_before_the_next_arrives(monkeypatch):
         "service.access_control.release_model_admission_slot", lambda _: None
     )
     monkeypatch.setattr(transport, "invoke", lambda *_: StreamingBody(raw, None))
+    _lab_3_started()
     response = transport.stream(AgentRequest(question="A monitor"), None)
     bodies = []
 

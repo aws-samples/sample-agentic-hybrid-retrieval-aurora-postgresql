@@ -132,7 +132,9 @@ export function useAskMosaicConversation(
     try {
       await api.agentStream(trimmed, sourceFilters(requestFilters, real), (event) => {
         if (version !== requestVersion.current) return;
-        if (event.type === "stage") {
+        if (event.type === "notice") {
+          patch({ notice: { title: event.title, detail: event.detail } });
+        } else if (event.type === "stage") {
           setTurns((current) => current.map((turn) => (
             turn.id === version
               ? {
@@ -163,7 +165,7 @@ export function useAskMosaicConversation(
               ? { ...turn, streamed: turn.streamed + delta }
               : turn),
           ));
-        } else {
+        } else if (event.type === "complete") {
           sessionId.current = event.response.session_id ?? sessionId.current;
           patch({
             response: event.response,

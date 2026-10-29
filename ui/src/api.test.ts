@@ -163,6 +163,29 @@ describe("agentStream", () => {
     expect(events).toEqual([{ type: "complete", response }]);
   });
 
+  it("passes on the service's notice before the answer", async () => {
+    const detail = "This answer comes from the reference Retrieval agent this account was "
+      + "prepared with.";
+    const notice = { code: "reference_agent", title: "Reference Retrieval agent", detail };
+    vi.stubGlobal(
+      "fetch",
+      streamFetch(
+        sseResponse([
+          `event: notice\ndata: ${JSON.stringify(notice)}\n\n`,
+          `event: complete\ndata: ${JSON.stringify({ response })}\n\n`,
+        ]),
+      ),
+    );
+
+    const events: AgentStreamEvent[] = [];
+    await api.agentStream("question", {}, (event) => events.push(event));
+
+    expect(events).toEqual([
+      { type: "notice", ...notice },
+      { type: "complete", response },
+    ]);
+  });
+
   it("ignores frames after the terminal complete event", async () => {
     vi.stubGlobal(
       "fetch",

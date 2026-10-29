@@ -209,6 +209,13 @@ def ask(base_url: str, question: str, *, timeout: float) -> dict[str, Any]:
                     )
                 elif event == "tool":
                     print(f"      tool call  {data['name']}, {elapsed} s", flush=True)
+                elif event == "notice":
+                    note = textwrap.fill(
+                        f"NOTE  {data.get('detail', '')}",
+                        LINE_CHARS,
+                        subsequent_indent="      ",
+                    )
+                    print(f"{note}\n", flush=True)
                 elif event == "complete":
                     print(f"{bar(1, 1)}  answered in {elapsed} s\n", flush=True)
                     return data["response"]

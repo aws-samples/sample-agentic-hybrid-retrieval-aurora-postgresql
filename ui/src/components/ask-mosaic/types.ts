@@ -54,6 +54,12 @@ export interface AskMosaicTurn {
   /** The service's failure code for `error`, when it sent one. */
   errorCode?: string;
   /**
+   * What the service said about this answer before it began, such as that the
+   * reference Retrieval agent the account was prepared with gave it, not the
+   * participant's own Lab 3 agent.
+   */
+  notice?: { title: string; detail: string };
+  /**
    * True once a reader presses Stop, or a follow-up filter change replaces
    * this turn before it finished. A normal terminal state, not a failure:
    * whatever text, picks, and trace had already arrived stay visible.

@@ -70,6 +70,28 @@ it("measures how long a request took from sending it to its last event", async (
   expect(result.current.turns[0].durationMs).toBe(43_500);
 });
 
+it("keeps the service's notice on the turn it arrived with", async () => {
+  const detail = "This answer comes from the reference Retrieval agent this account was "
+    + "prepared with.";
+  vi.spyOn(api, "agentStream").mockImplementation(async (question, _filters, emit) => {
+    emit({ type: "notice", code: "reference_agent", title: "Reference Retrieval agent", detail });
+    emit({
+      type: "complete",
+      response: {
+        agent_run_id: "run-1", question, answer: "A sourced answer.",
+        recommendations: [], citations: [], plan: [], trace: [],
+      },
+    });
+  });
+  const { result } = renderHook(() => useAskMosaicConversation({}));
+
+  await act(() => result.current.run("Complete my setup"));
+
+  expect(result.current.turns[0].notice).toEqual({ title: "Reference Retrieval agent", detail });
+  expect(result.current.turns[0].completed).toBe(true);
+  expect(result.current.turns[0].response?.answer).toBe("A sourced answer.");
+});
+
 function failWith(message: string, code: string) {
   vi.spyOn(api, "agentStream").mockRejectedValue(Object.assign(new Error(message), { code }));
 }

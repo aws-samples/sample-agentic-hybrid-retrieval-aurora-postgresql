@@ -181,7 +181,16 @@ def answer(request: AgentRequest, http_request: Request | None) -> AgentResponse
         return AgentResponse.model_validate_json(body.read())
 
 
-def _as_received(body) -> Iterator[bytes]:
+def _as_received(body, notice: str | None = None) -> Iterator[bytes]:
+    if notice:
+        payload = json.dumps(
+            {
+                "code": "reference_agent",
+                "title": "Reference Retrieval agent",
+                "detail": notice,
+            }
+        )
+        yield f"event: notice\ndata: {payload}\n\n".encode()
     # A sized read waits for that many bytes, so a tool call sat in the relay until
     # later events filled the chunk; read1 passes on whatever the Runtime has sent.
     with body as raw:
@@ -190,12 +199,22 @@ def _as_received(body) -> Iterator[bytes]:
 
 
 def stream(request: AgentRequest, http_request: Request | None) -> StreamingResponse:
-    """Keep admission and the upstream stream owned until delivery finishes."""
+    """Keep admission and the upstream stream owned until delivery finishes.
+
+    A question the provisioned reference agent answers starts with a `notice` event
+    saying so, so the participant does not take it for the agent they build in Lab 3.
+    """
     from service.access_control import (
         acquire_model_admission_slot,
         release_model_admission_slot,
     )
+    from service.agent_deploys import reference_agent_notice
 
+    try:
+        notice = reference_agent_notice()
+    except (RuntimeError, ValueError) as error:
+        # An unreadable start record names its own fix, as `invoke` reports it.
+        raise AgentSetupError(str(error)) from error
     slot = acquire_model_admission_slot()
     try:
         body = invoke("stream", request, http_request)
@@ -227,7 +246,7 @@ def stream(request: AgentRequest, http_request: Request | None) -> StreamingResp
                 close()
 
     return RuntimeStream(
-        _as_received(body),
+        _as_received(body, notice),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache"},
     )

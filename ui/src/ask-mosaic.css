@@ -1346,7 +1346,8 @@
 
 .ask-mosaic-error,
 .ask-mosaic-setup,
-.ask-mosaic-cancelled {
+.ask-mosaic-cancelled,
+.ask-mosaic-notice {
   display: grid;
   gap: 6px;
   padding: 14px 16px;
@@ -1367,6 +1368,7 @@
 
 .ask-mosaic-error small,
 .ask-mosaic-cancelled small,
+.ask-mosaic-notice small,
 .ask-mosaic-setup small {
   color: var(--ink-soft);
   font-size: 12px;
@@ -1388,7 +1390,8 @@
   background: var(--paper-warm);
 }
 
-.ask-mosaic-cancelled-heading {
+.ask-mosaic-cancelled-heading,
+.ask-mosaic-notice-heading {
   display: inline-flex;
   align-items: center;
   gap: 6px;

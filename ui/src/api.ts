@@ -57,7 +57,9 @@ export type AgentStreamEvent =
   | { type: "partial"; partial: AgentPartial }
   | { type: "answer_start"; response: AgentResponse }
   | { type: "answer_delta"; delta: string }
-  | { type: "complete"; response: AgentResponse };
+  | { type: "complete"; response: AgentResponse }
+  /** Something the reader should know about this answer, such as which agent gave it. */
+  | { type: "notice"; code: string; title: string; detail: string };
 
 export type AgentStreamOptions = {
   signal?: AbortSignal;
@@ -257,7 +259,14 @@ export const api = {
                 typeof payload.code === "string" ? payload.code : undefined,
               );
             }
-            if (parsed.event === "stage") {
+            if (parsed.event === "notice") {
+              onEvent({
+                type: "notice",
+                code: String(payload.code ?? ""),
+                title: String(payload.title ?? ""),
+                detail: String(payload.detail ?? ""),
+              });
+            } else if (parsed.event === "stage") {
               onEvent({ type: "stage", ...payload } as AgentStreamEvent);
             } else if (parsed.event === "partial") {
               onEvent({

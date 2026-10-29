@@ -270,6 +270,26 @@ describe("AskMosaic cancellation", () => {
   });
 });
 
+describe("AskMosaic notices", () => {
+  it("says when the reference Retrieval agent answered", () => {
+    const detail = "This answer comes from the reference Retrieval agent this account was "
+      + "prepared with. In Lab 3 you build and deploy your own, and from then on your "
+      + "questions go to it.";
+    const response = groundedResponse();
+    const notice = { title: "Reference Retrieval agent", detail };
+    renderAskMosaic(response, { turns: [{ ...settledTurn(response), notice }] });
+
+    const note = screen.getByRole("note", { name: "Reference Retrieval agent" });
+    expect(within(note).getByText(detail)).toBeTruthy();
+  });
+
+  it("shows no notice when the service sent none", () => {
+    renderAskMosaic(groundedResponse());
+
+    expect(screen.queryByRole("note", { name: "Reference Retrieval agent" })).toBeNull();
+  });
+});
+
 describe("AskMosaic failures", () => {
   const setupDetail = "Your Retrieval agent is not built yet. Open labs/lab3_reason/agent.py in Code Editor "
     + "and complete create_agent with the supplied model, tools, instructions and hooks. "

@@ -105,6 +105,21 @@ def _since(started: datetime, root: Path | None) -> list[Deploy]:
     return [deploy for deploy in load_deploys(root) if deploy.deployed_at > started]
 
 
+REFERENCE_AGENT_NOTICE = (
+    "This answer comes from the reference Retrieval agent this account was prepared with. "
+    "In Lab 3 you build and deploy your own, and from then on your questions go to it."
+)
+
+
+def reference_agent_notice(*, root: Path | None = None) -> str | None:
+    """What to tell someone whose question the provisioned reference agent answers, or None.
+
+    That is every question before Lab 3 starts; from the start, `ask_problem` holds a
+    question until the participant's own deploy carries today's code.
+    """
+    return REFERENCE_AGENT_NOTICE if lab_3_started_at(root) is None else None
+
+
 def ask_problem(workspace_sha256: str, *, root: Path | None = None) -> str | None:
     """Why a question must wait for a deploy, or None when Runtime runs today's code.
 

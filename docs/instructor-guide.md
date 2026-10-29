@@ -182,7 +182,9 @@ The completion command `uv run python scripts/complete_agent.py` rechecks the ac
 its deployed source and its SQL searches without another model invocation. Questions
 and completion wait for a deploy made since Lab 3 started: a participant who pastes the
 reference answer and skips the deploy is told to deploy, because the provisioned
-reference Retrieval agent has the same code digest.
+reference Retrieval agent has the same code digest. Before Lab 3 starts, that reference
+agent answers Ask Mosaic and `ask_agent.py`, and each answer carries a **Reference Retrieval
+agent** note, so a participant who tries Ask Mosaic early does not mistake it for their own.
 
 
 ### Advanced Labs (OPTIONAL)

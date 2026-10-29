@@ -237,6 +237,29 @@ def test_main_streams_the_question_through_the_ask_mosaic_route(monkeypatch, cap
     assert "OUTCOME: declined" in out
 
 
+def test_the_reference_agent_notice_is_printed_before_the_progress(monkeypatch, capsys):
+    detail = (
+        "This answer comes from the reference Retrieval agent this account was prepared "
+        "with. In Lab 3 you build and deploy your own, and from then on your questions go "
+        "to it."
+    )
+    monkeypatch.setattr(
+        ask_agent,
+        "urlopen",
+        lambda *_a, **_k: FakeStream(
+            ("notice", {"code": "reference_agent", "detail": detail}),
+            stage("understand", "Interpret request"),
+            ("complete", {"response": declined()}),
+        ),
+    )
+    assert ask_agent.main(["Find headphones for calls"]) == 0
+    lines = capsys.readouterr().out.splitlines()
+    progress = next(i for i, line in enumerate(lines) if "Interpret request" in line)
+    note = lines[:progress]
+    assert " ".join(" ".join(note).split()) == f"NOTE {detail}"
+    assert max(len(line) for line in note) <= ask_agent.LINE_CHARS
+
+
 def test_the_bar_never_moves_back_when_the_agent_searches_again(monkeypatch, capsys):
     monkeypatch.setattr(
         ask_agent,
