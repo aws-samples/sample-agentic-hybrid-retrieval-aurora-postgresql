@@ -30,6 +30,8 @@ LAB_API_URL ?= http://127.0.0.1:$(API_PORT)
 SCORE_EVAL_ARGS ?=
 REHEARSAL_EVIDENCE_FILE ?= build/rehearsal-evidence.json
 LOAD_EXERCISE_ARGS ?=
+ASSETS_DIR ?=
+CATALOG_BUNDLE_ARGS ?=
 
 # The Mosaic data model is vendored under db/, rendered at 1024 dimensions.
 SCHEMA_PACKAGE ?= db
@@ -282,6 +284,19 @@ db-verify-bootstrap:
 	@$(PYTHON) scripts/checks/verify_real_bootstrap.py
 	@$(PYTHON) \
 		scripts/configure_retrieval_database.py --check
+
+# Builds the real-catalog assets directory and both contract files from the public
+# Amazon Reviews 2023 sources, on a builder machine with Bedrock access to Cohere
+# Embed v4. Needs DATABASE_URL (a temporary Aurora cluster), AWS credentials and
+# ASSETS_DIR. Pass step selection or embedding options in CATALOG_BUNDLE_ARGS, for
+# example CATALOG_BUNDLE_ARGS="--dry-run" or "--from embed --regions us-east-1 us-east-2 us-west-2".
+.PHONY: catalog-bundle
+catalog-bundle:
+	@test -n "$(ASSETS_DIR)" || { \
+		echo "ASSETS_DIR is not set; name the directory that receives real-catalog/."; \
+		exit 2; \
+	}
+	$(UV) run python scripts/catalog/build_bundle.py --assets-dir "$(ASSETS_DIR)" $(CATALOG_BUNDLE_ARGS)
 
 validate-db:
 	"$(PYTHON)" "$(SCHEMA_PACKAGE)/scripts/validate_package.py"
