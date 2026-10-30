@@ -243,8 +243,35 @@ def consume_range(
     return found, used, count
 
 
+FETCH_ATTEMPTS = 12
+RETRY_CAP_SECONDS = 60
+
+
+def retry_delay(error: BaseException, attempt: int) -> float:
+    """Seconds to wait before the next attempt: the server's Retry-After when it sends one."""
+    headers = getattr(error, "headers", None)
+    retry_after = headers.get("Retry-After") if headers is not None else None
+    if retry_after and retry_after.strip().isdigit():
+        return min(float(retry_after), 5 * RETRY_CAP_SECONDS)
+    return float(min(2**attempt, RETRY_CAP_SECONDS))
+
+
+def describe_error(error: BaseException) -> str:
+    if isinstance(error, urllib.error.HTTPError):
+        return f"HTTP {error.code} {error.reason}"
+    return f"{type(error).__name__}: {error}"
+
+
 def fetch_range(source: dict, start: int, end: int) -> bytes:
-    for attempt in range(8):
+    """Read one byte range, waiting out rate limits and transient failures.
+
+    Raises:
+        RuntimeError: after the last attempt, naming the range and the final error. A
+            plain RuntimeError, because an HTTPError carries an open response and cannot
+            cross a process boundary: the scan's worker processes would otherwise report
+            "cannot pickle 'BufferedReader' instances" instead of the cause.
+    """
+    for attempt in range(FETCH_ATTEMPTS):
         try:
             request = urllib.request.Request(
                 source["url"] + f"?download=true&range_start={start}&range_end={end}",
@@ -267,10 +294,14 @@ def fetch_range(source: dict, start: int, end: int) -> bytes:
                     f"Review byte-count rule: range {start}-{end} is incomplete; retry it before advancing."
                 )
             return data
-        except (OSError, urllib.error.URLError, ValueError):
-            if attempt == 7:
-                raise
-            time.sleep(min(2**attempt, 30))
+        except (OSError, urllib.error.URLError, ValueError) as error:
+            if attempt == FETCH_ATTEMPTS - 1:
+                raise RuntimeError(
+                    f"Review fetch rule: bytes {start}-{end} of {source['url']} failed on "
+                    f"{FETCH_ATTEMPTS} attempts, last {describe_error(error)}; fix: run the "
+                    "scan again later (it resumes from its checkpoints), or with fewer parts"
+                ) from None
+            time.sleep(retry_delay(error, attempt))
     raise AssertionError("unreachable")
 
 

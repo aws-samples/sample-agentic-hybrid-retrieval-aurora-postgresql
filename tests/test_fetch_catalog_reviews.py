@@ -275,3 +275,84 @@ def test_negative_helpful_votes_are_source_values_not_corruption():
     row = record(helpful_vote=-2)
     assert row["original"]["helpful_vote"] == -2
     sampler.verify_review(row)
+
+
+def _http_error(code, reason, retry_after=None):
+    import email.message
+    import io
+    import urllib.error
+
+    headers = email.message.Message()
+    if retry_after is not None:
+        headers["Retry-After"] = str(retry_after)
+    return urllib.error.HTTPError(
+        "https://example/file", code, reason, headers, io.BytesIO(b"")
+    )
+
+
+class _RangeResponse:
+    status = 206
+
+    def __init__(self):
+        self.headers = {"Content-Range": "bytes 0-3/10"}
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def read(self, size):
+        return b"abcd"
+
+
+def test_a_rate_limit_waits_for_retry_after_then_succeeds(monkeypatch):
+    sleeps = []
+    answers = iter([_http_error(429, "Too Many Requests", retry_after=7), None])
+
+    def urlopen(request, timeout):
+        error = next(answers)
+        if error is not None:
+            raise error
+        return _RangeResponse()
+
+    monkeypatch.setattr(sampler.time, "sleep", sleeps.append)
+    monkeypatch.setattr(sampler.urllib.request, "urlopen", urlopen)
+    source = {"url": "https://example/file", "bytes": 10}
+    assert sampler.fetch_range(source, 0, 3) == b"abcd"
+    assert sleeps == [7.0]
+
+
+def test_backoff_without_retry_after_doubles_up_to_the_cap():
+    error = _http_error(503, "Service Unavailable")
+    assert [sampler.retry_delay(error, attempt) for attempt in (0, 1, 5, 6, 11)] == [
+        1.0,
+        2.0,
+        32.0,
+        60.0,
+        60.0,
+    ]
+    assert sampler.retry_delay(ValueError("short read"), 3) == 8.0
+
+
+def test_a_persistent_rate_limit_raises_a_picklable_error_naming_the_cause(monkeypatch):
+    import pickle
+
+    def urlopen(request, timeout):
+        raise _http_error(429, "Too Many Requests")
+
+    monkeypatch.setattr(sampler.time, "sleep", lambda seconds: None)
+    monkeypatch.setattr(sampler.urllib.request, "urlopen", urlopen)
+    source = {"url": "https://example/file", "bytes": 10}
+    with pytest.raises(
+        RuntimeError,
+        match=(
+            r"Review fetch rule: bytes 0-3 of https://example/file failed on 12 attempts, "
+            r"last HTTP 429 Too Many Requests"
+        ),
+    ) as caught:
+        sampler.fetch_range(source, 0, 3)
+    # The worker processes of scan_catalog_reviews.py send this error back to the parent;
+    # an HTTPError, with its open response, cannot make that trip.
+    assert caught.value.__cause__ is None
+    assert str(pickle.loads(pickle.dumps(caught.value))) == str(caught.value)
