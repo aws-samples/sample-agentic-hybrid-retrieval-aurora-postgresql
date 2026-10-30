@@ -42,6 +42,9 @@ The catalog bundle never touches a git remote. The flow:
    `/etc/mosaic-own-account.env`, which every login shell exports. Its role may get and put only
    under `real-catalog/*` and `contracts/*`, and list the bucket (S3 answers a missing key with
    403 instead of 404 without `s3:ListBucket`).
+   `deploy.py staging update` re-uploads the staging template and applies it to the running stack
+   through a change set, so a role fix reaches a running builder without losing `/workshop`. It
+   refuses when nothing changed, and when the change set would replace or remove a resource.
 2. On the builder, `mosaic-catalog-bundle` starts the build detached (`setsid`, `nohup`, output in
    `/workshop/catalog-bundle.log`), so a dropped Session Manager session does not stop it.
    Running it again resumes from the saved state. The build uploads `real-catalog/...` and

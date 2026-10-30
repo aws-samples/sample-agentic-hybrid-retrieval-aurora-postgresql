@@ -1936,3 +1936,225 @@ def test_the_check_plan_lists_acls_and_stacks(tmp_path):
     names = operations(deploy.plan_check(context(tmp_path)))
     assert ("wafv2", "ListWebACLs") in names
     assert ("cloudformation", "DescribeStacks") in names
+
+
+# ---------------------------------------------------------------- builder role for the embed step
+def test_builder_role_may_describe_the_embed_profile_in_every_region():
+    statement = role_statements()["DescribeEmbedProfile"]
+    assert statement["Action"] == "bedrock:GetInferenceProfile"
+    resource = statement["Resource"]["Fn::Sub"]
+    assert resource == (
+        "arn:${AWS::Partition}:bedrock:*:${AWS::AccountId}:inference-profile/"
+        "us.cohere.embed-v4:0"
+    )
+
+
+def test_builder_role_reads_service_quotas_and_keeps_invoke_model_as_it_was():
+    statements = role_statements()
+    assert statements["ReadServiceQuotas"]["Action"] == "servicequotas:GetServiceQuota"
+    assert statements["ReadServiceQuotas"]["Resource"] == "*"
+    invoke = statements["EmbedWithCohere"]
+    assert invoke["Action"] == "bedrock:InvokeModel"
+    assert len(invoke["Resource"]) == 2
+
+
+# ---------------------------------------------------------------- staging update
+STAGING_BODY = deploy.staging_template_bytes()
+OLD_PUBLISHED = {"sha256": "0" * 64}
+STAGING_KEY = f"releases/rev0123456789abcd/{deploy.STAGING_TEMPLATE}"
+
+
+class FakeStagingStack(FakeS3):
+    """S3 plus the CloudFormation calls an in-place staging update makes."""
+
+    def __init__(
+        self, *, status="CREATE_COMPLETE", published=OLD_PUBLISHED, change_set=None
+    ):
+        objects = {STAGING_KEY: (b"old", published)} if published is not None else {}
+        super().__init__(objects)
+        self.status = status
+        self.exists = True
+        self.change_set = change_set or {"Status": "CREATE_COMPLETE", "Changes": []}
+        self.calls: list = []
+        self.executed = False
+        self.after_execute = [
+            "CREATE_COMPLETE",
+            "UPDATE_IN_PROGRESS",
+            "UPDATE_COMPLETE",
+        ]
+        self.updated_at = "t0"
+        self.polls = 0
+
+    def describe_stacks(self, StackName):
+        if self.status is None:
+            raise CodedError("ValidationError", f"Stack {StackName} does not exist")
+        status = self.status
+        updated = self.updated_at
+        if self.executed:
+            status = self.after_execute[min(self.polls, len(self.after_execute) - 1)]
+            self.polls += 1
+            updated = "t0" if status == "CREATE_COMPLETE" else "t1"
+        parameters = [
+            {
+                "ParameterKey": "InfrastructureRevision",
+                "ParameterValue": "rev0123456789abcd",
+            },
+            {"ParameterKey": "AssetsBucketName", "ParameterValue": "my-bucket"},
+        ]
+        return {
+            "Stacks": [
+                {
+                    "StackName": StackName,
+                    "StackStatus": status,
+                    "Parameters": parameters,
+                    "LastUpdatedTime": updated,
+                }
+            ]
+        }
+
+    def create_change_set(self, **arguments):
+        self.calls.append(("create_change_set", arguments))
+
+    def describe_change_set(self, StackName, ChangeSetName):
+        return self.change_set
+
+    def execute_change_set(self, StackName, ChangeSetName):
+        self.calls.append(("execute_change_set", ChangeSetName))
+        self.executed = True
+
+    def delete_change_set(self, StackName, ChangeSetName):
+        self.calls.append(("delete_change_set", ChangeSetName))
+
+    def names(self) -> list[str]:
+        return [name for name, _ in self.calls]
+
+
+def staging_context(tmp_path, stack, lines=None):
+    return live_context(
+        tmp_path, stack, lines if lines is not None else [], stack_name="mosaic-staging"
+    )
+
+
+def test_staging_update_plan_lists_the_change_set_flow(tmp_path, monkeypatch):
+    monkeypatch.setattr(deploy, "require_clean_tree", lambda: None)
+    plan = deploy.plan_staging_update(context(tmp_path, stack_name="mosaic-staging"))
+    names = operations(plan)
+    assert names.index(("s3", "PutObject")) < names.index(
+        ("cloudformation", "CreateChangeSet")
+    )
+    assert names.index(("cloudformation", "CreateChangeSet")) < names.index(
+        ("cloudformation", "ExecuteChangeSet")
+    )
+    assert ("cloudformation", "CreateStack") not in names
+
+
+def test_staging_update_is_a_subcommand_that_needs_no_repository():
+    args = parse("staging", "update")
+    assert args.action == "update"
+    assert not deploy.needs_source(args)
+
+
+def test_staging_update_dry_run_warns_about_a_dirty_tree(tmp_path, monkeypatch):
+    monkeypatch.setattr(deploy, "git", lambda *a, **k: " M x")
+    lines: list[str] = []
+    deploy.plan_staging_update(context(tmp_path, out=lines.append))
+    assert lines[0].startswith("warning (dry run")
+
+
+def test_staging_update_uploads_then_applies_the_change_set_with_previous_parameters(
+    tmp_path, no_sleep
+):
+    stack = FakeStagingStack()
+    lines: list[str] = []
+    deploy.update_staging(staging_context(tmp_path, stack, lines))
+    assert stack.objects[STAGING_KEY][0] == STAGING_BODY
+    assert stack.objects[STAGING_KEY][1]["sha256"] == deploy.sha256_bytes(STAGING_BODY)
+    create = dict(stack.calls)["create_change_set"]
+    assert create["ChangeSetType"] == "UPDATE"
+    assert create["TemplateURL"].endswith(f"/{STAGING_KEY}")
+    assert create["Parameters"] == [
+        {"ParameterKey": "InfrastructureRevision", "UsePreviousValue": True},
+        {"ParameterKey": "AssetsBucketName", "UsePreviousValue": True},
+    ]
+    assert stack.names() == ["create_change_set", "execute_change_set"]
+    assert "UPDATE_COMPLETE after" in "".join(lines)
+    assert "work directory is untouched" in lines[-1]
+
+
+def test_an_update_complete_left_over_from_before_is_not_this_update(
+    tmp_path, no_sleep
+):
+    stack = FakeStagingStack(status="UPDATE_COMPLETE")
+    stack.after_execute = ["UPDATE_COMPLETE", "UPDATE_IN_PROGRESS", "UPDATE_COMPLETE"]
+    stack.updated_at = "t0"
+
+    def describe(StackName, original=stack.describe_stacks):
+        result = original(StackName)
+        info = result["Stacks"][0]
+        if stack.executed:
+            info["LastUpdatedTime"] = "t0" if stack.polls <= 1 else "t1"
+        return result
+
+    stack.describe_stacks = describe
+    lines: list[str] = []
+    deploy.update_staging(staging_context(tmp_path, stack, lines))
+    assert any("UPDATE_IN_PROGRESS" in line for line in lines)
+
+
+def test_staging_update_refuses_when_the_published_template_already_matches(tmp_path):
+    stack = FakeStagingStack(published={"sha256": deploy.sha256_bytes(STAGING_BODY)})
+    with pytest.raises(deploy.Refusal, match="nothing changed"):
+        deploy.update_staging(staging_context(tmp_path, stack))
+    assert stack.calls == []
+
+
+def test_staging_update_refuses_when_cloudformation_finds_no_difference(
+    tmp_path, no_sleep
+):
+    stack = FakeStagingStack(
+        change_set={
+            "Status": "FAILED",
+            "StatusReason": "The submitted information didn't contain changes.",
+        }
+    )
+    with pytest.raises(deploy.Refusal, match="nothing changed"):
+        deploy.update_staging(staging_context(tmp_path, stack))
+    assert stack.names() == ["create_change_set", "delete_change_set"]
+
+
+def test_staging_update_refuses_a_change_that_would_replace_the_builder(
+    tmp_path, no_sleep
+):
+    change = {
+        "ResourceChange": {
+            "LogicalResourceId": "BuilderInstance",
+            "Replacement": "True",
+        }
+    }
+    stack = FakeStagingStack(
+        change_set={"Status": "CREATE_COMPLETE", "Changes": [change]}
+    )
+    with pytest.raises(deploy.Refusal, match="BuilderInstance.*work directory"):
+        deploy.update_staging(staging_context(tmp_path, stack))
+    assert "execute_change_set" not in stack.names()
+    assert "delete_change_set" in stack.names()
+
+
+def test_staging_update_needs_an_existing_settled_stack(tmp_path):
+    with pytest.raises(deploy.Refusal, match="staging up"):
+        deploy.update_staging(staging_context(tmp_path, FakeStagingStack(status=None)))
+    with pytest.raises(deploy.Refusal, match="ROLLBACK_COMPLETE"):
+        deploy.update_staging(
+            staging_context(tmp_path, FakeStagingStack(status="ROLLBACK_COMPLETE"))
+        )
+
+
+def test_an_update_that_never_starts_is_reported(tmp_path, monkeypatch):
+    clock = iter(range(0, 10_000, 100))
+    monkeypatch.setattr(deploy.time, "monotonic", lambda: next(clock))
+    monkeypatch.setattr(deploy.time, "sleep", lambda _seconds: None)
+    stack = FakeStagingStack(status="UPDATE_COMPLETE")
+    with pytest.raises(deploy.Refusal, match="never began updating"):
+        deploy.wait_for_stack(
+            staging_context(tmp_path, stack), "UPDATE_COMPLETE", update_from="t0"
+        )

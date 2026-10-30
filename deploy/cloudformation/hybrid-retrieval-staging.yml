@@ -192,6 +192,16 @@ Resources:
                   - !Sub 'arn:aws:bedrock:*:${AWS::AccountId}:inference-profile/us.cohere.embed-v4:0'
               # No prefix condition: HeadObject is authorized by ListBucket on the
               # bucket, carries no prefix, and answers 403 instead of 404 without it.
+              - Sid: DescribeEmbedProfile
+                Effect: Allow
+                Action: bedrock:GetInferenceProfile
+                Resource: !Sub 'arn:${AWS::Partition}:bedrock:*:${AWS::AccountId}:inference-profile/us.cohere.embed-v4:0'
+              # The bundle build reads each Region's embed throughput quota; the API has no
+              # resource-level permissions.
+              - Sid: ReadServiceQuotas
+                Effect: Allow
+                Action: servicequotas:GetServiceQuota
+                Resource: '*'
               - Sid: ListBucketForHeadObject
                 Effect: Allow
                 Action: s3:ListBucket

@@ -1412,29 +1412,42 @@ def stack_parameters(values: dict[str, str]) -> list[dict[str, str]]:
     return [{"ParameterKey": k, "ParameterValue": v} for k, v in values.items()]
 
 
-def stack_status(ctx: Context) -> str | None:
-    """The stack's status, or None once it no longer exists."""
+def stack_info(ctx: Context) -> dict[str, Any] | None:
+    """The stack's description, or None once it no longer exists."""
     try:
         stacks = ctx.client("cloudformation").describe_stacks(StackName=ctx.stack_name)
     except Exception as error:
         if "does not exist" in str(error):
             return None
         raise
-    return stacks["Stacks"][0]["StackStatus"]
+    return stacks["Stacks"][0]
 
 
-def wait_for_stack(ctx: Context, goal: str) -> None:
-    """Poll until the stack reaches ``goal`` (CREATE_COMPLETE or DELETE_COMPLETE).
+def stack_status(ctx: Context) -> str | None:
+    """The stack's status, or None once it no longer exists."""
+    info = stack_info(ctx)
+    return info["StackStatus"] if info else None
+
+
+#: wait_for_stack(update_from=...) default: the wait is not for an update.
+NOT_UPDATING = object()
+
+
+def wait_for_stack(ctx: Context, goal: str, *, update_from: Any = NOT_UPDATING) -> None:
+    """Poll until the stack reaches ``goal`` (CREATE_, UPDATE_ or DELETE_COMPLETE).
 
     Only statuses ending in _COMPLETE or _FAILED are terminal, so a rollback is waited
-    out; ROLLBACK_COMPLETE or DELETE_FAILED then ends the wait as a failure.
+    out; ROLLBACK_COMPLETE or DELETE_FAILED then ends the wait as a failure. For an
+    update, ``update_from`` is the stack's LastUpdatedTime before the change set ran, so
+    an UPDATE_COMPLETE left over from an earlier update is not mistaken for this one.
     """
     started = time.monotonic()
     last = ""
     deleting = goal != "DELETE_COMPLETE"
     try:
         while True:
-            status = stack_status(ctx)
+            info = stack_info(ctx)
+            status = info["StackStatus"] if info else None
             deleting = deleting or status == "DELETE_IN_PROGRESS"
             if status is None and goal == "DELETE_COMPLETE":
                 break
@@ -1442,13 +1455,18 @@ def wait_for_stack(ctx: Context, goal: str) -> None:
                 raise Refusal(
                     f"stack {ctx.stack_name} disappeared while waiting for {goal}"
                 )
-            if status == goal:
+            idle_update = (
+                update_from is not NOT_UPDATING
+                and info.get("LastUpdatedTime") == update_from
+            )
+            stale = idle_update or (not deleting and status != "DELETE_FAILED")
+            if status == goal and not idle_update:
                 break
-            stale = not deleting and status != "DELETE_FAILED"
             if stale and time.monotonic() - started > STALE_DELETE_SECONDS:
+                verb = "updating" if idle_update else "deleting"
                 raise Refusal(
-                    f"stack {ctx.stack_name} stayed {status} and never began deleting; "
-                    "DeleteStack was not accepted. Check the stack's events."
+                    f"stack {ctx.stack_name} stayed {status} and never began {verb}; "
+                    "CloudFormation did not accept the request. Check the stack's events."
                 )
             if status.endswith(("_COMPLETE", "_FAILED")) and not stale:
                 report_failed_events(ctx)
@@ -1789,6 +1807,150 @@ def plan_staging_up(ctx: Context) -> list[Step]:
     ]
 
 
+UPDATABLE = ("CREATE_COMPLETE", "UPDATE_COMPLETE")
+NO_CHANGES = ("didn't contain changes", "No updates are to be performed")
+
+
+def staging_template_bytes() -> bytes:
+    return (CLOUDFORMATION / STAGING_TEMPLATE).read_bytes()
+
+
+def current_staging_parameters(ctx: Context) -> dict[str, str]:
+    """The running staging stack's parameters; it must exist and be settled."""
+    info = stack_info(ctx)
+    if info is None:
+        raise Refusal(f"stack {ctx.stack_name} does not exist; run `staging up` first")
+    if info["StackStatus"] not in UPDATABLE:
+        raise Refusal(
+            f"stack {ctx.stack_name} is {info['StackStatus']}; wait for it to settle, or "
+            "`staging down` and `staging up` again"
+        )
+    return {p["ParameterKey"]: p.get("ParameterValue", "") for p in info["Parameters"]}
+
+
+def wait_for_change_set(ctx: Context, name: str) -> dict[str, Any]:
+    cloudformation = ctx.client("cloudformation")
+    while True:
+        described = cloudformation.describe_change_set(
+            StackName=ctx.stack_name, ChangeSetName=name
+        )
+        if described["Status"] in ("CREATE_COMPLETE", "FAILED"):
+            return described
+        time.sleep(5)
+
+
+def discard_change_set(ctx: Context, name: str) -> None:
+    ctx.client("cloudformation").delete_change_set(
+        StackName=ctx.stack_name, ChangeSetName=name
+    )
+
+
+def replaced_resources(change_set: dict[str, Any]) -> list[str]:
+    """Logical ids of resources the change set would replace or remove."""
+    risky = []
+    for change in change_set.get("Changes", []):
+        resource = change.get("ResourceChange", {})
+        if resource.get("Replacement") == "True" or resource.get("Action") == "Remove":
+            risky.append(resource.get("LogicalResourceId", "?"))
+    return risky
+
+
+def update_staging(ctx: Context) -> None:
+    """Re-upload the staging template and update the running stack in place."""
+    parameters = current_staging_parameters(ctx)
+    revision = parameters["InfrastructureRevision"]
+    body = staging_template_bytes()
+    key = f"releases/{revision}/{STAGING_TEMPLATE}"
+    published, size = head_sha256(ctx.client("s3"), ctx.bucket, key)
+    if size is not None and published == sha256_bytes(body):
+        raise Refusal(
+            f"nothing changed: s3://{ctx.bucket}/{key} already holds this staging template"
+        )
+    asset = Asset(key, sha256_bytes(body), len(body), data=body, immutable=False)
+    upload_asset(ctx, asset)
+    name = f"update-{asset.sha256[:12]}-{int(time.time())}"
+    cloudformation = ctx.client("cloudformation")
+    cloudformation.create_change_set(
+        StackName=ctx.stack_name,
+        ChangeSetName=name,
+        ChangeSetType="UPDATE",
+        TemplateURL=(f"https://{ctx.bucket}.s3.{ctx.region}.amazonaws.com/{key}"),
+        Parameters=[{"ParameterKey": k, "UsePreviousValue": True} for k in parameters],
+        Capabilities=[
+            "CAPABILITY_IAM",
+            "CAPABILITY_NAMED_IAM",
+            "CAPABILITY_AUTO_EXPAND",
+        ],
+    )
+    described = wait_for_change_set(ctx, name)
+    reason = described.get("StatusReason", "")
+    if described["Status"] == "FAILED":
+        discard_change_set(ctx, name)
+        if any(marker in reason for marker in NO_CHANGES):
+            raise Refusal(
+                "nothing changed: CloudFormation found no difference to apply"
+            )
+        raise Refusal(f"CloudFormation rejected the update: {reason}")
+    risky = replaced_resources(described)
+    if risky:
+        discard_change_set(ctx, name)
+        raise Refusal(
+            f"the update would replace or remove {', '.join(risky)}, which would lose the "
+            "builder's /workshop work directory. Nothing was applied; use `staging down` "
+            "and `staging up` if you accept that."
+        )
+    before = stack_info(ctx).get("LastUpdatedTime")
+    cloudformation.execute_change_set(StackName=ctx.stack_name, ChangeSetName=name)
+    wait_for_stack(ctx, "UPDATE_COMPLETE", update_from=before)
+    ctx.out(
+        "    the running builder has the new template; its work directory is untouched"
+    )
+
+
+def plan_staging_update(ctx: Context) -> list[Step]:
+    validate_workshop_name(ctx.stack_name)
+    try:
+        require_clean_tree()
+    except Refusal as refusal:
+        if not ctx.dry_run:
+            raise
+        ctx.out(f"warning (dry run, a real run would refuse): {refusal}")
+    stack = {"StackName": ctx.stack_name}
+    return [
+        Step(
+            "re-upload the staging template and update the running stack in place (a change "
+            "set first; refuse when nothing changed or the builder would be replaced)",
+            (
+                ("cloudformation", "DescribeStacks", stack),
+                (
+                    "s3",
+                    "HeadObject",
+                    {
+                        "Bucket": ctx.bucket,
+                        "Key": "releases/<rev>/hybrid-retrieval-staging.yml",
+                    },
+                ),
+                (
+                    "s3",
+                    "PutObject",
+                    {
+                        "Bucket": ctx.bucket,
+                        "Key": "releases/<rev>/hybrid-retrieval-staging.yml",
+                    },
+                ),
+                (
+                    "cloudformation",
+                    "CreateChangeSet",
+                    {**stack, "ChangeSetType": "UPDATE"},
+                ),
+                ("cloudformation", "DescribeChangeSet", stack),
+                ("cloudformation", "ExecuteChangeSet", stack),
+            ),
+            run=update_staging,
+        )
+    ]
+
+
 def require_bundle_uploaded(ctx: Context, *, force: bool) -> None:
     """Refuse to delete the builder before its upload finished, unless forced.
 
@@ -2045,7 +2207,7 @@ def build_parser() -> argparse.ArgumentParser:
     staging = commands.add_parser(
         "staging", parents=[shared], help="manage the staging stack"
     )
-    staging.add_argument("action", choices=["up", "down", "status"])
+    staging.add_argument("action", choices=["up", "update", "down", "status"])
     staging.add_argument(
         "--force",
         action="store_true",
@@ -2132,6 +2294,8 @@ def plan_for(args: argparse.Namespace, ctx: Context) -> list[Step]:
         return plan_contracts_pull(ctx)
     if args.action == "up":
         return plan_staging_up(ctx)
+    if args.action == "update":
+        return plan_staging_update(ctx)
     if args.action == "down":
         return plan_staging_down(ctx, force=args.force)
     return plan_status(ctx, show_token=True)
