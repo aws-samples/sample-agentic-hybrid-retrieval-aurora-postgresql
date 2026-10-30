@@ -1,5 +1,10 @@
 #!/bin/bash
 set -Eeuo pipefail
+# Ignored before anything is spawned, so the log pipe and every child inherit it:
+# a session kill or a service restart that hangs up the terminal must not end a
+# provisioning run that systemd already supervises.
+trap '' HUP
+
 exec > >(tee -a /var/log/mosaic-bootstrap.log | logger -t mosaic-bootstrap -s 2>/dev/console) 2>&1
 
 # The tail of this log, JSON-escaped for a wait-condition Reason.
@@ -55,9 +60,23 @@ sys.stdout.write(encoded)
   fi
 }
 
+# A reboot or shutdown stops this script mid-step; it is not a failed provision,
+# and CloudFormation must not roll back a host that resumes at the next boot. A
+# child killed by TERM or HUP on a running system is a real death, so the exit
+# status alone decides nothing: only the system's state does.
+shutting_down() {
+  [[ "$(systemctl is-system-running 2>/dev/null || true)" == stopping ]] ||
+    systemctl list-jobs 2>/dev/null | grep -q -E 'reboot|shutdown|poweroff|halt'
+}
+
 signal_failure() {
   rc="$1"
   trap - ERR
+  if shutting_down; then
+    echo "Mosaic bootstrap interrupted by a shutdown (status $rc);" \
+      "mosaic-bootstrap.service resumes at the next boot"
+    exit "$rc"
+  fi
   # The cause goes first: CloudFormation can begin rolling back, and stop this host,
   # on the first FAILURE it hears, and only the bootstrap handle carries the cause.
   if [[ -n "${BOOTSTRAP_WAIT_HANDLE:-}" ]]; then
@@ -150,8 +169,61 @@ for variable in "${required_defined_environment[@]}"; do
   fi
 done
 
-REPO="$HOME_FOLDER/sample-agentic-hybrid-retrieval-aurora-postgresql"
+# systemd sends TERM when the host shuts down. Bash runs this handler between
+# commands, so the log names the stop before the service ends.
+stop_for_shutdown() {
+  trap - ERR
+  echo "Mosaic bootstrap stopping for a shutdown; the service resumes at the next boot"
+  exit 143
+}
+trap stop_for_shutdown TERM
 
+# A phase's marker is written only after its function returns, so a phase cut
+# short by a reboot starts again from its first line; every phase body is safe
+# to run twice.
+STATE_DIR=/var/lib/mosaic-bootstrap
+install -d -m 700 "$STATE_DIR"
+run_phase() {
+  local name="$1" function="$2"
+  if [[ -e "$STATE_DIR/$name.done" ]]; then
+    printf '%s phase %s: skip\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$name"
+    return 0
+  fi
+  printf '%s phase %s: start\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$name"
+  "$function"
+  touch "$STATE_DIR/$name.done"
+  printf '%s phase %s: done\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$name"
+}
+
+# Every command run as the participant gets its own session, so a hangup sent to
+# this script's session cannot reach npm, uv or git halfway through a build.
+# Whether an ignored HUP survives sudo on Amazon Linux 2023 was not verified.
+sudo() {
+  setsid -w sudo "$@"
+}
+
+# Appends stdin to a file unless the marker text is already there, so a phase
+# that runs twice leaves one copy of each block in the participant's .bashrc.
+append_once() {
+  local file="$1" marker="$2" block
+  block=$(cat)
+  if ! grep -qF -- "$marker" "$file" 2>/dev/null; then
+    printf '%s\n' "$block" >>"$file"
+  fi
+}
+
+REPO="$HOME_FOLDER/sample-agentic-hybrid-retrieval-aurora-postgresql"
+CODE_EDITOR_VERSION='v1.101.2'
+CODE_EDITOR_DISTRIBUTION='code-editor-server-v1.101.2-1785233990.076216280-linux-arm64.tar.gz'
+CODE_EDITOR_SHA256='1965ca15854f1faa8907e6e91c0e87ee887b24d458771b352a71e08fb41d6d60'
+CODE_EDITOR_ROOT="/home/$CODE_EDITOR_USER/.local/lib/code-editor-$CODE_EDITOR_VERSION-linux-arm64"
+CODE_EDITOR_ARCHIVE="/tmp/$CODE_EDITOR_DISTRIBUTION"
+APP_DB_USER='mosaic_runtime'
+
+# The phase bodies below keep the column-zero layout of the script they came from:
+# the Workshop Studio validator anchors several of its checks (pgpass_escape, the
+# profile.d heredoc) to the start of a line.
+install_packages() {
 # nodejs22, not nodejs20, and never the bare `npm`. AL2023 registers each Node
 # through `alternatives`, and the unversioned `npm` package is Node 18's: asking
 # for it silently installs nodejs-18 as a dependency, which then wins the
@@ -197,12 +269,9 @@ chmod 440 /etc/sudoers.d/90-workshop
 
 mkdir -p "$HOME_FOLDER"
 chown "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$HOME_FOLDER"
+}
 
-CODE_EDITOR_VERSION='v1.101.2'
-CODE_EDITOR_DISTRIBUTION='code-editor-server-v1.101.2-1785233990.076216280-linux-arm64.tar.gz'
-CODE_EDITOR_SHA256='1965ca15854f1faa8907e6e91c0e87ee887b24d458771b352a71e08fb41d6d60'
-CODE_EDITOR_ROOT="/home/$CODE_EDITOR_USER/.local/lib/code-editor-$CODE_EDITOR_VERSION-linux-arm64"
-CODE_EDITOR_ARCHIVE="/tmp/$CODE_EDITOR_DISTRIBUTION"
+install_code_editor() {
 # install only assigns ownership to named paths; root-owned parents block uv's
 # later creation of ~/.local/share/uv/python as the participant.
 install -d -o "$CODE_EDITOR_USER" -g "$CODE_EDITOR_USER" \
@@ -247,7 +316,9 @@ RestartSec=5
 [Install]
 WantedBy=multi-user.target
 EOF
+}
 
+configure_nginx() {
 cat >/etc/nginx/nginx.conf <<'NGINX_MAIN'
 user nginx;
 worker_processes auto;
@@ -267,7 +338,7 @@ http {
 }
 NGINX_MAIN
 
-cat >/etc/nginx/conf.d/mosaic.conf <<'NGINX'
+  cat >/etc/nginx/conf.d/mosaic.conf <<'NGINX'
 map $http_upgrade $connection_upgrade {
     default upgrade;
     '' close;
@@ -357,35 +428,35 @@ server {
 }
 NGINX
 
-# A secret crossing a format boundary must be escaped for that format, and a
-# `sed s///` replacement is the worst of them: `/` ends the expression, `&`
-# inserts the whole match, and `\1` interpolates. None of those would fail
-# loudly -- nginx would still parse, the origin-verify header would simply never
-# match, and every participant request would 403 with nothing naming why.
-#
-# `[A-Za-z0-9_-]` covers both a Secrets-Manager-style `ExcludePunctuation: true`
-# generator (pure alphanumeric, the historical case) and `secrets.token_urlsafe`
-# (adds only `-` and `_`, as APP_DB_PASSWORD below uses): neither can produce a
-# `"`, `\`, or `$`, the three characters that would break out of this nginx
-# double-quoted string or its own variable interpolation. That coupling to
-# whatever generates ORIGIN_VERIFY_SECRET is invisible from here, so it is
-# asserted rather than assumed: if the generator ever changes to admit one of
-# those three characters, this fails by name instead of producing a host that
-# looks healthy and rejects everyone.
-if [[ ! $ORIGIN_VERIFY_SECRET =~ ^[A-Za-z0-9_-]+$ ]]; then
-  echo "Mosaic bootstrap requires an ORIGIN_VERIFY_SECRET made only of" \
-    "letters, digits, '-', and '_'; the nginx origin-verify substitution" \
-    "below is only representation-safe for that character set. If the" \
-    "generator changed, exclude punctuation there or add explicit escaping" \
-    "here."
-  signal_failure 2
-fi
-# Literal, not pattern-based: python replaces the placeholder as an exact string,
-# so no character in the value is interpreted. Kept alongside the assertion above
-# rather than instead of it, because the nginx quoted string has its own grammar
-# this substitution cannot fix.
-ORIGIN_VERIFY_SECRET="$ORIGIN_VERIFY_SECRET" python3.13 - \
-  /etc/nginx/conf.d/mosaic.conf <<'PYTHON'
+  # A secret crossing a format boundary must be escaped for that format, and a
+  # `sed s///` replacement is the worst of them: `/` ends the expression, `&`
+  # inserts the whole match, and `\1` interpolates. None of those would fail
+  # loudly -- nginx would still parse, the origin-verify header would simply never
+  # match, and every participant request would 403 with nothing naming why.
+  #
+  # `[A-Za-z0-9_-]` covers both a Secrets-Manager-style `ExcludePunctuation: true`
+  # generator (pure alphanumeric, the historical case) and `secrets.token_urlsafe`
+  # (adds only `-` and `_`, as APP_DB_PASSWORD below uses): neither can produce a
+  # `"`, `\`, or `$`, the three characters that would break out of this nginx
+  # double-quoted string or its own variable interpolation. That coupling to
+  # whatever generates ORIGIN_VERIFY_SECRET is invisible from here, so it is
+  # asserted rather than assumed: if the generator ever changes to admit one of
+  # those three characters, this fails by name instead of producing a host that
+  # looks healthy and rejects everyone.
+  if [[ ! $ORIGIN_VERIFY_SECRET =~ ^[A-Za-z0-9_-]+$ ]]; then
+    echo "Mosaic bootstrap requires an ORIGIN_VERIFY_SECRET made only of" \
+      "letters, digits, '-', and '_'; the nginx origin-verify substitution" \
+      "below is only representation-safe for that character set. If the" \
+      "generator changed, exclude punctuation there or add explicit escaping" \
+      "here."
+    signal_failure 2
+  fi
+  # Literal, not pattern-based: python replaces the placeholder as an exact string,
+  # so no character in the value is interpreted. Kept alongside the assertion above
+  # rather than instead of it, because the nginx quoted string has its own grammar
+  # this substitution cannot fix.
+  ORIGIN_VERIFY_SECRET="$ORIGIN_VERIFY_SECRET" python3.13 - \
+    /etc/nginx/conf.d/mosaic.conf <<'PYTHON'
 import os
 import pathlib
 import sys
@@ -398,10 +469,12 @@ if placeholder not in body:
     raise SystemExit(f"{path} carries no {placeholder} to replace")
 path.write_text(body.replace(placeholder, secret), encoding="utf-8")
 PYTHON
-nginx -t
-systemctl enable nginx code-editor
-systemctl restart nginx code-editor
+  nginx -t
+  systemctl enable nginx code-editor
+  systemctl restart nginx code-editor
+}
 
+install_claude_code() {
 # A pin, not the latest release: on 21 October the latest release moved every
 # new event to auto mode overnight. 2.1.312 passed the fresh-event checks on 28
 # October (manual mode, Shift+Tab without auto mode, Sonnet 5.5 through
@@ -437,12 +510,15 @@ cat >/etc/claude-code/managed-settings.json <<'EOF'
   "disableAutoMode": "disable"
 }
 EOF
-chmod 644 /etc/claude-code/managed-settings.json
-cat >>"/home/$CODE_EDITOR_USER/.bashrc" <<EOF
+  chmod 644 /etc/claude-code/managed-settings.json
+  append_once "/home/$CODE_EDITOR_USER/.bashrc" \
+    'source /etc/profile.d/mosaic-claude.sh' <<EOF
 source /etc/profile.d/mosaic-claude.sh
 cd $HOME_FOLDER/sample-agentic-hybrid-retrieval-aurora-postgresql
 EOF
+}
 
+check_model_access() {
 # The first global-inference invoke in a cold account can throttle or
 # time out transiently; one failed attempt must not cost the full
 # two-hour stack. Real access blockers (use-case requirement, Private
@@ -522,14 +598,31 @@ if [ -z "$RERANK_CANARY_OK" ]; then
   echo "Cohere Rerank v3.5 (cohere.rerank-v3-5:0) is not invocable in this account; enable the model or run scripts/checks/check_model_access.py"
 fi
 test -n "$RERANK_CANARY_OK"
+}
 
-rm -rf "$REPO"
-sudo -u "$CODE_EDITOR_USER" -H git init "$REPO"
-sudo -u "$CODE_EDITOR_USER" -H git -C "$REPO" remote add origin "$REPO_URL"
-network_retry sudo -u "$CODE_EDITOR_USER" -H git -C "$REPO" fetch --depth 1 origin "$SOURCE_REVISION"
-sudo -u "$CODE_EDITOR_USER" -H git -C "$REPO" checkout --detach FETCH_HEAD
+phase_packages() {
+  install_packages
+  install_code_editor
+  configure_nginx
+  install_claude_code
+  check_model_access
+}
+
+clone_source() {
+# A checkout interrupted by a reboot may hold a half-written tree, so only a
+# directory at the pinned revision with no modified tracked file is kept.
+if ! sudo -u "$CODE_EDITOR_USER" -H git -C "$REPO" diff --quiet HEAD 2>/dev/null ||
+  [[ "$(sudo -u "$CODE_EDITOR_USER" -H git -C "$REPO" rev-parse HEAD 2>/dev/null)" != "$SOURCE_REVISION" ]]; then
+  rm -rf "$REPO"
+  sudo -u "$CODE_EDITOR_USER" -H git init "$REPO"
+  sudo -u "$CODE_EDITOR_USER" -H git -C "$REPO" remote add origin "$REPO_URL"
+  network_retry sudo -u "$CODE_EDITOR_USER" -H git -C "$REPO" fetch --depth 1 origin "$SOURCE_REVISION"
+  sudo -u "$CODE_EDITOR_USER" -H git -C "$REPO" checkout --detach FETCH_HEAD
+fi
 test "$(sudo -u "$CODE_EDITOR_USER" -H git -C "$REPO" rev-parse HEAD)" = "$SOURCE_REVISION"
+}
 
+install_git_hooks() {
 # Refuse commits in the participant checkout. Reading the tree stays untouched,
 # because every lab instructs `git diff` to inspect its seam and the API records
 # `source_worktree_dirty` from the same state. Committing is the part nothing in
@@ -550,7 +643,9 @@ HOOK
 chmod 0755 /opt/mosaic-workshop/git-hooks/pre-commit
 sudo -u "$CODE_EDITOR_USER" -H git -C "$REPO" config \
   core.hooksPath /opt/mosaic-workshop/git-hooks
+}
 
+configure_editor() {
 # The named workspace roots point to the real exercise directories. The one
 # folderOpen task belongs to the repository root included as Explore Mosaic
 # source, so it also works when an older link opens the repository as a folder.
@@ -581,14 +676,14 @@ cat >"$CODE_EDITOR_SETTINGS/settings.json" <<'EOF'
   "telemetry.telemetryLevel": "off"
 }
 EOF
-chown "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$CODE_EDITOR_SETTINGS/settings.json"
+  chown "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$CODE_EDITOR_SETTINGS/settings.json"
 
-# The login shell stays open for the session; background mode prevents Code
-# Editor from presenting it as a busy foreground task. It opens no file: a start
-# page opened from terminal start-up reappears over a participant's work whenever
-# a later terminal retries it.
-install -d -o "$CODE_EDITOR_USER" -g "$CODE_EDITOR_USER" "$REPO/.vscode"
-cat >"$REPO/.vscode/tasks.json" <<'EOF'
+  # The login shell stays open for the session; background mode prevents Code
+  # Editor from presenting it as a busy foreground task. It opens no file: a start
+  # page opened from terminal start-up reappears over a participant's work whenever
+  # a later terminal retries it.
+  install -d -o "$CODE_EDITOR_USER" -g "$CODE_EDITOR_USER" "$REPO/.vscode"
+  cat >"$REPO/.vscode/tasks.json" <<'EOF'
 {
   "version": "2.0.0",
   "tasks": [
@@ -614,9 +709,9 @@ cat >"$REPO/.vscode/tasks.json" <<'EOF'
   ]
 }
 EOF
-# Reuse the workspace settings for older folder links. The folder-scoped
-# variable still resolves to the repository root in either editor view.
-python3.13 - "$REPO" <<'EDITOR_SETTINGS'
+  # Reuse the workspace settings for older folder links. The folder-scoped
+  # variable still resolves to the repository root in either editor view.
+  python3.13 - "$REPO" <<'EDITOR_SETTINGS'
 import json
 import sys
 from pathlib import Path
@@ -626,22 +721,25 @@ settings = json.loads((root / "Mosaic.code-workspace").read_text())["settings"]
 settings["terminal.integrated.cwd"] = "${workspaceFolder}"
 (root / ".vscode/settings.json").write_text(json.dumps(settings, indent=2) + "\n")
 EDITOR_SETTINGS
-chown -R "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$REPO/.vscode"
+  chown -R "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$REPO/.vscode"
 
-# Code Editor 1.101.2 can stall on a first load of this multi-root workspace: an
-# Explorer with only Outline and Timeline, and no terminal until a reload. The
-# script explains the race and patches the workbench Code Editor serves; the
-# restart makes the first page any participant loads use the patched copy.
-CODE_EDITOR_WORKBENCH="$CODE_EDITOR_ROOT/dist/out/vs/code/browser/workbench/workbench.js"
-workbench_patch="$(sudo -u "$CODE_EDITOR_USER" python3.13 \
+  # Code Editor 1.101.2 can stall on a first load of this multi-root workspace: an
+  # Explorer with only Outline and Timeline, and no terminal until a reload. The
+  # script explains the race and patches the workbench Code Editor serves; the
+  # restart makes the first page any participant loads use the patched copy.
+  CODE_EDITOR_WORKBENCH="$CODE_EDITOR_ROOT/dist/out/vs/code/browser/workbench/workbench.js"
+  workbench_patch="$(sudo -u "$CODE_EDITOR_USER" python3.13 \
   "$REPO/deploy/patch_code_editor_workspace_race.py" "$CODE_EDITOR_WORKBENCH")"
-echo "$workbench_patch"
-case "$workbench_patch" in
-  *": unrecognised"*)
-    echo "Code Editor workbench left unpatched; a first load may stall until a reload." ;;
-esac
-systemctl restart code-editor
+  echo "$workbench_patch"
+  case "$workbench_patch" in
+    *": unrecognised"*)
+      echo "Code Editor workbench left unpatched; a first load may stall until a reload." ;;
+  esac
+  systemctl restart code-editor
+}
 
+write_claude_guidance() {
+CLAUDE_CODE_VERSION=$(claude --version | awk '{print $1}')
 # Claude Code asks every participant to choose a text style on first run. The
 # onboarding flags live in ~/.claude.json, and lastOnboardingVersion has to match
 # the installed CLI or the flow reappears. Merge rather than overwrite: the
@@ -715,15 +813,23 @@ EOF
 chown "$CODE_EDITOR_USER:$CODE_EDITOR_USER" \
   "/home/$CODE_EDITOR_USER/.claude/CLAUDE.md"
 chmod 644 "/home/$CODE_EDITOR_USER/.claude/CLAUDE.md"
+}
 
-SECRET_JSON=$(aws secretsmanager get-secret-value \
-  --secret-id "$DB_SECRET_ARN" \
-  --region "$AWS_REGION" \
-  --query SecretString \
-  --output text)
-DB_USER=$(jq -r '.username' <<<"$SECRET_JSON")
-DB_PASSWORD=$(jq -r '.password' <<<"$SECRET_JSON")
-DB_PORT=$(jq -r '.port // 5432' <<<"$SECRET_JSON")
+sync_python_environment() {
+network_retry sudo -u "$CODE_EDITOR_USER" -H bash -lc \
+  "cd '$REPO' && uv sync --frozen"
+sudo -u "$CODE_EDITOR_USER" -H bash -lc "cd '$REPO' && uv pip check"
+}
+
+phase_source() {
+  clone_source
+  install_git_hooks
+  configure_editor
+  write_claude_guidance
+  sync_python_environment
+}
+
+phase_secrets() {
 # Verify the database hostname as well as encrypting the connection. The CA
 # bundle arrives over authenticated HTTPS and is read-only to participants.
 install -d -m 755 /etc/pki/mosaic
@@ -731,19 +837,6 @@ curl --retry 4 --retry-all-errors --connect-timeout 15 --max-time 180 -fsSL \
   "https://truststore.pki.rds.amazonaws.com/$AWS_REGION/$AWS_REGION-bundle.pem" \
   -o /etc/pki/mosaic/rds-ca-bundle.pem
 chmod 644 /etc/pki/mosaic/rds-ca-bundle.pem
-DATABASE_URL=$(python3.13 - "$DB_USER" "$DB_PASSWORD" \
-  "$DB_CLUSTER_ENDPOINT" "$DB_PORT" "$DB_NAME" <<'PY'
-import sys
-from urllib.parse import quote
-
-user, password, host, port, database = sys.argv[1:6]
-print(
-    f"postgresql://{quote(user, safe='')}:{quote(password, safe='')}"
-    f"@{host}:{port}/{database}"
-    "?sslmode=verify-full&sslrootcert=/etc/pki/mosaic/rds-ca-bundle.pem"
-)
-PY
-)
 
 cat >"$REPO/.env" <<EOF
 DATABASE_URL='$DATABASE_URL'
@@ -786,7 +879,7 @@ chmod 600 "$REPO/.env"
 # bare `psql` never worked at all. Load it in every interactive shell instead, and
 # give libpq its own variables so `psql` with no arguments reaches Aurora too. The
 # password stays out of the environment and out of /etc, in a 0600 ~/.pgpass.
-cat >>"/home/$CODE_EDITOR_USER/.bashrc" <<EOF
+append_once "/home/$CODE_EDITOR_USER/.bashrc" "export PGHOST='$DB_CLUSTER_ENDPOINT'" <<EOF
 set -a
 [ -r '$REPO/.env' ] && . '$REPO/.env'
 set +a
@@ -800,7 +893,7 @@ EOF
 
 # Match the familiar green identity and blue path used in the Builder workshop
 # terminals without recoloring participant commands or Claude Code output.
-cat >>"/home/$CODE_EDITOR_USER/.bashrc" <<'EOF'
+append_once "/home/$CODE_EDITOR_USER/.bashrc" 'export PS1=' <<'EOF'
 export PS1='\[\033[01;32m\]\u:\[\033[01;34m\]\w\[\033[00m\]\$ '
 EOF
 
@@ -829,11 +922,60 @@ chown "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "/home/$CODE_EDITOR_USER/.pgpass"
 chmod 600 "/home/$CODE_EDITOR_USER/.pgpass"
 sudo -u "$CODE_EDITOR_USER" -H bash -lc \
   "psql -X -Atc 'SELECT 1' >/dev/null"
+}
 
-network_retry sudo -u "$CODE_EDITOR_USER" -H bash -lc \
-  "cd '$REPO' && uv sync --frozen"
-sudo -u "$CODE_EDITOR_USER" -H bash -lc "cd '$REPO' && uv pip check"
+# Read again at every start: the phases that follow run in a new process after a
+# reboot, and the admin credentials are never written to the state directory.
+load_database_credentials() {
+SECRET_JSON=$(aws secretsmanager get-secret-value \
+  --secret-id "$DB_SECRET_ARN" \
+  --region "$AWS_REGION" \
+  --query SecretString \
+  --output text)
+DB_USER=$(jq -r '.username' <<<"$SECRET_JSON")
+DB_PASSWORD=$(jq -r '.password' <<<"$SECRET_JSON")
+DB_PORT=$(jq -r '.port // 5432' <<<"$SECRET_JSON")
+DATABASE_URL=$(python3.13 - "$DB_USER" "$DB_PASSWORD" \
+  "$DB_CLUSTER_ENDPOINT" "$DB_PORT" "$DB_NAME" <<'PY'
+import sys
+from urllib.parse import quote
 
+user, password, host, port, database = sys.argv[1:6]
+print(
+    f"postgresql://{quote(user, safe='')}:{quote(password, safe='')}"
+    f"@{host}:{port}/{database}"
+    "?sslmode=verify-full&sslrootcert=/etc/pki/mosaic/rds-ca-bundle.pem"
+)
+PY
+)
+}
+
+# The runtime role's password is generated once and kept in the root-only state
+# directory: the image phase sets it on the role, and the services phase may run
+# in a later process that must write the same DSN into the API's environment.
+load_app_database_url() {
+  local password_file="$STATE_DIR/app-db-password"
+  if [[ ! -s "$password_file" ]]; then
+    (umask 077 && python3.13 -c \
+      'import secrets; print(secrets.token_urlsafe(32))' >"$password_file")
+  fi
+  APP_DB_PASSWORD=$(<"$password_file")
+  APP_DATABASE_URL=$(python3.13 - "$APP_DB_USER" "$APP_DB_PASSWORD" \
+    "$DB_CLUSTER_ENDPOINT" "$DB_PORT" "$DB_NAME" <<'PY'
+import sys
+from urllib.parse import quote
+
+user, password, host, port, database = sys.argv[1:6]
+print(
+    f"postgresql://{quote(user, safe='')}:{quote(password, safe='')}"
+    f"@{host}:{port}/{database}"
+    "?sslmode=verify-full&sslrootcert=/etc/pki/mosaic/rds-ca-bundle.pem"
+)
+PY
+)
+}
+
+phase_image() {
 # CloudFormation creates the two runtimes and Gateway only after the image-ready
 # wait condition below completes, and they take 11 to 12 minutes. Publishing the
 # image before the catalog restore lets them build during it; on 20 October they
@@ -841,9 +983,7 @@ sudo -u "$CODE_EDITOR_USER" -H bash -lc "cd '$REPO' && uv pip check"
 # The runtimes need only the runtime role's DSN in their secret: they connect
 # on first use. The role's table grants follow the restore, which creates the
 # tables, and connect-bootstrap proves the tools against the restored catalog.
-APP_DB_USER='mosaic_runtime'
-APP_DB_PASSWORD=$(python3.13 -c \
-  'import secrets; print(secrets.token_urlsafe(32))')
+load_app_database_url
 psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 \
   --set=app_user="$APP_DB_USER" \
   --set=app_password="$APP_DB_PASSWORD" \
@@ -867,19 +1007,6 @@ SELECT format(
 \gexec
 SQL
 
-APP_DATABASE_URL=$(python3.13 - "$APP_DB_USER" "$APP_DB_PASSWORD" \
-  "$DB_CLUSTER_ENDPOINT" "$DB_PORT" "$DB_NAME" <<'PY'
-import sys
-from urllib.parse import quote
-
-user, password, host, port, database = sys.argv[1:6]
-print(
-    f"postgresql://{quote(user, safe='')}:{quote(password, safe='')}"
-    f"@{host}:{port}/{database}"
-    "?sslmode=verify-full&sslrootcert=/etc/pki/mosaic/rds-ca-bundle.pem"
-)
-PY
-)
 # Image build and push are network-bound (dnf, pip, uv sync, the RDS bundle), and
 # image_digest makes a rerun resume rather than rebuild. The URL travels in the
 # environment, not argv, so it never appears in a process listing.
@@ -899,10 +1026,15 @@ for image_attempt in 1 2 3 4 5; do
   sleep 10
 done
 test -n "$IMAGE_READY_OK"
+}
+
+phase_ui() {
 network_retry sudo -u "$CODE_EDITOR_USER" -H bash -lc \
   "cd '$REPO/ui' && npm ci"
 sudo -u "$CODE_EDITOR_USER" -H bash -lc "cd '$REPO/ui' && npm run build"
+}
 
+phase_catalog() {
 REAL_CATALOG_CACHE_URI=$(printf 's3://%s/%sreal-catalog/' \
   "$ASSETS_BUCKET" "$ASSETS_PREFIX")
 # Verify the immutable catalog input before the first database write. A source pin
@@ -932,6 +1064,18 @@ sudo -u "$CODE_EDITOR_USER" -H bash -lc "
   source .env
   set +a
   export MOSAIC_VOCABULARY_CACHE_DIR=build/real-catalog-cache/vocabulary
+  # A restore cut short by a reboot can leave its session on Aurora until the
+  # server notices the dead connection, still holding the dataset's advisory lock.
+  # Only this bootstrap writes the dataset, so ending that session is safe.
+  psql \"\$DATABASE_URL\" -X -v ON_ERROR_STOP=1 -At -c \"SELECT count(pg_terminate_backend(pid)) FROM pg_stat_activity WHERE application_name = 'mosaic-real-cache-restore' AND pid <> pg_backend_pid()\"
+  # Termination only signals the session; it still holds the dataset's advisory
+  # lock while it rolls back, and the restore gives up on that lock after 5 s.
+  for lock_wait in \$(seq 1 30); do
+    remaining=\$(psql \"\$DATABASE_URL\" -X -At -c \"SELECT count(*) FROM pg_stat_activity WHERE application_name = 'mosaic-real-cache-restore' AND pid <> pg_backend_pid()\")
+    [ \"\$remaining\" = 0 ] && break
+    echo \"waiting for an earlier restore session to end (\$remaining left)\"
+    sleep 2
+  done
   make db-bootstrap-schema
   uv run python scripts/catalog/real_catalog_cache.py restore \
     --archive build/real-catalog-cache/real-catalog.tar.gz \
@@ -939,6 +1083,7 @@ sudo -u "$CODE_EDITOR_USER" -H bash -lc "
     --report build/real-catalog-restore.json
   export MOSAIC_CATALOG_DATASET=\$(uv run python -c \
     'import json; print(json.load(open(\"db/config/real-catalog-cache.json\"))[\"dataset_id\"])')
+  sed -i '/^MOSAIC_CATALOG_DATASET=/d' .env
   printf '\\nMOSAIC_CATALOG_DATASET=%s\\n' \"\$MOSAIC_CATALOG_DATASET\" >> .env
   make db-verify-bootstrap
   uv run python scripts/cache_lab2_arms.py --for-workshop
@@ -957,7 +1102,10 @@ sudo -u "$CODE_EDITOR_USER" -H bash -lc "
   psql \"\$DATABASE_URL\" -X -v ON_ERROR_STOP=1 \
     -f db/sql/99_smoke_test.sql
 "
+}
 
+phase_services() {
+load_app_database_url
 # The storefront offers a link back to Code Editor, which needs the editor's
 # CloudFront domain. The template cannot pass it in: both distributions have this
 # instance as their origin, so neither domain exists when this user data renders.
@@ -989,6 +1137,9 @@ if [[ -n "${WORKSHOP_NAME:-}" ]]; then
   fi
 else
   echo "WORKSHOP_NAME is unset; skipping Code Editor URL discovery"
+fi
+if grep -qs '^MOSAIC_CODE_EDITOR_URL=' "$REPO/.env"; then
+  sed -i '/^MOSAIC_CODE_EDITOR_URL=/d' "$REPO/.env"
 fi
 if [[ -n "$CODE_EDITOR_DOMAIN" ]]; then
   printf "MOSAIC_CODE_EDITOR_URL='https://%s/?workspace=%s/%s/Mosaic.code-workspace'\n" \
@@ -1140,7 +1291,7 @@ http {
 }
 EOF
 
-cat >/etc/systemd/system/mosaic-ui.service <<EOF
+  cat >/etc/systemd/system/mosaic-ui.service <<EOF
 [Unit]
 Description=Mosaic built application
 After=network-online.target mosaic-api.service
@@ -1161,13 +1312,13 @@ RestartSec=5
 WantedBy=multi-user.target
 EOF
 
-# The optional Scale & HNSW page reads exact neighbours and two quantized
-# indexes: about seven minutes of Aurora work that no required lab uses. They
-# build after CloudFormation hears success, so the stack does not wait for
-# them; until they finish the page names what is missing. Both steps are
-# idempotent, so a failed run retries. Facilitators read the outcome with
-# `journalctl -u mosaic-hnsw-prepare`.
-cat >/etc/systemd/system/mosaic-hnsw-prepare.service <<EOF
+  # The optional Scale & HNSW page reads exact neighbours and two quantized
+  # indexes: about seven minutes of Aurora work that no required lab uses. They
+  # build after CloudFormation hears success, so the stack does not wait for
+  # them; until they finish the page names what is missing. Both steps are
+  # idempotent, so a failed run retries. Facilitators read the outcome with
+  # `journalctl -u mosaic-hnsw-prepare`.
+  cat >/etc/systemd/system/mosaic-hnsw-prepare.service <<EOF
 [Unit]
 Description=Mosaic Scale & HNSW ground truth and quantized indexes
 After=network-online.target
@@ -1187,9 +1338,15 @@ Restart=on-failure
 RestartSec=60
 EOF
 
-systemctl daemon-reload
-systemctl enable mosaic-api mosaic-ui
-systemctl restart mosaic-api mosaic-ui
+  systemctl daemon-reload
+  systemctl enable mosaic-api mosaic-ui
+  systemctl restart mosaic-api mosaic-ui
+}
+
+phase_readiness() {
+set -a
+source "$REPO/.env"
+set +a
 
 # Wraps curl with the shared origin secret header every authorized call below
 # needs, so these acceptance checks cannot drift out of sync with each other
@@ -1311,15 +1468,26 @@ jq -r '"  lab 1 broken       trigram_in_pool=\(.diagnostics.candidate_counts.tri
   /tmp/lab1-broken-proof.json
 printf '  timings             see build/bootstrap-timings.tsv\n'
 printf '=== every acceptance check passed; signalling CloudFormation ===\n\n'
+}
+
+run_phase packages phase_packages
+run_phase source phase_source
+load_database_credentials
+run_phase secrets phase_secrets
+run_phase image phase_image
+run_phase ui phase_ui
+run_phase catalog phase_catalog
+run_phase services phase_services
+run_phase readiness phase_readiness
 
 trap - ERR
 # Every acceptance check above already passed, so a failure from here on is
 # the PUT itself, not the deploy: this is the one CloudFormation is waiting
 # on to mark the stack CREATE_COMPLETE. A single transient failure here used
-# to exit non-zero straight into the UserData wrapper's ERR trap, which
-# signals FAILURE and rolls back an otherwise green deploy. Retry the PUT
-# on its own before letting that happen; only the wrapper's already-retried
-# FAILURE path should run, and only if the endpoint stays unreachable.
+# to exit non-zero straight into the loader's ERR trap, which signals FAILURE
+# and rolls back an otherwise green deploy. Retry the PUT on its own before
+# letting that happen; only the stop-post script's FAILURE path should run, and
+# only if the endpoint stays unreachable.
 SUCCESS_SIGNAL_OK=''
 for success_attempt in 1 2 3 4 5; do
   if curl --silent --show-error --fail -X PUT -H 'Content-Type:' \
@@ -1332,10 +1500,14 @@ for success_attempt in 1 2 3 4 5; do
   sleep 10
 done
 if [ -z "$SUCCESS_SIGNAL_OK" ]; then
-  echo "SUCCESS signal failed after 5 attempts; falling through to the UserData wrapper's FAILURE retry path"
+  echo "SUCCESS signal failed after 5 attempts; falling through to the stop-post script's FAILURE path"
   exit 1
 fi
 # The workshop is accepted; the optional build must not change that outcome.
 systemctl start --no-block mosaic-hnsw-prepare.service ||
   echo "mosaic-hnsw-prepare did not start; the Scale & HNSW page stays incomplete"
+# Written last: a reboot before this line reruns the PUT (a duplicate SUCCESS is
+# harmless) and the hnsw start, while a marker written earlier would leave
+# CloudFormation waiting for a signal never sent, or the optional page unbuilt.
+touch "$STATE_DIR/complete"
 printf 'MOSAIC_BOOTSTRAP_COMPLETE\n'

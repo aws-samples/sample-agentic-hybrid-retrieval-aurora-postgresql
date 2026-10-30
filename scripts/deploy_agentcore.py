@@ -718,6 +718,27 @@ def not_ready_message(
     )
 
 
+def write_connection_values(paths: tuple[Path, ...], values: dict[str, str]) -> None:
+    """Put the discovered connection keys into each env file, replacing earlier copies.
+
+    A bootstrap resumed after a reboot runs connect-bootstrap again, so the keys are
+    replaced rather than appended a second time.
+    """
+    for path in paths:
+        kept = [
+            line
+            for line in path.read_text().splitlines()
+            if line.split("=", 1)[0] not in values
+        ]
+        staged = path.with_name(path.name + ".next")
+        staged.write_text(
+            "".join(f"{line}\n" for line in kept)
+            + "".join(f"{key}='{value}'\n" for key, value in values.items())
+        )
+        # A reboot between truncate and write would leave the API without its keys.
+        os.replace(staged, path)
+
+
 def main() -> int:
     from dotenv import load_dotenv
 
@@ -740,10 +761,9 @@ def main() -> int:
             stage(bootstrap=True)
         elif args.action == "connect-bootstrap":
             values = discover()
-            for path in (ROOT / ".env", Path("/etc/mosaic-api.env")):
-                with path.open("a") as output:
-                    for key, value in values.items():
-                        output.write(f"{key}='{value}'\n")
+            write_connection_values(
+                (ROOT / ".env", Path("/etc/mosaic-api.env")), values
+            )
             os.environ.update(values)
             verify()
         elif args.action == "deploy":

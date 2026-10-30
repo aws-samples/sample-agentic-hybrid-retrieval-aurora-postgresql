@@ -1207,35 +1207,26 @@ Resources:
 
             BOOTSTRAP_WAIT_HANDLE='${BootstrapWaitHandle}'
             IMAGE_READY_WAIT_HANDLE='${ImageReadyWaitHandle}'
-            BOOTSTRAP_PHASE=loader
             rm -f /run/mosaic-bootstrap-failure-signalled
-            # Only three things run before the bootstrap takes over, so name them
-            # instead of pointing at a log file that rollback deletes along with
-            # the host. A stale assets sync fails at the sha256 check with an error
-            # that otherwise mentions neither S3 nor the script.
+            # Only the loader's own steps run here, so name them instead of pointing at a
+            # log file that rollback deletes along with the host. A stale assets sync fails
+            # at the sha256 check with an error that otherwise mentions neither S3 nor the
+            # script.
             #
-            # The editor launcher, not CloudFormation, starts this host, so the
-            # stack takes no signal for the instance: both gates are wait
-            # conditions, whose handles need no IAM. The bootstrap gate hears a
-            # loader failure first, because rollback can begin on the first
-            # FAILURE and only that gate carries the cause; the image-ready gate
-            # follows so a loader failure never holds the stack until its timeout.
-            # The bootstrap script records an acknowledged failure signal;
-            # preserve its redacted cause when this outer ERR trap handles the same
-            # nonzero exit.
+            # The editor launcher, not CloudFormation, starts this host, so the stack takes
+            # no signal for the instance: both gates are wait conditions, whose handles need
+            # no IAM. The bootstrap gate hears a loader failure first, because rollback can
+            # begin on the first FAILURE and only that gate carries the cause; the
+            # image-ready gate follows so a loader failure never holds the stack until its
+            # timeout. Once the bootstrap service starts, mosaic-bootstrap-stop-post.sh
+            # reports a script that dies without a failure signal of its own.
             signal_failure() {
               rc="$1"
               trap - ERR
-              if [ "$BOOTSTRAP_PHASE" = loader ]; then
-                reason='Mosaic bootstrap loader failed before mosaic-bootstrap.sh ran. Check awscli installation, S3 bootstrap download and BootstrapScriptSha256 asset parity.'
-              else
-                reason='Mosaic bootstrap execution or final CloudFormation signal failed without an acknowledged failure report. Inspect /var/log/mosaic-bootstrap.log and cloud-init-output.log; correct the failing step before provisioning again.'
-              fi
-              if [ ! -f /run/mosaic-bootstrap-failure-signalled ]; then
-                curl --silent --show-error --fail -X PUT -H 'Content-Type:' \
-                  --data-binary "{\"Status\":\"FAILURE\",\"Reason\":\"$reason\",\"UniqueId\":\"userdata\",\"Data\":\"failed\"}" \
-                  "$BOOTSTRAP_WAIT_HANDLE" || true
-              fi
+              reason='Mosaic bootstrap loader failed before mosaic-bootstrap.sh ran. Check awscli installation, S3 bootstrap download, BootstrapScriptSha256 asset parity and the systemd unit.'
+              curl --silent --show-error --fail -X PUT -H 'Content-Type:' \
+                --data-binary "{\"Status\":\"FAILURE\",\"Reason\":\"$reason\",\"UniqueId\":\"userdata\",\"Data\":\"failed\"}" \
+                "$BOOTSTRAP_WAIT_HANDLE" || true
               curl --silent --show-error --fail -X PUT -H 'Content-Type:' \
                 --data-binary "{\"Status\":\"FAILURE\",\"Reason\":\"$reason\",\"UniqueId\":\"image-ready\",\"Data\":\"failed\"}" \
                 "$IMAGE_READY_WAIT_HANDLE" || true
@@ -1278,8 +1269,90 @@ Resources:
             export DB_INSTANCE_CLASS='${DBInstanceClass}'
             export WORKSHOP_NAME='${WorkshopName}'
 
-            BOOTSTRAP_PHASE=bootstrap
-            "$BOOTSTRAP_SCRIPT"
+            # A patch run or a reboot ends this session's children, so the script runs as a
+            # unit that systemd starts again at the next boot. The unit reads its inputs
+            # from a file only root can read, written once here. Values go in double
+            # quotes with backslash and double quote escaped, which is what systemd's
+            # EnvironmentFile parser undoes; the stack's secrets carry no punctuation
+            # today, but a repository URL or a later secret may. (`${!` is a literal
+            # `${` to Fn::Sub.)
+            ENVIRONMENT_FILE=/etc/mosaic-bootstrap.env
+            install -m 600 /dev/null "$ENVIRONMENT_FILE"
+            for name in AWS_REGION AWS_DEFAULT_REGION BOOTSTRAP_WAIT_HANDLE \
+              IMAGE_READY_WAIT_HANDLE CODE_EDITOR_USER HOME_FOLDER REPO_URL SOURCE_REVISION \
+              MOSAIC_AGENTCORE_MEMORY_ID MOSAIC_RUNTIME_IMAGE_REPOSITORY \
+              MOSAIC_RUNTIME_DATABASE_SECRET_ARN MOSAIC_EDITOR_STACK DB_SECRET_ARN \
+              DB_CLUSTER_ENDPOINT DB_NAME ASSETS_BUCKET ASSETS_PREFIX \
+              CODE_EDITOR_CONNECTION_TOKEN ORIGIN_VERIFY_SECRET DB_INSTANCE_CLASS \
+              WORKSHOP_NAME; do
+              value=$(printenv "$name")
+              case "$value" in
+                *$'\n'*)
+                  echo "Loader rule: $name holds a newline; fix: use a value without one"
+                  false ;;
+              esac
+              value=${!value//\\/\\\\}
+              value=${!value//\"/\\\"}
+              printf '%s="%s"\n' "$name" "$value" >>"$ENVIRONMENT_FILE"
+            done
+
+            cat >/etc/systemd/system/mosaic-bootstrap.service <<'UNIT'
+            [Unit]
+            Description=Mosaic workshop host bootstrap
+            After=network-online.target cloud-final.service
+            Wants=network-online.target
+            ConditionPathExists=!/var/lib/mosaic-bootstrap/complete
+
+            [Service]
+            Type=exec
+            Environment=HOME=/root
+            EnvironmentFile=/etc/mosaic-bootstrap.env
+            ExecStart=/opt/mosaic-bootstrap.sh
+            ExecStopPost=/opt/mosaic-bootstrap-stop-post.sh
+            TimeoutStartSec=0
+            TimeoutStopSec=30
+            KillMode=mixed
+
+            [Install]
+            WantedBy=multi-user.target
+            UNIT
+
+            # Runs after every stop of the unit. A script that dies without reporting
+            # (killed, out of memory, a bash error the ERR trap never sees) would otherwise
+            # leave CloudFormation waiting out the two-hour timeout.
+            cat >/opt/mosaic-bootstrap-stop-post.sh <<'STOPPOST'
+            #!/bin/bash
+            LOG=/var/log/mosaic-bootstrap.log
+            MARKER=/run/mosaic-bootstrap-failure-signalled
+            if [ -e /var/lib/mosaic-bootstrap/complete ] || [ -e "$MARKER" ]; then
+              exit 0
+            fi
+            # A shutdown is not a failure: systemd stops the unit (TERM, then KILL after
+            # TimeoutStopSec) while the system is stopping or a reboot job is queued. A
+            # TERM on a running system is a real death and is reported like any other.
+            shutting_down=''
+            if [ "$(systemctl is-system-running 2>/dev/null || true)" = stopping ]; then
+              shutting_down=1
+            elif systemctl list-jobs 2>/dev/null | grep -q -E 'reboot|shutdown|poweroff|halt'; then
+              shutting_down=1
+            fi
+            if [ -n "$shutting_down" ]; then
+              echo "interrupted by a shutdown (status ${!EXIT_STATUS:-unknown}); mosaic-bootstrap.service resumes at the next boot" >>"$LOG"
+              exit 0
+            fi
+            reason='Mosaic bootstrap execution or final CloudFormation signal failed without an acknowledged failure report. Inspect /var/log/mosaic-bootstrap.log and cloud-init-output.log; correct the failing step before provisioning again.'
+            curl --silent --show-error --fail --max-time 10 -X PUT -H 'Content-Type:' \
+              --data-binary "{\"Status\":\"FAILURE\",\"Reason\":\"$reason\",\"UniqueId\":\"userdata\",\"Data\":\"failed\"}" \
+              "$BOOTSTRAP_WAIT_HANDLE" || true
+            curl --silent --show-error --fail --max-time 10 -X PUT -H 'Content-Type:' \
+              --data-binary "{\"Status\":\"FAILURE\",\"Reason\":\"$reason\",\"UniqueId\":\"image-ready\",\"Data\":\"failed\"}" \
+              "$IMAGE_READY_WAIT_HANDLE" || true
+            touch "$MARKER"
+            STOPPOST
+            chmod 700 /opt/mosaic-bootstrap-stop-post.sh
+
+            systemctl daemon-reload
+            systemctl enable --now --no-block mosaic-bootstrap.service
             trap - ERR
 
   # The bootstrap PUTs this handle once the runtime image is published; both

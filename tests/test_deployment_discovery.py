@@ -197,3 +197,25 @@ def test_bootstrap_stage_leaves_the_stack_to_the_image_ready_signal(monkeypatch)
     deploy.stage(bootstrap=True)
     assert services == ["secretsmanager"]
     secrets.put_secret_value.assert_called_once()
+
+
+def test_connect_bootstrap_replaces_its_keys_instead_of_appending_them(tmp_path):
+    from scripts.deploy_agentcore import write_connection_values
+
+    env = tmp_path / ".env"
+    env.write_text("DATABASE_URL='kept'\nMOSAIC_GATEWAY_URL='old'\n")
+    api = tmp_path / "mosaic-api.env"
+    api.write_text("")
+    values = {"MOSAIC_GATEWAY_URL": "new", "MOSAIC_AGENT_RUNTIME_ARN": "arn"}
+    write_connection_values((env, api), values)
+    write_connection_values((env, api), values)
+    assert env.read_text() == (
+        "DATABASE_URL='kept'\nMOSAIC_GATEWAY_URL='new'\nMOSAIC_AGENT_RUNTIME_ARN='arn'\n"
+    )
+    assert (
+        api.read_text() == "MOSAIC_GATEWAY_URL='new'\nMOSAIC_AGENT_RUNTIME_ARN='arn'\n"
+    )
+    assert sorted(path.name for path in tmp_path.iterdir()) == [
+        ".env",
+        "mosaic-api.env",
+    ], "a .next file was left behind"

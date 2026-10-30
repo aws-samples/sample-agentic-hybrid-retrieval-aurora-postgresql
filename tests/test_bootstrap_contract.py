@@ -686,17 +686,28 @@ def _assert_editor_install_owns_parent_directories(script):
     """GNU install assigns -o/-g only to named paths, leaving parents root-owned."""
     import subprocess
 
-    setup = re.search(
-        r"^CODE_EDITOR_VERSION=.*?^curl ", script, re.MULTILINE | re.DOTALL
+    constants = re.search(
+        r"^CODE_EDITOR_VERSION=.*?^CODE_EDITOR_ARCHIVE=[^\n]*",
+        script,
+        re.MULTILINE | re.DOTALL,
     )
-    assert setup, "restore the Code Editor directory setup before its download"
+    install = re.search(
+        r'^install -d -o "\$CODE_EDITOR_USER".*?/\.local/bin"$',
+        script,
+        re.MULTILINE | re.DOTALL,
+    )
+    assert constants and install, (
+        "restore the Code Editor directory setup before its download"
+    )
     result = subprocess.run(
         [
             "bash",
             "-c",
             "set -eu\nCODE_EDITOR_USER=participant\n"
             'install() { printf "%s\\n" "$@"; }\n'
-            + setup.group().removesuffix("curl "),
+            + constants.group()
+            + "\n"
+            + install.group(),
         ],
         text=True,
         capture_output=True,
