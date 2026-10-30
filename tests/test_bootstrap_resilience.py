@@ -578,3 +578,18 @@ def test_the_loader_and_the_script_agree_on_the_variables_it_hands_over(
         f"loader writes {sorted(written - expected)} the script does not require; "
         f"script requires {sorted(expected - written)} the loader never writes"
     )
+
+
+def test_every_placeholder_in_the_user_data_is_one_cloudformation_accepts(user_data):
+    """CloudFormation rejects `${...}` whose content is not a name, even behind `${!`.
+
+    Measured: a stack failed at creation with "variable names in Fn::Sub syntax must
+    contain only alphanumeric characters, underscores, periods, and colons" over a bash
+    expansion in a quoted heredoc.
+    """
+    offenders = [
+        match
+        for match in re.findall(r"\$\{[^}]*\}", user_data)
+        if not re.fullmatch(r"\$\{!?[A-Za-z0-9_.:]+\}", match)
+    ]
+    assert offenders == []
