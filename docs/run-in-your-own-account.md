@@ -68,7 +68,12 @@ Measured totals from the proof run:
 - Stack creation time: 46 minutes 55 seconds in the proof run, in us-west-2, including the
   host restoring the catalog (22 minutes) and one reboot by the account's patch-on-launch
   association
-- Cost of one build, one lab session and teardown: `[measured in the proof run]`
+- Cost of one build, one lab session and teardown: the embedding is the one large
+  per-build charge, about $33 at the rate the proof account was billed for Cohere Embed v4
+  input tokens ($0.12 per million). The rest is billed by the hour at your Region's
+  prices: the staging environment (a c7g.2xlarge builder and an Aurora cluster) ran for
+  about 9 hours, and the workshop stack about 2 hours from creation through the labs to
+  the end of teardown's first pass
 
 ## 2. Before you start
 
@@ -504,19 +509,11 @@ Once the labs make sense, move the pattern to your own data and application. See
 [Take this retrieval into your own agent](use-in-your-app.md) for the files to adapt,
 the tool contracts and the citation checks.
 
-## Numbers still to measure
+## What the proof run measured
 
-Each value marked `[measured in the proof run]` above needs a real run of this page
-before the page is released:
-
-1. Catalog build wall-clock time
-2. Catalog build Bedrock embedding tokens
-3. Embed v4 tokens per minute the build needed, and your account's default quota
-4. Bundle size and product count of a customer build
-5. Staging creation time, including the staging Aurora cluster
-6. `mosaic-catalog-bundle` duration
-7. Builder disk high-water mark and data transferred
-8. Stack creation time
-9. Cost of one build, one lab session and teardown
-10. How far Lab 2 positions move with freshly generated vectors
-11. Whether `make validate-evals` and the lab targets pass on rebuilt vectors
+The values on this page come from one run of it in a maintainer's own account on
+30 October 2026: the catalog built in us-east-1, the stack deployed and the labs run in
+us-west-2. The record, with every timing and the defects the run found and fixed, is
+[`docs/evidence/own-account-proof-2026-10-30.md`](evidence/own-account-proof-2026-10-30.md).
+Two things it did not measure: an uninterrupted evidence step (the source host's rate limit
+stopped two runs) and your account's default Embed v4 quota.
