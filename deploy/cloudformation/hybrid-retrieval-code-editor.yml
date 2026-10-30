@@ -1274,8 +1274,9 @@ Resources:
             # from a file only root can read, written once here. Values go in double
             # quotes with backslash and double quote escaped, which is what systemd's
             # EnvironmentFile parser undoes; the stack's secrets carry no punctuation
-            # today, but a repository URL or a later secret may. (`${!` is a literal
-            # `${` to Fn::Sub.)
+            # today, but a repository URL or a later secret may. No brace expansion of
+            # bash variables here: Fn::Sub rejects a dollar-brace whose content is not a
+            # name, even in a quoted heredoc or a comment.
             ENVIRONMENT_FILE=/etc/mosaic-bootstrap.env
             install -m 600 /dev/null "$ENVIRONMENT_FILE"
             for name in AWS_REGION AWS_DEFAULT_REGION BOOTSTRAP_WAIT_HANDLE \
@@ -1291,8 +1292,7 @@ Resources:
                   echo "Loader rule: $name holds a newline; fix: use a value without one"
                   false ;;
               esac
-              value=${!value//\\/\\\\}
-              value=${!value//\"/\\\"}
+              value=$(printf '%s' "$value" | sed 's/\\/\\\\/g; s/"/\\"/g')
               printf '%s="%s"\n' "$name" "$value" >>"$ENVIRONMENT_FILE"
             done
 
@@ -1337,7 +1337,7 @@ Resources:
               shutting_down=1
             fi
             if [ -n "$shutting_down" ]; then
-              echo "interrupted by a shutdown (status ${!EXIT_STATUS:-unknown}); mosaic-bootstrap.service resumes at the next boot" >>"$LOG"
+              echo "interrupted by a shutdown (status $EXIT_STATUS); mosaic-bootstrap.service resumes at the next boot" >>"$LOG"
               exit 0
             fi
             reason='Mosaic bootstrap execution or final CloudFormation signal failed without an acknowledged failure report. Inspect /var/log/mosaic-bootstrap.log and cloud-init-output.log; correct the failing step before provisioning again.'
