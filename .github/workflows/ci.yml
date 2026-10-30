@@ -85,6 +85,12 @@ jobs:
         if: ${{ !cancelled() && steps.python-deps.outcome == 'success' }}
         run: PYTHONPATH=. uv run pytest -q
 
+      - name: Lint the CloudFormation templates in both Regions
+        if: ${{ !cancelled() && steps.python-deps.outcome == 'success' }}
+        run: |
+          uvx --from 'cfn-lint==1.53.0' cfn-lint --regions us-east-1,us-west-2 \
+            --template deploy/cloudformation/*.yml
+
       - name: Validate release workflow contracts
         if: ${{ !cancelled() && steps.python-deps.outcome == 'success' }}
         run: make validate-release-workflow

@@ -48,6 +48,19 @@ no assets changed—including ignored files—and the relevant URLs are already
 commit/push; verify the later build. A build update does not authorize wider
 public-catalog publication. Keep secrets out of files, logs, and responses.
 
+### Template ownership
+
+This repository owns the four shared CloudFormation templates (main, VPC, database, Code
+Editor), the one own-account template (staging, which no event uses) and the editor launcher in
+`deploy/cloudformation/`, because the own-account path publishes them too (see
+[Run Mosaic in your own account](run-in-your-own-account.md)). The workshop repository keeps
+copies at its existing paths and `scripts/repin.py` refreshes them from here, rewriting only
+the five pinned `Default:` lines (`SourceRevision`, `InfrastructureRevision`,
+`BootstrapScriptSha256`, `EditorLauncherArchiveName`, `EditorLauncherCodeSha256`), exactly
+as it already copies `deploy/mosaic-bootstrap.sh`. Edit templates here, never in the
+workshop repository; its validator fails when a copy differs. Push this repository first,
+as step 1 says, because repin refuses an unpushed source.
+
 ### Mosaic command reference
 
 Set `SOURCE_REPO` and `WORKSHOP_REPO` to the two checkout paths. From the workshop

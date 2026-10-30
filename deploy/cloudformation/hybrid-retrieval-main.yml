@@ -1,0 +1,263 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Mosaic agentic hybrid retrieval workshop - main stack'
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Workshop
+        Parameters:
+          - WorkshopName
+          - RepoUrl
+          - SourceRevision
+          - InfrastructureRevision
+      - Label:
+          default: Aurora
+        Parameters:
+          - DBInstanceClass
+      - Label:
+          default: Code Editor
+        Parameters:
+          - CodeEditorInstanceType
+          - CodeEditorVolumeSize
+      - Label:
+          default: Workshop Studio assets
+        Parameters:
+          - PublicAssetsBucketName
+          - PublicAssetsBucketPrefix
+          - AssetsBucketName
+          - AssetsBucketPrefix
+          - BootstrapScriptSha256
+          - EditorLauncherArchiveName
+          - EditorLauncherCodeSha256
+
+Parameters:
+  WorkshopName:
+    Type: String
+    Default: mosaic-hybrid-retrieval
+    AllowedPattern: '^[a-z0-9][a-z0-9-]{2,40}$'
+
+  RepoUrl:
+    Type: String
+    Default: https://github.com/aws-samples/sample-agentic-hybrid-retrieval-aurora-postgresql.git
+    AllowedPattern: '^https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\.git$'
+
+  SourceRevision:
+    Type: String
+    Default: 3f062d941a59b681edbeef0748b35f7363d8c662
+    AllowedPattern: '^[0-9a-f]{40}$'
+    Description: Immutable source commit tested for this workshop release
+
+  InfrastructureRevision:
+    Type: String
+    Default: 041cdcf72ff5509f
+    AllowedPattern: '^[0-9a-f]{16}$'
+    Description: Validator-derived update trigger for nested templates and bootstrap inputs
+
+  BootstrapScriptSha256:
+    Type: String
+    Default: 3d2de970e3db74bf692c691139ffbc37cd6a7ed004c1dd355d3eb7282692e9c7
+    AllowedPattern: '^[0-9a-f]{64}$'
+    Description: SHA-256 of the versioned Mosaic host bootstrap asset
+
+  EditorLauncherArchiveName:
+    Type: String
+    Default: editor-launcher-9bfffa5546fef339.zip
+    AllowedPattern: '^editor-launcher-[0-9a-f]{16}\.zip$'
+    Description: The editor launcher's Lambda package, named by its own SHA-256
+
+  EditorLauncherCodeSha256:
+    Type: String
+    Default: m//6VUb+8zkA8+E1+9+wm9X9KlTsQsFSFb0SDft9Gg0=
+    AllowedPattern: '^[A-Za-z0-9+/]{43}=$'
+    Description: Base64 SHA-256 Lambda must report for the editor launcher package
+
+  AgentObservability:
+    Type: String
+    Default: enabled
+    AllowedValues: [enabled, disabled]
+    Description: >-
+      Send Lab 3's agent traces to CloudWatch (AgentCore Observability). Lab 3
+      works the same either way; disabled starts the runtimes without tracing.
+
+  DBInstanceClass:
+    Type: String
+    Default: db.r8g.2xlarge
+    AllowedValues:
+      - db.r8g.xlarge
+      - db.r8g.2xlarge
+      - db.r8g.4xlarge
+
+  CodeEditorInstanceType:
+    Type: String
+    Default: c6g.2xlarge
+    AllowedValues:
+      - c6g.xlarge
+      - c6g.2xlarge
+      - c6g.4xlarge
+    Description: >-
+      The first Code Editor instance type the editor launcher tries; burstable T
+      types are not allowed.
+
+  CodeEditorVolumeSize:
+    Type: Number
+    Default: 50
+    MinValue: 40
+    MaxValue: 200
+
+  PublicAssetsBucketName:
+    Type: String
+    Default: ''
+
+  PublicAssetsBucketPrefix:
+    Type: String
+    Default: ''
+
+  AssetsBucketName:
+    Type: String
+
+  AssetsBucketPrefix:
+    Type: String
+
+  VpcCIDR:
+    Type: String
+    Default: 10.0.0.0/16
+    AllowedValues:
+      - 10.0.0.0/16
+    Description: Fixed workshop VPC range containing the six nested-stack subnets
+
+Conditions:
+  HasPublicAssetsBucket: !Not [!Equals [!Ref PublicAssetsBucketName, '']]
+
+Resources:
+  # Nested templates and the bootstrap load from releases/<InfrastructureRevision>/,
+  # a folder scripts/repin.py writes once per release and never changes, so this
+  # build keeps the exact files it was validated with after later releases upload.
+  VPCStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub
+        - 'https://${Bucket}.s3.amazonaws.com/${Prefix}releases/${InfrastructureRevision}/hybrid-retrieval-vpc.yml'
+        - Bucket: !If [HasPublicAssetsBucket, !Ref PublicAssetsBucketName, !Ref AssetsBucketName]
+          Prefix: !If [HasPublicAssetsBucket, !Ref PublicAssetsBucketPrefix, !Ref AssetsBucketPrefix]
+      Parameters:
+        TemplateName: !Ref WorkshopName
+        InfrastructureRevision: !Ref InfrastructureRevision
+        VpcName: !Sub '${WorkshopName}-vpc'
+        VpcCIDR: !Ref VpcCIDR
+        PublicSubnetACidr: 10.0.1.0/24
+        PublicSubnetBCidr: 10.0.2.0/24
+        PublicSubnetCCidr: 10.0.3.0/24
+        PrivateSubnetACidr: 10.0.11.0/24
+        PrivateSubnetBCidr: 10.0.12.0/24
+        PrivateSubnetCCidr: 10.0.13.0/24
+      Tags:
+        - Key: Workshop
+          Value: !Ref WorkshopName
+
+  DatabaseClientSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Mosaic application identity for Aurora access
+      VpcId: !GetAtt VPCStack.Outputs.VPC
+      SecurityGroupEgress:
+        - Description: PostgreSQL to the workshop VPC
+          IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          CidrIp: !Ref VpcCIDR
+      Tags:
+        - Key: Workshop
+          Value: !Ref WorkshopName
+
+  DatabaseStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub
+        - 'https://${Bucket}.s3.amazonaws.com/${Prefix}releases/${InfrastructureRevision}/hybrid-retrieval-database.yml'
+        - Bucket: !If [HasPublicAssetsBucket, !Ref PublicAssetsBucketName, !Ref AssetsBucketName]
+          Prefix: !If [HasPublicAssetsBucket, !Ref PublicAssetsBucketPrefix, !Ref AssetsBucketPrefix]
+      Parameters:
+        TemplateName: !Ref WorkshopName
+        InfrastructureRevision: !Ref InfrastructureRevision
+        VPC: !GetAtt VPCStack.Outputs.VPC
+        VpcCIDR: !Ref VpcCIDR
+        DatabaseClientSecurityGroupId: !Ref DatabaseClientSecurityGroup
+        PrivateSubnets: !GetAtt VPCStack.Outputs.PrivateSubnets
+        DBInstanceClass: !Ref DBInstanceClass
+      Tags:
+        - Key: Workshop
+          Value: !Ref WorkshopName
+      TimeoutInMinutes: 60
+
+  CodeEditorStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub
+        - 'https://${Bucket}.s3.amazonaws.com/${Prefix}releases/${InfrastructureRevision}/hybrid-retrieval-code-editor.yml'
+        - Bucket: !If [HasPublicAssetsBucket, !Ref PublicAssetsBucketName, !Ref AssetsBucketName]
+          Prefix: !If [HasPublicAssetsBucket, !Ref PublicAssetsBucketPrefix, !Ref AssetsBucketPrefix]
+      Parameters:
+        CodeEditorAmi: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-6.1-arm64
+        WorkshopName: !Ref WorkshopName
+        CodeEditorUser: participant
+        HomeFolder: /workshop
+        RepoUrl: !Ref RepoUrl
+        SourceRevision: !Ref SourceRevision
+        InfrastructureRevision: !Ref InfrastructureRevision
+        DBInstanceClass: !Ref DBInstanceClass
+        InstanceType: !Ref CodeEditorInstanceType
+        AgentObservability: !Ref AgentObservability
+        VolumeSize: !Ref CodeEditorVolumeSize
+        VPCId: !GetAtt VPCStack.Outputs.VPC
+        PrivateSubnetId: !GetAtt VPCStack.Outputs.PrivateSubnetA
+        PrivateSubnetBId: !GetAtt VPCStack.Outputs.PrivateSubnetB
+        PrivateSubnetCId: !GetAtt VPCStack.Outputs.PrivateSubnetC
+        DatabaseClientSecurityGroupId: !Ref DatabaseClientSecurityGroup
+        DBSecretArn: !GetAtt DatabaseStack.Outputs.DBSecretArn
+        DBClusterEndpoint: !GetAtt DatabaseStack.Outputs.DBClusterEndpoint
+        DBName: mosaic_catalog
+        AssetsBucketName: !Ref AssetsBucketName
+        AssetsBucketPrefix: !Ref AssetsBucketPrefix
+        BootstrapScriptSha256: !Ref BootstrapScriptSha256
+        EditorLauncherArchiveName: !Ref EditorLauncherArchiveName
+        EditorLauncherCodeSha256: !Ref EditorLauncherCodeSha256
+      Tags:
+        - Key: Workshop
+          Value: !Ref WorkshopName
+      # 150 minutes for the host and its bootstrap, plus 16 for the editor
+      # launcher's worst case: every instance type in every subnet.
+      TimeoutInMinutes: 166
+
+Outputs:
+  CodeEditorURL:
+    Description: Code Editor URL through CloudFront
+    Value: !GetAtt CodeEditorStack.Outputs.CodeEditorURL
+
+  MosaicURL:
+    Description: Mosaic application URL through the CloudFront private-origin proxy
+    Value: !GetAtt CodeEditorStack.Outputs.MosaicURL
+
+  ClaudeCodeModel:
+    Description: Claude Code model through Amazon Bedrock global inference
+    Value: global.anthropic.claude-sonnet-5-5
+
+  EditorInstanceType:
+    Description: The Code Editor instance type the editor launcher found capacity for
+    Value: !GetAtt CodeEditorStack.Outputs.EditorInstanceType
+
+  EditorAvailabilityZoneId:
+    Description: The physical zone the editor launcher found capacity in
+    Value: !GetAtt CodeEditorStack.Outputs.EditorAvailabilityZoneId
+
+  SourceRelease:
+    Description: Immutable application source used by bootstrap
+    Value: !Sub '${RepoUrl}@${SourceRevision}'
+
+  DatabaseEndpoint:
+    Description: Aurora writer endpoint
+    Value: !GetAtt DatabaseStack.Outputs.DBClusterEndpoint
+
+  DatabaseVersion:
+    Description: Aurora PostgreSQL version
+    Value: !GetAtt DatabaseStack.Outputs.DBEngineVersion

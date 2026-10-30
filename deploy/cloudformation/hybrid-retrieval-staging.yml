@@ -1,0 +1,465 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  Mosaic own-account staging stack - an Aurora cluster and a builder host used to
+  build the real-catalog bundle before the main stack exists
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Staging
+        Parameters:
+          - WorkshopName
+          - RepoUrl
+          - SourceRevision
+          - InfrastructureRevision
+      - Label:
+          default: Aurora
+        Parameters:
+          - DBInstanceClass
+      - Label:
+          default: Builder host
+        Parameters:
+          - BuilderInstanceType
+          - BuilderVolumeSize
+          - BuilderAmi
+      - Label:
+          default: Release bucket
+        Parameters:
+          - AssetsBucketName
+          - AssetsBucketPrefix
+
+Parameters:
+  WorkshopName:
+    Type: String
+    Default: mosaic-staging
+    AllowedPattern: '^[a-z0-9][a-z0-9-]{2,40}$'
+
+  RepoUrl:
+    Type: String
+    Default: https://github.com/aws-samples/sample-agentic-hybrid-retrieval-aurora-postgresql.git
+    AllowedPattern: '^https://[A-Za-z0-9./_-]+\.git$'
+    Description: Anonymously readable HTTPS URL of the repository to clone on the builder
+
+  SourceRevision:
+    Type: String
+    AllowedPattern: '^[0-9a-f]{40}$'
+    Description: Source commit the builder checks out
+
+  InfrastructureRevision:
+    Type: String
+    AllowedPattern: '^[0-9a-f]{16}$'
+    Description: Release folder holding the nested templates
+
+  DBInstanceClass:
+    Type: String
+    Default: db.r8g.2xlarge
+    AllowedValues:
+      - db.r8g.xlarge
+      - db.r8g.2xlarge
+      - db.r8g.4xlarge
+
+  BuilderInstanceType:
+    Type: String
+    Default: c7g.2xlarge
+    AllowedValues:
+      - c7g.xlarge
+      - c7g.2xlarge
+      - c7g.4xlarge
+
+  BuilderVolumeSize:
+    Type: Number
+    Default: 300
+    MinValue: 200
+    MaxValue: 1000
+
+  BuilderAmi:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-6.1-arm64
+
+  AssetsBucketName:
+    Type: String
+    Description: Private bucket in this Region that holds the release and the catalog bundle
+
+  AssetsBucketPrefix:
+    Type: String
+    Default: ''
+
+  VpcCIDR:
+    Type: String
+    Default: 10.0.0.0/16
+    AllowedValues:
+      - 10.0.0.0/16
+
+Resources:
+  VPCStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub 'https://${AssetsBucketName}.s3.${AWS::Region}.amazonaws.com/${AssetsBucketPrefix}releases/${InfrastructureRevision}/hybrid-retrieval-vpc.yml'
+      Parameters:
+        TemplateName: !Ref WorkshopName
+        InfrastructureRevision: !Ref InfrastructureRevision
+        VpcName: !Sub '${WorkshopName}-vpc'
+        VpcCIDR: !Ref VpcCIDR
+        PublicSubnetACidr: 10.0.1.0/24
+        PublicSubnetBCidr: 10.0.2.0/24
+        PublicSubnetCCidr: 10.0.3.0/24
+        PrivateSubnetACidr: 10.0.11.0/24
+        PrivateSubnetBCidr: 10.0.12.0/24
+        PrivateSubnetCCidr: 10.0.13.0/24
+      Tags:
+        - Key: Workshop
+          Value: !Ref WorkshopName
+
+  DatabaseClientSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Builder identity for Aurora access
+      VpcId: !GetAtt VPCStack.Outputs.VPC
+      SecurityGroupEgress:
+        - Description: PostgreSQL to the staging VPC
+          IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          CidrIp: !Ref VpcCIDR
+      Tags:
+        - Key: Workshop
+          Value: !Ref WorkshopName
+
+  DatabaseStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub 'https://${AssetsBucketName}.s3.${AWS::Region}.amazonaws.com/${AssetsBucketPrefix}releases/${InfrastructureRevision}/hybrid-retrieval-database.yml'
+      Parameters:
+        TemplateName: !Ref WorkshopName
+        InfrastructureRevision: !Ref InfrastructureRevision
+        VPC: !GetAtt VPCStack.Outputs.VPC
+        VpcCIDR: !Ref VpcCIDR
+        DatabaseClientSecurityGroupId: !Ref DatabaseClientSecurityGroup
+        PrivateSubnets: !GetAtt VPCStack.Outputs.PrivateSubnets
+        DBInstanceClass: !Ref DBInstanceClass
+      Tags:
+        - Key: Workshop
+          Value: !Ref WorkshopName
+      TimeoutInMinutes: 60
+
+  BuilderSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Builder egress to packages, source, AWS APIs and Aurora
+      VpcId: !GetAtt VPCStack.Outputs.VPC
+      SecurityGroupEgress:
+        - Description: HTTPS to package indexes, GitHub and AWS endpoints
+          IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Workshop
+          Value: !Ref WorkshopName
+
+  # Retained so the build log survives `staging down`. CloudFormation names the group
+  # (<stack>-BuilderLogs-<id>), so a later staging stack never collides with it.
+  BuilderLogs:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      RetentionInDays: 7
+
+  BuilderRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/AmazonSSMManagedInstanceCore'
+      Policies:
+        - PolicyName: BuildCatalogBundle
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: EmbedWithCohere
+                Effect: Allow
+                Action: bedrock:InvokeModel
+                Resource:
+                  - 'arn:aws:bedrock:*::foundation-model/cohere.embed-v4:0'
+                  - !Sub 'arn:aws:bedrock:*:${AWS::AccountId}:inference-profile/us.cohere.embed-v4:0'
+              # No prefix condition: HeadObject is authorized by ListBucket on the
+              # bucket, carries no prefix, and answers 403 instead of 404 without it.
+              - Sid: ListBucketForHeadObject
+                Effect: Allow
+                Action: s3:ListBucket
+                Resource: !Sub 'arn:${AWS::Partition}:s3:::${AssetsBucketName}'
+              - Sid: BucketLocation
+                Effect: Allow
+                Action: s3:GetBucketLocation
+                Resource: !Sub 'arn:${AWS::Partition}:s3:::${AssetsBucketName}'
+              - Sid: ReadWriteBundleObjects
+                Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                Resource:
+                  - !Sub 'arn:${AWS::Partition}:s3:::${AssetsBucketName}/${AssetsBucketPrefix}real-catalog/*'
+                  - !Sub 'arn:${AWS::Partition}:s3:::${AssetsBucketName}/${AssetsBucketPrefix}contracts/*'
+              - Sid: ReadDatabaseSecret
+                Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource: !GetAtt DatabaseStack.Outputs.DBSecretArn
+              # RDS creates the master secret under the account's Secrets Manager
+              # key, whose ARN no template can name; the condition keeps the grant
+              # to use through Secrets Manager.
+              - Sid: DecryptSecretThroughSecretsManager
+                Effect: Allow
+                Action: kms:Decrypt
+                Resource: '*'
+                Condition:
+                  StringEquals:
+                    kms:ViaService: !Sub 'secretsmanager.${AWS::Region}.amazonaws.com'
+                    kms:CallerAccount: !Ref AWS::AccountId
+              - Sid: WriteBuilderLogs
+                Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !GetAtt BuilderLogs.Arn
+              - Sid: SignalStack
+                Effect: Allow
+                Action: cloudformation:SignalResource
+                Resource: !Sub 'arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${AWS::StackName}/*'
+
+  BuilderInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref BuilderRole
+
+  BuilderInstance:
+    Type: AWS::EC2::Instance
+    CreationPolicy:
+      ResourceSignal:
+        Count: 1
+        Timeout: PT30M
+    Properties:
+      ImageId: !Ref BuilderAmi
+      InstanceType: !Ref BuilderInstanceType
+      IamInstanceProfile: !Ref BuilderInstanceProfile
+      SubnetId: !GetAtt VPCStack.Outputs.PrivateSubnetA
+      SecurityGroupIds:
+        - !Ref BuilderSecurityGroup
+        - !Ref DatabaseClientSecurityGroup
+      MetadataOptions:
+        HttpEndpoint: enabled
+        HttpTokens: required
+        HttpPutResponseHopLimit: 1
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            DeleteOnTermination: true
+            Encrypted: true
+            VolumeSize: !Ref BuilderVolumeSize
+            VolumeType: gp3
+      Tags:
+        - Key: Name
+          Value: !Sub '${WorkshopName}-builder'
+        - Key: Workshop
+          Value: !Ref WorkshopName
+      UserData:
+        Fn::Base64: !Sub
+          - |
+            #!/bin/bash
+            set -Eeuo pipefail
+            # The failure signal and the log shipping both need the AWS CLI; AL2023 ships it,
+            # but install it first rather than discover its absence after a failed build.
+            command -v aws >/dev/null 2>&1 || dnf install -y awscli2 || dnf install -y awscli
+            command -v aws >/dev/null 2>&1 || { echo "ERROR: no AWS CLI on this host" >&2; exit 1; }
+            exec > >(stdbuf -oL tee /var/log/mosaic-staging.log | logger -t mosaic-staging -s 2>/dev/console) 2>&1
+            TEE_PID=$!
+
+            REGION='${AWS::Region}'
+            STACK='${AWS::StackName}'
+            REPO_URL='${RepoUrl}'
+            REVISION='${SourceRevision}'
+            SECRET_ARN='${SecretArn}'
+            DB_HOST='${DbHost}'
+            DB_PORT='${DbPort}'
+            LOG_GROUP='${BuilderLogs}'
+            BUILDER=builder
+            HOME_FOLDER=/workshop
+            REPO="$HOME_FOLDER/$(basename "$REPO_URL" .git)"
+
+            ship_log() {
+              local stream
+              stream="$(hostname)-$(date +%s)"
+              aws logs create-log-stream --region "$REGION" \
+                --log-group-name "$LOG_GROUP" --log-stream-name "$stream" || return 0
+              # PutLogEvents accepts at most 1 MiB per batch; send the newest 200 kB.
+              tail -c 200000 /var/log/mosaic-staging.log \
+                | jq -Rs --argjson now "$(date +%s000)" '[{timestamp: $now, message: .}]' \
+                >/run/staging-events.json
+              aws logs put-log-events --region "$REGION" --log-group-name "$LOG_GROUP" \
+                --log-stream-name "$stream" --log-events file:///run/staging-events.json \
+                >/dev/null || echo "WARNING: could not ship the build log" >&2
+            }
+            signal() {
+              local token instance_id
+              token=$(curl -fsS -X PUT http://169.254.169.254/latest/api/token \
+                -H 'X-aws-ec2-metadata-token-ttl-seconds: 60')
+              instance_id=$(curl -fsS -H "X-aws-ec2-metadata-token: $token" \
+                http://169.254.169.254/latest/meta-data/instance-id)
+              aws cloudformation signal-resource --region "$REGION" --stack-name "$STACK" \
+                --logical-resource-id BuilderInstance --unique-id "$instance_id" --status "$1"
+            }
+            finish() {
+              local status=$?
+              trap - EXIT
+              set +e
+              # Close the pipe so tee flushes and exits, wait for it, then log to the file.
+              exec >&- 2>&-
+              wait "$TEE_PID" 2>/dev/null
+              sync
+              exec >>/var/log/mosaic-staging.log 2>&1
+              ship_log
+              local result=SUCCESS
+              [ "$status" -eq 0 ] || result=FAILURE
+              if ! signal "$result"; then
+                echo "ERROR: could not signal CloudFormation ($result); the stack will time out" >&2
+                exit 1
+              fi
+            }
+            trap finish EXIT
+
+            attempt=0
+            until dnf install -y git jq python3.13 python3.13-pip gcc make tar gzip unzip; do
+              attempt=$((attempt + 1))
+              [ "$attempt" -lt 5 ] || exit 1
+              sleep 15
+            done
+            # Aurora runs PostgreSQL 18; fall back to the 17 client if the mirror lacks it.
+            dnf install -y postgresql18 || dnf install -y postgresql17
+            python3.13 -m pip install --no-cache-dir uv==0.11.21
+            command -v aws >/dev/null 2>&1 || dnf install -y awscli2
+
+            id "$BUILDER" >/dev/null 2>&1 || useradd -m -s /bin/bash "$BUILDER"
+            install -d -o "$BUILDER" -g "$BUILDER" "$HOME_FOLDER"
+
+            sudo -u "$BUILDER" -H bash -c '
+              set -Eeuo pipefail
+              export GIT_TERMINAL_PROMPT=0
+              git init -q "$1"
+              cd "$1"
+              git remote add origin "$2"
+              git -c credential.helper= fetch --depth 1 origin "$3"
+              git checkout -q FETCH_HEAD
+            ' _ "$REPO" "$REPO_URL" "$REVISION"
+
+            SECRET_JSON=$(aws secretsmanager get-secret-value --region "$REGION" \
+              --secret-id "$SECRET_ARN" --query SecretString --output text)
+            DATABASE_URL=$(SECRET_JSON="$SECRET_JSON" python3.13 - "$DB_HOST" "$DB_PORT" <<'PY'
+            import json
+            import os
+            import sys
+            from urllib.parse import quote
+
+            secret = json.loads(os.environ["SECRET_JSON"])
+            host, port = sys.argv[1:3]
+            user = quote(secret["username"], safe="")
+            password = quote(secret["password"], safe="")
+            print(f"postgresql://{user}:{password}@{host}:{port}/mosaic_catalog?sslmode=require")
+            PY
+            )
+            install -m 600 -o "$BUILDER" -g "$BUILDER" /dev/null "$REPO/.env"
+            {
+              printf "DATABASE_URL='%s'\n" "$DATABASE_URL"
+              printf 'AWS_REGION=%s\nAWS_DEFAULT_REGION=%s\nBEDROCK_REGION=%s\n' \
+                "$REGION" "$REGION" "$REGION"
+              printf 'EMBEDDING_PROVIDER=bedrock\nBEDROCK_EMBED_MODEL_ID=us.cohere.embed-v4:0\n'
+            } >"$REPO/.env"
+
+            cat >/etc/mosaic-own-account.env <<ENV
+            MOSAIC_OWN_ACCOUNT_BUCKET=${AssetsBucketName}
+            MOSAIC_OWN_ACCOUNT_PREFIX=${AssetsBucketPrefix}
+            ENV
+            chmod 644 /etc/mosaic-own-account.env
+            cat >/etc/profile.d/mosaic-own-account.sh <<'PROFILE'
+            set -a
+            . /etc/mosaic-own-account.env
+            set +a
+            PROFILE
+
+            sudo -u "$BUILDER" -H bash -c 'cd "$1" && uv sync --frozen' _ "$REPO"
+
+            {
+              echo '#!/bin/bash'
+              printf 'REPO=%q\n' "$REPO"
+              cat <<'WRAPPER'
+            set -Eeuo pipefail
+            if [ "$(id -un)" != builder ]; then
+              exec sudo -u builder -H "$0" "$@"
+            fi
+            LOG=/workshop/catalog-bundle.log
+            exec 9>/workshop/.catalog-bundle.lock
+            flock -n 9 || { echo "A catalog build is already running: tail -f $LOG"; exit 1; }
+            cd "$REPO"
+            set -a
+            . ./.env
+            . /etc/mosaic-own-account.env
+            set +a
+            # Quote each argument for the shell that make runs; double any $ for make itself.
+            args=$(printf '%q ' "$@" | sed 's/\$/$$/g')
+            before=$(stat -c %s "$LOG" 2>/dev/null || echo 0)
+            nohup setsid -w make catalog-bundle ASSETS_DIR=.local/own-account/assets \
+              "CATALOG_BUNDLE_ARGS=$args" >>"$LOG" 2>&1 </dev/null &
+            child=$!
+            sleep 2
+            if ! kill -0 "$child" 2>/dev/null; then
+              echo "The catalog build exited right away. First failure in $LOG:"
+              new=$(tail -c +$((before + 1)) "$LOG")
+              grep -m1 -iE 'error|failed|traceback|not set' <<<"$new" || tail -n 1 <<<"$new"
+              exit 1
+            fi
+            if [ "$(stat -c %s "$LOG")" -le "$before" ]; then
+              echo "Started, but it has not written to the log yet."
+            fi
+            echo "Catalog build started and survives a dropped session. Follow it with:"
+            echo "  tail -f $LOG"
+            echo "Running mosaic-catalog-bundle again resumes from the saved state."
+            WRAPPER
+            } >/usr/local/bin/mosaic-catalog-bundle
+            chmod 755 /usr/local/bin/mosaic-catalog-bundle
+
+            cat >/etc/motd <<MOTD
+            Mosaic staging builder. Start the catalog build with:
+              mosaic-catalog-bundle
+            MOTD
+            cat /etc/motd
+          - SecretArn: !GetAtt DatabaseStack.Outputs.DBSecretArn
+            DbHost: !GetAtt DatabaseStack.Outputs.DBClusterEndpoint
+            DbPort: !GetAtt DatabaseStack.Outputs.DBClusterPort
+
+Outputs:
+  BuilderInstanceId:
+    Description: Builder host instance ID
+    Value: !Ref BuilderInstance
+
+  SessionCommand:
+    Description: Open a shell on the builder through Session Manager
+    Value: !Sub 'aws ssm start-session --target ${BuilderInstance} --region ${AWS::Region}'
+
+  DatabaseEndpoint:
+    Description: Staging Aurora writer endpoint
+    Value: !GetAtt DatabaseStack.Outputs.DBClusterEndpoint
+
+  DatabaseSecretArn:
+    Description: RDS-managed master secret for the staging cluster
+    Value: !GetAtt DatabaseStack.Outputs.DBSecretArn
+
+  ReleaseBucket:
+    Description: Bucket that receives the catalog bundle
+    Value: !Ref AssetsBucketName

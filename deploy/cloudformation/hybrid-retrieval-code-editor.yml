@@ -1,0 +1,1536 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Mosaic workshop - Code Editor, application, starter gaps, and Claude Code'
+
+Parameters:
+  CodeEditorAmi:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-6.1-arm64
+    AllowedValues:
+      - /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-6.1-arm64
+
+  WorkshopName:
+    Type: String
+    AllowedPattern: '^[a-z0-9][a-z0-9-]{2,40}$'
+
+  CodeEditorUser:
+    Type: String
+    Default: participant
+    AllowedPattern: '^[a-z_][a-z0-9_-]{0,30}$'
+
+  HomeFolder:
+    Type: String
+    Default: /workshop
+    AllowedValues:
+      - /workshop
+
+  RepoUrl:
+    Type: String
+    Default: https://github.com/aws-samples/sample-agentic-hybrid-retrieval-aurora-postgresql.git
+    AllowedPattern: '^https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\.git$'
+
+  SourceRevision:
+    Type: String
+    Default: 3f062d941a59b681edbeef0748b35f7363d8c662
+    AllowedPattern: '^[0-9a-f]{40}$'
+
+  InfrastructureRevision:
+    Type: String
+    AllowedPattern: '^[0-9a-f]{16}$'
+
+  AgentObservability:
+    Type: String
+    Default: enabled
+    AllowedValues: [enabled, disabled]
+    Description: >-
+      Send Lab 3's agent traces to CloudWatch (AgentCore Observability). Lab 3
+      works the same either way; disabled starts the runtimes without tracing.
+
+  DBInstanceClass:
+    Type: String
+    AllowedValues:
+      - db.r8g.xlarge
+      - db.r8g.2xlarge
+      - db.r8g.4xlarge
+
+  InstanceType:
+    Type: String
+    Default: c6g.2xlarge
+    AllowedValues:
+      - c6g.xlarge
+      - c6g.2xlarge
+      - c6g.4xlarge
+    Description: >-
+      The first Code Editor instance type the editor launcher tries; burstable T
+      types are not allowed.
+
+  VolumeSize:
+    Type: Number
+    Default: 50
+    MinValue: 40
+    MaxValue: 200
+
+  VPCId:
+    Type: AWS::EC2::VPC::Id
+
+  PrivateSubnetId:
+    Type: AWS::EC2::Subnet::Id
+
+  PrivateSubnetBId:
+    Type: AWS::EC2::Subnet::Id
+
+  PrivateSubnetCId:
+    Type: AWS::EC2::Subnet::Id
+
+  DatabaseClientSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+
+  DBSecretArn:
+    Type: String
+    AllowedPattern: '^arn:[a-z0-9-]+:secretsmanager:[a-z0-9-]+:[0-9]{12}:secret:.+$'
+
+  DBClusterEndpoint:
+    Type: String
+
+  DBName:
+    Type: String
+    Default: mosaic_catalog
+    AllowedPattern: '^[a-z][a-z0-9_]{0,62}$'
+
+  AssetsBucketName:
+    Type: String
+    AllowedPattern: '^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$'
+
+  AssetsBucketPrefix:
+    Type: String
+    Default: ''
+
+  BootstrapScriptSha256:
+    Type: String
+    AllowedPattern: '^[0-9a-f]{64}$'
+
+  EditorLauncherArchiveName:
+    Type: String
+    AllowedPattern: '^editor-launcher-[0-9a-f]{16}\.zip$'
+
+  EditorLauncherCodeSha256:
+    Type: String
+    AllowedPattern: '^[A-Za-z0-9+/]{43}=$'
+    Description: >-
+      Base64 SHA-256 of the reviewed editor launcher package (the form Lambda
+      reports as CodeSha256). EditorLauncherCodeCheck refuses any other upload.
+
+# Keyed on contentspec.yaml's deployable Regions. Adding a Region means adding its
+# entry here and in the VPC template's AgentCore zones, validating it end to end,
+# and re-running the publishing gate; FindInMap fails closed elsewhere.
+Mappings:
+  CloudFrontPrefixList:
+    us-east-1:
+      Id: pl-3b927c52
+    us-west-2:
+      Id: pl-82a045eb
+
+Conditions:
+  ObservabilityEnabled: !Equals [!Ref AgentObservability, enabled]
+  # WAFv2 resources with Scope CLOUDFRONT can be created only in us-east-1.
+  WafInUsEast1: !Equals [!Ref AWS::Region, us-east-1]
+
+Resources:
+  CodeEditorSecret:
+    Type: AWS::SecretsManager::Secret
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      Description: !Sub '${AWS::StackName} Code Editor credentials'
+      GenerateSecretString:
+        PasswordLength: 32
+        SecretStringTemplate: !Sub '{"username":"${CodeEditorUser}"}'
+        GenerateStringKey: password
+        # This value is the Code Editor connection token only: it reaches a
+        # systemd ExecStart argument, the token file, and the tkn= query
+        # parameter of the CodeEditorURL output. Punctuation stays excluded so
+        # none of those grammars needs escaping.
+        ExcludePunctuation: true
+      Tags:
+        - Key: Workshop
+          Value: !Ref WorkshopName
+
+  OriginVerifySecret:
+    Type: AWS::SecretsManager::Secret
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      Description: !Sub '${AWS::StackName} CloudFront origin verification header'
+      GenerateSecretString:
+        PasswordLength: 32
+        SecretStringTemplate: '{}'
+        GenerateStringKey: password
+        # Load-bearing, not cosmetic. This value reaches an nginx quoted string
+        # and a placeholder substitution in the bootstrap, each with its own
+        # grammar. The bootstrap asserts the value is letters, digits, '-' and
+        # '_' only and fails the stack by name if it is not, so removing this
+        # line turns every provision red rather than silently producing a host
+        # that starts and then 403s every participant request. Keep the two
+        # halves together: deploy/mosaic-bootstrap.sh, the ORIGIN_VERIFY_SECRET
+        # assertion above the nginx substitution.
+        ExcludePunctuation: true
+      Tags:
+        - Key: Workshop
+          Value: !Ref WorkshopName
+
+  SecretPlaintextRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+      Policies:
+        - PolicyName: ReadCodeEditorSecret
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource:
+                  - !Ref CodeEditorSecret
+                  - !Ref OriginVerifySecret
+
+  SecretPlaintextLogs:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      LogGroupName: !Sub '/mosaic/${AWS::StackName}/secret-reader'
+      RetentionInDays: 7
+
+  SecretPlaintextFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: Return generated Code Editor credentials to this stack
+      LoggingConfig:
+        LogGroup: !Ref SecretPlaintextLogs
+      Runtime: python3.13
+      Handler: index.lambda_handler
+      Timeout: 30
+      Role: !GetAtt SecretPlaintextRole.Arn
+      Code:
+        ZipFile: |
+          import contextlib
+          import io
+          import json
+          import boto3
+          import cfnresponse
+
+          # cfnresponse.send prints the whole response body, credentials
+          # included, before it PUTs; noEcho only masks the CloudFormation
+          # console. Swallow that stdout so the password never reaches the
+          # function's CloudWatch log group.
+          def send(*args, **kwargs):
+              with contextlib.redirect_stdout(io.StringIO()):
+                  cfnresponse.send(*args, **kwargs)
+
+          def lambda_handler(event, context):
+              physical_id = event.get(
+                  "PhysicalResourceId",
+                  event["LogicalResourceId"],
+              )
+              try:
+                  if event["RequestType"] == "Delete":
+                      send(
+                          event, context, cfnresponse.SUCCESS, {},
+                          physicalResourceId=physical_id,
+                      )
+                      return
+                  response = boto3.client("secretsmanager").get_secret_value(
+                      SecretId=event["ResourceProperties"]["SecretArn"]
+                  )
+                  send(
+                      event,
+                      context,
+                      cfnresponse.SUCCESS,
+                      json.loads(response["SecretString"]),
+                      physicalResourceId=physical_id,
+                      noEcho=True,
+                  )
+              except Exception as error:
+                  print(f"SecretPlaintext failed: {type(error).__name__}")
+                  send(
+                      event,
+                      context,
+                      cfnresponse.FAILED,
+                      {},
+                      reason=type(error).__name__,
+                      physicalResourceId=physical_id,
+                  )
+
+  SecretPlaintext:
+    Type: Custom::SecretPlaintext
+    Properties:
+      ServiceToken: !GetAtt SecretPlaintextFunction.Arn
+      SecretArn: !Ref CodeEditorSecret
+
+  OriginSecretPlaintext:
+    Type: Custom::SecretPlaintext
+    Properties:
+      ServiceToken: !GetAtt SecretPlaintextFunction.Arn
+      SecretArn: !Ref OriginVerifySecret
+
+  MosaicMemory:
+    Type: AWS::BedrockAgentCore::Memory
+    # Participant memories belong to this disposable workshop environment.
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      Name: !Join
+        - '_'
+        - - Mosaic
+          - !Join ['_', !Split ['-', !Select [2, !Split ['/', !Ref 'AWS::StackId']]]]
+      Description: Mosaic conversation facts, preferences, summaries and past outcomes
+      EventExpiryDuration: 30
+      MemoryStrategies:
+        - SemanticMemoryStrategy:
+            Name: WorkspaceFacts
+            NamespaceTemplates:
+              - '/mosaic/{actorId}/strategies/{memoryStrategyId}/'
+        - UserPreferenceMemoryStrategy:
+            Name: WorkspacePreferences
+            NamespaceTemplates:
+              - '/mosaic/{actorId}/strategies/{memoryStrategyId}/'
+        - SummaryMemoryStrategy:
+            Name: WorkspaceSummaries
+            NamespaceTemplates:
+              - '/mosaic/{actorId}/strategies/{memoryStrategyId}/sessions/{sessionId}/'
+        - EpisodicMemoryStrategy:
+            Name: WorkspaceEpisodes
+            NamespaceTemplates:
+              - '/mosaic/{actorId}/strategies/{memoryStrategyId}/sessions/{sessionId}/'
+            ReflectionConfiguration:
+              NamespaceTemplates:
+                - '/mosaic/{actorId}/strategies/{memoryStrategyId}/'
+      Tags:
+        Project: Mosaic
+        Purpose: SessionMemory
+
+  # The repository's own key. Without one, ECR uses the account's AWS managed
+  # aws/ecr key, and a recycled event account whose aws/ecr alias points at a
+  # key that no longer exists fails RuntimeImageRepository with a KMS
+  # NotFoundException. Deleted with the repository it encrypts.
+  RuntimeImageKey:
+    Type: AWS::KMS::Key
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      Description: Encrypts the Mosaic runtime images in RuntimeImageRepository
+      EnableKeyRotation: true
+      PendingWindowInDays: 7
+      KeyPolicy:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AccountAdministration
+            Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:root'
+            Action: kms:*
+            Resource: '*'
+      Tags:
+        - Key: Workshop
+          Value: !Ref WorkshopName
+
+  RuntimeImageRepository:
+    Type: AWS::ECR::Repository
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      # The bootstrap pushes the runtime image outside CloudFormation; without
+      # this, deleting the stack fails on a repository that still holds it.
+      EmptyOnDelete: true
+      ImageTagMutability: IMMUTABLE
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      EncryptionConfiguration:
+        EncryptionType: KMS
+        KmsKey: !GetAtt RuntimeImageKey.Arn
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {"rules":[{"rulePriority":1,"description":"Expire untagged build layers after seven days","selection":{"tagStatus":"untagged","countType":"sinceImagePushed","countUnit":"days","countNumber":7},"action":{"type":"expire"}}]}
+      Tags:
+        - Key: Workshop
+          Value: !Ref WorkshopName
+
+  RuntimeDatabaseSecret:
+    Type: AWS::SecretsManager::Secret
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      Description: Least-privilege Mosaic Aurora DSN, populated before Runtime starts
+      SecretString: '{"pending_bootstrap":true}'
+
+  RuntimeLogKey:
+    Type: AWS::KMS::Key
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      EnableKeyRotation: true
+      PendingWindowInDays: 7
+      KeyPolicy:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AccountAdministration
+            Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:root'
+            Action: kms:*
+            Resource: '*'
+          - Sid: EncryptRuntimeLogs
+            Effect: Allow
+            Principal:
+              Service: !Sub 'logs.${AWS::Region}.amazonaws.com'
+            Action: [kms:Encrypt, kms:Decrypt, kms:ReEncrypt*, kms:GenerateDataKey*, kms:DescribeKey]
+            Resource: '*'
+            Condition:
+              ArnLike:
+                kms:EncryptionContext:aws:logs:arn: !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/bedrock-agentcore/runtimes/*'
+
+  RuntimeCommonPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action: [ecr:BatchGetImage, ecr:GetDownloadUrlForLayer]
+            Resource: !GetAtt RuntimeImageRepository.Arn
+          - Effect: Allow
+            Action: ecr:GetAuthorizationToken
+            Resource: '*'
+          - Effect: Allow
+            Action: secretsmanager:GetSecretValue
+            Resource: !Ref RuntimeDatabaseSecret
+          - Effect: Allow
+            Action: [logs:CreateLogGroup, logs:CreateLogStream, logs:PutLogEvents, logs:DescribeLogStreams]
+            Resource: !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/bedrock-agentcore/runtimes/*'
+          - Effect: Allow
+            Action: [kms:Encrypt, kms:Decrypt, kms:ReEncrypt*, kms:GenerateDataKey*, kms:DescribeKey]
+            Resource: !GetAtt RuntimeLogKey.Arn
+            Condition:
+              StringEquals:
+                kms:ViaService: !Sub 'logs.${AWS::Region}.amazonaws.com'
+          # AgentCore Observability: the runtimes' OpenTelemetry launcher sends
+          # spans to X-Ray and agent metrics to the bedrock-agentcore namespace.
+          - Effect: Allow
+            Action: [xray:PutTraceSegments, xray:PutTelemetryRecords, xray:GetSamplingRules, xray:GetSamplingTargets]
+            Resource: '*'
+          - Effect: Allow
+            Action: cloudwatch:PutMetricData
+            Resource: '*'
+            Condition:
+              StringEquals:
+                cloudwatch:namespace: bedrock-agentcore
+          - Effect: Allow
+            Action: logs:DescribeLogGroups
+            Resource: !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:*'
+          - Effect: Allow
+            Action: bedrock:Rerank
+            Resource: '*'
+          - Effect: Allow
+            Action: [bedrock:InvokeModel, bedrock:InvokeModelWithResponseStream]
+            Resource:
+              - !Sub 'arn:${AWS::Partition}:bedrock:*::foundation-model/anthropic.claude-sonnet-5-5'
+              - !Sub 'arn:${AWS::Partition}:bedrock:::foundation-model/anthropic.claude-sonnet-5-5'
+              - !Sub 'arn:${AWS::Partition}:bedrock:*::foundation-model/cohere.embed-v4:0'
+              - !Sub 'arn:${AWS::Partition}:bedrock:*::foundation-model/cohere.rerank-v3-5:0'
+              - !Sub 'arn:${AWS::Partition}:bedrock:*:${AWS::AccountId}:inference-profile/global.anthropic.claude-sonnet-5-5'
+              - !Sub 'arn:${AWS::Partition}:bedrock:*:${AWS::AccountId}:inference-profile/us.cohere.embed-v4:0'
+
+  # CloudWatch Transaction Search, once per account: X-Ray writes the runtimes'
+  # spans to the aws/spans log group, where the CloudWatch GenAI Observability
+  # pages read each agent run. A custom resource rather than
+  # AWS::XRay::TransactionSearchConfig, because that resource must not meet an
+  # account where Transaction Search is already on, and Lab 3 needs no traces:
+  # this one turns on only what is off and reports any problem without failing
+  # the stack. It leaves the setting on at deletion; Workshop Studio accounts are
+  # discarded with the event.
+  TransactionSearchConfiguratorRole:
+    Type: AWS::IAM::Role
+    Condition: ObservabilityEnabled
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+      Policies:
+        - PolicyName: EnableTransactionSearch
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              # None of these actions supports resource-level permissions.
+              - Effect: Allow
+                Action:
+                  - logs:PutResourcePolicy
+                  - logs:DescribeResourcePolicies
+                  - xray:GetTraceSegmentDestination
+                  - xray:UpdateTraceSegmentDestination
+                  - xray:GetIndexingRules
+                  - xray:UpdateIndexingRule
+                  - application-signals:StartDiscovery
+                Resource: '*'
+              # UpdateTraceSegmentDestination creates and retains these log groups and starts
+              # Application Signals discovery with this role's permissions, as the
+              # Enable-TransactionSearch page documents. CloudTrail names the bare log group
+              # ARN, so each group is listed with and without the documented :* suffix.
+              - Effect: Allow
+                Action: [logs:CreateLogGroup, logs:CreateLogStream, logs:PutRetentionPolicy]
+                Resource:
+                  - !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:aws/spans'
+                  - !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:aws/spans:*'
+                  - !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/application-signals/data'
+                  - !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/application-signals/data:*'
+              - Effect: Allow
+                Action: iam:CreateServiceLinkedRole
+                Resource: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:role/aws-service-role/application-signals.cloudwatch.amazonaws.com/AWSServiceRoleForCloudWatchApplicationSignals'
+                Condition:
+                  StringLike:
+                    iam:AWSServiceName: application-signals.cloudwatch.amazonaws.com
+              - Effect: Allow
+                Action: iam:GetRole
+                Resource: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:role/aws-service-role/application-signals.cloudwatch.amazonaws.com/AWSServiceRoleForCloudWatchApplicationSignals'
+              - Effect: Allow
+                Action: cloudtrail:CreateServiceLinkedChannel
+                Resource: !Sub 'arn:${AWS::Partition}:cloudtrail:${AWS::Region}:${AWS::AccountId}:channel/aws-service-channel/application-signals/*'
+
+  TransactionSearchConfigurator:
+    Type: AWS::Lambda::Function
+    Condition: ObservabilityEnabled
+    Properties:
+      Runtime: python3.13
+      Handler: index.handler
+      Role: !GetAtt TransactionSearchConfiguratorRole.Arn
+      # Four AWS calls may retry before the three CloudFormation response attempts.
+      Timeout: 300
+      Code:
+        ZipFile: |
+          import json
+          import urllib.request
+          import boto3
+          from botocore.config import Config
+
+          CONFIG = Config(connect_timeout=5, read_timeout=10,
+                          retries={'total_max_attempts': 3, 'mode': 'standard'})
+
+          def enable(props):
+              """Turn on Transaction Search unless it is on; say what was done."""
+              xray = boto3.client('xray', config=CONFIG)
+              current = xray.get_trace_segment_destination()
+              if current.get('Destination') == 'CloudWatchLogs':
+                  return 'already on (' + current.get('Status', 'unknown') + ')'
+              logs = boto3.client('logs', config=CONFIG)
+              logs.put_resource_policy(policyName=props['PolicyName'],
+                                       policyDocument=props['PolicyDocument'])
+              xray.update_trace_segment_destination(Destination='CloudWatchLogs')
+              try:
+                  xray.update_indexing_rule(Name='Default', Rule={'Probabilistic': {
+                      'DesiredSamplingPercentage': float(props['IndexingPercentage'])}})
+              except Exception as error:
+                  return 'enabled; indexing left at the default: ' + type(error).__name__
+              return 'enabled'
+
+          def respond(event, note):
+              body = json.dumps({
+                  'Status': 'SUCCESS', 'Reason': note[:250],
+                  'PhysicalResourceId': 'transaction-search',
+                  'StackId': event['StackId'], 'RequestId': event['RequestId'],
+                  'LogicalResourceId': event['LogicalResourceId'],
+                  'Data': {'Status': note[:250]}}).encode()
+              for attempt in range(3):
+                  try:
+                      request = urllib.request.Request(event['ResponseURL'], data=body, method='PUT',
+                                                       headers={'Content-Type': ''})
+                      with urllib.request.urlopen(request, timeout=10) as response:
+                          response.read()
+                      return
+                  except Exception as error:
+                      print('CloudFormation response attempt failed:', type(error).__name__)
+
+          def handler(event, context):
+              """Never fails the stack: Lab 3 works without traces, so a problem is reported."""
+              note = 'left on at deletion'
+              try:
+                  if event['RequestType'] != 'Delete':
+                      note = enable(event['ResourceProperties'])
+              except Exception as error:
+                  note = 'Transaction Search not enabled: ' + type(error).__name__ + ': ' + str(error)
+              print(note)
+              respond(event, note)
+
+  TransactionSearch:
+    Type: Custom::TransactionSearch
+    Condition: ObservabilityEnabled
+    Properties:
+      ServiceToken: !GetAtt TransactionSearchConfigurator.Arn
+      PolicyName: MosaicTransactionSearchAccess
+      # Every span is indexed: a participant looks for their own few runs, and a
+      # sampled index could hide the one they are looking for.
+      IndexingPercentage: 100
+      PolicyDocument: !Sub >-
+        {"Version":"2012-10-17","Statement":[{"Sid":"TransactionSearchXRayAccess","Effect":"Allow",
+        "Principal":{"Service":"xray.amazonaws.com"},"Action":"logs:PutLogEvents",
+        "Resource":["arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:aws/spans:*",
+        "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/application-signals/data:*"],
+        "Condition":{"ArnLike":{"aws:SourceArn":"arn:${AWS::Partition}:xray:${AWS::Region}:${AWS::AccountId}:*"},
+        "StringEquals":{"aws:SourceAccount":"${AWS::AccountId}"}}}]}
+
+  MosaicToolsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: bedrock-agentcore.amazonaws.com
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+              ArnLike:
+                aws:SourceArn: !Sub 'arn:${AWS::Partition}:bedrock-agentcore:${AWS::Region}:${AWS::AccountId}:runtime/*'
+      ManagedPolicyArns:
+        - !Ref RuntimeCommonPolicy
+
+  MosaicAgentRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: bedrock-agentcore.amazonaws.com
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+              ArnLike:
+                aws:SourceArn: !Sub 'arn:${AWS::Partition}:bedrock-agentcore:${AWS::Region}:${AWS::AccountId}:runtime/*'
+      ManagedPolicyArns:
+        - !Ref RuntimeCommonPolicy
+      Policies:
+        - PolicyName: MemoryAndTools
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: [bedrock-agentcore:GetMemory, bedrock-agentcore:CreateEvent, bedrock-agentcore:ListEvents, bedrock-agentcore:ListMemoryRecords, bedrock-agentcore:RetrieveMemoryRecords]
+                Resource: !GetAtt MosaicMemory.MemoryArn
+              - Effect: Allow
+                Action: bedrock-agentcore:InvokeGateway
+                Resource: !GetAtt MosaicGateway.GatewayArn
+
+  MosaicToolsRuntime:
+    Type: AWS::BedrockAgentCore::Runtime
+    DependsOn: ImageReadyWaitCondition
+    Properties:
+      AgentRuntimeName: !Join
+        - '_'
+        - - MosaicTools
+          - !Join ['_', !Split ['-', !Select [2, !Split ['/', !Ref 'AWS::StackId']]]]
+      AgentRuntimeArtifact:
+        ContainerConfiguration:
+          ContainerUri: !Sub '${RuntimeImageRepository.RepositoryUri}:bootstrap-${SourceRevision}'
+      RoleArn: !GetAtt MosaicToolsRole.Arn
+      ProtocolConfiguration: MCP
+      NetworkConfiguration:
+        NetworkMode: VPC
+        NetworkModeConfig:
+          SecurityGroups: [!Ref DatabaseClientSecurityGroupId, !Ref RuntimeSecurityGroup]
+          Subnets: [!Ref PrivateSubnetId]
+      LifecycleConfiguration:
+        IdleRuntimeSessionTimeout: 300
+        MaxLifetime: 3600
+      EnvironmentVariables:
+        MOSAIC_RUNTIME_MODE: tools
+        MOSAIC_OBSERVABILITY: !If [ObservabilityEnabled, 'on', 'off']
+        MOSAIC_DATABASE_SECRET_ARN: !Ref RuntimeDatabaseSecret
+        MOSAIC_SOURCE_REVISION: !Ref SourceRevision
+        MOSAIC_CATALOG_DATASET: reviews-2023-v2
+        BEDROCK_REGION: !Ref AWS::Region
+        BEDROCK_EMBED_MODEL_ID: us.cohere.embed-v4:0
+        BEDROCK_RERANK_MODEL_ID: cohere.rerank-v3-5:0
+        BEDROCK_CHAT_MODEL_ID: global.anthropic.claude-sonnet-5-5
+        EMBEDDING_PROVIDER: bedrock
+        RERANK_PROVIDER: bedrock
+        RERANK_REQUIRED: 'true'
+        ALLOW_DEVELOPMENT_EMBEDDINGS: 'false'
+        AURORA_INSTANCE_CLASS: !Ref DBInstanceClass
+      Tags:
+        Project: Mosaic
+        Purpose: Tools
+
+  MosaicToolsLogs:
+    Type: Custom::RuntimeLogConfiguration
+    Properties:
+      ServiceToken: !GetAtt RuntimeLogConfigurator.Arn
+      LogGroupName: !Sub '/aws/bedrock-agentcore/runtimes/${MosaicToolsRuntime.AgentRuntimeId}-DEFAULT'
+      KmsKeyId: !GetAtt RuntimeLogKey.Arn
+      RetentionInDays: 7
+
+  MosaicAgentRuntime:
+    Type: AWS::BedrockAgentCore::Runtime
+    DependsOn: MosaicGatewayTarget
+    Properties:
+      # The guide calls this the Retrieval agent; the name says so in the console and in
+      # `deploy_agentcore.py resources`. Runtime names stop at 48 characters, so the
+      # suffix is the stack ID's first segment, not all of it.
+      AgentRuntimeName: !Join
+        - '_'
+        - - RetrievalAgent
+          - !Select [0, !Split ['-', !Select [2, !Split ['/', !Ref 'AWS::StackId']]]]
+      AgentRuntimeArtifact:
+        ContainerConfiguration:
+          ContainerUri: !Sub '${RuntimeImageRepository.RepositoryUri}:bootstrap-${SourceRevision}'
+      RoleArn: !GetAtt MosaicAgentRole.Arn
+      ProtocolConfiguration: HTTP
+      NetworkConfiguration:
+        NetworkMode: VPC
+        NetworkModeConfig:
+          SecurityGroups: [!Ref DatabaseClientSecurityGroupId, !Ref RuntimeSecurityGroup]
+          Subnets: [!Ref PrivateSubnetId]
+      LifecycleConfiguration:
+        IdleRuntimeSessionTimeout: 300
+        MaxLifetime: 3600
+      EnvironmentVariables:
+        MOSAIC_RUNTIME_MODE: agent
+        MOSAIC_OBSERVABILITY: !If [ObservabilityEnabled, 'on', 'off']
+        MOSAIC_DATABASE_SECRET_ARN: !Ref RuntimeDatabaseSecret
+        MOSAIC_SOURCE_REVISION: !Ref SourceRevision
+        MOSAIC_CATALOG_DATASET: reviews-2023-v2
+        BEDROCK_REGION: !Ref AWS::Region
+        BEDROCK_EMBED_MODEL_ID: us.cohere.embed-v4:0
+        BEDROCK_RERANK_MODEL_ID: cohere.rerank-v3-5:0
+        BEDROCK_CHAT_MODEL_ID: global.anthropic.claude-sonnet-5-5
+        EMBEDDING_PROVIDER: bedrock
+        RERANK_PROVIDER: bedrock
+        RERANK_REQUIRED: 'true'
+        ALLOW_DEVELOPMENT_EMBEDDINGS: 'false'
+        AURORA_INSTANCE_CLASS: !Ref DBInstanceClass
+        MOSAIC_AGENTCORE_MEMORY_ID: !GetAtt MosaicMemory.MemoryId
+        MOSAIC_AGENTCORE_GATEWAY_URL: !GetAtt MosaicGateway.GatewayUrl
+      Tags:
+        Project: Mosaic
+        Purpose: Agent
+
+  MosaicAgentLogs:
+    Type: Custom::RuntimeLogConfiguration
+    Properties:
+      ServiceToken: !GetAtt RuntimeLogConfigurator.Arn
+      LogGroupName: !Sub '/aws/bedrock-agentcore/runtimes/${MosaicAgentRuntime.AgentRuntimeId}-DEFAULT'
+      KmsKeyId: !GetAtt RuntimeLogKey.Arn
+      RetentionInDays: 7
+
+  RuntimeLogConfiguratorRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+      Policies:
+        - PolicyName: ConfigureMosaicRuntimeLogs
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: [logs:AssociateKmsKey, logs:PutRetentionPolicy]
+                Resource:
+                  - !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/bedrock-agentcore/runtimes/MosaicTools_*'
+                  - !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/bedrock-agentcore/runtimes/RetrievalAgent_*'
+              - Effect: Allow
+                Action: kms:DescribeKey
+                Resource: !GetAtt RuntimeLogKey.Arn
+                Condition:
+                  StringEquals:
+                    kms:ViaService: !Sub 'logs.${AWS::Region}.amazonaws.com'
+
+  RuntimeLogConfigurator:
+    Type: AWS::Lambda::Function
+    Properties:
+      Runtime: python3.13
+      Handler: index.handler
+      Role: !GetAtt RuntimeLogConfiguratorRole.Arn
+      Timeout: 300
+      Code:
+        ZipFile: |
+          import json
+          import time
+          import urllib.request
+          import boto3
+          from botocore.config import Config
+          from botocore.exceptions import ClientError
+
+          def handler(event, context):
+              """Configure the log group Runtime creates; retain it on deletion."""
+              props = event['ResourceProperties']
+              status, reason = 'SUCCESS', 'Runtime logging configured'
+              try:
+                  if event['RequestType'] != 'Delete':
+                      logs = boto3.client('logs', config=Config(
+                          connect_timeout=5, read_timeout=5,
+                          retries={'total_max_attempts': 2, 'mode': 'standard'}))
+                      for attempt in range(48):
+                          try:
+                              logs.associate_kms_key(logGroupName=props['LogGroupName'], kmsKeyId=props['KmsKeyId'])
+                              logs.put_retention_policy(logGroupName=props['LogGroupName'], retentionInDays=int(props['RetentionInDays']))
+                              break
+                          except ClientError as error:
+                              if error.response['Error']['Code'] != 'ResourceNotFoundException' or attempt == 47:
+                                  raise
+                              time.sleep(5)
+              except Exception as error:
+                  status, reason = 'FAILED', 'Runtime log configuration failed: ' + type(error).__name__
+              body = json.dumps({
+                  'Status': status, 'Reason': reason,
+                  'PhysicalResourceId': props['LogGroupName'],
+                  'StackId': event['StackId'], 'RequestId': event['RequestId'],
+                  'LogicalResourceId': event['LogicalResourceId'], 'Data': {}}).encode()
+              request = urllib.request.Request(event['ResponseURL'], data=body, method='PUT', headers={'Content-Type': ''})
+              with urllib.request.urlopen(request, timeout=10) as response:
+                  response.read()
+
+  MosaicGatewayRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: bedrock-agentcore.amazonaws.com
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+              ArnLike:
+                aws:SourceArn: !Sub 'arn:${AWS::Partition}:bedrock-agentcore:${AWS::Region}:${AWS::AccountId}:gateway/*'
+      Policies:
+        - PolicyName: InvokeMosaicTools
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: bedrock-agentcore:InvokeAgentRuntime
+                Resource:
+                  - !GetAtt MosaicToolsRuntime.AgentRuntimeArn
+                  - !Sub '${MosaicToolsRuntime.AgentRuntimeArn}/runtime-endpoint/DEFAULT'
+
+  MosaicGateway:
+    Type: AWS::BedrockAgentCore::Gateway
+    Properties:
+      Name: !Join ['-', ['mosaic', !Select [2, !Split ['/', !Ref 'AWS::StackId']]]]
+      AuthorizerType: AWS_IAM
+      ProtocolType: MCP
+      RoleArn: !GetAtt MosaicGatewayRole.Arn
+      Tags:
+        Project: Mosaic
+
+  MosaicGatewayTarget:
+    Type: AWS::BedrockAgentCore::GatewayTarget
+    DependsOn: MosaicToolsLogs
+    Properties:
+      GatewayIdentifier: !GetAtt MosaicGateway.GatewayIdentifier
+      Name: mosaic
+      TargetConfiguration:
+        Mcp:
+          McpServer:
+            Endpoint: !Sub 'https://bedrock-agentcore.${AWS::Region}.amazonaws.com/runtimes/arn%3A${AWS::Partition}%3Abedrock-agentcore%3A${AWS::Region}%3A${AWS::AccountId}%3Aruntime%2F${MosaicToolsRuntime.AgentRuntimeId}/invocations?qualifier=DEFAULT'
+      CredentialProviderConfigurations:
+        - CredentialProviderType: GATEWAY_IAM_ROLE
+          CredentialProvider:
+            IamCredentialProvider:
+              Service: bedrock-agentcore
+              Region: !Ref AWS::Region
+
+  AgentDeploymentPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: DeployWorkshopAgent
+      Roles: [!Ref InstanceRole]
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action: [bedrock-agentcore:GetAgentRuntime, bedrock-agentcore:UpdateAgentRuntime, bedrock-agentcore:GetAgentRuntimeEndpoint, bedrock-agentcore:UpdateAgentRuntimeEndpoint, bedrock-agentcore:InvokeAgentRuntime]
+            Resource:
+              - !GetAtt MosaicAgentRuntime.AgentRuntimeArn
+              - !Sub '${MosaicAgentRuntime.AgentRuntimeArn}/runtime-endpoint/*'
+              - !GetAtt MosaicToolsRuntime.AgentRuntimeArn
+              - !Sub '${MosaicToolsRuntime.AgentRuntimeArn}/runtime-endpoint/*'
+          - Effect: Allow
+            Action: [bedrock-agentcore:InvokeGateway, bedrock-agentcore:GetGateway, bedrock-agentcore:GetGatewayTarget, bedrock-agentcore:SynchronizeGatewayTargets]
+            Resource: !GetAtt MosaicGateway.GatewayArn
+          - Effect: Allow
+            Action: iam:PassRole
+            Resource: [!GetAtt MosaicAgentRole.Arn, !GetAtt MosaicToolsRole.Arn]
+            Condition:
+              StringEquals:
+                iam:PassedToService: bedrock-agentcore.amazonaws.com
+
+  InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/AmazonSSMManagedInstanceCore'
+      Policies:
+        - PolicyName: MosaicRuntime
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: StageRuntimeImage
+                Effect: Allow
+                Action: [ecr:DescribeImages, ecr:BatchGetImage, ecr:GetDownloadUrlForLayer, ecr:BatchCheckLayerAvailability, ecr:InitiateLayerUpload, ecr:UploadLayerPart, ecr:CompleteLayerUpload, ecr:PutImage]
+                Resource: !GetAtt RuntimeImageRepository.Arn
+              - Sid: RuntimeRegistryLogin
+                Effect: Allow
+                Action: ecr:GetAuthorizationToken
+                Resource: '*'
+              - Sid: WriteRuntimeDatabaseSecret
+                Effect: Allow
+                Action: secretsmanager:PutSecretValue
+                Resource: !Ref RuntimeDatabaseSecret
+              - Sid: FindOwnRuntime
+                Effect: Allow
+                Action: cloudformation:ListStackResources
+                Resource: !Ref AWS::StackId
+              - Sid: ReadRuntimeSecrets
+                Effect: Allow
+                Action:
+                  - secretsmanager:DescribeSecret
+                  - secretsmanager:GetSecretValue
+                Resource:
+                  - !Ref CodeEditorSecret
+                  - !Ref OriginVerifySecret
+                  - !Ref DBSecretArn
+              - Sid: ListCatalogAssets
+                Effect: Allow
+                Action: s3:ListBucket
+                Resource: !Sub 'arn:${AWS::Partition}:s3:::${AssetsBucketName}'
+                Condition:
+                  StringLike:
+                    s3:prefix:
+                      - !Sub '${AssetsBucketPrefix}real-catalog'
+                      - !Sub '${AssetsBucketPrefix}real-catalog/*'
+              - Sid: ReadCatalogAssets
+                Effect: Allow
+                Action: s3:GetObject
+                Resource:
+                  - !Sub 'arn:${AWS::Partition}:s3:::${AssetsBucketName}/${AssetsBucketPrefix}real-catalog/*'
+                  - !Sub 'arn:${AWS::Partition}:s3:::${AssetsBucketName}/${AssetsBucketPrefix}releases/${InfrastructureRevision}/mosaic-bootstrap.sh'
+              - Sid: MosaicMemoryAccess
+                Effect: Allow
+                Action:
+                  - bedrock-agentcore:GetMemory
+                  - bedrock-agentcore:CreateEvent
+                  - bedrock-agentcore:ListEvents
+                  - bedrock-agentcore:ListMemoryRecords
+                  - bedrock-agentcore:RetrieveMemoryRecords
+                Resource: !GetAtt MosaicMemory.MemoryArn
+              - Sid: BedrockRerank
+                Effect: Allow
+                Action:
+                  - bedrock:Rerank
+                Resource: '*'
+              - Sid: BedrockModelInvoke
+                Effect: Allow
+                Action:
+                  - bedrock:GetFoundationModel
+                  - bedrock:GetInferenceProfile
+                  - bedrock:InvokeModel
+                  - bedrock:InvokeModelWithResponseStream
+                Resource:
+                  # Global Claude inference evaluates both regional and
+                  # regionless foundation-model resources.
+                  - !Sub 'arn:${AWS::Partition}:bedrock:*::foundation-model/anthropic.claude-sonnet-5-5'
+                  - !Sub 'arn:${AWS::Partition}:bedrock:::foundation-model/anthropic.claude-sonnet-5-5'
+                  - !Sub 'arn:${AWS::Partition}:bedrock:*::foundation-model/cohere.embed-v4:0'
+                  - !Sub 'arn:${AWS::Partition}:bedrock:*::foundation-model/cohere.rerank-v3-5:0'
+                  - !Sub 'arn:${AWS::Partition}:bedrock:*:${AWS::AccountId}:inference-profile/global.anthropic.claude-sonnet-5-5'
+                  - !Sub 'arn:${AWS::Partition}:bedrock:*:${AWS::AccountId}:inference-profile/us.cohere.embed-v4:0'
+              - Sid: BedrockDiscovery
+                Effect: Allow
+                Action:
+                  - bedrock:ListFoundationModels
+                  - bedrock:ListInferenceProfiles
+                Resource: '*'
+                Condition:
+                  StringEquals:
+                    aws:RequestedRegion: !Ref AWS::Region
+              # mosaic-bootstrap.sh discovers the Code Editor distribution by its
+              # comment after the database bootstrap so Mosaic can show a tokenless
+              # Code Editor link. The instance cannot receive the domain from the
+              # template because both distributions depend on the instance.
+              - Sid: CodeEditorDistributionDiscovery
+                Effect: Allow
+                Action: cloudfront:ListDistributions
+                Resource: '*'
+              # Bedrock subscribes a cold account to a model on first invoke
+              # through Marketplace. Unsubscribe is never needed and would let
+              # the instance revoke account-level model access, so it is not
+              # granted. Marketplace calls are evaluated in us-east-1 whatever
+              # the stack region, so no aws:RequestedRegion condition here.
+              - Sid: BedrockMarketplace
+                Effect: Allow
+                Action:
+                  - aws-marketplace:Subscribe
+                  - aws-marketplace:ViewSubscriptions
+                Resource: '*'
+                Condition:
+                  StringEquals:
+                    aws:CalledViaLast: bedrock.amazonaws.com
+              - Sid: CallerIdentity
+                Effect: Allow
+                Action: sts:GetCallerIdentity
+                Resource: '*'
+
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref InstanceRole
+
+  CodeEditorSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: CloudFront VPC origin access to the Code Editor
+      VpcId: !Ref VPCId
+      # The CloudFront origin-facing prefix list has weight 55 against the
+      # default quota of 60 ingress rules. Keep one prefix-list reference in
+      # each security group; putting both origin ports in one group costs 110.
+      SecurityGroupIngress:
+        - Description: Code Editor through CloudFront
+          IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourcePrefixListId: !FindInMap [CloudFrontPrefixList, !Ref AWS::Region, Id]
+      SecurityGroupEgress:
+        - Description: Package, source, AWS API, and database access
+          IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Workshop
+          Value: !Ref WorkshopName
+
+  # The database-client group is Aurora-only by design. At startup a runtime
+  # reads its DSN from Secrets Manager, then calls Bedrock, Gateway, S3 and
+  # CloudWatch Logs; without this group it cannot initialize and Gateway fails
+  # MosaicGatewayTarget with "Runtime initialization time exceeded".
+  RuntimeSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: AgentCore runtime HTTPS access to AWS APIs
+      VpcId: !Ref VPCId
+      SecurityGroupEgress:
+        - Description: HTTPS to AWS service endpoints through the NAT gateway
+          IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Workshop
+          Value: !Ref WorkshopName
+
+  MosaicSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: CloudFront VPC origin access to Mosaic
+      VpcId: !Ref VPCId
+      SecurityGroupIngress:
+        - Description: Mosaic application through CloudFront
+          IpProtocol: tcp
+          FromPort: 8081
+          ToPort: 8081
+          SourcePrefixListId: !FindInMap [CloudFrontPrefixList, !Ref AWS::Region, Id]
+      # Specifying an egress rule suppresses EC2's default allow-all rule. Host
+      # egress is deliberately owned by CodeEditorSecurityGroup instead.
+      SecurityGroupEgress:
+        - Description: No independent network egress
+          IpProtocol: -1
+          CidrIp: 127.0.0.1/32
+      Tags:
+        - Key: Workshop
+          Value: !Ref WorkshopName
+
+  BootstrapWaitHandle:
+    Type: AWS::CloudFormation::WaitConditionHandle
+
+  # The host's launch inputs. The editor launcher (below) starts the host from
+  # this template, so EditorInstance replaces the host only when its version
+  # changes: the network-interface description binds the release, the database
+  # name and the cluster endpoint.
+  CodeEditorLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateData:
+        ImageId: !Ref CodeEditorAmi
+        IamInstanceProfile:
+          Arn: !GetAtt InstanceProfile.Arn
+        NetworkInterfaces:
+          - DeviceIndex: 0
+            AssociatePublicIpAddress: false
+            DeleteOnTermination: true
+            Description: !Sub
+              'mosaic-${InfrastructureRevision}-${DBName}-${DBClusterEndpoint}'
+            Groups:
+              - !Ref CodeEditorSecurityGroup
+              - !Ref MosaicSecurityGroup
+              - !Ref DatabaseClientSecurityGroupId
+        MetadataOptions:
+          HttpEndpoint: enabled
+          HttpTokens: required
+          HttpPutResponseHopLimit: 1
+        # Explicit, so nothing turns off EC2's in-place recovery of a failed host.
+        MaintenanceOptions:
+          AutoRecovery: default
+        BlockDeviceMappings:
+          - DeviceName: /dev/xvda
+            Ebs:
+              DeleteOnTermination: true
+              Encrypted: true
+              VolumeSize: !Ref VolumeSize
+              VolumeType: gp3
+        TagSpecifications:
+          - ResourceType: instance
+            Tags:
+              # EditorLauncherRole may terminate only the host with this name.
+              - Key: Name
+                Value: !Sub '${WorkshopName}-code-editor'
+              - Key: Workshop
+                Value: !Ref WorkshopName
+              - Key: BaseAmiId
+                Value: !Ref CodeEditorAmi
+          - ResourceType: volume
+            Tags:
+              - Key: Name
+                Value: !Sub '${WorkshopName}-code-editor'
+              - Key: Workshop
+                Value: !Ref WorkshopName
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            set -Eeuo pipefail
+            exec > >(tee /var/log/mosaic-bootstrap.log | logger -t mosaic-bootstrap -s 2>/dev/console) 2>&1
+
+            BOOTSTRAP_WAIT_HANDLE='${BootstrapWaitHandle}'
+            IMAGE_READY_WAIT_HANDLE='${ImageReadyWaitHandle}'
+            BOOTSTRAP_PHASE=loader
+            rm -f /run/mosaic-bootstrap-failure-signalled
+            # Only three things run before the bootstrap takes over, so name them
+            # instead of pointing at a log file that rollback deletes along with
+            # the host. A stale assets sync fails at the sha256 check with an error
+            # that otherwise mentions neither S3 nor the script.
+            #
+            # The editor launcher, not CloudFormation, starts this host, so the
+            # stack takes no signal for the instance: both gates are wait
+            # conditions, whose handles need no IAM. The bootstrap gate hears a
+            # loader failure first, because rollback can begin on the first
+            # FAILURE and only that gate carries the cause; the image-ready gate
+            # follows so a loader failure never holds the stack until its timeout.
+            # The bootstrap script records an acknowledged failure signal;
+            # preserve its redacted cause when this outer ERR trap handles the same
+            # nonzero exit.
+            signal_failure() {
+              rc="$1"
+              trap - ERR
+              if [ "$BOOTSTRAP_PHASE" = loader ]; then
+                reason='Mosaic bootstrap loader failed before mosaic-bootstrap.sh ran. Check awscli installation, S3 bootstrap download and BootstrapScriptSha256 asset parity.'
+              else
+                reason='Mosaic bootstrap execution or final CloudFormation signal failed without an acknowledged failure report. Inspect /var/log/mosaic-bootstrap.log and cloud-init-output.log; correct the failing step before provisioning again.'
+              fi
+              if [ ! -f /run/mosaic-bootstrap-failure-signalled ]; then
+                curl --silent --show-error --fail -X PUT -H 'Content-Type:' \
+                  --data-binary "{\"Status\":\"FAILURE\",\"Reason\":\"$reason\",\"UniqueId\":\"userdata\",\"Data\":\"failed\"}" \
+                  "$BOOTSTRAP_WAIT_HANDLE" || true
+              fi
+              curl --silent --show-error --fail -X PUT -H 'Content-Type:' \
+                --data-binary "{\"Status\":\"FAILURE\",\"Reason\":\"$reason\",\"UniqueId\":\"image-ready\",\"Data\":\"failed\"}" \
+                "$IMAGE_READY_WAIT_HANDLE" || true
+              exit "$rc"
+            }
+            trap 'signal_failure "$?"' ERR
+
+            command -v aws >/dev/null 2>&1 || \
+              (dnf install -y awscli2 || dnf install -y awscli)
+            # Workshop Studio copies the assets to the event's Region; name it
+            # rather than leave the AWS CLI to infer one. The dnf fallback above
+            # installs AWS CLI v1, which reads only AWS_DEFAULT_REGION.
+            export AWS_REGION='${AWS::Region}'
+            export AWS_DEFAULT_REGION='${AWS::Region}'
+            BOOTSTRAP_SCRIPT=/opt/mosaic-bootstrap.sh
+            aws s3 cp \
+              's3://${AssetsBucketName}/${AssetsBucketPrefix}releases/${InfrastructureRevision}/mosaic-bootstrap.sh' \
+              "$BOOTSTRAP_SCRIPT" --only-show-errors
+            printf '%s  %s\n' '${BootstrapScriptSha256}' "$BOOTSTRAP_SCRIPT" \
+              | sha256sum -c -
+            chmod 700 "$BOOTSTRAP_SCRIPT"
+
+            export BOOTSTRAP_WAIT_HANDLE
+            export IMAGE_READY_WAIT_HANDLE
+            export CODE_EDITOR_USER='${CodeEditorUser}'
+            export HOME_FOLDER='${HomeFolder}'
+            export REPO_URL='${RepoUrl}'
+            export SOURCE_REVISION='${SourceRevision}'
+            export MOSAIC_AGENTCORE_MEMORY_ID='${MosaicMemory.MemoryId}'
+            export MOSAIC_RUNTIME_IMAGE_REPOSITORY='${RuntimeImageRepository.RepositoryUri}'
+            export MOSAIC_RUNTIME_DATABASE_SECRET_ARN='${RuntimeDatabaseSecret}'
+            export MOSAIC_EDITOR_STACK='${AWS::StackId}'
+            export DB_SECRET_ARN='${DBSecretArn}'
+            export DB_CLUSTER_ENDPOINT='${DBClusterEndpoint}'
+            export DB_NAME='${DBName}'
+            export ASSETS_BUCKET='${AssetsBucketName}'
+            export ASSETS_PREFIX='${AssetsBucketPrefix}'
+            export CODE_EDITOR_CONNECTION_TOKEN='${SecretPlaintext.password}'
+            export ORIGIN_VERIFY_SECRET='${OriginSecretPlaintext.password}'
+            export DB_INSTANCE_CLASS='${DBInstanceClass}'
+            export WORKSHOP_NAME='${WorkshopName}'
+
+            BOOTSTRAP_PHASE=bootstrap
+            "$BOOTSTRAP_SCRIPT"
+            trap - ERR
+
+  # The bootstrap PUTs this handle once the runtime image is published; both
+  # runtimes and Gateway wait on it and build during the catalog restore. It
+  # replaces the instance's CreationPolicy, which a launcher-started host cannot
+  # answer. A completed condition does not re-gate a host that a stack update
+  # replaces; Workshop Studio events are created, never updated.
+  ImageReadyWaitHandle:
+    Type: AWS::CloudFormation::WaitConditionHandle
+
+  ImageReadyWaitCondition:
+    Type: AWS::CloudFormation::WaitCondition
+    Properties:
+      Handle: !Ref ImageReadyWaitHandle
+      Timeout: '7200'
+      Count: 1
+
+  # Launches the host when CloudFormation creates it, on the first zone and
+  # instance type with capacity: scripts/editor_launcher.py, the canonical copy
+  # every workshop shares. The result is a plain instance, so EC2's automatic
+  # recovery stays on and nothing replaces the host by itself; a stack update
+  # replaces it only when its launch inputs change.
+  EditorLauncherRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+      Policies:
+        - PolicyName: LaunchTheEditorHost
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: LaunchFromTheTemplateIntoThePrivateSubnets
+                Effect: Allow
+                Action: ec2:RunInstances
+                Resource:
+                  - !Sub 'arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:launch-template/${CodeEditorLaunchTemplate}'
+                  - !Sub 'arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:subnet/${PrivateSubnetId}'
+                  - !Sub 'arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:subnet/${PrivateSubnetBId}'
+                  - !Sub 'arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:subnet/${PrivateSubnetCId}'
+                  - !Sub 'arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:security-group/${CodeEditorSecurityGroup}'
+                  - !Sub 'arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:security-group/${MosaicSecurityGroup}'
+                  - !Sub 'arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:security-group/${DatabaseClientSecurityGroupId}'
+                  - !Sub 'arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:instance/*'
+                  - !Sub 'arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:volume/*'
+                  - !Sub 'arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:network-interface/*'
+                  - !Sub 'arn:${AWS::Partition}:ec2:${AWS::Region}::image/*'
+              - Sid: TagOnlyAtLaunch
+                Effect: Allow
+                Action: ec2:CreateTags
+                Resource:
+                  - !Sub 'arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:instance/*'
+                  - !Sub 'arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:volume/*'
+                  - !Sub 'arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:network-interface/*'
+                Condition:
+                  StringEquals:
+                    ec2:CreateAction: RunInstances
+              - Sid: PassOnlyTheHostRole
+                Effect: Allow
+                Action: iam:PassRole
+                Resource: !GetAtt InstanceRole.Arn
+                Condition:
+                  StringEquals:
+                    iam:PassedToService: ec2.amazonaws.com
+              - Sid: ReadInstancesAndSubnets
+                Effect: Allow
+                Action:
+                  - ec2:DescribeInstances
+                  - ec2:DescribeSubnets
+                Resource: '*'
+              - Sid: TerminateOnlyThisHost
+                Effect: Allow
+                Action: ec2:TerminateInstances
+                Resource: !Sub 'arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:instance/*'
+                Condition:
+                  StringEquals:
+                    aws:ResourceTag/Name: !Sub '${WorkshopName}-code-editor'
+
+  EditorLauncherFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: Launches the Code Editor host on the first zone and instance type with capacity
+      Architectures:
+        - arm64
+      Runtime: python3.13
+      Handler: editor_launcher.handler
+      Role: !GetAtt EditorLauncherRole.Arn
+      # Lambda's limit: about eleven minutes to retry every option, then up to
+      # four to see the instance run and answer CloudFormation.
+      Timeout: 900
+      MemorySize: 256
+      Code:
+        S3Bucket: !Ref AssetsBucketName
+        S3Key: !Sub '${AssetsBucketPrefix}${EditorLauncherArchiveName}'
+
+  # Refuses any upload other than the reviewed package.
+  EditorLauncherCodeCheck:
+    Type: AWS::Lambda::Version
+    Properties:
+      FunctionName: !Ref EditorLauncherFunction
+      CodeSha256: !Ref EditorLauncherCodeSha256
+      Description: Reviewed editor launcher package
+
+  # CloudFormation invokes the launcher asynchronously. A retried invocation
+  # could launch a second host, so a launcher failure answers FAILED once
+  # instead of running again, and an invocation Lambda could not start within a
+  # minute (throttled) is discarded rather than delivered after CloudFormation
+  # has stopped waiting.
+  EditorLauncherInvokeConfig:
+    Type: AWS::Lambda::EventInvokeConfig
+    Properties:
+      FunctionName: !Ref EditorLauncherFunction
+      Qualifier: $LATEST
+      MaximumRetryAttempts: 0
+      MaximumEventAgeInSeconds: 60
+
+  EditorInstance:
+    Type: Custom::EditorInstance
+    DependsOn:
+      - EditorLauncherCodeCheck
+      - EditorLauncherInvokeConfig
+    Properties:
+      ServiceToken: !GetAtt EditorLauncherFunction.Arn
+      ServiceTimeout: 960
+      LaunchTemplateId: !Ref CodeEditorLaunchTemplate
+      LaunchTemplateVersion: !GetAtt CodeEditorLaunchTemplate.LatestVersionNumber
+      # Every type has 8 vCPUs, Graviton (arm64) and EBS only, each a separate
+      # capacity pool. Each is tried in every subnet before the next.
+      InstanceTypes:
+        - !Ref InstanceType
+        - c7g.2xlarge
+        - m7g.2xlarge
+        - c8g.2xlarge
+        - m8g.2xlarge
+        - m6g.2xlarge
+      Subnets:
+        - !Ref PrivateSubnetId
+        - !Ref PrivateSubnetBId
+        - !Ref PrivateSubnetCId
+
+  # No DependsOn: the condition exists from the start, so a bootstrap failure
+  # after the image-ready signal still reaches the stack through this handle;
+  # it completes only on the bootstrap's final success.
+  BootstrapWaitCondition:
+    Type: AWS::CloudFormation::WaitCondition
+    Properties:
+      Handle: !Ref BootstrapWaitHandle
+      Timeout: '7200'
+      Count: 1
+
+  CodeEditorVpcOrigin:
+    Type: AWS::CloudFront::VpcOrigin
+    Properties:
+      VpcOriginEndpointConfig:
+        Name: !Sub '${AWS::StackName}-code-editor'
+        Arn: !Sub
+          'arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:instance/${EditorInstance.InstanceId}'
+        HTTPPort: 80
+        OriginProtocolPolicy: http-only
+      Tags:
+        - Key: Workshop
+          Value: !Ref WorkshopName
+
+  MosaicVpcOrigin:
+    Type: AWS::CloudFront::VpcOrigin
+    Properties:
+      VpcOriginEndpointConfig:
+        Name: !Sub '${AWS::StackName}-mosaic'
+        Arn: !Sub
+          'arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:instance/${EditorInstance.InstanceId}'
+        HTTPPort: 8081
+        OriginProtocolPolicy: http-only
+      Tags:
+        - Key: Workshop
+          Value: !Ref WorkshopName
+
+
+  # CloudFormation creates a CLOUDFRONT-scoped web ACL only in us-east-1, so an event in
+  # another Region has none. Nginx's per-IP and room rate limits in the bootstrap apply
+  # in every Region.
+  MosaicWebACL:
+    Type: AWS::WAFv2::WebACL
+    Condition: WafInUsEast1
+    Properties:
+      Name: !Sub '${WorkshopName}-mosaic-api'
+      Description: Block known bad inputs and rate limit the Mosaic API
+      Scope: CLOUDFRONT
+      DefaultAction:
+        Allow: {}
+      VisibilityConfig:
+        CloudWatchMetricsEnabled: true
+        MetricName: MosaicWebACL
+        SampledRequestsEnabled: true
+      Rules:
+        - Name: AWSKnownBadInputs
+          Priority: 0
+          OverrideAction:
+            None: {}
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesKnownBadInputsRuleSet
+          VisibilityConfig:
+            CloudWatchMetricsEnabled: true
+            MetricName: AWSKnownBadInputs
+            SampledRequestsEnabled: true
+        - Name: MosaicApiRateLimit
+          Priority: 1
+          Action:
+            Block: {}
+          Statement:
+            RateBasedStatement:
+              AggregateKeyType: IP
+              Limit: 300
+              ScopeDownStatement:
+                ByteMatchStatement:
+                  FieldToMatch:
+                    UriPath: {}
+                  PositionalConstraint: STARTS_WITH
+                  SearchString: /api/
+                  TextTransformations:
+                    - Priority: 0
+                      Type: NONE
+          VisibilityConfig:
+            CloudWatchMetricsEnabled: true
+            MetricName: MosaicApiRateLimit
+            SampledRequestsEnabled: true
+
+  CodeEditorDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: !Sub '${WorkshopName} Code Editor'
+        HttpVersion: http2and3
+        PriceClass: PriceClass_100
+        DefaultCacheBehavior:
+          AllowedMethods: [GET, HEAD, OPTIONS, PUT, PATCH, POST, DELETE]
+          CachedMethods: [GET, HEAD]
+          CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+          OriginRequestPolicyId: 216adef6-5c7f-47e4-b989-5492eafa07d3
+          TargetOriginId: code-editor-origin
+          ViewerProtocolPolicy: redirect-to-https
+          Compress: false
+        Origins:
+          - Id: code-editor-origin
+            DomainName: !GetAtt EditorInstance.PrivateDnsName
+            OriginCustomHeaders:
+              - HeaderName: X-Mosaic-Origin-Verify
+                HeaderValue: !GetAtt OriginSecretPlaintext.password
+            VpcOriginConfig:
+              VpcOriginId: !GetAtt CodeEditorVpcOrigin.Id
+              OriginReadTimeout: 60
+              OriginKeepaliveTimeout: 60
+      Tags:
+        - Key: Workshop
+          Value: !Ref WorkshopName
+
+  MosaicDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: !Sub '${WorkshopName} application'
+        HttpVersion: http2and3
+        PriceClass: PriceClass_100
+        WebACLId: !If [WafInUsEast1, !GetAtt MosaicWebACL.Arn, !Ref AWS::NoValue]
+        DefaultCacheBehavior:
+          AllowedMethods: [GET, HEAD, OPTIONS, PUT, PATCH, POST, DELETE]
+          CachedMethods: [GET, HEAD]
+          CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+          OriginRequestPolicyId: 216adef6-5c7f-47e4-b989-5492eafa07d3
+          TargetOriginId: mosaic-origin
+          ViewerProtocolPolicy: redirect-to-https
+          Compress: false
+        Origins:
+          - Id: mosaic-origin
+            DomainName: !GetAtt EditorInstance.PrivateDnsName
+            OriginCustomHeaders:
+              - HeaderName: X-Mosaic-Origin-Verify
+                HeaderValue: !GetAtt OriginSecretPlaintext.password
+            VpcOriginConfig:
+              VpcOriginId: !GetAtt MosaicVpcOrigin.Id
+              OriginReadTimeout: 120
+              OriginKeepaliveTimeout: 60
+      Tags:
+        - Key: Workshop
+          Value: !Ref WorkshopName
+
+Outputs:
+  CodeEditorURL:
+    Description: Code Editor URL through CloudFront with its ephemeral connection token
+    Value: !Sub
+      - 'https://${Domain}/?workspace=${HomeFolder}/sample-agentic-hybrid-retrieval-aurora-postgresql/Mosaic.code-workspace&tkn=${Token}'
+      - Domain: !GetAtt CodeEditorDistribution.DomainName
+        Token: !GetAtt SecretPlaintext.password
+
+  MosaicURL:
+    Description: Mosaic storefront over CloudFront HTTPS; no editor token required
+    Value: !Sub 'https://${MosaicDistribution.DomainName}/'
+
+  EditorInstanceId:
+    Description: The Code Editor host the editor launcher started
+    Value: !GetAtt EditorInstance.InstanceId
+
+  EditorInstanceType:
+    Description: The instance type the editor launcher found capacity for
+    Value: !GetAtt EditorInstance.InstanceType
+
+  EditorAvailabilityZoneId:
+    Description: The physical zone the editor launcher found capacity in
+    Value: !GetAtt EditorInstance.AvailabilityZoneId

@@ -1,0 +1,274 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Agentic Hybrid Retrieval Workshop - VPC Configuration'
+
+Parameters:
+  TemplateName:
+    Type: String
+    Description: Name used for different elements created
+
+  InfrastructureRevision:
+    Type: String
+    AllowedPattern: '^[0-9a-f]{16}$'
+
+  VpcName:
+    Type: String
+    Default: Workshop-VPC
+
+  VpcCIDR:
+    Type: String
+    Default: 10.0.0.0/16
+    AllowedValues:
+      - 10.0.0.0/16
+
+  PublicSubnetACidr:
+    Type: String
+    Default: 10.0.1.0/24
+
+  PublicSubnetBCidr:
+    Type: String
+    Default: 10.0.2.0/24
+
+  PublicSubnetCCidr:
+    Type: String
+    Default: 10.0.3.0/24
+
+  PrivateSubnetACidr:
+    Type: String
+    Default: 10.0.11.0/24
+
+  PrivateSubnetBCidr:
+    Type: String
+    Default: 10.0.12.0/24
+
+  PrivateSubnetCCidr:
+    Type: String
+    Default: 10.0.13.0/24
+
+# AZ names are shuffled between accounts; physical IDs must support AgentCore.
+# https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/agentcore-vpc.html
+Mappings:
+  AgentCoreAvailabilityZones:
+    us-east-1:
+      A: use1-az1
+      B: use1-az2
+      C: use1-az4
+    us-west-2:
+      A: usw2-az1
+      B: usw2-az2
+      C: usw2-az3
+
+Resources:
+  MainVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      InstanceTenancy: default
+      CidrBlock: !Ref VpcCIDR
+      Tags:
+        - Key: Name
+          Value: !Ref VpcName
+        - Key: InfrastructureRevision
+          Value: !Ref InfrastructureRevision
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub '${TemplateName}-igw'
+
+  AttachIGW:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref MainVPC
+      InternetGatewayId: !Ref InternetGateway
+
+  # Public Subnets
+  PublicSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MainVPC
+      CidrBlock: !Ref PublicSubnetACidr
+      AvailabilityZoneId: !FindInMap [AgentCoreAvailabilityZones, !Ref AWS::Region, A]
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${TemplateName}-public-a'
+
+  PublicSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MainVPC
+      CidrBlock: !Ref PublicSubnetBCidr
+      AvailabilityZoneId: !FindInMap [AgentCoreAvailabilityZones, !Ref AWS::Region, B]
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${TemplateName}-public-b'
+
+  PublicSubnetC:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MainVPC
+      CidrBlock: !Ref PublicSubnetCCidr
+      AvailabilityZoneId: !FindInMap [AgentCoreAvailabilityZones, !Ref AWS::Region, C]
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${TemplateName}-public-c'
+
+  # Private Subnets
+  PrivateSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MainVPC
+      CidrBlock: !Ref PrivateSubnetACidr
+      AvailabilityZoneId: !FindInMap [AgentCoreAvailabilityZones, !Ref AWS::Region, A]
+      Tags:
+        - Key: Name
+          Value: !Sub '${TemplateName}-private-a'
+
+  PrivateSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MainVPC
+      CidrBlock: !Ref PrivateSubnetBCidr
+      AvailabilityZoneId: !FindInMap [AgentCoreAvailabilityZones, !Ref AWS::Region, B]
+      Tags:
+        - Key: Name
+          Value: !Sub '${TemplateName}-private-b'
+
+  PrivateSubnetC:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MainVPC
+      CidrBlock: !Ref PrivateSubnetCCidr
+      AvailabilityZoneId: !FindInMap [AgentCoreAvailabilityZones, !Ref AWS::Region, C]
+      Tags:
+        - Key: Name
+          Value: !Sub '${TemplateName}-private-c'
+
+  # Route Tables
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref MainVPC
+      Tags:
+        - Key: Name
+          Value: !Sub '${TemplateName}-public-rt'
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: AttachIGW
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  NatGatewayEIP:
+    Type: AWS::EC2::EIP
+    DependsOn: AttachIGW
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: !Sub '${TemplateName}-nat-eip'
+
+  NatGateway:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NatGatewayEIP.AllocationId
+      SubnetId: !Ref PublicSubnetA
+      Tags:
+        - Key: Name
+          Value: !Sub '${TemplateName}-nat'
+
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref MainVPC
+      Tags:
+        - Key: Name
+          Value: !Sub '${TemplateName}-private-rt'
+
+  PrivateRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway
+
+  # Route Table Associations
+  PublicSubnetARouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnetA
+      RouteTableId: !Ref PublicRouteTable
+
+  PublicSubnetBRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnetB
+      RouteTableId: !Ref PublicRouteTable
+
+  PublicSubnetCRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnetC
+      RouteTableId: !Ref PublicRouteTable
+
+  PrivateSubnetARouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnetA
+      RouteTableId: !Ref PrivateRouteTable
+
+  PrivateSubnetBRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnetB
+      RouteTableId: !Ref PrivateRouteTable
+
+  PrivateSubnetCRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnetC
+      RouteTableId: !Ref PrivateRouteTable
+
+Outputs:
+  VPC:
+    Description: VPC ID
+    Value: !Ref MainVPC
+
+  PublicSubnetA:
+    Description: Public Subnet A
+    Value: !Ref PublicSubnetA
+
+  PublicSubnetB:
+    Description: Public Subnet B
+    Value: !Ref PublicSubnetB
+
+  PublicSubnetC:
+    Description: Public Subnet C
+    Value: !Ref PublicSubnetC
+
+  PrivateSubnets:
+    Description: Private Subnets
+    Value: !Join [',', [!Ref PrivateSubnetA, !Ref PrivateSubnetB, !Ref PrivateSubnetC]]
+
+  PrivateSubnetA:
+    Description: Private subnet for the Code Editor VPC origin
+    Value: !Ref PrivateSubnetA
+
+  PrivateSubnetB:
+    Description: Second private subnet the editor launcher may use
+    Value: !Ref PrivateSubnetB
+
+  PrivateSubnetC:
+    Description: Third private subnet the editor launcher may use
+    Value: !Ref PrivateSubnetC
+
+  PublicSubnets:
+    Description: Public Subnets
+    Value: !Join [',', [!Ref PublicSubnetA, !Ref PublicSubnetB, !Ref PublicSubnetC]]
