@@ -8,7 +8,9 @@ guide; it keeps required actions visible and reference material collapsed.
 The operational preflight and publication gates live in the Workshop Studio
 repository's `FACILITATOR_GUIDE.md`. Use the [setup guide](docs/workshop-studio-setup.md)
 for both repositories and the [publishing runbook](docs/workshop-studio-publishing.md)
-for release work. This brief is for delivery, not a second runbook.
+for release work. This brief is for delivery, not a second runbook. Own-account runs are not a delivery
+mode: [Run Mosaic in your own account](docs/run-in-your-own-account.md) is a
+self-service page, and facilitators do not support it.
 
 ## Run the hour
 

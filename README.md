@@ -133,6 +133,9 @@ The commands you use most:
 A successful deploy or a plausible answer is not completion: each lab ends with the
 guide's checks against the same request, run on the state you applied or deployed.
 
+To run the workshop outside an AWS event, in an account you own, follow
+[Run Mosaic in your own account](docs/run-in-your-own-account.md).
+
 ## Use it in your own project
 
 Connect your agent to the retrieval tools, then add the skill to guide its workflow. In
