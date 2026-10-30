@@ -2063,6 +2063,22 @@ def leftover_log_groups(ctx: Context) -> list[str]:
     return names
 
 
+def transaction_search_state(ctx: Context) -> str:
+    """One line on the account-wide trace setting the stack's deletion puts back."""
+    try:
+        current = ctx.client("xray").get_trace_segment_destination()
+    except Exception as error:  # noqa: BLE001 - a report line must not fail the teardown
+        return f"  Transaction Search: not read ({type(error).__name__}); check it yourself"
+    destination = current.get("Destination", "unknown")
+    if destination == "CloudWatchLogs":
+        return (
+            "  Transaction Search: still on (destination CloudWatchLogs); it was on before "
+            "the stack, or the stack's restore did not run; the aws/spans and "
+            "/aws/application-signals/data log groups remain"
+        )
+    return f"  Transaction Search: destination {destination}, as before the stack"
+
+
 def report_leftovers(ctx: Context) -> None:
     ctx.out("what the stack does not delete (report only; nothing below is removed):")
     for name in leftover_log_groups(ctx) or ["(no matching log groups)"]:
@@ -2074,6 +2090,7 @@ def report_leftovers(ctx: Context) -> None:
             f"  RDSOSMetrics streams starting {resource_id}: delete only those streams "
             "(other databases share the group)"
         )
+    ctx.out(transaction_search_state(ctx))
     ctx.out(
         "  the staging PostgreSQL log group (/aws/rds/cluster/<id>/postgresql) and the\n"
         "  retained builder log group appear above when they exist\n"

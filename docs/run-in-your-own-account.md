@@ -443,6 +443,14 @@ Some things outlive the stack and the staging environment, and you remove them y
   `<staging stack name>-BuilderLogs-<id>`; `staging down` prints the name.
 - The KMS keys of both stacks (three in the workshop stack, one in the staging stack),
   which stay in their seven-day deletion window and then disappear.
+- CloudWatch Transaction Search, an account-wide setting per Region that the stack turns
+  on so Lab 3's agent runs appear in the CloudWatch GenAI Observability pages, with every
+  span indexed. Deleting the stack puts back what it changed: the indexing percentage, the
+  trace destination, the resource policy it created, and the two log groups `aws/spans`
+  and `/aws/application-signals/data` when they did not exist before. An account where
+  Transaction Search was already on is left as it was, including those two groups. The
+  teardown command prints the setting's state after deletion; confirm it with
+  `aws xray get-trace-segment-destination`.
 
 Your fork stays until you delete it on GitHub.
 

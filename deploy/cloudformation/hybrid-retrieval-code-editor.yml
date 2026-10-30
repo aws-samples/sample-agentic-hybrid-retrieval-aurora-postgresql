@@ -453,8 +453,10 @@ Resources:
   # AWS::XRay::TransactionSearchConfig, because that resource must not meet an
   # account where Transaction Search is already on, and Lab 3 needs no traces:
   # this one turns on only what is off and reports any problem without failing
-  # the stack. It leaves the setting on at deletion; Workshop Studio accounts are
-  # discarded with the event.
+  # the stack. It records what it changed in its physical ID, and deletion puts
+  # that back: the indexing percentage, the trace destination, the resource
+  # policy it created and the two log groups that did not exist before. An
+  # account where Transaction Search was already on is left exactly as found.
   TransactionSearchConfiguratorRole:
     Type: AWS::IAM::Role
     Condition: ObservabilityEnabled
@@ -478,6 +480,8 @@ Resources:
                 Action:
                   - logs:PutResourcePolicy
                   - logs:DescribeResourcePolicies
+                  - logs:DeleteResourcePolicy
+                  - logs:DescribeLogGroups
                   - xray:GetTraceSegmentDestination
                   - xray:UpdateTraceSegmentDestination
                   - xray:GetIndexingRules
@@ -488,8 +492,14 @@ Resources:
               # Application Signals discovery with this role's permissions, as the
               # Enable-TransactionSearch page documents. CloudTrail names the bare log group
               # ARN, so each group is listed with and without the documented :* suffix.
+              # DeleteLogGroup removes, at stack deletion, only a group that did not exist
+              # before the stack turned Transaction Search on.
               - Effect: Allow
-                Action: [logs:CreateLogGroup, logs:CreateLogStream, logs:PutRetentionPolicy]
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutRetentionPolicy
+                  - logs:DeleteLogGroup
                 Resource:
                   - !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:aws/spans'
                   - !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:aws/spans:*'
@@ -526,51 +536,97 @@ Resources:
 
           CONFIG = Config(connect_timeout=5, read_timeout=10,
                           retries={'total_max_attempts': 3, 'mode': 'standard'})
+          GROUPS = ('aws/spans', '/aws/application-signals/data')
+          PREFIX = 'transaction-search:'
 
-          def enable(props):
-              """Turn on Transaction Search unless it is on; say what was done."""
-              xray = boto3.client('xray', config=CONFIG)
-              current = xray.get_trace_segment_destination()
-              if current.get('Destination') == 'CloudWatchLogs':
-                  return 'already on (' + current.get('Status', 'unknown') + ')'
-              logs = boto3.client('logs', config=CONFIG)
-              logs.put_resource_policy(policyName=props['PolicyName'],
-                                       policyDocument=props['PolicyDocument'])
+          def percentage(xray):
+              for rule in xray.get_indexing_rules().get('IndexingRules', []):
+                  if rule.get('Name') == 'Default':
+                      return rule['Rule']['Probabilistic'].get('DesiredSamplingPercentage')
+
+          def set_percentage(xray, value):
+              xray.update_indexing_rule(Name='Default', Rule={'Probabilistic': {
+                  'DesiredSamplingPercentage': float(value)}})
+
+          def exists(logs, group):
+              page = logs.describe_log_groups(logGroupNamePrefix=group)
+              return any(g['logGroupName'] == group for g in page['logGroups'])
+
+          def enable(xray, logs, props):
+              if xray.get_trace_segment_destination().get('Destination') == 'CloudWatchLogs':
+                  return 'already on', None
+              policies = logs.describe_resource_policies().get('resourcePolicies', [])
+              found = {'policy': any(p['policyName'] == props['PolicyName'] for p in policies),
+                       'groups': [g for g in GROUPS if exists(logs, g)], 'percentage': None}
+              try:
+                  found['percentage'] = percentage(xray)
+              except Exception:
+                  pass
+              if not found['policy']:
+                  logs.put_resource_policy(policyName=props['PolicyName'],
+                                           policyDocument=props['PolicyDocument'])
               xray.update_trace_segment_destination(Destination='CloudWatchLogs')
               try:
-                  xray.update_indexing_rule(Name='Default', Rule={'Probabilistic': {
-                      'DesiredSamplingPercentage': float(props['IndexingPercentage'])}})
+                  set_percentage(xray, props['IndexingPercentage'])
               except Exception as error:
-                  return 'enabled; indexing left at the default: ' + type(error).__name__
-              return 'enabled'
+                  found['percentage'] = None
+                  return 'enabled; indexing: ' + type(error).__name__, found
+              return 'enabled', found
 
-          def respond(event, note):
+          def restore(xray, logs, props, found):
+              done = []
+              old = found['percentage']
+              if old is not None and percentage(xray) == float(props['IndexingPercentage']):
+                  set_percentage(xray, old)
+                  done.append('indexing %s%%' % old)
+              if xray.get_trace_segment_destination().get('Destination') == 'CloudWatchLogs':
+                  xray.update_trace_segment_destination(Destination='XRay')
+                  done.append('destination')
+              if not found['policy']:
+                  logs.delete_resource_policy(policyName=props['PolicyName'])
+                  done.append('policy')
+              for group in GROUPS:
+                  if group not in found['groups']:
+                      try:
+                          logs.delete_log_group(logGroupName=group)
+                          done.append(group)
+                      except logs.exceptions.ResourceNotFoundException:
+                          pass
+              return 'restored ' + ', '.join(done or ['nothing'])
+
+          def respond(event, pid, note):
               body = json.dumps({
-                  'Status': 'SUCCESS', 'Reason': note[:250],
-                  'PhysicalResourceId': 'transaction-search',
+                  'Status': 'SUCCESS', 'Reason': note[:250], 'PhysicalResourceId': pid,
                   'StackId': event['StackId'], 'RequestId': event['RequestId'],
-                  'LogicalResourceId': event['LogicalResourceId'],
-                  'Data': {'Status': note[:250]}}).encode()
-              for attempt in range(3):
+                  'LogicalResourceId': event['LogicalResourceId']}).encode()
+              request = urllib.request.Request(event['ResponseURL'], data=body, method='PUT',
+                                               headers={'Content-Type': ''})
+              for _ in range(3):
                   try:
-                      request = urllib.request.Request(event['ResponseURL'], data=body, method='PUT',
-                                                       headers={'Content-Type': ''})
                       with urllib.request.urlopen(request, timeout=10) as response:
                           response.read()
                       return
-                  except Exception as error:
-                      print('CloudFormation response attempt failed:', type(error).__name__)
+                  except Exception as e:
+                      print('respond:', type(e).__name__)
 
           def handler(event, context):
-              """Never fails the stack: Lab 3 works without traces, so a problem is reported."""
-              note = 'left on at deletion'
+              kind = event['RequestType']
+              pid = event.get('PhysicalResourceId', PREFIX + 'on')
+              note = 'unchanged'
               try:
-                  if event['RequestType'] != 'Delete':
-                      note = enable(event['ResourceProperties'])
+                  xray = boto3.client('xray', config=CONFIG)
+                  logs = boto3.client('logs', config=CONFIG)
+                  props = event['ResourceProperties']
+                  if kind == 'Create':
+                      note, found = enable(xray, logs, props)
+                      if found is not None:
+                          pid = PREFIX + json.dumps(found, separators=(',', ':'))
+                  elif kind == 'Delete' and pid.startswith(PREFIX + '{'):
+                      note = restore(xray, logs, props, json.loads(pid[len(PREFIX):]))
               except Exception as error:
-                  note = 'Transaction Search not enabled: ' + type(error).__name__ + ': ' + str(error)
+                  note = kind + ' problem: ' + type(error).__name__ + ': ' + str(error)
               print(note)
-              respond(event, note)
+              respond(event, pid, note)
 
   TransactionSearch:
     Type: Custom::TransactionSearch

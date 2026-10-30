@@ -27,11 +27,6 @@ sys.modules[SPEC.name] = deploy
 SPEC.loader.exec_module(deploy)
 
 HEAD = "a" * 40
-STUDIO_PIN = "11748fc9316005c9"
-STUDIO_REPO_PATTERN = (
-    r"^https://github\.com/aws-samples/"
-    r"sample-agentic-hybrid-retrieval-aurora-postgresql\.git$"
-)
 
 
 def context(tmp_path: Path, **overrides) -> deploy.Context:
@@ -176,22 +171,6 @@ def test_revision_digest_matches_independent_computation():
         deploy.calculate_infrastructure_revision(main, "VPC", "DATABASE", "EDITOR")
         == expected
     )
-
-
-def test_digest_with_the_studio_repourl_pattern_equals_the_studio_pin():
-    """Only the two RepoUrl patterns differ from Studio's templates; revert them in memory."""
-    new_pattern = r"^https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\.git$"
-    main = (CLOUDFORMATION / deploy.MAIN_TEMPLATE).read_text()
-    editor = (CLOUDFORMATION / deploy.EDITOR_TEMPLATE).read_text()
-    assert new_pattern in main
-    assert new_pattern in editor
-    computed = deploy.calculate_infrastructure_revision(
-        main.replace(new_pattern, STUDIO_REPO_PATTERN),
-        (CLOUDFORMATION / deploy.VPC_TEMPLATE).read_text(),
-        (CLOUDFORMATION / deploy.DATABASE_TEMPLATE).read_text(),
-        editor.replace(new_pattern, STUDIO_REPO_PATTERN),
-    )
-    assert computed == STUDIO_PIN
 
 
 def test_pinned_revision_matches_the_templates_in_this_repository():
@@ -893,6 +872,26 @@ def test_leftover_report_lists_log_groups_and_streams(tmp_path):
     assert "mosaic-staging-BuilderLogs-X" in text
     assert "RDSOSMetrics streams starting cluster-ABC" in text
     assert "7-day deletion window" in text
+    assert "Transaction Search: not read (AttributeError)" in text
+
+
+def test_leftover_report_says_whether_transaction_search_came_back(tmp_path):
+    class XRay:
+        def __init__(self, destination):
+            self.destination = destination
+
+        def get_trace_segment_destination(self):
+            return {"Destination": self.destination, "Status": "ACTIVE"}
+
+    lines: list[str] = []
+    restored = live_context(tmp_path, XRay("XRay"), lines)
+    assert "destination XRay, as before the stack" in deploy.transaction_search_state(
+        restored
+    )
+    still_on = live_context(tmp_path, XRay("CloudWatchLogs"), lines)
+    assert "still on (destination CloudWatchLogs)" in deploy.transaction_search_state(
+        still_on
+    )
 
 
 def test_dry_run_prints_calls_and_makes_none(tmp_path):
