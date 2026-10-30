@@ -72,9 +72,16 @@ def parse_index(text: str) -> tuple[str, str, int | None]:
         for chunk in text.split(";")
     ]
     statements = [statement for statement in statements if statement]
-    if not statements or len(statements) > 2:
+    if not statements:
         raise ExerciseError(
-            "index.sql holds one CREATE INDEX and, optionally, SET hnsw.ef_search = N"
+            f"{INDEX_WORK} is empty; write one CREATE INDEX <name> ON {TABLE} USING hnsw "
+            "(<expression> <opclass>) WHERE category_key = 'headphones'; as the guide's "
+            "table shows, then check again"
+        )
+    if len(statements) > 2:
+        raise ExerciseError(
+            f"{INDEX_WORK} holds {len(statements)} statements; it takes one CREATE INDEX "
+            "and, optionally, SET hnsw.ef_search = N"
         )
     match = CREATE_INDEX.match(statements[0])
     if match is None:
@@ -253,10 +260,14 @@ def main() -> int:
         missing = [str(p) for p in (INDEX_WORK, SEARCH_WORK) if not (REPO / p).exists()]
         if missing:
             raise ExerciseError(f"write {', '.join(missing)} first")
-        report = grade(
-            (REPO / INDEX_WORK).read_text(encoding="utf-8"),
-            (REPO / SEARCH_WORK).read_text(encoding="utf-8"),
-        )
+        search = (REPO / SEARCH_WORK).read_text(encoding="utf-8")
+        index = (REPO / INDEX_WORK).read_text(encoding="utf-8")
+        if not search.strip() and index.strip():
+            raise ExerciseError(
+                f"{SEARCH_WORK} is empty; write one SELECT returning product_id for the "
+                "nearest :hnsw_limit headphones to :'hnsw_vector', then check again"
+            )
+        report = grade(index, search)
     except ExerciseError as error:
         print(f"Shrink it: CANNOT GRADE - {error}")
         return 2

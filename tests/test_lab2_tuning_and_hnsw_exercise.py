@@ -299,3 +299,27 @@ def test_hnsw_exercise_does_not_credit_another_index_whose_name_contains_yours(
 
     assert not result["fast"] and not result["small"]
     assert any("does not use product" in failure for failure in result["failures"])
+
+
+def test_hnsw_exercise_names_an_empty_index_file():
+    """The page creates both files empty; checking them first said only the contract."""
+    with pytest.raises(
+        ExerciseError, match=r"index\.sql is empty; write one CREATE INDEX"
+    ):
+        hnsw_exercise.parse_index("")
+    with pytest.raises(
+        ExerciseError, match=r"holds \d+ statements; it takes one CREATE INDEX"
+    ):
+        hnsw_exercise.parse_index(
+            HALFVEC_INDEX + "\nSET hnsw.ef_search = 40;\nSELECT 1;"
+        )
+
+
+def test_hnsw_exercise_names_an_empty_search_file(monkeypatch, tmp_path, capsys):
+    (tmp_path / ".local/hnsw").mkdir(parents=True)
+    (tmp_path / ".local/hnsw/index.sql").write_text(HALFVEC_INDEX)
+    (tmp_path / ".local/hnsw/search.sql").write_text("")
+    monkeypatch.setattr(hnsw_exercise, "REPO", tmp_path)
+    monkeypatch.setattr("sys.argv", ["hnsw_exercise.py", "check"])
+    assert hnsw_exercise.main() == 2
+    assert "search.sql is empty; write one SELECT" in capsys.readouterr().out

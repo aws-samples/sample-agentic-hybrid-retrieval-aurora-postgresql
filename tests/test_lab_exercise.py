@@ -331,3 +331,24 @@ def test_comparison_scope_wraps_at_word_boundaries(capsys):
     assert all(len(line) <= 100 for line in scope_lines)
     assert all(not line.endswith("-") for line in scope_lines)
     assert " ".join(scope_lines) == words.strip()
+
+
+def test_the_untouched_recall_starter_is_named_before_any_grading(
+    monkeypatch, tmp_path
+):
+    """A reviewer ran the check on the starter and read a FAIL as a broken checker."""
+    work = tmp_path / "recall.sql"
+    work.write_text(
+        "WITH exact AS (\n    -- The true nearest eligible products.\n"
+        f"    {lab_exercise.RECALL_PLACEHOLDER}\n)\nSELECT 1;\n"
+    )
+    monkeypatch.setattr(lab_exercise, "load_context", lambda lab: {})
+
+    def never(*args, **kwargs):
+        raise AssertionError("grading must not run on the starter")
+
+    monkeypatch.setattr(lab_exercise, "grade_lab1", never)
+    with pytest.raises(
+        lab_exercise.ExerciseError, match="still has the starting placeholder"
+    ):
+        lab_exercise.grade(1, work)

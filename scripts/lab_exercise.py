@@ -85,6 +85,11 @@ CREATE TABLE IF NOT EXISTS mosaic.lab_decision (
 )"""
 
 
+#: The exact CTE's body in the recall starter the optional-labs page writes; while it is
+#: there, grading would only report an empty set.
+RECALL_PLACEHOLDER = "SELECT NULL::bigint AS product_id WHERE false"
+
+
 class ExerciseError(RuntimeError):
     """The participant's work cannot be graded as written."""
 
@@ -648,7 +653,14 @@ def grade(lab: int, work: Path) -> dict[str, Any]:
     values = load_context(lab)
     if lab == 2:
         return grade_lab2(values)
-    return grade_lab1(interpolate(work.read_text(encoding="utf-8"), values), values)
+    text = work.read_text(encoding="utf-8")
+    if RECALL_PLACEHOLDER in text:
+        raise ExerciseError(
+            f"{_shown(work)} still has the starting placeholder in its exact CTE "
+            f"({RECALL_PLACEHOLDER}). Replace it with your query of the nearest "
+            ":lab_semantic_limit eligible products, save the file and check again"
+        )
+    return grade_lab1(interpolate(text, values), values)
 
 
 def compare(lab: int) -> dict[str, Any]:
