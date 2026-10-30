@@ -310,3 +310,24 @@ def test_lab_3_without_a_graded_run_points_at_the_lab_3_commands(monkeypatch, tm
     assert ask_setup() in message
     assert complete_lab_3() in message
     assert "lab_terminal" not in message
+
+
+def test_comparison_scope_wraps_at_word_boundaries(capsys):
+    words = "judged shopper requests whose products are in this catalog " * 6
+    lab_exercise.print_comparison(
+        {
+            "baseline": {"exact_in_cutoff": 1, "billed_search_units_per_query": 1},
+            "rows": [],
+            "scope": words.strip(),
+        }
+    )
+    lines = capsys.readouterr().out.splitlines()
+    scope_lines = [
+        line
+        for line in lines
+        if line.startswith(("judged", "shopper")) or "catalog" in line
+    ]
+    assert len(scope_lines) >= 3
+    assert all(len(line) <= 100 for line in scope_lines)
+    assert all(not line.endswith("-") for line in scope_lines)
+    assert " ".join(scope_lines) == words.strip()

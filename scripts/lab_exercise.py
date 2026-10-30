@@ -26,6 +26,7 @@ import math
 import os
 import re
 import sys
+import textwrap
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -622,7 +623,9 @@ def print_comparison(table: dict) -> None:
                 f"  chair request {moved['id']}: right answer moves from "
                 f"{_position(moved['from'])} to {_position(moved['to'])}"
             )
-    print(table["scope"])
+    # Wrapped at word boundaries: a 124-column terminal otherwise breaks the sentence
+    # mid-word, which the guide's capture of this output then shows.
+    print(textwrap.fill(table["scope"], width=100))
     print("Choose a setting to test next and one measurement needed before shipping.")
 
 
