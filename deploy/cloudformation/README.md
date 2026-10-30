@@ -72,3 +72,26 @@ name answers with a 307 redirect until DNS catches up, and CloudFormation may no
 `publish` therefore fetches `releases/<revision>/RELEASE.json` through that name with a signed
 request that follows no redirect, printing "waiting for the bucket's global endpoint" until it
 gets a 200. The staging template is ours and uses the Regional endpoint directly.
+
+## WorkshopName comes from `--stack-name`
+
+`deploy.py deploy` passes `WorkshopName` equal to the stack name (`--stack-name`, default
+`mosaic-hybrid-retrieval`, so the default behaviour is unchanged). That is required for
+correctness, not only for tidiness:
+
+- `deploy/mosaic-bootstrap.sh` finds the host's Code Editor distribution with
+  `aws cloudfront list-distributions --query "...[?Comment=='${WORKSHOP_NAME} Code Editor']..."`.
+  `WORKSHOP_NAME` is the stack's `WorkshopName`. Two stacks sharing a name could resolve each
+  other's distribution. Nothing else in the bootstrap matches resources by that name; it only
+  labels things.
+- The CloudFront-scope web ACL is named `${WorkshopName}-mosaic-api`. WAF names are unique per
+  account and scope, so a second deployment with the default name fails in us-east-1, the only
+  Region where the ACL exists.
+
+The name must be 3 to 41 characters of lowercase letters, digits and hyphens, because the
+templates restrict `WorkshopName`; `deploy` refuses anything else. As a guard against an earlier
+deployment that already used the default name, `check` and `deploy` list the account's
+CLOUDFRONT-scope web ACLs (always from us-east-1) and stop when `<WorkshopName>-mosaic-api`
+exists, naming `--stack-name` as the fix. `check` also reports a stack with the same name as a
+failure, the staging stack when it is up, and other stacks tagged `Workshop=<WorkshopName>` as
+information.

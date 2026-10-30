@@ -1765,3 +1765,174 @@ def test_a_denied_history_lookup_is_silent(tmp_path, frozen_now):
     lines: list[str] = []
     deploy.check_network_capacity(live_context(tmp_path, account, lines))
     assert [line[:4] for line in lines] == ["ok  ", "ok  "]
+
+
+# ---------------------------------------------------------------- WorkshopName collisions
+class FakeAccountNames:
+    """WAFv2 web ACLs (paginated) and CloudFormation stacks for the collision checks."""
+
+    def __init__(self, acls=(), stacks=()):
+        self.acls = list(acls)
+        self.stacks = list(stacks)
+        self.waf_calls: list = []
+
+    def list_web_acls(self, **arguments):
+        self.waf_calls.append(arguments)
+        start = int(arguments.get("NextMarker", 0))
+        page = self.acls[start : start + 2]
+        more = start + 2 < len(self.acls)
+        result = {"WebACLs": [{"Name": name} for name in page]}
+        if more:
+            result["NextMarker"] = str(start + 2)
+        return result
+
+    def describe_stacks(self, **arguments):
+        start = int(arguments.get("NextToken", 0))
+        page = self.stacks[start : start + 2]
+        result = {"Stacks": page}
+        if start + 2 < len(self.stacks):
+            result["NextToken"] = str(start + 2)
+        return result
+
+
+def stack(name: str, workshop: str | None = None, **extra) -> dict:
+    tags = [{"Key": "Workshop", "Value": workshop}] if workshop else []
+    return {"StackName": name, "Tags": tags, **extra}
+
+
+@pytest.mark.parametrize(
+    "name", ["mosaic-hybrid-retrieval", "alex-demo", "a1b", "x" * 41]
+)
+def test_valid_workshop_names_pass(name):
+    assert deploy.validate_workshop_name(name) == name
+
+
+@pytest.mark.parametrize(
+    "name", ["ab", "Alex-Demo", "-lead", "has_underscore", "x" * 42]
+)
+def test_invalid_workshop_names_are_refused(name):
+    with pytest.raises(deploy.Refusal, match="WorkshopName"):
+        deploy.validate_workshop_name(name)
+
+
+def test_deploy_uses_the_stack_name_as_the_workshop_name(tmp_path, clean_tree):
+    default = deploy.plan_deploy(context(tmp_path))
+    params = {
+        p["ParameterKey"]: p["ParameterValue"]
+        for p in call(default, "CreateStack")[2]["Parameters"]
+    }
+    assert params["WorkshopName"] == "mosaic-hybrid-retrieval"
+    custom = deploy.plan_deploy(context(tmp_path, stack_name="alex-demo"))
+    create = call(custom, "CreateStack")[2]
+    assert create["StackName"] == "alex-demo"
+    params = {p["ParameterKey"]: p["ParameterValue"] for p in create["Parameters"]}
+    assert params["WorkshopName"] == "alex-demo"
+
+
+def test_deploy_refuses_a_stack_name_the_templates_would_reject(tmp_path, clean_tree):
+    with pytest.raises(deploy.Refusal, match="WorkshopName"):
+        deploy.plan_deploy(context(tmp_path, stack_name="Alex_Demo"))
+
+
+def test_deploy_checks_the_web_acl_before_creating_and_staging_does_not(
+    tmp_path, clean_tree
+):
+    names = operations(deploy.plan_deploy(context(tmp_path)))
+    assert names.index(("wafv2", "ListWebACLs")) < names.index(
+        ("cloudformation", "CreateStack")
+    )
+    assert ("wafv2", "ListWebACLs") not in operations(
+        deploy.plan_staging_up(context(tmp_path))
+    )
+
+
+def test_an_existing_web_acl_with_the_name_is_refused_naming_stack_name(tmp_path):
+    account = FakeAccountNames(acls=["other", "mosaic-hybrid-retrieval-mosaic-api"])
+    ctx = live_context(tmp_path, account, [], region="us-east-1")
+    with pytest.raises(deploy.Refusal, match=r"--stack-name") as refusal:
+        deploy.require_free_workshop_name(ctx)
+    assert "mosaic-hybrid-retrieval-mosaic-api" in str(refusal.value)
+
+
+def test_acl_pages_are_followed_and_the_scope_is_cloudfront(tmp_path):
+    account = FakeAccountNames(acls=["a", "b", "c", "demo-mosaic-api"])
+    ctx = live_context(tmp_path, account, [], region="us-east-1", stack_name="demo")
+    assert deploy.acl_collision(ctx) is not None
+    assert all(call["Scope"] == "CLOUDFRONT" for call in account.waf_calls)
+    assert len(account.waf_calls) == 2
+
+
+def test_a_free_workshop_name_passes(tmp_path):
+    lines: list[str] = []
+    ctx = live_context(
+        tmp_path, FakeAccountNames(acls=["x-mosaic-api"]), lines, region="us-east-1"
+    )
+    deploy.require_free_workshop_name(ctx)
+    assert "is free" in lines[-1]
+
+
+def test_outside_us_east_1_the_acl_is_not_created_so_it_is_not_checked(tmp_path):
+    account = FakeAccountNames(acls=["mosaic-hybrid-retrieval-mosaic-api"])
+    ctx = live_context(tmp_path, account, [], region="us-west-2")
+    assert deploy.acl_collision(ctx) is None
+    assert account.waf_calls == []
+
+
+def test_the_web_acl_is_always_listed_from_us_east_1(tmp_path, monkeypatch):
+    seen: list = []
+    account = FakeAccountNames()
+    monkeypatch.setattr(
+        deploy.Context,
+        "_make_client",
+        lambda self, service, region: seen.append((service, region)) or account,
+    )
+    ctx = context(tmp_path, dry_run=False, region="us-east-1")
+    deploy.acl_collision(ctx)
+    assert seen == [("wafv2", "us-east-1")]
+
+
+def test_check_fails_on_a_colliding_acl_and_an_existing_stack(tmp_path):
+    account = FakeAccountNames(
+        acls=["mosaic-hybrid-retrieval-mosaic-api"],
+        stacks=[stack("mosaic-hybrid-retrieval")],
+    )
+    lines: list[str] = []
+    deploy.check_name_collisions(
+        live_context(tmp_path, account, lines, region="us-east-1")
+    )
+    text = "\n".join(lines)
+    assert any(line.startswith("FAIL no CloudFront web ACL named") for line in lines)
+    assert "pass a different --stack-name" in text
+    assert any(
+        line.startswith("FAIL no stack named mosaic-hybrid-retrieval") for line in lines
+    )
+
+
+def test_check_is_quiet_about_a_clean_account_and_reports_related_stacks(tmp_path):
+    account = FakeAccountNames(
+        stacks=[
+            stack("mosaic-staging", "mosaic-staging"),
+            stack("older-demo", "mosaic-hybrid-retrieval"),
+            stack("nested-child", "mosaic-hybrid-retrieval", ParentId="arn:parent"),
+            stack("unrelated", "something-else"),
+        ]
+    )
+    lines: list[str] = []
+    deploy.check_name_collisions(
+        live_context(tmp_path, account, lines, region="us-east-1")
+    )
+    assert [line[:4] for line in lines if not line.startswith("     ")] == [
+        "ok  ",
+        "ok  ",
+    ]
+    text = "\n".join(lines)
+    assert "the staging stack mosaic-staging is up" in text
+    assert "other stacks tagged Workshop=mosaic-hybrid-retrieval: older-demo" in text
+    assert "nested-child" not in text
+    assert "unrelated" not in text
+
+
+def test_the_check_plan_lists_acls_and_stacks(tmp_path):
+    names = operations(deploy.plan_check(context(tmp_path)))
+    assert ("wafv2", "ListWebACLs") in names
+    assert ("cloudformation", "DescribeStacks") in names

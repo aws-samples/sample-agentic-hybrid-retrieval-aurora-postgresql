@@ -67,6 +67,8 @@ SIZE_VCPUS = {"large": 2, "xlarge": 4, "2xlarge": 8, "4xlarge": 16, "8xlarge": 3
 
 #: signed_status result when the request never got an HTTP answer.
 NETWORK_ERROR = 0
+MAIN_STACK_NAME = "mosaic-hybrid-retrieval"
+STAGING_STACK_NAME = "mosaic-staging"
 POLL_SECONDS = 30
 STALE_DELETE_SECONDS = 300
 MAX_WAIT_SECONDS = 3 * 3600
@@ -444,17 +446,18 @@ class Context:
     bucket_explicit: bool = False
     out: Callable[[str], None] = print
 
-    def client(self, service: str) -> Any:
-        if service not in self.clients:
-            self.clients[service] = self._make_client(service)
-        return self.clients[service]
+    def client(self, service: str, region: str | None = None) -> Any:
+        key = f"{service}@{region}" if region else service
+        if key not in self.clients:
+            self.clients[key] = self._make_client(service, region or self.region)
+        return self.clients[key]
 
-    def _make_client(self, service: str) -> Any:
+    def _make_client(self, service: str, region: str) -> Any:
         if self.client_factory:
             return self.client_factory(service)
         import boto3
 
-        session = boto3.Session(profile_name=self.profile, region_name=self.region)
+        session = boto3.Session(profile_name=self.profile, region_name=region)
         return session.client(service)
 
     def session_credentials(self) -> Any:
@@ -1196,6 +1199,114 @@ def network_capacity_step() -> Step:
     )
 
 
+#: AWS::WAFv2::WebACL names are unique per account and scope; CloudFront ACLs live in
+#: us-east-1 whatever Region the stack is in.
+WAF_REGION = "us-east-1"
+WORKSHOP_NAME_PATTERN = re.compile(r"[a-z0-9][a-z0-9-]{2,40}")
+
+
+def validate_workshop_name(name: str) -> str:
+    """The stack name becomes WorkshopName, which the templates restrict."""
+    if not WORKSHOP_NAME_PATTERN.fullmatch(name):
+        raise Refusal(
+            f"--stack-name {name!r} becomes the WorkshopName, which must be 3-41 characters: "
+            "lowercase letters, digits and hyphens, starting with a letter or digit"
+        )
+    return name
+
+
+def cloudfront_acl_names(ctx: Context) -> list[str]:
+    """Names of the account's CLOUDFRONT-scope web ACLs, always read from us-east-1."""
+    wafv2 = ctx.client("wafv2", WAF_REGION)
+    names: list[str] = []
+    marker: str | None = None
+    while True:
+        arguments: dict[str, Any] = {"Scope": "CLOUDFRONT", "Limit": 100}
+        if marker:
+            arguments["NextMarker"] = marker
+        page = wafv2.list_web_acls(**arguments)
+        names += [acl["Name"] for acl in page.get("WebACLs", [])]
+        marker = page.get("NextMarker")
+        if not marker:
+            return names
+
+
+def acl_collision(ctx: Context) -> str | None:
+    """A problem statement when the web ACL this stack would create already exists."""
+    if ctx.region != WAF_REGION:
+        return None
+    name = f"{ctx.stack_name}-mosaic-api"
+    if name not in cloudfront_acl_names(ctx):
+        return None
+    return (
+        f"a CloudFront web ACL named {name} already exists in this account (another "
+        f"deployment used the WorkshopName {ctx.stack_name}); pass a different --stack-name"
+    )
+
+
+def root_stacks(ctx: Context) -> list[dict[str, Any]]:
+    """Every non-nested stack in the Region."""
+    cloudformation = ctx.client("cloudformation")
+    stacks: list[dict[str, Any]] = []
+    token: str | None = None
+    while True:
+        page = cloudformation.describe_stacks(**({"NextToken": token} if token else {}))
+        stacks += [s for s in page["Stacks"] if "ParentId" not in s]
+        token = page.get("NextToken")
+        if not token:
+            return stacks
+
+
+def check_name_collisions(ctx: Context) -> None:
+    """Report what an earlier deployment in this account would collide with."""
+    problem = acl_collision(ctx)
+    verdict(
+        ctx,
+        problem is None,
+        f"no CloudFront web ACL named {ctx.stack_name}-mosaic-api"
+        + ("" if ctx.region == WAF_REGION else f" (only created in {WAF_REGION})"),
+        f"{problem}",
+    )
+    stacks = root_stacks(ctx)
+    names = {stack["StackName"] for stack in stacks}
+    verdict(
+        ctx,
+        ctx.stack_name not in names,
+        f"no stack named {ctx.stack_name} in {ctx.region}",
+        "run `status`, then `teardown`, or pass a different --stack-name",
+    )
+    if STAGING_STACK_NAME in names:
+        ctx.out(
+            f"     note: the staging stack {STAGING_STACK_NAME} is up (`staging down` after the build)"
+        )
+    tagged = sorted(
+        stack["StackName"]
+        for stack in stacks
+        if stack["StackName"] not in (ctx.stack_name, STAGING_STACK_NAME)
+        and {"Key": "Workshop", "Value": ctx.stack_name} in stack.get("Tags", [])
+    )
+    if tagged:
+        ctx.out(
+            f"     note: other stacks tagged Workshop={ctx.stack_name}: {', '.join(tagged)}"
+        )
+
+
+def require_free_workshop_name(ctx: Context) -> None:
+    """Refuse before CreateStack when the WorkshopName's web ACL is already taken."""
+    problem = acl_collision(ctx)
+    if problem:
+        raise Refusal(problem)
+    ctx.out(f"    WorkshopName {ctx.stack_name} is free")
+
+
+def workshop_name_step(ctx: Context) -> Step:
+    return Step(
+        f"refuse if the web ACL {ctx.stack_name}-mosaic-api already exists",
+        (("wafv2", "ListWebACLs", {"Scope": "CLOUDFRONT", "Limit": 100}),),
+        run=require_free_workshop_name,
+    )
+
+
 def check_source(ctx: Context) -> None:
     ctx.out(f"RepoUrl {ctx.repo_url} @ {ctx.source_revision}")
     problems = []
@@ -1261,6 +1372,14 @@ def plan_check(ctx: Context) -> list[Step]:
             "VPC and Elastic IP capacity",
             network_capacity_step().calls,
             run=check_network_capacity,
+        ),
+        Step(
+            "WorkshopName collisions with earlier deployments",
+            (
+                ("wafv2", "ListWebACLs", {"Scope": "CLOUDFRONT", "Limit": 100}),
+                ("cloudformation", "DescribeStacks", {}),
+            ),
+            run=check_name_collisions,
         ),
         Step("clean source tree and anonymous fetch", probe, run=check_source),
     ]
@@ -1572,6 +1691,7 @@ def create_stack_step(
 
 
 def plan_deploy(ctx: Context) -> list[Step]:
+    validate_workshop_name(ctx.stack_name)
     release = prepare_source(ctx)
     values = {
         "WorkshopName": ctx.stack_name,
@@ -1607,6 +1727,7 @@ def plan_deploy(ctx: Context) -> list[Step]:
     return [
         stack_absent_step(ctx),
         published_release_step(ctx, release),
+        workshop_name_step(ctx),
         network_capacity_step(),
         service_linked_role_step(),
         probe_step(ctx),
@@ -1627,6 +1748,7 @@ def plan_status(ctx: Context, *, show_token: bool) -> list[Step]:
 
 
 def plan_staging_up(ctx: Context) -> list[Step]:
+    validate_workshop_name(ctx.stack_name)
     release = prepare_source(ctx)
     values = {
         "WorkshopName": ctx.stack_name,
@@ -1970,9 +2092,7 @@ def needs_source(args: argparse.Namespace) -> bool:
 
 def make_context(args: argparse.Namespace) -> Context:
     staging = args.command == "staging"
-    stack = args.stack_name or (
-        "mosaic-staging" if staging else "mosaic-hybrid-retrieval"
-    )
+    stack = args.stack_name or (STAGING_STACK_NAME if staging else MAIN_STACK_NAME)
     repo_url = source_revision = ""
     if needs_source(args):
         repo_url = validate_repo_url(
