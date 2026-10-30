@@ -330,9 +330,10 @@ def fetch(
     workers: int = 4,
 ) -> dict:
     """Resume a prefix scan, keeping only bounded examples and range receipts."""
-    if not parents or scan_bytes < RANGE_BYTES or per_group < 1:
+    # A budget below one range is a resumed part finishing its last bytes.
+    if not parents or scan_bytes < 1 or per_group < 1:
         raise ValueError(
-            "Review selection rule: require parent IDs, at least one range, and a positive sample size; fix the scan arguments."
+            "Review selection rule: require parent IDs, a positive byte budget, and a positive sample size; fix the scan arguments."
         )
     destination.mkdir(parents=True, exist_ok=True)
     path = destination / f"{category}-reviews.json"

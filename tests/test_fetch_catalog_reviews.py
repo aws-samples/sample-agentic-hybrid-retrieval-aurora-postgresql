@@ -356,3 +356,27 @@ def test_a_persistent_rate_limit_raises_a_picklable_error_naming_the_cause(monke
     # an HTTPError, with its open response, cannot make that trip.
     assert caught.value.__cause__ is None
     assert str(pickle.loads(pickle.dumps(caught.value))) == str(caught.value)
+
+
+def test_a_budget_below_one_range_scans_the_remaining_bytes(tmp_path, monkeypatch):
+    """A resumed part may have fewer bytes left than one range; it still finishes."""
+    first = (json.dumps(original()) + "\n").encode()
+    tail = (json.dumps(original(text="Second review")) + "\n").encode()
+    body = first + tail
+    monkeypatch.setattr(sampler, "RANGE_BYTES", len(body) * 4)
+    source = {
+        **sampler.source_identity("Electronics"),
+        "bytes": len(body),
+        "sha256": hashlib.sha256(body).hexdigest(),
+    }
+    monkeypatch.setattr(sampler, "source_identity", lambda category: source)
+    monkeypatch.setattr(
+        sampler, "fetch_range", lambda source, start, end: body[start : end + 1]
+    )
+    state = sampler.fetch("Electronics", tmp_path, {"PARENT0001"}, len(first), 1)
+    assert state["next_byte"] == len(first)
+    resumed = sampler.fetch("Electronics", tmp_path, {"PARENT0001"}, len(tail), 1)
+    assert resumed["next_byte"] == len(body)
+    assert resumed["records_scanned"] == 2
+    with pytest.raises(ValueError, match="Review selection rule"):
+        sampler.fetch("Electronics", tmp_path, {"PARENT0001"}, 0, 1)

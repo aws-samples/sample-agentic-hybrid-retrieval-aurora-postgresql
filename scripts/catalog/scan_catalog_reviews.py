@@ -85,7 +85,23 @@ def run_part(
             "full_source_hash_verified": False,
         }
         path.write_text(json.dumps(state) + "\n")
-    state = fetch(category, dest, set(parents), stop - start, per_group, workers=2)
+    state = json.loads(path.read_text())
+    if state["next_byte"] > stop:
+        raise ValueError(
+            f"Part coverage rule: part {index}'s checkpoint is at byte {state['next_byte']}, "
+            f"past its boundary {stop}; delete {path} and rerun the scan."
+        )
+    # The budget runs from the checkpoint, not the part's start: a finished part scans
+    # nothing, and a resumed one stops at its boundary instead of a part-length later.
+    if state["next_byte"] < stop:
+        state = fetch(
+            category,
+            dest,
+            set(parents),
+            stop - state["next_byte"],
+            per_group,
+            workers=2,
+        )
     if state["next_byte"] != stop:
         raise ValueError(
             f"Part coverage rule: part {index} stopped at byte {state['next_byte']}, not {stop}; rerun the scan to resume it."
