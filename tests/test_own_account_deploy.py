@@ -593,7 +593,7 @@ def test_staging_up_checks_the_stack_and_creates_the_bucket_before_any_upload(
 class FakeCloudformation:
     def __init__(self, statuses, events=()):
         self.statuses = list(statuses)
-        self.events = list(events)
+        self.events = events if isinstance(events, dict) else list(events)
 
     def describe_stacks(self, StackName):
         if not self.statuses:
@@ -604,6 +604,10 @@ class FakeCloudformation:
         return {"Stacks": [{"StackName": StackName, "StackStatus": status}]}
 
     def describe_stack_events(self, StackName):
+        if isinstance(self.events, dict):
+            if StackName not in self.events:
+                raise CodedError("ValidationError", f"Stack {StackName} does not exist")
+            return {"StackEvents": self.events[StackName]}
         return {"StackEvents": self.events}
 
 
@@ -1484,3 +1488,183 @@ def test_the_wrapper_quotes_arguments_and_checks_the_child_started():
     assert "tail -f $LOG" in wrapper
     motd = text[text.index("cat >/etc/motd") :]
     assert motd.splitlines()[2].strip() == "mosaic-catalog-bundle"
+
+
+# ---------------------------------------------------------------- network capacity
+class FakeAccount:
+    """EC2 usage plus Service Quotas values for the VPC and Elastic IP limits."""
+
+    def __init__(self, vpcs=1, vpc_quota=5, addresses=0, address_quota=5, applied=True):
+        self.vpcs, self.addresses = vpcs, addresses
+        self.quotas = {
+            deploy.VPC_QUOTA[1]: vpc_quota,
+            deploy.ELASTIC_IP_QUOTA[1]: address_quota,
+        }
+        self.applied = applied
+
+    def describe_vpcs(self):
+        return {"Vpcs": [{}] * self.vpcs}
+
+    def describe_addresses(self):
+        return {"Addresses": [{}] * self.addresses}
+
+    def get_service_quota(self, ServiceCode, QuotaCode):
+        if not self.applied:
+            raise CodedError("NoSuchResourceException")
+        return {"Quota": {"Value": self.quotas[QuotaCode]}}
+
+    def get_aws_default_service_quota(self, ServiceCode, QuotaCode):
+        return {"Quota": {"Value": self.quotas[QuotaCode]}}
+
+
+def test_check_reports_free_vpcs_and_addresses(tmp_path):
+    lines: list[str] = []
+    deploy.check_network_capacity(live_context(tmp_path, FakeAccount(vpcs=2), lines))
+    assert [line[:4] for line in lines] == ["ok  ", "ok  "]
+    assert "VPCs: 2 in use of 5" in lines[0]
+    assert "not up together" in lines[0]
+    assert "Elastic IPs: 0 in use of 5" in lines[1]
+
+
+def test_check_fails_when_no_vpc_is_free_and_says_how_to_fix_it(tmp_path):
+    lines: list[str] = []
+    deploy.check_network_capacity(
+        live_context(tmp_path, FakeAccount(vpcs=6, vpc_quota=6), lines)
+    )
+    assert lines[0].startswith("FAIL VPCs: 6 in use of 6")
+    assert "L-F678F1CE" in lines[0]
+    assert "delete an unused VPC" in lines[0]
+    assert lines[1].startswith("ok")
+
+
+def test_check_fails_when_no_elastic_ip_is_free(tmp_path):
+    lines: list[str] = []
+    deploy.check_network_capacity(
+        live_context(tmp_path, FakeAccount(addresses=5, address_quota=5), lines)
+    )
+    assert any(line.startswith("FAIL Elastic IPs: 5 in use of 5") for line in lines)
+    assert any("L-0263D0A3" in line for line in lines)
+
+
+def test_an_unchanged_quota_falls_back_to_the_aws_default(tmp_path):
+    ctx = live_context(tmp_path, FakeAccount(vpc_quota=5, applied=False), [])
+    assert deploy.quota_value(ctx, *deploy.VPC_QUOTA) == 5
+
+
+def test_a_denied_quota_lookup_is_a_warning_not_a_failure(tmp_path):
+    class Denied(FakeAccount):
+        def get_service_quota(self, ServiceCode, QuotaCode):
+            raise CodedError("AccessDeniedException")
+
+    lines: list[str] = []
+    deploy.check_network_capacity(live_context(tmp_path, Denied(), lines))
+    assert lines[0].startswith("warn")
+
+
+def test_the_check_plan_reads_vpc_usage_and_both_quotas(tmp_path):
+    names = operations(deploy.plan_check(context(tmp_path)))
+    assert ("ec2", "DescribeVpcs") in names
+    assert ("ec2", "DescribeAddresses") in names
+
+
+def test_creating_a_stack_is_refused_when_the_vpc_quota_is_used_up(tmp_path):
+    ctx = live_context(tmp_path, FakeAccount(vpcs=6, vpc_quota=6), [])
+    with pytest.raises(
+        deploy.Refusal, match=r"VPCs: 6 in use of 6, none free"
+    ) as refusal:
+        deploy.require_network_capacity(ctx)
+    assert "delete an unused VPC" in str(refusal.value)
+
+
+def test_creating_a_stack_passes_when_capacity_is_free(tmp_path):
+    lines: list[str] = []
+    deploy.require_network_capacity(live_context(tmp_path, FakeAccount(), lines))
+    assert "free" in lines[-1]
+
+
+def test_deploy_and_staging_up_check_capacity_before_creating(tmp_path, clean_tree):
+    for plan in (
+        deploy.plan_deploy(context(tmp_path)),
+        deploy.plan_staging_up(context(tmp_path)),
+    ):
+        names = operations(plan)
+        assert names.index(("ec2", "DescribeVpcs")) < names.index(
+            ("cloudformation", "CreateStack")
+        )
+
+
+# ---------------------------------------------------------------- nested failure reasons
+NESTED_ARN = (
+    "arn:aws:cloudformation:us-east-1:123456789012:stack/mosaic-VPCStack-1A2B/uuid-1"
+)
+DEEPER_ARN = (
+    "arn:aws:cloudformation:us-east-1:123456789012:stack/mosaic-Deeper-9Z/uuid-2"
+)
+
+
+def failed(resource: str, reason: str, status: str = "CREATE_FAILED") -> dict:
+    return {
+        "LogicalResourceId": resource,
+        "ResourceStatus": status,
+        "ResourceStatusReason": reason,
+    }
+
+
+def test_a_rollback_prints_the_nested_stacks_real_cause(tmp_path, no_sleep):
+    events = {
+        "mosaic-hybrid-retrieval": [
+            failed(
+                "VPCStack",
+                f"Embedded stack {NESTED_ARN} was not successfully created: The following "
+                "resource(s) failed to create: [MainVPC].",
+            )
+        ],
+        NESTED_ARN: [
+            failed(
+                "MainVPC", "The maximum number of VPCs has been reached. (Service: Ec2)"
+            ),
+        ],
+    }
+    cloudformation = FakeCloudformation(["ROLLBACK_COMPLETE"], events)
+    lines: list[str] = []
+    with pytest.raises(deploy.Refusal, match="ROLLBACK_COMPLETE"):
+        deploy.wait_for_stack(
+            live_context(tmp_path, cloudformation, lines), "CREATE_COMPLETE"
+        )
+    text = "\n".join(lines)
+    assert "in embedded stack mosaic-VPCStack-1A2B" in text
+    assert (
+        "MainVPC: CREATE_FAILED: The maximum number of VPCs has been reached." in text
+    )
+    assert text.index("VPCStack: CREATE_FAILED") < text.index("MainVPC: CREATE_FAILED")
+
+
+def test_the_drill_down_follows_nested_stacks_and_prints_the_earliest_failure_first(
+    tmp_path,
+):
+    events = {
+        "top": [failed("Late", "later failure"), failed("First", f"see {NESTED_ARN}.")],
+        NESTED_ARN: [
+            failed("Mid", f"Embedded stack {DEEPER_ARN} was not successfully created")
+        ],
+        DEEPER_ARN: [failed("Root", "the real cause")],
+    }
+    lines: list[str] = []
+    ctx = live_context(tmp_path, FakeCloudformation([], events), [], stack_name="top")
+    ctx.out = lines.append
+    deploy.report_failed_events(ctx)
+    text = "\n".join(lines)
+    assert text.index("First:") < text.index("Late:")
+    assert text.index("Mid:") < text.index("Root: CREATE_FAILED: the real cause")
+
+
+def test_the_drill_down_survives_cycles_and_unreadable_nested_stacks(tmp_path):
+    events = {
+        "top": [failed("A", f"Embedded stack {NESTED_ARN} failed")],
+        NESTED_ARN: [failed("B", "Embedded stack " + NESTED_ARN + " failed again")],
+    }
+    ctx = live_context(tmp_path, FakeCloudformation([], events), [], stack_name="top")
+    deploy.report_failed_events(ctx)
+    gone = {"top": [failed("A", f"Embedded stack {DEEPER_ARN} failed")]}
+    ctx = live_context(tmp_path, FakeCloudformation([], gone), [], stack_name="top")
+    deploy.report_failed_events(ctx)

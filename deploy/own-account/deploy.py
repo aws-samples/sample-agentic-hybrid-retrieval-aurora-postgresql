@@ -60,6 +60,8 @@ EMBED_MODEL = "us.cohere.embed-v4:0"
 RERANK_MODEL = "cohere.rerank-v3-5:0"
 #: "Running On-Demand Standard (A, C, D, H, I, M, R, T, Z) instances" vCPU quota.
 STANDARD_VCPU_QUOTA = "L-1216C47A"
+VPC_QUOTA = ("vpc", "L-F678F1CE")
+ELASTIC_IP_QUOTA = ("ec2", "L-0263D0A3")
 SIZE_VCPUS = {"large": 2, "xlarge": 4, "2xlarge": 8, "4xlarge": 16, "8xlarge": 32}
 
 #: signed_status result when the request never got an HTTP answer.
@@ -1042,9 +1044,7 @@ def check_quota(ctx: Context) -> None:
     editor = cfn_default(main, "CodeEditorInstanceType")
     builder = cfn_default(staging, "BuilderInstanceType")
     try:
-        quota = ctx.client("service-quotas").get_service_quota(
-            ServiceCode="ec2", QuotaCode=STANDARD_VCPU_QUOTA
-        )["Quota"]["Value"]
+        quota = quota_value(ctx, "ec2", STANDARD_VCPU_QUOTA)
     except Exception as error:  # noqa: BLE001 - advisory check only
         ctx.out(
             f"warn quota lookup failed ({error_code(error) or error}); not blocking"
@@ -1056,6 +1056,101 @@ def check_quota(ctx: Context) -> None:
         f"builder {builder} needs {instance_vcpus(builder)}, Code Editor host {editor} needs "
         f"{instance_vcpus(editor)}. They are not up together (run `staging down` before "
         f"`deploy`), so the peak is {need} (report only)"
+    )
+
+
+def quota_value(ctx: Context, service_code: str, quota_code: str) -> float:
+    """The account's applied quota, or AWS's default when it was never changed."""
+    quotas = ctx.client("service-quotas")
+    try:
+        return quotas.get_service_quota(ServiceCode=service_code, QuotaCode=quota_code)[
+            "Quota"
+        ]["Value"]
+    except Exception as error:
+        if error_code(error) != "NoSuchResourceException":
+            raise
+    return quotas.get_aws_default_service_quota(
+        ServiceCode=service_code, QuotaCode=quota_code
+    )["Quota"]["Value"]
+
+
+def network_capacity(ctx: Context) -> list[tuple[str, int, float, str]]:
+    """(name, in use, quota, fix) for each resource one stack needs one more of."""
+    ec2 = ctx.client("ec2")
+    return [
+        (
+            "VPCs",
+            len(ec2.describe_vpcs()["Vpcs"]),
+            quota_value(ctx, *VPC_QUOTA),
+            "request a VPC quota increase (Service Quotas, L-F678F1CE) or delete an unused VPC",
+        ),
+        (
+            "Elastic IPs",
+            len(ec2.describe_addresses()["Addresses"]),
+            quota_value(ctx, *ELASTIC_IP_QUOTA),
+            (
+                "request an Elastic IP quota increase (Service Quotas, L-0263D0A3) or "
+                "release an unused address"
+            ),
+        ),
+    ]
+
+
+def capacity_line(name: str, used: int, quota: float) -> str:
+    return (
+        f"{name}: {used} in use of {quota:g}; the staging stack and the main stack each need "
+        "one (a VPC, and a NAT gateway with an Elastic IP) and are not up together"
+    )
+
+
+def check_network_capacity(ctx: Context) -> None:
+    try:
+        capacity = network_capacity(ctx)
+    except Exception as error:  # noqa: BLE001 - advisory when the lookup itself is denied
+        ctx.out(
+            f"warn network quota lookup failed ({error_code(error) or error}); not blocking"
+        )
+        return
+    for name, used, quota, fix in capacity:
+        verdict(ctx, used < quota, capacity_line(name, used, quota), fix)
+
+
+def require_network_capacity(ctx: Context) -> None:
+    """Refuse before CreateStack when a VPC or Elastic IP would exceed its quota."""
+    try:
+        capacity = network_capacity(ctx)
+    except Exception as error:  # noqa: BLE001 - the stack itself will report a real limit
+        ctx.out(
+            f"    network quota lookup failed ({error_code(error) or error}); continuing"
+        )
+        return
+    full = [(n, u, q, f) for n, u, q, f in capacity if u >= q]
+    if full:
+        raise Refusal(
+            "; ".join(f"{n}: {u} in use of {q:g}, none free" for n, u, q, _ in full)
+            + f". The stack needs one of each. Fix: {full[0][3]}."
+        )
+    ctx.out("    a VPC and an Elastic IP are free")
+
+
+def network_capacity_step() -> Step:
+    return Step(
+        "refuse if the account has no free VPC or Elastic IP for this stack",
+        (
+            ("ec2", "DescribeVpcs", {}),
+            (
+                "service-quotas",
+                "GetServiceQuota",
+                {"ServiceCode": VPC_QUOTA[0], "QuotaCode": VPC_QUOTA[1]},
+            ),
+            ("ec2", "DescribeAddresses", {}),
+            (
+                "service-quotas",
+                "GetServiceQuota",
+                {"ServiceCode": ELASTIC_IP_QUOTA[0], "QuotaCode": ELASTIC_IP_QUOTA[1]},
+            ),
+        ),
+        run=require_network_capacity,
     )
 
 
@@ -1119,6 +1214,11 @@ def plan_check(ctx: Context) -> list[Step]:
                 ),
             ),
             run=check_quota,
+        ),
+        Step(
+            "VPC and Elastic IP capacity",
+            network_capacity_step().calls,
+            run=check_network_capacity,
         ),
         Step("clean source tree and anonymous fetch", probe, run=check_source),
     ]
@@ -1211,24 +1311,46 @@ def wait_for_stack(ctx: Context, goal: str) -> None:
     ctx.out(f"    {goal} after {int(elapsed // 60)} min {int(elapsed % 60)} s")
 
 
-def report_failed_events(ctx: Context) -> None:
-    """Print the earliest failed resource events, which hold the root cause."""
+EMBEDDED_STACK = re.compile(r"arn:[\w-]+:cloudformation:[\w-]+:\d+:stack/[^\s,\]\[]+")
+MAX_NESTING = 4
+
+
+def failed_events(ctx: Context, stack: str) -> list[dict[str, Any]]:
+    """The stack's *_FAILED events, earliest first; empty when they cannot be read."""
     try:
-        events = ctx.client("cloudformation").describe_stack_events(
-            StackName=ctx.stack_name
-        )
+        events = ctx.client("cloudformation").describe_stack_events(StackName=stack)
     except Exception:  # noqa: BLE001 - diagnostics must not hide the original failure
-        return
+        return []
     failed = [
         e
         for e in events["StackEvents"]
         if str(e.get("ResourceStatus", "")).endswith("FAILED")
     ]
-    for event in list(reversed(failed))[:5]:
+    return list(reversed(failed))
+
+
+def report_failed_events(
+    ctx: Context, stack: str | None = None, depth: int = 0, seen: set[str] | None = None
+) -> None:
+    """Print the earliest failed events, following embedded stacks to the real cause.
+
+    A parent's reason only says "Embedded stack <arn> was not successfully created"; the
+    nested stack's own events (still readable after rollback) hold the cause.
+    """
+    seen = seen if seen is not None else set()
+    stack = stack or ctx.stack_name
+    seen.add(stack)
+    indent = "    " * (depth + 1)
+    for event in failed_events(ctx, stack)[:5]:
+        reason = event.get("ResourceStatusReason", "")
         ctx.out(
-            f"    {event['LogicalResourceId']}: {event['ResourceStatus']}: "
-            f"{event.get('ResourceStatusReason', '')}"
+            f"{indent}{event['LogicalResourceId']}: {event['ResourceStatus']}: {reason}"
         )
+        for nested in EMBEDDED_STACK.findall(reason):
+            nested = nested.rstrip(".:")
+            if nested not in seen and depth < MAX_NESTING:
+                ctx.out(f"{indent}  in embedded stack {nested.split('/')[1]}:")
+                report_failed_events(ctx, nested, depth + 1, seen)
 
 
 TOKEN = re.compile(r"(tkn=)[^&\s]+")
@@ -1443,6 +1565,7 @@ def plan_deploy(ctx: Context) -> list[Step]:
     return [
         stack_absent_step(ctx),
         published_release_step(ctx, release),
+        network_capacity_step(),
         service_linked_role_step(),
         probe_step(ctx),
         global_endpoint_step(ctx, release),
@@ -1494,6 +1617,7 @@ def plan_staging_up(ctx: Context) -> list[Step]:
         stack_absent_step(ctx),
         *bucket_steps(ctx),
         *asset_steps(ctx, assets),
+        network_capacity_step(),
         service_linked_role_step(),
         probe_step(ctx),
         create,
