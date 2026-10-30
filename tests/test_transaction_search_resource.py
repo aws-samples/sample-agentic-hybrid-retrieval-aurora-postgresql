@@ -1,6 +1,7 @@
 """The Transaction Search custom resource puts back at deletion only what it changed."""
 
 import json
+import types
 from pathlib import Path
 
 import pytest
@@ -9,6 +10,7 @@ TEMPLATE = Path(__file__).resolve().parents[1] / (
     "deploy/cloudformation/hybrid-retrieval-code-editor.yml"
 )
 INLINE_LIMIT = 4096
+SLEEPS: list[float] = []
 PROPS = {
     "PolicyName": "MosaicTransactionSearchAccess",
     "PolicyDocument": "{}",
@@ -29,13 +31,18 @@ class NotFound(Exception):
 
 
 class XRay:
-    def __init__(self, destination="XRay", percentage=1.0):
+    def __init__(self, destination="XRay", percentage=1.0, pending_reads=0):
         self.destination = destination
         self.percentage = percentage
+        self.pending_reads = pending_reads
         self.calls = []
 
     def get_trace_segment_destination(self):
-        return {"Destination": self.destination, "Status": "ACTIVE"}
+        status = "ACTIVE"
+        if self.pending_reads:
+            self.pending_reads -= 1
+            status = "PENDING"
+        return {"Destination": self.destination, "Status": status}
 
     def update_trace_segment_destination(self, Destination):
         self.calls.append(("destination", Destination))
@@ -61,20 +68,25 @@ class XRay:
 
 
 class Logs:
-    def __init__(self, groups=(), policies=()):
+    def __init__(self, groups=(), policies=(), streams=None):
         self.groups = set(groups)
         self.policies = set(policies)
+        self.streams = dict(streams or {})
         self.calls = []
         self.exceptions = type("E", (), {"ResourceNotFoundException": NotFound})
 
-    def describe_log_groups(self, logGroupNamePrefix):
-        return {
-            "logGroups": [
-                {"logGroupName": g}
-                for g in self.groups
-                if g.startswith(logGroupNamePrefix)
-            ]
-        }
+    def describe_log_streams(self, logGroupName, limit, orderBy=None, descending=False):
+        if logGroupName not in self.groups:
+            raise NotFound()
+        # X-Ray creates an empty "default" stream with every group it makes (measured);
+        # only a stream with events carries a firstEventTimestamp.
+        streams = [{"logStreamName": "default"}] + [
+            {"logStreamName": name, "firstEventTimestamp": 1}
+            for name in self.streams.get(logGroupName, [])
+        ]
+        if orderBy == "LastEventTime":
+            streams.sort(key=lambda s: "firstEventTimestamp" in s, reverse=descending)
+        return {"logStreams": streams[:limit]}
 
     def describe_resource_policies(self):
         return {"resourcePolicies": [{"policyName": p} for p in self.policies]}
@@ -105,6 +117,9 @@ def load(xray, logs):
     )
     responses = []
     namespace["respond"] = lambda event, pid, note: responses.append((pid, note))
+    namespace["time"] = types.SimpleNamespace(
+        sleep=lambda seconds: SLEEPS.append(seconds)
+    )
     return namespace["handler"], responses
 
 
@@ -145,7 +160,7 @@ def test_create_then_delete_puts_a_fresh_account_back_as_found():
     assert responses[-1] == (
         pid,
         (
-            "restored indexing 1.0%, destination, policy, aws/spans, "
+            "restored indexing, destination, policy, aws/spans, "
             "/aws/application-signals/data"
         ),
     )
@@ -175,7 +190,7 @@ def test_what_existed_before_the_stack_stays_and_only_the_rest_is_removed():
     logs.groups.add("/aws/application-signals/data")
     handler(event("Delete", pid), None)
     assert responses[-1][1] == (
-        "restored indexing 2.5%, destination, /aws/application-signals/data"
+        "restored indexing, destination, /aws/application-signals/data"
     )
     assert logs.groups == {"aws/spans"}
     assert logs.policies == {"MosaicTransactionSearchAccess"}
@@ -211,7 +226,7 @@ def test_a_failure_is_reported_and_never_fails_the_stack():
     handler(event("Create"), None)
     assert responses[-1] == (
         "transaction-search:on",
-        "Create problem: RuntimeError: xray down",
+        "Create: RuntimeError('xray down')",
     )
     handler(
         event(
@@ -219,12 +234,12 @@ def test_a_failure_is_reported_and_never_fails_the_stack():
         ),
         None,
     )
-    assert responses[-1][1] == "Delete problem: RuntimeError: xray down"
+    assert responses[-1][1] == "Delete: RuntimeError('xray down')"
 
 
 @pytest.mark.parametrize(
     "name",
-    ["logs:DeleteLogGroup", "logs:DeleteResourcePolicy", "logs:DescribeLogGroups"],
+    ["logs:DeleteLogGroup", "logs:DeleteResourcePolicy", "logs:DescribeLogStreams"],
 )
 def test_the_role_grants_what_restore_calls(name):
     text = TEMPLATE.read_text()
@@ -234,3 +249,61 @@ def test_the_role_grants_what_restore_calls(name):
         )
     ]
     assert name in role
+
+
+def test_delete_waits_for_x_ray_to_leave_pending_before_switching_back():
+    """A delete minutes after the enable (a rollback) meets a PENDING destination."""
+    xray, logs = XRay(), Logs()
+    handler, responses = load(xray, logs)
+    handler(event("Create"), None)
+    pid, _ = responses[-1]
+    xray.pending_reads = 3
+    SLEEPS.clear()
+    handler(event("Delete", pid), None)
+    assert SLEEPS == [10, 10, 10]
+    assert xray.destination == "XRay"
+    assert responses[-1][1].startswith("restored indexing, destination")
+
+
+def test_the_lambda_has_time_to_wait_out_pending():
+    text = TEMPLATE.read_text()
+    configurator = text[
+        text.index("  TransactionSearchConfigurator:\n") : text.index(
+            "  TransactionSearch:\n"
+        )
+    ]
+    assert "Timeout: 900" in configurator
+
+
+def test_create_waits_for_the_switch_to_settle_before_indexing_everything():
+    """UpdateIndexingRule during PENDING returns success and changes nothing (measured)."""
+    xray, logs = XRay(), Logs()
+    handler, responses = load(xray, logs)
+
+    def switch(Destination):
+        xray.calls.append(("destination", Destination))
+        xray.destination = Destination
+        xray.pending_reads = 2
+
+    xray.update_trace_segment_destination = switch
+    SLEEPS.clear()
+    handler(event("Create"), None)
+    assert responses[-1][1] == "enabled"
+    assert SLEEPS == [10, 10]
+    assert xray.calls == [("destination", "CloudWatchLogs"), ("indexing", 100.0)]
+
+
+def test_a_created_group_that_holds_traces_is_kept_and_named():
+    """Other applications' spans land in the shared groups once the setting is on."""
+    xray, logs = XRay(), Logs()
+    handler, responses = load(xray, logs)
+    handler(event("Create"), None)
+    pid, _ = responses[-1]
+    logs.groups.update(("aws/spans", "/aws/application-signals/data"))
+    logs.streams["aws/spans"] = ["another-application's-span-stream"]
+    handler(event("Delete", pid), None)
+    assert responses[-1][1] == (
+        "restored indexing, destination, policy, kept aws/spans, "
+        "/aws/application-signals/data"
+    )
+    assert logs.groups == {"aws/spans"}

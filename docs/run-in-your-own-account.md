@@ -38,9 +38,11 @@ The build downloads a lot of data. About 19 GB of product metadata is downloaded
 about 60 GB of review files are read twice, so expect about 120 GB of transfer for them. The
 finished bundle is about 2.5 GB. These sizes come from the pinned source files in
 `scripts/catalog/fetch_catalog_metadata.py` and `scripts/catalog/fetch_catalog_reviews.py` and
-from `db/config/real-catalog-cache.json`; the disk the builder needs and the data it
-transfers are not yet measured: `[measured in the proof run]`. The time they take is not
-measured either.
+from `db/config/real-catalog-cache.json`. In the proof run the builder held 15 GB on its
+300 GB disk after the downloads and the embeddings, and the review scans streamed about 60 GB
+more without storing it (Electronics 22.6 GB, Home_and_Kitchen 31.4 GB, Office_Products
+5.8 GB). The metadata downloads took 7.4 minutes at about 50 MB/s; the review scans took
+about 12 minutes, including one resumed run after the source host's rate limit.
 
 **Cost.** This page gives no prices, because they change. Read the current rates:
 
@@ -58,8 +60,10 @@ steps 3 and 6 of section 4. Delete the stack when you are done (section 6).
 
 Measured totals from the proof run:
 
-- Catalog build, wall-clock time: `[measured in the proof run]`
-- Catalog build, Bedrock embedding tokens: `[measured in the proof run]`
+- Catalog build: 7 hours 39 minutes of step time in the proof run (three embedding
+  Regions, 12 workers), 6 hours 41 minutes of it embedding
+- Catalog build, Bedrock embedding tokens: 276,826,378 input tokens for 553,911 products in
+  10,665 batches
 - Stack creation time: `[measured in the proof run]`
 - Cost of one build, one lab session and teardown: `[measured in the proof run]`
 
@@ -120,8 +124,9 @@ create the stack.
   quota. Step 6 deletes the builder before step 10 creates the host, so they never run
   together and you need room for 8 vCPUs at a time.
 - Amazon Bedrock: tokens per minute for Cohere Embed v4 in your Region. This bounds how
-  fast the catalog build can embed products. Value the proof run needed:
-  `[measured in the proof run]`.
+  fast the catalog build can embed products. The proof run had 300,000 tokens per minute for
+  `us.cohere.embed-v4:0` in each of us-east-1, us-east-2 and us-west-2 and paced itself at
+  255,000 per Region, 85% of that.
 
 If you raise the VPC or Elastic IP quota just before deploying, EC2 can keep enforcing the old
 value for a while after Service Quotas shows the new one, and `staging up` then rolls back on
@@ -145,7 +150,8 @@ own account and keep the fork public.
 The catalog is not stored in this repository, and it is not redistributed. You build
 it from public sources and from Bedrock embeddings. The build produces a
 hash-pinned bundle: the product archive in parts of at most 900,000,000 bytes, and two
-vocabulary files. Size and product count of your bundle: `[measured in the proof run]`.
+vocabulary files. The proof run's bundle held 553,911 products in a 2,521,919,722-byte
+archive, split into three parts, plus two vocabulary files of 11.7 MB and 12.2 MB.
 
 **What goes in.**
 
@@ -204,7 +210,11 @@ Region and about 79,716 an hour with three Regions, 12 workers and adaptive paci
 runs embedded different texts and are not a controlled benchmark. The three-Region
 figure used applied quotas of 300,000 tokens per minute in each Region, which was the event
 account's quota. Your account's default is not measured. To use the three Regions, pass
-them to the build command in step 5 of section 4. Whole-build wall-clock time on a fresh account: `[measured in the proof run]`.
+them to the build command in step 5 of section 4. The proof run's steps on a fresh account,
+with three Regions and 12 workers, took 7 hours 39 minutes in all: fetch 7.4 minutes, prepare
+12.0 minutes, embed 6 hours 41 minutes, schema and stage 4.9 minutes, evidence 7.6 minutes,
+export 3.6 minutes, restore-check 19.5 minutes (restore 18.4 minutes, of which the HNSW index
+1.7 minutes), vocabulary 3.1 minutes, upload 22 seconds.
 
 **What changes in a rebuild.** The selected products and their text are deterministic, so
 the contract should again record 553,911 products and 10,665 embedding batches; if it does
@@ -264,7 +274,8 @@ now until step 6.
 uv run python deploy/own-account/deploy.py staging up --region us-east-1
 ```
 
-Staging creation time: `[measured in the proof run]`.
+Staging creation time: 16 minutes 16 seconds in the proof run (the VPC, the Aurora cluster
+and the builder).
 
 **Step 4.** Print the Session Manager command that opens a shell on the builder, then
 copy it into your terminal and run it. It looks like
@@ -293,7 +304,8 @@ tail -f /workshop/catalog-bundle.log
 
 If the build stops or you close the session, run `mosaic-catalog-bundle` again: it
 resumes from the last completed step. The wrapper refuses to start a second build while one
-is running. Expected duration: `[measured in the proof run]`.
+is running. Expected duration: about 7 hours 40 minutes with three Regions (section 3), most
+of it embedding.
 
 The build has ended when the last lines of the log are the summary. It prints
 "Commit these two contract files:" and then "On your laptop, in your fork, in this order:".
@@ -446,11 +458,13 @@ Some things outlive the stack and the staging environment, and you remove them y
 - CloudWatch Transaction Search, an account-wide setting per Region that the stack turns
   on so Lab 3's agent runs appear in the CloudWatch GenAI Observability pages, with every
   span indexed. Deleting the stack puts back what it changed: the indexing percentage, the
-  trace destination, the resource policy it created, and the two log groups `aws/spans`
-  and `/aws/application-signals/data` when they did not exist before. An account where
-  Transaction Search was already on is left as it was, including those two groups. The
-  teardown command prints the setting's state after deletion; confirm it with
-  `aws xray get-trace-segment-destination`.
+  trace destination and the resource policy it created. The two log groups `aws/spans` and
+  `/aws/application-signals/data` are removed only when they did not exist before and still
+  hold no traces; once a session has run, they stay with the traces recorded while the
+  setting was on, yours and any other traced application's, because deleting them would
+  erase that history. An account where Transaction Search was already on is left as it
+  was. The teardown command prints the setting's state and which of the two groups remain;
+  confirm with `aws xray get-trace-segment-destination`.
 
 Your fork stays until you delete it on GitHub.
 

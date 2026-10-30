@@ -1987,7 +1987,7 @@ def plan_staging_down(ctx: Context, *, force: bool = False) -> list[Step]:
         ),
         run=lambda c: require_bundle_uploaded(c, force=force),
     )
-    return [check, discover_step(ctx), *plan_delete(ctx), report_step()]
+    return [check, discover_step(ctx), *plan_delete(ctx), report_step(staging=True)]
 
 
 def plan_delete(ctx: Context) -> list[Step]:
@@ -2070,16 +2070,42 @@ def transaction_search_state(ctx: Context) -> str:
     except Exception as error:  # noqa: BLE001 - a report line must not fail the teardown
         return f"  Transaction Search: not read ({type(error).__name__}); check it yourself"
     destination = current.get("Destination", "unknown")
+    groups = ("aws/spans", "/aws/application-signals/data")
+    try:
+        logs = ctx.client("logs")
+        remaining = [
+            name
+            for name in groups
+            if any(
+                group["logGroupName"] == name
+                for group in logs.describe_log_groups(logGroupNamePrefix=name)[
+                    "logGroups"
+                ]
+            )
+        ]
+    except Exception:  # noqa: BLE001 - a report line must not fail the teardown
+        remaining = ["(not read)"]
+    kept = (
+        f"; the {' and '.join(remaining)} log group(s) remain with the traces recorded"
+        if remaining
+        else "; the two trace log groups are gone"
+    )
     if destination == "CloudWatchLogs":
         return (
             "  Transaction Search: still on (destination CloudWatchLogs); it was on before "
-            "the stack, or the stack's restore did not run; the aws/spans and "
-            "/aws/application-signals/data log groups remain"
+            "the stack, or the stack's restore did not run" + kept
         )
-    return f"  Transaction Search: destination {destination}, as before the stack"
+    return (
+        f"  Transaction Search: destination {destination}, as before the stack" + kept
+    )
 
 
-def report_leftovers(ctx: Context) -> None:
+def report_staging_leftovers(ctx: Context) -> None:
+    """The staging environment's leftovers; it never touches Transaction Search."""
+    report_leftovers(ctx, transaction_search=False)
+
+
+def report_leftovers(ctx: Context, *, transaction_search: bool = True) -> None:
     ctx.out("what the stack does not delete (report only; nothing below is removed):")
     for name in leftover_log_groups(ctx) or ["(no matching log groups)"]:
         ctx.out(
@@ -2090,7 +2116,8 @@ def report_leftovers(ctx: Context) -> None:
             f"  RDSOSMetrics streams starting {resource_id}: delete only those streams "
             "(other databases share the group)"
         )
-    ctx.out(transaction_search_state(ctx))
+    if transaction_search:
+        ctx.out(transaction_search_state(ctx))
     ctx.out(
         "  the staging PostgreSQL log group (/aws/rds/cluster/<id>/postgresql) and the\n"
         "  retained builder log group appear above when they exist\n"
@@ -2144,11 +2171,11 @@ def discover_step(ctx: Context) -> Step:
     )
 
 
-def report_step() -> Step:
+def report_step(*, staging: bool = False) -> Step:
     return Step(
         "report what the stack leaves behind",
         (("logs", "DescribeLogGroups", {"logGroupNamePrefix": "<recorded prefixes>"}),),
-        run=report_leftovers,
+        run=report_staging_leftovers if staging else report_leftovers,
     )
 
 
