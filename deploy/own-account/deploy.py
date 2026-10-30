@@ -26,6 +26,7 @@ import tempfile
 import time
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -1074,7 +1075,9 @@ def quota_value(ctx: Context, service_code: str, quota_code: str) -> float:
     )["Quota"]["Value"]
 
 
-def network_capacity(ctx: Context) -> list[tuple[str, int, float, str]]:
+def network_capacity(
+    ctx: Context,
+) -> list[tuple[str, int, float, str, tuple[str, str]]]:
     """(name, in use, quota, fix) for each resource one stack needs one more of."""
     ec2 = ctx.client("ec2")
     return [
@@ -1083,6 +1086,7 @@ def network_capacity(ctx: Context) -> list[tuple[str, int, float, str]]:
             len(ec2.describe_vpcs()["Vpcs"]),
             quota_value(ctx, *VPC_QUOTA),
             "request a VPC quota increase (Service Quotas, L-F678F1CE) or delete an unused VPC",
+            VPC_QUOTA,
         ),
         (
             "Elastic IPs",
@@ -1092,8 +1096,43 @@ def network_capacity(ctx: Context) -> list[tuple[str, int, float, str]]:
                 "request an Elastic IP quota increase (Service Quotas, L-0263D0A3) or "
                 "release an unused address"
             ),
+            ELASTIC_IP_QUOTA,
         ),
     ]
+
+
+RECENT_RAISE = timedelta(hours=1)
+
+
+def utc_now() -> datetime:
+    return datetime.now(UTC)
+
+
+def note_recent_quota_raise(ctx: Context, quota_id: tuple[str, str]) -> None:
+    """Say so when a quota increase was approved in the last hour.
+
+    Service Quotas reports the new limit before EC2 enforces it, so a stack can still roll
+    back on the old one for a few minutes. A denied lookup is silent: this is only a hint.
+    """
+    service_code, quota_code = quota_id
+    try:
+        history = ctx.client(
+            "service-quotas"
+        ).list_requested_service_quota_change_history_by_quota(
+            ServiceCode=service_code, QuotaCode=quota_code
+        )
+    except Exception:  # noqa: BLE001 - an advisory hint must never fail the check
+        return
+    cutoff = utc_now() - RECENT_RAISE
+    for request in history.get("RequestedQuotas", []):
+        approved = "APPROVED" in (request.get("Status"), request.get("CaseStatus"))
+        updated = request.get("LastUpdated")
+        if approved and updated is not None and updated >= cutoff:
+            ctx.out(
+                f"     note: quota raised at {updated:%Y-%m-%d %H:%M} UTC; EC2 can take a "
+                "while to enforce it, retry if the stack rolls back on the VPC"
+            )
+            return
 
 
 def capacity_line(name: str, used: int, quota: float) -> str:
@@ -1111,8 +1150,9 @@ def check_network_capacity(ctx: Context) -> None:
             f"warn network quota lookup failed ({error_code(error) or error}); not blocking"
         )
         return
-    for name, used, quota, fix in capacity:
+    for name, used, quota, fix, quota_id in capacity:
         verdict(ctx, used < quota, capacity_line(name, used, quota), fix)
+        note_recent_quota_raise(ctx, quota_id)
 
 
 def require_network_capacity(ctx: Context) -> None:
@@ -1124,13 +1164,15 @@ def require_network_capacity(ctx: Context) -> None:
             f"    network quota lookup failed ({error_code(error) or error}); continuing"
         )
         return
-    full = [(n, u, q, f) for n, u, q, f in capacity if u >= q]
+    full = [(n, u, q, f) for n, u, q, f, _ in capacity if u >= q]
     if full:
         raise Refusal(
             "; ".join(f"{n}: {u} in use of {q:g}, none free" for n, u, q, _ in full)
             + f". The stack needs one of each. Fix: {full[0][3]}."
         )
     ctx.out("    a VPC and an Elastic IP are free")
+    for *_, quota_id in capacity:
+        note_recent_quota_raise(ctx, quota_id)
 
 
 def network_capacity_step() -> Step:

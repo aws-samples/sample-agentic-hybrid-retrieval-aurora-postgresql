@@ -10,6 +10,7 @@ import re
 import subprocess
 import sys
 import urllib.request
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -1501,6 +1502,7 @@ class FakeAccount:
             deploy.ELASTIC_IP_QUOTA[1]: address_quota,
         }
         self.applied = applied
+        self.history: list = []
 
     def describe_vpcs(self):
         return {"Vpcs": [{}] * self.vpcs}
@@ -1515,6 +1517,17 @@ class FakeAccount:
 
     def get_aws_default_service_quota(self, ServiceCode, QuotaCode):
         return {"Quota": {"Value": self.quotas[QuotaCode]}}
+
+    history_error: str | None = None
+
+    def list_requested_service_quota_change_history_by_quota(
+        self, ServiceCode, QuotaCode
+    ):
+        if self.history_error:
+            raise CodedError(self.history_error)
+        return {
+            "RequestedQuotas": [r for r in self.history if r["QuotaCode"] == QuotaCode]
+        }
 
 
 def test_check_reports_free_vpcs_and_addresses(tmp_path):
@@ -1668,3 +1681,87 @@ def test_the_drill_down_survives_cycles_and_unreadable_nested_stacks(tmp_path):
     gone = {"top": [failed("A", f"Embedded stack {DEEPER_ARN} failed")]}
     ctx = live_context(tmp_path, FakeCloudformation([], gone), [], stack_name="top")
     deploy.report_failed_events(ctx)
+
+
+# ---------------------------------------------------------------- recent quota raises
+NOW = datetime(2026, 10, 29, 12, 0, tzinfo=UTC)
+
+
+def raise_request(
+    minutes_ago: int, quota: tuple[str, str], status: str = "APPROVED"
+) -> dict:
+    return {
+        "QuotaCode": quota[1],
+        "Status": status,
+        "LastUpdated": NOW - timedelta(minutes=minutes_ago),
+    }
+
+
+@pytest.fixture
+def frozen_now(monkeypatch):
+    monkeypatch.setattr(deploy, "utc_now", lambda: NOW)
+
+
+def test_a_vpc_quota_raised_minutes_ago_adds_a_note_to_the_capacity_lines(
+    tmp_path, frozen_now
+):
+    account = FakeAccount(vpcs=2, vpc_quota=10)
+    account.history = [raise_request(5, deploy.VPC_QUOTA)]
+    lines: list[str] = []
+    deploy.check_network_capacity(live_context(tmp_path, account, lines))
+    notes = [
+        line for line in lines if "note: quota raised at 2026-10-29 11:55 UTC" in line
+    ]
+    assert len(notes) == 1
+    assert "EC2 can take a while to enforce it" in notes[0]
+    assert "retry if the stack rolls back on the VPC" in notes[0]
+    assert lines.index(notes[0]) == 1
+
+
+def test_the_note_also_appears_just_before_a_stack_is_created(tmp_path, frozen_now):
+    account = FakeAccount()
+    account.history = [raise_request(30, deploy.ELASTIC_IP_QUOTA)]
+    lines: list[str] = []
+    deploy.require_network_capacity(live_context(tmp_path, account, lines))
+    assert any("note: quota raised" in line for line in lines)
+
+
+@pytest.mark.parametrize(
+    "history",
+    [
+        [],
+        [
+            {
+                "QuotaCode": deploy.VPC_QUOTA[1],
+                "Status": "APPROVED",
+                "LastUpdated": NOW - timedelta(hours=2),
+            }
+        ],
+        [raise_request(5, deploy.VPC_QUOTA, status="PENDING")],
+        [raise_request(5, deploy.VPC_QUOTA, status="DENIED")],
+    ],
+)
+def test_no_note_for_old_pending_or_denied_requests(tmp_path, frozen_now, history):
+    account = FakeAccount()
+    account.history = history
+    lines: list[str] = []
+    deploy.check_network_capacity(live_context(tmp_path, account, lines))
+    assert not any("note:" in line for line in lines)
+
+
+def test_a_case_status_of_approved_counts(tmp_path, frozen_now):
+    account = FakeAccount()
+    request = raise_request(10, deploy.VPC_QUOTA, status="CASE_CLOSED")
+    request["CaseStatus"] = "APPROVED"
+    account.history = [request]
+    lines: list[str] = []
+    deploy.check_network_capacity(live_context(tmp_path, account, lines))
+    assert any("note: quota raised" in line for line in lines)
+
+
+def test_a_denied_history_lookup_is_silent(tmp_path, frozen_now):
+    account = FakeAccount()
+    account.history_error = "AccessDeniedException"
+    lines: list[str] = []
+    deploy.check_network_capacity(live_context(tmp_path, account, lines))
+    assert [line[:4] for line in lines] == ["ok  ", "ok  "]

@@ -123,6 +123,11 @@ create the stack.
   fast the catalog build can embed products. Value the proof run needed:
   `[measured in the proof run]`.
 
+If you raise the VPC or Elastic IP quota just before deploying, EC2 can keep enforcing the old
+value for a while after Service Quotas shows the new one, and `staging up` then rolls back on
+the VPC with "The maximum number of VPCs has been reached". Run `staging down`, wait a few
+minutes and try again.
+
 **Tools on your machine.**
 
 - git
