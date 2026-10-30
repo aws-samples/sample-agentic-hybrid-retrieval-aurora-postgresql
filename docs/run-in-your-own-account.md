@@ -41,8 +41,9 @@ finished bundle is about 2.5 GB. These sizes come from the pinned source files i
 from `db/config/real-catalog-cache.json`. In the proof run the builder held 15 GB on its
 300 GB disk after the downloads and the embeddings, and the review scans streamed about 60 GB
 more without storing it (Electronics 22.6 GB, Home_and_Kitchen 31.4 GB, Office_Products
-5.8 GB). The metadata downloads took 7.4 minutes at about 50 MB/s; the review scans took
-about 12 minutes, including one resumed run after the source host's rate limit.
+5.8 GB). The metadata downloads took 7.4 minutes at about 50 MB/s. The evidence step,
+which runs the review scans, took 7.6 minutes in its final run, which resumed earlier runs
+stopped by the source host's rate limit; an uninterrupted run was not measured.
 
 **Cost.** This page gives no prices, because they change. Read the current rates:
 
@@ -64,7 +65,9 @@ Measured totals from the proof run:
   Regions, 12 workers), 6 hours 41 minutes of it embedding
 - Catalog build, Bedrock embedding tokens: 276,826,378 input tokens for 553,911 products in
   10,665 batches
-- Stack creation time: `[measured in the proof run]`
+- Stack creation time: 46 minutes 55 seconds in the proof run, in us-west-2, including the
+  host restoring the catalog (22 minutes) and one reboot by the account's patch-on-launch
+  association
 - Cost of one build, one lab session and teardown: `[measured in the proof run]`
 
 ## 2. Before you start
@@ -212,7 +215,8 @@ figure used applied quotas of 300,000 tokens per minute in each Region, which wa
 account's quota. Your account's default is not measured. To use the three Regions, pass
 them to the build command in step 5 of section 4. The proof run's steps on a fresh account,
 with three Regions and 12 workers, took 7 hours 39 minutes in all: fetch 7.4 minutes, prepare
-12.0 minutes, embed 6 hours 41 minutes, schema and stage 4.9 minutes, evidence 7.6 minutes,
+12.0 minutes, embed 6 hours 41 minutes, schema and stage 4.9 minutes, evidence 7.6 minutes
+(its final, resumed run),
 export 3.6 minutes, restore-check 19.5 minutes (restore 18.4 minutes, of which the HNSW index
 1.7 minutes), vocabulary 3.1 minutes, upload 22 seconds.
 
@@ -227,9 +231,12 @@ listing every count that differs from the shipped contract. That is expected, an
 counts become your new contract's counts.
 
 Cohere Embed v4 does not return identical vectors for the same text, so your vectors
-differ slightly from the ones the workshop was validated with. Lab 2 positions can move; how
-far is not yet measured: `[measured in the proof run]`. Whether `make validate-evals` and the
-lab targets pass on your rebuilt vectors is not yet measured either: `[measured in the proof run]`.
+differ slightly from the ones the workshop was validated with. In the proof run every
+count, position and score the guide quotes for Labs 1 and 2 came out identical on the rebuilt
+vectors, all three labs passed, and `make validate-evals` passed. The one number that moved
+is the Lab 2 settings comparison: Mosaic's current settings let 129 exact matches reach
+reranking, one more than the guide's screenshot shows (128), and a shortlist of 75 reaches 145
+on both, so its row reads +16 with 15 requests better where the screenshot shows +17 and 16.
 
 ## 4. Deploy
 
@@ -376,7 +383,8 @@ uv run python deploy/own-account/deploy.py deploy --region us-east-1
 ```
 
 Stack creation time, which includes the host restoring the catalog and building
-indexes: `[measured in the proof run]`.
+indexes: 46 minutes 55 seconds in the proof run (the VPC 3 minutes, Aurora 7.5 minutes, the
+Code Editor stack 36 minutes, of which the catalog restore took 22).
 
 Plain `status` redacts the Code Editor token. To read the outputs again later with the
 token, run this.
@@ -402,8 +410,11 @@ If creation fails, open the stack's **Events** tab and find the first failed
 resource. Do not retry blindly: the order of failures matters. The host's provisioning
 runs as a systemd unit, `mosaic-bootstrap.service`, that resumes at the next boot, so an
 account that patches and reboots new instances on launch (a Systems Manager State Manager
-association running `AWS-RunPatchBaseline`, for example) still provisions; the proof run
-met exactly that. A failure's cause travels in the `BootstrapWaitCondition` event as the
+association running `AWS-RunPatchBaseline`, for example) still provisions. The proof
+account has such an association: before the unit existed, two deploys failed when it
+rebooted the host four minutes in; with the unit, the host rebooted three minutes into
+provisioning, the unit resumed at the next boot and skipped the four finished phases, and
+the stack reached `CREATE_COMPLETE` in 46 minutes 55 seconds. A failure's cause travels in the `BootstrapWaitCondition` event as the
 tail of `/var/log/mosaic-bootstrap.log`; on a host that still exists, `journalctl -u
 mosaic-bootstrap` and the `.done` markers under `/var/lib/mosaic-bootstrap/` show which
 phase was running.
@@ -449,6 +460,18 @@ encryption keys enter a seven-day deletion window. The bucket holds your catalog
 bundle, so leave out `--delete-bucket` if you want to deploy again without rebuilding it.
 `--delete-bucket` refuses a bucket without the `MosaicOwnAccount=true` tag, and a name that does
 not start with `mosaic-own-account-` unless you named it yourself with `--bucket`.
+
+**Step 3, usually a few hours later.** The two runtimes reach Aurora through a network
+interface that AgentCore creates in your VPC, and AWS keeps that interface for up to 8 hours
+after the runtimes are deleted ([Configure Amazon Bedrock AgentCore Runtime and tools for
+VPC](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/agentcore-vpc.html)); only
+AWS can remove it. Until then, the two security groups it uses and the VPC around them cannot
+be deleted. When that is all that blocks the delete, `teardown` deletes everything else (the
+database, host, NAT gateway, distributions and runtimes), sets those resources aside, and
+ends with `NOT FINISHED` and the interface's ID. What remains costs nothing. In the proof run
+the first pass took 25 minutes and the interface was still there more than four hours after
+its runtimes were deleted. Once the command it prints shows no interface, run the same
+`teardown` command again to delete the rest.
 
 Some things outlive the stack and the staging environment, and you remove them yourself:
 

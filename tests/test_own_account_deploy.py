@@ -2157,3 +2157,132 @@ def test_an_update_that_never_starts_is_reported(tmp_path, monkeypatch):
         deploy.wait_for_stack(
             staging_context(tmp_path, stack), "UPDATE_COMPLETE", update_from="t0"
         )
+
+
+class FakeStackTree:
+    """CloudFormation and EC2 as a teardown blocked by AgentCore's interface sees them."""
+
+    def __init__(self, statuses, resources, interfaces):
+        self.statuses = list(statuses)
+        self.resources = resources
+        self.interfaces = interfaces
+        self.deletes: list[dict] = []
+
+    def describe_stacks(self, StackName):
+        status = self.statuses.pop(0) if len(self.statuses) > 1 else self.statuses[0]
+        if status is None:
+            raise CodedError("ValidationError", f"Stack {StackName} does not exist")
+        return {"Stacks": [{"StackName": StackName, "StackStatus": status}]}
+
+    def describe_stack_events(self, StackName):
+        return {"StackEvents": []}
+
+    def get_paginator(self, _name):
+        tree = self.resources
+
+        class Paginator:
+            def paginate(self, StackName):
+                yield {"StackResourceSummaries": tree.get(StackName, [])}
+
+        return Paginator()
+
+    def delete_stack(self, **kwargs):
+        self.deletes.append(kwargs)
+
+    def describe_network_interfaces(self, Filters):
+        wanted = set(Filters[0]["Values"])
+        return {
+            "NetworkInterfaces": [
+                i
+                for i in self.interfaces
+                if wanted & {g["GroupId"] for g in i["Groups"]}
+            ]
+        }
+
+
+def resource(logical, kind, physical, status="CREATE_COMPLETE"):
+    return {
+        "LogicalResourceId": logical,
+        "ResourceType": kind,
+        "PhysicalResourceId": physical,
+        "ResourceStatus": status,
+    }
+
+
+STACK = "AWS::CloudFormation::Stack"
+GROUP = "AWS::EC2::SecurityGroup"
+BLOCKED_TREE = {
+    "mosaic-hybrid-retrieval": [
+        resource("CodeEditorStack", STACK, "arn:editor", "DELETE_FAILED"),
+        resource("DatabaseClientSecurityGroup", GROUP, "sg-client"),
+        resource("DatabaseStack", STACK, "arn:database"),
+        resource("VPCStack", STACK, "arn:vpc"),
+    ],
+    "arn:editor": [
+        resource("RuntimeSecurityGroup", GROUP, "sg-runtime", "DELETE_FAILED")
+    ],
+    "arn:database": [resource("DatabaseSecurityGroup", GROUP, "sg-database")],
+    "arn:vpc": [resource("MainVPC", "AWS::EC2::VPC", "vpc-1")],
+}
+AGENTCORE_INTERFACE = {
+    "NetworkInterfaceId": "eni-agentcore",
+    "InterfaceType": "agentic_ai",
+    "TagSet": [{"Key": "AmazonBedrockAgentCoreManaged", "Value": "true"}],
+    "Groups": [{"GroupId": "sg-client"}, {"GroupId": "sg-runtime"}],
+}
+
+
+def test_a_delete_blocked_by_agentcores_interface_deletes_everything_else(
+    tmp_path, no_sleep
+):
+    """Measured twice on 30 October: the interface outlived its runtimes by hours."""
+    fake = FakeStackTree(["DELETE_FAILED"], BLOCKED_TREE, [AGENTCORE_INTERFACE])
+    lines: list[str] = []
+    ctx = live_context(tmp_path, fake, lines)
+    deploy.wait_for_delete(ctx)
+    assert fake.deletes == [
+        {
+            "StackName": "mosaic-hybrid-retrieval",
+            "RetainResources": ["CodeEditorStack", "DatabaseClientSecurityGroup"],
+        }
+    ]
+    text = "\n".join(lines)
+    assert "eni-agentcore" in text and "up to 8 hours" in text
+    assert len(ctx.pending) == 1
+    assert "Run `teardown` again" in ctx.pending[0]
+    assert "eni-agentcore" in ctx.pending[0]
+
+
+def test_a_delete_blocked_by_anything_else_is_still_refused(tmp_path, no_sleep):
+    other = {**AGENTCORE_INTERFACE, "InterfaceType": "interface", "TagSet": []}
+    fake = FakeStackTree(["DELETE_FAILED"], BLOCKED_TREE, [other])
+    ctx = live_context(tmp_path, fake, [])
+    with pytest.raises(deploy.Refusal, match="DELETE_FAILED"):
+        deploy.wait_for_delete(ctx)
+    assert fake.deletes == []
+    assert ctx.pending == []
+
+
+def test_a_delete_that_completes_needs_no_second_pass(tmp_path, no_sleep):
+    fake = FakeStackTree(
+        ["DELETE_IN_PROGRESS", None], BLOCKED_TREE, [AGENTCORE_INTERFACE]
+    )
+    ctx = live_context(tmp_path, fake, [])
+    deploy.wait_for_delete(ctx)
+    assert fake.deletes == [] and ctx.pending == []
+
+
+def test_an_unfinished_teardown_exits_non_zero_and_says_why(
+    tmp_path, monkeypatch, capsys
+):
+    def plan(_args, ctx):
+        return [
+            deploy.Step("pretend", run=lambda c: c.pending.append("come back later"))
+        ]
+
+    monkeypatch.setattr(deploy, "plan_for", plan)
+    monkeypatch.setattr(
+        deploy, "make_context", lambda args: context(tmp_path, dry_run=False, out=print)
+    )
+    assert deploy.main(["teardown", "--region", "us-east-1"]) == 2
+    assert "NOT FINISHED: come back later" in capsys.readouterr().err

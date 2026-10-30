@@ -444,6 +444,7 @@ class Context:
     discovered: dict[str, list[str]] = field(default_factory=dict)
     partition: str = "aws"
     bucket_explicit: bool = False
+    pending: list[str] = field(default_factory=list)
     out: Callable[[str], None] = print
 
     def client(self, service: str, region: str | None = None) -> Any:
@@ -1996,11 +1997,113 @@ def plan_delete(ctx: Context) -> list[Step]:
         (("cloudformation", "DeleteStack", {"StackName": ctx.stack_name}),),
     )
     wait = Step(
-        "wait for DELETE_COMPLETE",
-        (("cloudformation", "DescribeStacks", {"StackName": ctx.stack_name}),),
-        run=lambda c: wait_for_stack(c, "DELETE_COMPLETE"),
+        "wait for DELETE_COMPLETE; if only an AgentCore network interface blocks it, "
+        "delete everything else and say when to finish",
+        (
+            ("cloudformation", "DescribeStacks", {"StackName": ctx.stack_name}),
+            ("ec2", "DescribeNetworkInterfaces", {"Filters": "<the stack's groups>"}),
+        ),
+        run=wait_for_delete,
     )
     return [delete, wait]
+
+
+AGENTCORE_INTERFACE_TYPE = "agentic_ai"
+AGENTCORE_MANAGED_TAG = "AmazonBedrockAgentCoreManaged"
+AGENTCORE_RELEASE_HOURS = 8
+
+
+def security_groups_by_root_resource(ctx: Context) -> dict[str, list[str]]:
+    """Each root-level resource that is, or holds, a security group not yet deleted."""
+    cloudformation = ctx.client("cloudformation")
+    groups: dict[str, list[str]] = {}
+
+    def walk(stack: str, owner: str | None) -> None:
+        pages = cloudformation.get_paginator("list_stack_resources").paginate(
+            StackName=stack
+        )
+        for page in pages:
+            for resource in page["StackResourceSummaries"]:
+                if resource.get("ResourceStatus") == "DELETE_COMPLETE":
+                    continue
+                physical = resource.get("PhysicalResourceId", "")
+                logical = owner or resource["LogicalResourceId"]
+                if (
+                    resource["ResourceType"] == "AWS::CloudFormation::Stack"
+                    and physical
+                ):
+                    walk(physical, logical)
+                elif resource["ResourceType"] == "AWS::EC2::SecurityGroup" and physical:
+                    groups.setdefault(logical, []).append(physical)
+
+    walk(ctx.stack_name, None)
+    return groups
+
+
+def held_by_agentcore(ctx: Context) -> tuple[list[str], list[str]]:
+    """Root-level resources whose security groups an AgentCore interface still uses.
+
+    Returns:
+        The root logical IDs to set aside, and the interfaces that hold them.
+    """
+    groups = security_groups_by_root_resource(ctx)
+    group_ids = sorted({group for ids in groups.values() for group in ids})
+    if not group_ids:
+        return [], []
+    found = ctx.client("ec2").describe_network_interfaces(
+        Filters=[{"Name": "group-id", "Values": group_ids}]
+    )["NetworkInterfaces"]
+    interfaces = [
+        interface
+        for interface in found
+        if interface.get("InterfaceType") == AGENTCORE_INTERFACE_TYPE
+        or any(
+            tag.get("Key") == AGENTCORE_MANAGED_TAG
+            for tag in interface.get("TagSet", [])
+        )
+    ]
+    used = {
+        g["GroupId"] for interface in interfaces for g in interface.get("Groups", [])
+    }
+    held = sorted(logical for logical, ids in groups.items() if used & set(ids))
+    return held, sorted(interface["NetworkInterfaceId"] for interface in interfaces)
+
+
+def wait_for_delete(ctx: Context) -> None:
+    """Wait for the delete; when AgentCore's interface blocks it, remove what bills.
+
+    AgentCore keeps a VPC runtime's network interface for up to 8 hours after the runtime
+    is deleted, and only AWS can remove it, so the security groups it uses (and the VPC
+    around them) cannot be deleted until then. The rest is deleted now by a second delete
+    that sets those resources aside; a later `teardown` finishes once the interface goes.
+    """
+    try:
+        wait_for_stack(ctx, "DELETE_COMPLETE")
+        return
+    except Refusal:
+        held, interfaces = held_by_agentcore(ctx)
+        if not held:
+            raise
+    ctx.out(
+        f"    an AgentCore network interface ({', '.join(interfaces)}) still uses the "
+        f"security groups in {', '.join(held)}; AWS removes it up to "
+        f"{AGENTCORE_RELEASE_HOURS} hours after the runtimes are deleted, and only AWS can"
+    )
+    ctx.out("    deleting everything else now, setting those resources aside")
+    ctx.client("cloudformation").delete_stack(
+        StackName=ctx.stack_name, RetainResources=held
+    )
+    try:
+        wait_for_stack(ctx, "DELETE_COMPLETE")
+    except Refusal:
+        pass
+    ctx.pending.append(
+        f"teardown is not finished: what remains costs nothing (the VPC, a private subnet, "
+        f"the security groups and AWS's interface), and the database, host, NAT gateway, "
+        f"distributions and runtimes are gone. Run `teardown` again after the interface "
+        f"is gone (up to {AGENTCORE_RELEASE_HOURS} hours) to delete the rest; check with: "
+        f"aws ec2 describe-network-interfaces --network-interface-ids {' '.join(interfaces)}"
+    )
 
 
 # --------------------------------------------------------------------------------------
@@ -2386,6 +2489,10 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "check":
             return run_check(ctx)
         run_plan(plan_for(args, ctx), ctx)
+        for message in ctx.pending:
+            print(f"NOT FINISHED: {message}", file=sys.stderr)
+        if ctx.pending:
+            return 2
     except Refusal as refusal:
         print(f"REFUSED: {refusal}", file=sys.stderr)
         return 2
