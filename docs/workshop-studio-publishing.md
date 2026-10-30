@@ -107,3 +107,16 @@ Complete `FACILITATOR_GUIDE.md` → **Event-owner preflight, step 3** for upload
 template and vocabulary verification. Then complete the static URL sync in step
 5 above before any workshop staging, commit, or push. Mosaic's workshop branch
 is `mainline`; its source branch is `main`.
+
+## Own-account proofs never move the catalog pins
+
+An own-account build (`docs/run-in-your-own-account.md`) rewrites
+`db/config/real-catalog-cache.json` and `db/config/corpus-vocabulary-cache.json`
+with that build's sizes and hashes, and an event bootstrap loads only the bundle
+the pinned commit's contracts describe. Commit a proof's contracts to a proof
+branch that is never merged; `main` keeps the contracts of the bundle published
+in the workshop's assets. The workshop validator's Catalog pin rule compares the
+local bundle files with the pinned commit's contracts by bytes and SHA-256, so a
+contract from another build cannot be published with the old bundle. A new
+bundle for events is its own release: upload its parts and vocabulary, commit its
+contracts to `main`, repin, and rehearse a fresh event on it.

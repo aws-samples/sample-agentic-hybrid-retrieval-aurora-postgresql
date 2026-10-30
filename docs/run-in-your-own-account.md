@@ -188,11 +188,12 @@ step. A failing command stops the run, prints the command and says to run it aga
 A mismatch between your selection and the expected one stops the run before any embedding
 is spent. If you fix the source in your fork while the staging environment is up, push the
 fix and bring the builder's checkout to that commit before you run the wrapper again; the
-finished steps and their saved embeddings are kept:
+finished steps and their saved embeddings are kept. GitHub serves a commit by its full
+40-character hash only, so an abbreviated hash fails with "couldn't find remote ref":
 
 ```bash
 sudo -u builder -H git -C /workshop/sample-agentic-hybrid-retrieval-aurora-postgresql \
-  -c credential.helper= fetch --depth 1 origin <commit>
+  -c credential.helper= fetch --depth 1 origin <full commit hash>
 sudo -u builder -H git -C /workshop/sample-agentic-hybrid-retrieval-aurora-postgresql \
   checkout -q FETCH_HEAD
 ```
