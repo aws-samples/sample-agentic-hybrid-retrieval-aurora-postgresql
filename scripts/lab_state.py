@@ -6,12 +6,14 @@ from __future__ import annotations
 import argparse
 import ast
 import difflib
+import json
 import os
 import re
 import shlex
 import subprocess
 import sys
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal, NamedTuple
 
@@ -825,6 +827,20 @@ def lab_is_solved(lab: int, *, repo: Path = REPO) -> bool:
     raise ValueError(f"unknown lab: {lab}")
 
 
+def fault_untouched(lab: int, *, repo: Path = REPO) -> bool:
+    """Whether the lab's marked block still holds the exercise's fault, unedited."""
+    if missing_file_problem(lab, repo):
+        return False
+    source = (repo / LABS[lab][0]).read_text(encoding="utf-8")
+    try:
+        faulted = source
+        for start, end, _, broken in LABS[lab][1]:
+            faulted = _replace_block(faulted, start, end, broken)
+    except ValueError:
+        return False
+    return faulted == source
+
+
 @dataclass(frozen=True)
 class LabDatabaseState:
     """What Aurora currently holds for one lab, and how to read that.
@@ -1032,7 +1048,43 @@ def status_line(lab: int, *, repo: Path = REPO) -> str:
             f"Lab {lab}: START INTERRUPTED. Next: run {start_command(lab)} "
             "again; it finishes the missing step and keeps your edits."
         )
+    if lab == 3:
+        return _lab_3_status(repo)
     return f"Lab {lab}: {'SOLVED' if lab_is_solved(lab, repo=repo) else 'BROKEN'}"
+
+
+def _lab_3_passed_since(deployed_at: datetime, repo: Path) -> bool:
+    """Whether a passing completion was saved after the given deploy."""
+    receipt = repo / ".local" / "lab-3" / "exercise-receipt.json"
+    try:
+        saved = json.loads(receipt.read_text(encoding="utf-8"))
+        graded_at = datetime.fromisoformat(saved["graded_at"])
+    except (OSError, ValueError, KeyError, TypeError):
+        return False
+    if graded_at.tzinfo is None:
+        graded_at = graded_at.replace(tzinfo=UTC)
+    return saved.get("verdict") == "PASS" and graded_at > deployed_at
+
+
+def _lab_3_status(repo: Path) -> str:
+    """Lab 3 is solved by a passing run of the participant's deployed agent, not by source."""
+    from service.agent_deploys import lab_3_started_at, load_deploys
+    from service.participant_commands import ask_setup, complete_lab_3
+
+    if not lab_is_solved(3, repo=repo):
+        return "Lab 3: BROKEN"
+    try:
+        started = lab_3_started_at(repo)
+        deploys = [d for d in load_deploys(repo) if started and d.deployed_at > started]
+    except ValueError as error:
+        return f"Lab 3: {error}"
+    if not deploys:
+        return f"Lab 3: REPAIRED, NOT DEPLOYED. Next: deploy with {DEPLOY_AGENT}."
+    if _lab_3_passed_since(deploys[-1].deployed_at, repo):
+        return "Lab 3: SOLVED"
+    return (
+        f"Lab 3: DEPLOYED, NOT YET PROVED. Next: {ask_setup()}, then {complete_lab_3()}"
+    )
 
 
 def _parser() -> argparse.ArgumentParser:

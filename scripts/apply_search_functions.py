@@ -14,6 +14,7 @@ sys.path.insert(0, str(ROOT))
 from scripts.lab_state import (
     FACILITATOR_ADVICE,
     assert_reset_database,
+    fault_untouched,
     is_environment_fault,
     missing_file_problem,
 )
@@ -199,6 +200,16 @@ def _apply_fix(where: tuple[Path, int, str] | None) -> str:
     )
 
 
+def print_untouched_exercise_notes() -> None:
+    """Say so when an applied lab file still holds the exercise's fault."""
+    for lab, path in ((1, LAB1_SQL), (2, LAB2_SQL)):
+        if fault_untouched(lab, repo=ROOT):
+            print(
+                f"Note: {path} is unchanged since Lab {lab} started, so the exercise "
+                "is still there. Edit the highlighted lines, then apply again."
+            )
+
+
 def main() -> None:
     import psycopg
 
@@ -227,6 +238,7 @@ def main() -> None:
             )
         ) from error
     print(f"Applied participant SQL to {search_schema()}; source lab state preserved.")
+    print_untouched_exercise_notes()
     # One participant command: the applied functions must also satisfy the
     # stored pg_trgm gates, which is what this re-proves.
     try:

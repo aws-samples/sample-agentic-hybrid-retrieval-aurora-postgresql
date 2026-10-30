@@ -296,3 +296,17 @@ def test_the_graded_files_are_found_from_the_checkout_not_the_shells_folder(
     assert lab_exercise._shown(lab_exercise.default_work(2)) == (
         "labs/lab2_rank/rrf_contribution.sql"
     )
+
+
+def test_lab_3_without_a_graded_run_points_at_the_lab_3_commands(monkeypatch, tmp_path):
+    from service.participant_commands import ask_setup, complete_lab_3
+
+    monkeypatch.setattr(lab_exercise, "REPO", tmp_path)
+
+    with pytest.raises(ExerciseError) as refused:
+        lab_exercise.load_context(3)
+
+    message = str(refused.value)
+    assert ask_setup() in message
+    assert complete_lab_3() in message
+    assert "lab_terminal" not in message

@@ -1210,3 +1210,81 @@ def test_a_solution_file_neither_disk_nor_git_can_supply_is_a_plain_exit(
         SystemExit, match="Lab file rule: .*solution/rrf_contribution.sql"
     ):
         lab_state._seam(Path(LABS[2].exercise), *blocks)
+
+
+def _lab_3_started(repo: Path, at: str = "2026-10-29T10:00:00+00:00") -> None:
+    from scripts.lab_entry import RECORD_VERSION, record_path
+
+    record = record_path(3, repo)
+    record.parent.mkdir(parents=True, exist_ok=True)
+    record.write_text(
+        json.dumps(
+            {"version": RECORD_VERSION, "lab": 3, "steps": {}, "completed_at": at}
+        )
+    )
+
+
+def _lab_3_deployed(repo: Path, at: str) -> None:
+    deploys = repo / ".local" / "agentcore" / "deploys.json"
+    deploys.parent.mkdir(parents=True, exist_ok=True)
+    deploys.write_text(
+        json.dumps(
+            [
+                {
+                    "deployed_at": at,
+                    "runtime_version": "2",
+                    "application_sha256": "a" * 64,
+                }
+            ]
+        )
+    )
+
+
+def _lab_3_graded(repo: Path, verdict: str, at: str) -> None:
+    receipt = repo / ".local" / "lab-3" / "exercise-receipt.json"
+    receipt.parent.mkdir(parents=True, exist_ok=True)
+    receipt.write_text(json.dumps({"verdict": verdict, "graded_at": at}))
+
+
+def test_lab_3_is_solved_only_after_the_deployed_agent_passed_completion(
+    lab_repo: Path,
+) -> None:
+    from scripts.lab_state import status_line
+    from service.participant_commands import ask_setup, complete_lab_3
+
+    _lab_3_started(lab_repo)
+    assert status_line(3, repo=lab_repo).startswith("Lab 3: REPAIRED, NOT DEPLOYED")
+
+    _lab_3_deployed(lab_repo, "2026-10-29T11:00:00+00:00")
+    assert status_line(3, repo=lab_repo) == (
+        f"Lab 3: DEPLOYED, NOT YET PROVED. Next: {ask_setup()}, then {complete_lab_3()}"
+    )
+
+    _lab_3_graded(lab_repo, "FAIL", "2026-10-29T11:30:00+00:00")
+    assert "NOT YET PROVED" in status_line(3, repo=lab_repo)
+    _lab_3_graded(lab_repo, "PASS", "2026-10-29T10:30:00+00:00")
+    assert "NOT YET PROVED" in status_line(3, repo=lab_repo)
+    _lab_3_graded(lab_repo, "PASS", "2026-10-29T11:30:00+00:00")
+    assert status_line(3, repo=lab_repo) == "Lab 3: SOLVED"
+
+
+def test_lab_3_with_unrepaired_source_is_broken(lab_repo: Path) -> None:
+    from scripts.lab_state import status_line
+
+    _lab_3_started(lab_repo)
+    set_lab_state(3, solved=False, repo=lab_repo)
+    _lab_3_deployed(lab_repo, "2026-10-29T11:00:00+00:00")
+
+    assert status_line(3, repo=lab_repo) == "Lab 3: BROKEN"
+
+
+def test_a_lab_file_is_untouched_only_while_it_holds_the_exercise_fault(
+    lab_repo: Path,
+) -> None:
+    from scripts.lab_state import fault_untouched
+
+    assert not fault_untouched(1, repo=lab_repo)
+    set_lab_state(1, solved=False, repo=lab_repo)
+    assert fault_untouched(1, repo=lab_repo)
+    participant_lab1(lab_repo)
+    assert not fault_untouched(1, repo=lab_repo)

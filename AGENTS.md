@@ -79,7 +79,7 @@ The Makefile wraps them for maintainers only.
 
 | Purpose | Command |
 |---|---|
-| Inspect the current source/applied lab state | `uv run python scripts/lab_state.py status` |
+| Inspect the current source/applied lab state; Lab 3 reads SOLVED only after your deployed agent passed completion (otherwise BROKEN, REPAIRED NOT DEPLOYED, or DEPLOYED NOT YET PROVED) | `uv run python scripts/lab_state.py status` |
 | Enter a lab: save its failing request; Labs 2 and 3 also install their fault once | `uv run python scripts/lab_state.py start --lab N` |
 | Finish Lab 1: validate its repair, save passing evidence and prepare Lab 2 without discarding edits; a repaired saved file that Aurora does not run yet is applied first | `uv run python scripts/lab_state.py advance --lab 1` |
 | Finish Lab 2: validate its repair, save passing evidence and install the Retrieval agent's starting code for Lab 3 without discarding edits; a repaired saved file that Aurora does not run yet is applied first | `uv run python scripts/lab_state.py advance --lab 2` |
@@ -89,7 +89,7 @@ The Makefile wraps them for maintainers only.
 | Name the lines of the lab files that differ from the reference answer, inside and outside the markers, without the answer (changes nothing) | `uv run python scripts/diff.py` |
 | The same, with the reference answer's lines, only when the participant asks to compare with the answer | `uv run python scripts/diff.py --answer` |
 | Apply the participant's SQL repair in Labs 1 or 2 | `uv run python scripts/apply_search_functions.py` |
-| Check the saved source and the SQL Aurora last applied (Labs 1 and 2); its `Next:` is the lab's proof, for Lab 1 the repeat-request command, then `advance --lab 1` | `uv run python scripts/lab_state.py validate --lab N --database-url "$DATABASE_URL"` |
+| Check the saved source and the SQL Aurora last applied (Labs 1 and 2); `DATABASE_URL` comes from the prepared terminal, and the command reads it itself when the flag is left off; its `Next:` is the lab's proof, for Lab 1 the repeat-request command, then `advance --lab 1` | `uv run python scripts/lab_state.py validate --lab N --database-url "$DATABASE_URL"` |
 | Repeat the saved request against the repaired state; prints Before and After | `uv run python scripts/lab_terminal.py run --lab N --phase after` |
 | Prove the Lab 1 or Lab 2 repair after repeating the request (Lab 3 is rejected: it is graded on the saved run) | `uv run python scripts/validate_lab.py --lab N` |
 | Grade the participant's own exercise or saved run without generating a new answer | `uv run python scripts/lab_exercise.py check --lab N` |

@@ -284,3 +284,46 @@ def test_applying_with_a_lab_file_deleted_names_the_way_back_not_a_traceback(
         f"Lab {lab}: FILE MISSING ({LABS[lab].exercise})"
     )
     assert f"lab_state.py reset --lab {lab}" in str(refused.value)
+
+
+@pytest.mark.parametrize("lab", [1, 2])
+def test_applying_an_unedited_exercise_says_the_exercise_is_still_there(
+    apply_command, capsys, tmp_path, lab
+):
+    from shutil import copy2
+
+    from service.lab_files import LAB_FILES
+
+    for path in (LAB_FILES[1], LAB_FILES[2]):
+        (tmp_path / path).parent.mkdir(parents=True, exist_ok=True)
+        copy2(apply_search_functions.ROOT / path, tmp_path / path)
+    exercise = tmp_path / LAB_FILES[lab]
+    source = exercise.read_text()
+    for start, end, _, broken in LABS[lab][1]:
+        source = _replace_block(source, start, end, broken)
+    exercise.write_text(source)
+    real = apply_search_functions.fault_untouched
+    apply_command.setattr(
+        apply_search_functions,
+        "fault_untouched",
+        lambda lab, repo: real(lab, repo=tmp_path),
+    )
+    apply_command.setattr(apply_search_functions, "apply", lambda *_a, **_k: None)
+
+    apply_search_functions.main()
+
+    out = capsys.readouterr().out
+    assert (
+        f"Note: {LAB_FILES[lab]} is unchanged since Lab {lab} started, so the "
+        "exercise is still there. Edit the highlighted lines, then apply again."
+    ) in out
+
+
+def test_applying_an_edited_or_repaired_exercise_adds_no_note(apply_command, capsys):
+    apply_command.setattr(apply_search_functions, "apply", lambda *_a, **_k: None)
+
+    apply_search_functions.main()
+
+    out = capsys.readouterr().out
+    assert "Applied participant SQL" in out
+    assert "Note:" not in out

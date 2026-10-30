@@ -904,3 +904,31 @@ def test_room_completion_requires_all_three_targets_in_the_final_comparison(omis
         "retrieval and comparison tools invoked",
     )
     assert check.passed is (omission is None), check.detail
+
+
+@pytest.mark.parametrize(
+    ("asked", "recorded"),
+    [
+        ("I'm looking at the 90W charger", "I am looking at the 90W charger"),
+        ("I am looking at the 90W charger", "I’m  LOOKING at the 90W charger"),
+        ("It's fine and I don't mind", "it is fine and i do not mind"),
+        ("It can't go and won't", "It cannot go and will not"),
+        ("That's it, isn't it", "that is it, is not it"),
+        ("It doesn't, and I've seen it", "It does not, and I have seen it"),
+    ],
+)
+def test_same_request_ignores_case_spacing_quotes_and_contractions(asked, recorded):
+    assert lab_checks.same_request(asked, recorded)
+    assert lab_checks.same_request(recorded, asked)
+
+
+@pytest.mark.parametrize(
+    ("asked", "recorded"),
+    [
+        ("I'm looking at the 90W charger", "I am looking at the 100W charger"),
+        ("I'm looking at a monitor", "I am looking at a chair"),
+        ("", ""),
+    ],
+)
+def test_same_request_still_distinguishes_numbers_and_words(asked, recorded):
+    assert not lab_checks.same_request(asked, recorded)

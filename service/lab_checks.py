@@ -29,6 +29,7 @@ retrieval implementation.
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -288,10 +289,36 @@ def _control_failure(
     )
 
 
+#: Contractions people type either way round; each long form is spelled out before comparing.
+_CONTRACTIONS = (
+    ("i'm", "i am"),
+    ("i've", "i have"),
+    ("it's", "it is"),
+    ("that's", "that is"),
+    ("don't", "do not"),
+    ("doesn't", "does not"),
+    ("can't", "cannot"),
+    ("won't", "will not"),
+    ("isn't", "is not"),
+)
+_QUOTES = str.maketrans({"\u2018": "'", "\u2019": "'", "\u201c": '"', "\u201d": '"'})
+
+
+def _normalized_request(value: object) -> str:
+    text = " ".join(str(value or "").translate(_QUOTES).split()).casefold()
+    for short, long in _CONTRACTIONS:
+        text = re.sub(rf"(?<![\w']){re.escape(short)}(?![\w'])", long, text)
+    return text
+
+
 def same_request(first: object, second: object) -> bool:
-    """Whether two requests are the same words, ignoring case and spacing."""
-    expected = " ".join(str(first or "").split()).casefold()
-    return bool(expected) and expected == " ".join(str(second or "").split()).casefold()
+    """Whether two requests are the same words.
+
+    Letter case, spacing, straight or curly quotes and common contractions
+    ("I'm" or "I am") do not matter; every other word and number must match.
+    """
+    expected = _normalized_request(first)
+    return bool(expected) and expected == _normalized_request(second)
 
 
 def mission_request_check(

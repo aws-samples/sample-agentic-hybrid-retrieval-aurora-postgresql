@@ -38,7 +38,13 @@ from psycopg.rows import dict_row
 from scripts import lab2_tuning, lab_state
 from service.catalog_runtime import LIVE_INDEXES
 from service.lab_files import LAB2_SQL
-from service.participant_commands import APPLY_SQL, DEPLOY_AGENT, repeat_request
+from service.participant_commands import (
+    APPLY_SQL,
+    DEPLOY_AGENT,
+    ask_setup,
+    complete_lab_3,
+    repeat_request,
+)
 
 SCORE_TOLERANCE = 1e-9
 LAB2_K_TRIALS = (1, 10, 30, 120)
@@ -85,6 +91,11 @@ class ExerciseError(RuntimeError):
 def load_context(lab: int) -> dict[str, str]:
     """Read the values ``lab_terminal.py run`` saved for this lab's psql session."""
     path = REPO / f".local/lab-{lab}/context.json"
+    if not path.exists() and lab == 3:
+        raise ExerciseError(
+            "no graded run of Alex's setup request yet; ask it with "
+            f"`{ask_setup()}`, then run `{complete_lab_3()}`"
+        )
     if not path.exists():
         raise ExerciseError(
             f"no saved context at {path.relative_to(REPO)}; run "

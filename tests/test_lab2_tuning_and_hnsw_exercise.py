@@ -74,6 +74,11 @@ def test_comparison_measures_every_change_on_the_judged_queries(monkeypatch):
     assert [row["label"] for row in table["rows"]] == [
         label for label, _, _ in lab2_tuning.candidates(served_baseline())
     ]
+    assert table["scope"].startswith(
+        "141 shopper requests whose judged products are in this catalog "
+        "(82 headphones, 58 monitors, 1 chair)"
+    )
+    assert "ESCI" not in table["scope"]
     shortlist = next(row for row in table["rows"] if "fused_limit" in row["change"])
     # A longer cutoff over the same fused order can only add exact matches.
     assert shortlist["exact_gain"] >= 0
