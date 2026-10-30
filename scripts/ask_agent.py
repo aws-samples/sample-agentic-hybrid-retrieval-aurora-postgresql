@@ -235,8 +235,10 @@ def ask(base_url: str, question: str, *, timeout: float) -> dict[str, Any]:
                     print(f"{bar(1, 1)}  answered in {elapsed} s\n", flush=True)
                     return data["response"]
                 elif event == "error":
+                    run_id = data.get("agent_run_id")
                     raise LabValidationError(
                         f"{STREAM_PATH} stopped: {data.get('detail', 'no reason given')}"
+                        + (f" Run ID: {run_id}" if run_id else "")
                     )
     except TimeoutError as error:
         raise LabValidationError(

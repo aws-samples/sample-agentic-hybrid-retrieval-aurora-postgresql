@@ -292,6 +292,31 @@ def test_a_stream_error_is_reported_and_exits_non_zero(monkeypatch, capsys):
     assert "stopped: Amazon Bedrock request failed." in capsys.readouterr().err
 
 
+def test_a_refused_answer_prints_the_run_id_that_records_each_draft(
+    monkeypatch, capsys
+):
+    run_id = "6f1c2b8e-0d7a-4f43-9a51-2f7d3c9e8b10"
+    monkeypatch.setattr(
+        ask_agent,
+        "urlopen",
+        lambda *_a, **_k: FakeStream(
+            stage("understand", "Interpret request"),
+            (
+                "error",
+                {
+                    "detail": "The answer checks refused every draft of this answer.",
+                    "agent_run_id": run_id,
+                    "code": "grounding_contract",
+                },
+            ),
+        ),
+    )
+    assert ask_agent.main(["Find headphones for calls"]) == 1
+    err = capsys.readouterr().err
+    assert "refused every draft of this answer." in err
+    assert f"Run ID: {run_id}" in err
+
+
 def test_an_api_failure_is_reported_and_exits_non_zero(monkeypatch, capsys):
     def failing(request, timeout):
         raise HTTPError(

@@ -121,6 +121,11 @@ _GROUNDING_ERROR_DETAIL = (
     "returned records. If it did not, try a more specific product request. "
     "If it did, share the run ID with your facilitator."
 )
+_GROUNDING_REFUSED = (
+    "The answer checks refused every draft of this answer: each claim must be stated by a "
+    "record it cites, so there is no answer to show. Ask again; the Retrieval agent words "
+    "its searches and its answer afresh each time."
+)
 _CONVERSATION_ERROR_DETAIL = "Mosaic could not reopen the previous answer. Start a new conversation and try again."
 
 
@@ -763,7 +768,7 @@ async def stream_agent_answer(
                         "error",
                         {
                             **failure,
-                            "detail": "Grounded synthesis refused the answer. Inspect the recorded evidence and citations, repair the evidence contract, then run again."
+                            "detail": _GROUNDING_REFUSED
                             if failure.get("code") == "grounding_contract"
                             else failure["detail"],
                         },

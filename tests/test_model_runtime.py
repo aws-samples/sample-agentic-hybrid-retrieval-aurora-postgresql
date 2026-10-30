@@ -2067,6 +2067,9 @@ def test_failed_stream_exposes_its_persisted_run_and_last_receipts(monkeypatch):
     assert run_id in stream.text
     assert "grounding_contract" in stream.text
     assert "Internal validation failure" not in stream.text
+    assert "The answer checks refused every draft of this answer" in stream.text
+    assert "Ask again" in stream.text
+    assert "evidence contract" not in stream.text
     assert "event: complete" not in stream.text
 
 
