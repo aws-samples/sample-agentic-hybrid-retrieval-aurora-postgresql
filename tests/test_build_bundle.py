@@ -64,6 +64,7 @@ def test_full_plan_runs_steps_in_documented_order(tmp_path, capsys):
     )
     order = [
         "embed_real_catalog.py",
+        "make db-bootstrap-schema",
         "--phase records",
         "--phase embeddings",
         "--phase verify --require-complete",
@@ -75,7 +76,6 @@ def test_full_plan_runs_steps_in_documented_order(tmp_path, capsys):
         "real_catalog_cache.py split",
         "copy-parts",
         "real_catalog_cache.py join",
-        "make db-bootstrap-schema",
         "real_catalog_cache.py restore",
         "make db-verify-bootstrap",
         "corpus_vocabulary.py export",
@@ -83,6 +83,17 @@ def test_full_plan_runs_steps_in_documented_order(tmp_path, capsys):
     ]
     positions = [index_of(lines, needle) for needle in order]
     assert positions == sorted(positions)
+    # The schema installs twice: into the empty staging database, then again as the
+    # event bootstrap replay between join and restore.
+    schema_runs = [
+        i for i, line in enumerate(lines) if line == "make db-bootstrap-schema"
+    ]
+    assert len(schema_runs) == 2
+    assert (
+        index_of(lines, "real_catalog_cache.py join")
+        < schema_runs[1]
+        < index_of(lines, "real_catalog_cache.py restore")
+    )
 
 
 def test_single_region_embedding_is_the_default(tmp_path, capsys):
@@ -592,7 +603,98 @@ def test_preflight_checks_follow_the_selected_steps(tmp_path):
     assert checks_for(tmp_path, "fetch", "prepare") == []
     assert checks_for(tmp_path, "embed") == ["AWS credentials"]
     assert checks_for(tmp_path, "upload") == ["AWS credentials", "bucket my-bucket"]
-    assert checks_for(tmp_path, "restore-check") == ["make check-python"]
+    assert checks_for(tmp_path, "stage") == ["database"]
+    assert checks_for(tmp_path, "schema") == ["database", "make check-python"]
+    assert checks_for(tmp_path, "restore-check") == ["database", "make check-python"]
+
+
+def test_schema_installs_into_the_empty_staging_database_before_stage(tmp_path, capsys):
+    output = dry_run(tmp_path, capsys)
+    headers = [line[3:-3] for line in output.splitlines() if line.startswith("== ")]
+    assert headers.index("schema") == headers.index("stage") - 1
+    lines = commands(output)
+    assert index_of(lines, "make db-bootstrap-schema") < index_of(
+        lines, "--phase records"
+    )
+    assert "schema" in build_bundle.DATABASE_STEPS
+
+
+def test_database_probe_failure_stops_the_run_before_any_step(
+    tmp_path, capsys, monkeypatch
+):
+    def refuse(url):
+        raise RuntimeError("OperationalError: connection timeout expired")
+
+    monkeypatch.setenv("DATABASE_URL", "postgresql://example/mosaic")
+    monkeypatch.setattr(build_bundle, "database_reachable", refuse)
+    with pytest.raises(ValueError, match="Preflight rule"):
+        build_bundle.run_environment_checks(["stage"], upload_config(tmp_path))
+    out = capsys.readouterr().out
+    assert "FAIL database: OperationalError" in out and "staging Aurora" in out
+
+
+class FakeConnection:
+    def __init__(self, version, extensions):
+        self.version = version
+        self.extensions = extensions
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def execute(self, statement, params=None):
+        if statement.startswith("SHOW"):
+            return FakeCursor([(self.version,)])
+        wanted = params[0]
+        return FakeCursor([(name,) for name in self.extensions if name in wanted])
+
+
+class FakeCursor:
+    def __init__(self, rows):
+        self.rows = rows
+
+    def fetchone(self):
+        return self.rows[0]
+
+    def fetchall(self):
+        return self.rows
+
+
+def test_database_probe_names_a_missing_extension(monkeypatch):
+    import psycopg
+
+    monkeypatch.setattr(
+        psycopg,
+        "connect",
+        lambda url, **kw: FakeConnection("16.6", ["pg_trgm", "unaccent"]),
+    )
+    with pytest.raises(RuntimeError, match="cannot install vector, pgcrypto"):
+        build_bundle.database_reachable("postgresql://example/mosaic")
+    monkeypatch.setattr(
+        psycopg,
+        "connect",
+        lambda url, **kw: FakeConnection(
+            "16.6", list(build_bundle.REQUIRED_EXTENSIONS)
+        ),
+    )
+    assert build_bundle.database_reachable("postgresql://example/mosaic") == (
+        "PostgreSQL 16.6, 4 extensions available"
+    )
+
+
+def test_database_probe_reports_a_connection_error_as_a_check_failure(monkeypatch):
+    import psycopg
+
+    def fail(url, **kw):
+        raise psycopg.OperationalError("connection timeout expired")
+
+    monkeypatch.setattr(psycopg, "connect", fail)
+    with pytest.raises(
+        RuntimeError, match="OperationalError: connection timeout expired"
+    ):
+        build_bundle.database_reachable("postgresql://example/mosaic")
 
 
 def test_preflight_prints_ok_and_fail_lines_and_raises(tmp_path, capsys, monkeypatch):

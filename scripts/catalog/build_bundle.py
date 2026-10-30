@@ -20,10 +20,12 @@ question samples are only approximated, and the archive and vocabulary hashes di
 on every build, because gzip stamps the time. The evidence step prints a WARN with
 each count that differs from the committed contract.
 
-Steps: fetch, prepare, embed, stage, evidence, export, restore-check,
-vocabulary, upload, summary. Reviews and product questions come after `stage` because
-the review scan is seeded from, and filtered against, the staged catalog.
-`--dry-run` prints every command without running it.
+Steps: fetch, prepare, embed, schema, stage, evidence, export, restore-check,
+vocabulary, upload, summary. `schema` installs the extensions, tables and functions
+into the empty staging database, as the event bootstrap does, so `stage` has somewhere
+to load. Reviews and product questions come after `stage` because the review scan is
+seeded from, and filtered against, the staged catalog. `--dry-run` prints every command
+without running it.
 """
 
 from __future__ import annotations
@@ -60,6 +62,7 @@ STEPS = (
     "fetch",
     "prepare",
     "embed",
+    "schema",
     "stage",
     "evidence",
     "export",
@@ -69,7 +72,11 @@ STEPS = (
     "summary",
 )
 HELPERS = ("derive-parents", "copy-parts", "download")
-DATABASE_STEPS = frozenset({"stage", "evidence", "restore-check", "vocabulary"})
+DATABASE_STEPS = frozenset(
+    {"schema", "stage", "evidence", "restore-check", "vocabulary"}
+)
+# The extensions db/sql/00_extensions.sql installs; a cluster without them cannot stage.
+REQUIRED_EXTENSIONS = ("vector", "pg_trgm", "unaccent", "pgcrypto")
 DEFAULT_PLAN = ROOT / "data/real-catalog-plan-v2.json"
 DEFAULT_WORK_DIR = ROOT / ".local/real-products/own-account"
 ARCHIVE_NAME = "real-catalog.tar.gz"
@@ -250,6 +257,11 @@ def plan_embed(config: Config) -> list[Command]:
     if config.tokens_per_minute:
         argv += ["--tokens-per-minute", str(config.tokens_per_minute)]
     return [Command(uv_python(f"{SCRIPTS}embed_real_catalog.py", *argv))]
+
+
+def plan_schema(config: Config) -> list[Command]:
+    """Install the schema into the empty staging database, as the event bootstrap does."""
+    return [Command(("make", "db-bootstrap-schema"))]
 
 
 def plan_stage(config: Config) -> list[Command]:
@@ -444,6 +456,7 @@ PLANNERS = {
     "fetch": plan_fetch,
     "prepare": plan_prepare,
     "embed": plan_embed,
+    "schema": plan_schema,
     "stage": plan_stage,
     "evidence": plan_evidence,
     "export": plan_export,
@@ -736,6 +749,35 @@ def bucket_reachable(config: Config) -> str:
     return "reachable"
 
 
+def database_reachable(url: str) -> str:
+    """Connect once and confirm the cluster can install the extensions the schema needs.
+
+    Raises:
+        RuntimeError: when the connection fails or an extension is unavailable, so a
+            database problem stops the run before hours of embedding are spent.
+    """
+    import psycopg
+
+    try:
+        with psycopg.connect(url, connect_timeout=10) as connection:
+            version = connection.execute("SHOW server_version").fetchone()[0]
+            rows = connection.execute(
+                "SELECT name FROM pg_available_extensions WHERE name = ANY(%s)",
+                (list(REQUIRED_EXTENSIONS),),
+            ).fetchall()
+    except psycopg.Error as error:
+        raise RuntimeError(f"{type(error).__name__}: {error}".strip()) from error
+    missing = [
+        name for name in REQUIRED_EXTENSIONS if name not in {row[0] for row in rows}
+    ]
+    if missing:
+        raise RuntimeError(
+            f"PostgreSQL {version} cannot install {', '.join(missing)}; use Aurora "
+            "PostgreSQL with pgvector"
+        )
+    return f"PostgreSQL {version}, {len(REQUIRED_EXTENSIONS)} extensions available"
+
+
 def python_version_ok() -> str:
     result = subprocess.run(
         ["make", "check-python"], cwd=ROOT, capture_output=True, text=True, check=False
@@ -770,7 +812,15 @@ def environment_checks(
                 "check the name, pass --region, and grant s3:ListBucket",
             )
         )
-    if "restore-check" in wanted:
+    if DATABASE_STEPS & wanted:
+        checks.append(
+            (
+                "database",
+                lambda: database_reachable(os.environ["DATABASE_URL"]),
+                "point DATABASE_URL at the staging Aurora cluster this host can reach",
+            )
+        )
+    if wanted & {"schema", "restore-check"}:
         checks.append(
             (
                 "make check-python",
@@ -810,7 +860,10 @@ def preflight(steps: list[str], config: Config) -> None:
             f"Bucket rule: pass --bucket or set {BUCKET_ENV}; the upload step needs the "
             "private bucket name."
         )
-    needed = ["uv", *(["make", "psql"] if "restore-check" in steps else [])]
+    needed = [
+        "uv",
+        *(["make", "psql"] if {"schema", "restore-check"} & set(steps) else []),
+    ]
     missing = [tool for tool in needed if shutil.which(tool) is None]
     if missing:
         raise ValueError(

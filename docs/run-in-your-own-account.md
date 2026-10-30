@@ -159,8 +159,12 @@ vocabulary files. Size and product count of your bundle: `[measured in the proof
   1,024 dimensions) on Amazon Bedrock. These calls are billed, and interrupted or
   retried calls can be billed too.
 
-**What the build does.** `make catalog-bundle` runs ten steps in order: fetch, prepare,
-embed, stage, evidence, export, restore-check, vocabulary, upload and summary. Reviews and
+**What the build does.** `make catalog-bundle` runs eleven steps in order: fetch, prepare,
+embed, schema, stage, evidence, export, restore-check, vocabulary, upload and summary. Before
+any step, it connects to the staging database once and checks that the cluster can install
+pgvector and the other extensions, so a database problem stops the run before hours of
+embedding are spent. The `schema` step installs the extensions, tables and functions into
+the empty staging database, exactly as the event bootstrap does. Reviews and
 questions are filtered against the staged catalog, so they come after `stage`. The
 `restore-check` step restores the exported archive into the staging database and runs the
 bootstrap verification. It proves the parts join to the contract hash and that the indexes
@@ -182,7 +186,16 @@ and pull the two contract files from the bucket into your clone (section 4, step
 batches and staged batches. Running the wrapper again continues after the last completed
 step. A failing command stops the run, prints the command and says to run it again.
 A mismatch between your selection and the expected one stops the run before any embedding
-is spent.
+is spent. If you fix the source in your fork while the staging environment is up, push the
+fix and bring the builder's checkout to that commit before you run the wrapper again; the
+finished steps and their saved embeddings are kept:
+
+```bash
+sudo -u builder -H git -C /workshop/sample-agentic-hybrid-retrieval-aurora-postgresql \
+  -c credential.helper= fetch --depth 1 origin <commit>
+sudo -u builder -H git -C /workshop/sample-agentic-hybrid-retrieval-aurora-postgresql \
+  checkout -q FETCH_HEAD
+```
 
 **Embedding speed.** The build defaults to one Region and 4 workers. The pinned source
 documentation records one earlier build at about 23,422 new embeddings an hour with one
