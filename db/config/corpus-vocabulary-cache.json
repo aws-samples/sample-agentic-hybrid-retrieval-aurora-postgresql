@@ -150,12 +150,12 @@
         "corpus_lexeme": {
           "rows": 2200149,
           "bytes": 11744354,
-          "sha256": "5bcf7fc0b0d625edc8303ce5fb95d5b9c9ceb49201c5b98a2f2e6e7acba7e84c"
+          "sha256": "dbfa46b351cc3a539401eb9b3408d717638c41d5b411a2d681bd6f478ae87471"
         },
         "corpus_surface_lexeme": {
           "rows": 2251580,
           "bytes": 12238068,
-          "sha256": "cfe3ed3e2f817fb0bb810df73d386e695f52789f1b9b087fbd066deb0122d642"
+          "sha256": "ff4211dfb48ca1a93f3f574909a0b5110f982808af3bc692767c8ccf24be75ec"
         }
       }
     }

@@ -2,35 +2,35 @@
   "schema_version": 1,
   "dataset_id": "reviews-2023-v2",
   "archive": "real-catalog.tar.gz",
-  "sha256": "1b94d07cde56fa8a3f65dc5e6bd19233a1406c4428bb9abd6094e44f2268096e",
-  "bytes": 2513913038,
+  "sha256": "40cc7a3911df32c405e9560c7cd62eee2eb283c865c270fe04fb1d3942c8bcfc",
+  "bytes": 2521919722,
   "catalog_sha256": "c4d5913f89050332f71512baf2a0351331208ab94eac0621be9ac63e653cfa00",
   "products": 553911,
   "embedding_model_id": "us.cohere.embed-v4:0",
   "dimensions": 1024,
   "embedding_batches": 10665,
   "review_samples": {
-    "Electronics-reviews.json": 351134,
-    "Home_and_Kitchen-reviews.json": 53464,
-    "Office_Products-reviews.json": 14022
+    "Electronics-reviews.json": 349151,
+    "Home_and_Kitchen-reviews.json": 79459,
+    "Office_Products-reviews.json": 19258
   },
-  "question_samples": 80111,
+  "question_samples": 60751,
   "distribution_status": "Prepared locally; public redistribution clearance remains an event-owner release requirement.",
   "parts": [
     {
       "name": "real-catalog.tar.gz.part-000",
       "bytes": 900000000,
-      "sha256": "888418199634ba28351180bfe517dc622cb11c177e1e326e323343ba91e223dc"
+      "sha256": "dabfd368a86bb32097c2a953a5264532bce3a81e8002e1952c946c4ca0f2dd78"
     },
     {
       "name": "real-catalog.tar.gz.part-001",
       "bytes": 900000000,
-      "sha256": "725fd7fdeda13df43360a0b65ae5b486625f033db3277e6e386c3801eb8863e2"
+      "sha256": "57f6927968c2a86127e0be900a0d95d89670c751070f89dcb258bcb36c05f338"
     },
     {
       "name": "real-catalog.tar.gz.part-002",
-      "bytes": 713913038,
-      "sha256": "0a28c61888af04216cdcec3556b47ef72adac9f624978e6c887e8840f7b0f4f4"
+      "bytes": 721919722,
+      "sha256": "518afad36aa50d64c78996a8b7a777565da106723cd5329b22146e62748ab3d2"
     }
   ]
 }
