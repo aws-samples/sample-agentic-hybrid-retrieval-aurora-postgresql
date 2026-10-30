@@ -50,13 +50,13 @@ Parameters:
 
   InfrastructureRevision:
     Type: String
-    Default: 5e7c793905ed095a
+    Default: b0dca8a173a0ccdd
     AllowedPattern: '^[0-9a-f]{16}$'
     Description: Validator-derived update trigger for nested templates and bootstrap inputs
 
   BootstrapScriptSha256:
     Type: String
-    Default: 3d2de970e3db74bf692c691139ffbc37cd6a7ed004c1dd355d3eb7282692e9c7
+    Default: 0bdc6d78ebeefc12c57175e9ea5267976c6d0a0e446f68c25090373fcf1ae7fd
     AllowedPattern: '^[0-9a-f]{64}$'
     Description: SHA-256 of the versioned Mosaic host bootstrap asset
 

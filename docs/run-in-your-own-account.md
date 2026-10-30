@@ -399,7 +399,14 @@ They are also on the stack's **Outputs** tab in the CloudFormation console:
 | `DatabaseVersion` | The Aurora PostgreSQL version |
 
 If creation fails, open the stack's **Events** tab and find the first failed
-resource. Do not retry blindly: the order of failures matters.
+resource. Do not retry blindly: the order of failures matters. The host's provisioning
+runs as a systemd unit, `mosaic-bootstrap.service`, that resumes at the next boot, so an
+account that patches and reboots new instances on launch (a Systems Manager State Manager
+association running `AWS-RunPatchBaseline`, for example) still provisions; the proof run
+met exactly that. A failure's cause travels in the `BootstrapWaitCondition` event as the
+tail of `/var/log/mosaic-bootstrap.log`; on a host that still exists, `journalctl -u
+mosaic-bootstrap` and the `.done` markers under `/var/lib/mosaic-bootstrap/` show which
+phase was running.
 
 ## 5. Use the workshop guide
 
