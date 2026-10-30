@@ -1124,6 +1124,65 @@ def _requirement_bound(
     return negated or bool(_BOUND_CUE.search(clause))
 
 
+#: A reviewer's stars as an answer reports them: "gave it 5.0", "rated it 3 out of 5",
+#: "a 4-star review". The model is given each review's rating beside its text, and the
+#: citation shows it, so the record's rating field supports these figures and no other.
+_STAR_RATING = re.compile(
+    r"(?P<lead>\b(?:rated|gave|gives|giving|awarded|scored)"
+    r"(?:\s+(?:it|this|them|the\s+[\w-]+))?(?:\s+(?:an?|only|just))?\s+)?"
+    r"(?<![\w.])(?P<value>[0-5](?:\.\d+)?)(?!\d|[.,]\d)"
+    r"(?:\s*(?:out\s+of|/)\s*(?P<scale>5(?:\.0+)?)(?!\d|[.,]\d))?"
+    r"(?P<stars>\s*-?\s*stars?\b)?",
+    re.IGNORECASE,
+)
+#: "Rated 4.3 on average" is the listing's average, which no single review states.
+_AVERAGE_RATING = re.compile(r"\b(?:average|overall|mean)\b", re.IGNORECASE)
+
+
+def _reviewer_stars(segment: str) -> dict[int, float]:
+    """Each figure framed as a reviewer's stars, by its offset, with the stars it states.
+
+    A frame needs a rating verb or the word "star"; a bare "3 out of 5" can count
+    anything. The scale in "out of 5" stands or falls with the stars beside it.
+    """
+    framed: dict[int, float] = {}
+    for match in _STAR_RATING.finditer(segment):
+        window = segment[max(0, match.start() - 30) : match.end() + 30]
+        if not (match["lead"] or match["stars"]) or _AVERAGE_RATING.search(window):
+            continue
+        framed[match.start("value")] = float(match["value"])
+        if match["scale"]:
+            framed[match.start("scale")] = float(match["value"])
+    return framed
+
+
+def _states_cited_stars(
+    claim: MeasurableClaim, segment: str, records: Sequence[EvidenceRecord]
+) -> bool:
+    stars = _reviewer_stars(segment).get(claim.start)
+    return (
+        stars is not None
+        and claim.unit is None
+        and not claim.currency
+        and any(record.rating == stars for record in records)
+    )
+
+
+def _figure_supported(
+    claim: MeasurableClaim,
+    segment: str,
+    question_figures: set[tuple[float, str]],
+    products: Sequence[ProductSummary],
+    records: Sequence[EvidenceRecord],
+) -> bool:
+    """A cited record states it, it is the shopper's own bound, or a cited review's stars."""
+    return (
+        _claim_supported(claim, segment, products, records)
+        or _requirement_bound(claim, segment, question_figures, products, records)
+        or _states_cited_stars(claim, segment, records)
+    )
+
+
 def _validate_measurable_claim_support(
     answer: str,
     products: Sequence[ProductSummary],
@@ -1192,9 +1251,7 @@ def _validate_measurable_claim_support(
                         or claim.value in _AVAILABILITY_CLAIMS
                     ):
                         continue
-                    if not _claim_supported(
-                        claim, segment, scoped_products, scoped_records
-                    ) and not _requirement_bound(
+                    if not _figure_supported(
                         claim,
                         segment,
                         question_figures,
@@ -1377,8 +1434,14 @@ def _compatibility_relationship(match: re.Match[str]) -> str:
     )
 
 
+#: "Works with my MacBook Pro" and "works with a MacBook Pro" name the same device;
+#: "any" or "all" would widen it, so quantifiers stay part of the target.
+_DEVICE_DETERMINER = re.compile(r"^(?:a|an|the|my|your|his|her|their|our)\s+")
+
+
 def _compatibility_target(match: re.Match[str]) -> str:
-    return " ".join(match["target"].casefold().replace("’", "'").split())
+    target = " ".join(match["target"].casefold().replace("’", "'").split())
+    return _DEVICE_DETERMINER.sub("", target)
 
 
 def _explicit_compatibility_support(passage: str, claim: re.Match[str]) -> bool:

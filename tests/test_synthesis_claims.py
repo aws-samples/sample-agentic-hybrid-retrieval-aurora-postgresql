@@ -555,6 +555,41 @@ def test_explicit_named_laptop_compatibility_can_be_stated():
     )
 
 
+# A review on the 30 October event said "Works with MacBook Pro 16' m1 and charges it".
+MACBOOK_REVIEW = "Pros:<br />- Works with MacBook Pro 16' m1 and charges it;"
+
+
+@pytest.mark.parametrize(
+    "claim",
+    [
+        "works with a MacBook Pro 16' m1",
+        "works with their MacBook Pro 16' m1",
+        "works with the MacBook Pro 16' m1",
+    ],
+)
+def test_an_article_does_not_change_the_device_a_source_names(claim):
+    validate(
+        f"A reviewer reports the AuriLogic Flight ANC {claim} [1].",
+        [evidence(MACBOOK_REVIEW)],
+    )
+
+
+@pytest.mark.parametrize(
+    "claim",
+    [
+        "works with a MacBook Pro",
+        "works with any MacBook Pro 16' m1",
+        "works with all MacBook Pro 16' m1",
+    ],
+)
+def test_a_wider_device_than_the_source_names_is_still_unsupported(claim):
+    with pytest.raises(SynthesisOutputError, match="unsupported compatibility claim"):
+        validate(
+            f"A reviewer reports the AuriLogic Flight ANC {claim} [1].",
+            [evidence(MACBOOK_REVIEW)],
+        )
+
+
 def test_compatibility_does_not_establish_charging():
     with pytest.raises(SynthesisOutputError, match="unsupported compatibility claim"):
         validate(
@@ -1320,6 +1355,68 @@ def test_a_cited_review_keeps_its_reviewers_stars_and_a_listing_has_none():
         (1, None),
         (2, 3.0),
     ]
+
+
+def review(text: str, rating: float | None) -> EvidenceRecord:
+    return EvidenceRecord(
+        evidence_id=2,
+        product_id=1,
+        evidence_type="customer_review",
+        source_name="Amazon Reviews 2023",
+        source_uri="https://example.invalid/review",
+        revision="r1",
+        title="",
+        text=text,
+        rating=rating,
+    )
+
+
+LISTING = "Over-ear headphones with active noise cancellation."
+WELL_BUILT = "The headphones seem well built and the sound is clear."
+
+
+# The model is given each review's stars beside its text, and the citation shows them
+# to the shopper, so a sentence may report them; the 30 October event's drafts did.
+@pytest.mark.parametrize(
+    ("sentence", "stars"),
+    [
+        (
+            "a verified reviewer gave it 5.0, describing well-built construction [2]",
+            5.0,
+        ),
+        ("one reviewer rated it 3 out of 5 and describes clear sound [2]", 3.0),
+        ("one reviewer rated it 3 out of 5 stars [2]", 3.0),
+        ("one reviewer gave it 3/5 [2]", 3.0),
+        ("a 4-star review describes clear sound [2]", 4.0),
+        ("one reviewer gave it 4.5 stars [2]", 4.5),
+    ],
+)
+def test_a_reviewers_stars_are_supported_by_that_reviews_rating(sentence, stars):
+    validate(
+        f"The AuriLogic Flight ANC has active noise cancellation [1], and {sentence}.",
+        [evidence(LISTING), review(WELL_BUILT, stars)],
+    )
+
+
+@pytest.mark.parametrize(
+    ("sentence", "stars"),
+    [
+        ("a reviewer gave it 4.0 [2]", 5.0),
+        ("one reviewer rated it 3 out of 5 [2]", 4.0),
+        ("a reviewer gave it 5 stars [1]", None),
+        ("a reviewer gave it 5 days of use [2]", 5.0),
+        ("it keeps 3 out of 5 presets [2]", 3.0),
+        ("the 5 presets impressed a reviewer [2]", 5.0),
+        ("a 3/5 review describes clear sound [2]", 3.0),
+        ("it is rated 5.0 on average [2]", 5.0),
+    ],
+)
+def test_a_figure_is_a_reviewers_stars_only_when_framed_and_stated_so(sentence, stars):
+    with pytest.raises(SynthesisOutputError, match="unsupported numeric claim"):
+        validate(
+            f"The AuriLogic Flight ANC has active noise cancellation [1], and {sentence}.",
+            [evidence(LISTING), review(WELL_BUILT, stars)],
+        )
 
 
 # A figure repeating the question's is the shopper's bound only when the sentence
