@@ -4,7 +4,7 @@
 -- ranked within one product by the same fusion the product search uses.
 
 DROP FUNCTION IF EXISTS mosaic_search.search_product_evidence(
-    bigint, text, vector, mosaic.evidence_type[], integer
+    bigint, text, vector, mosaic.evidence_type[], integer, integer, integer, integer
 );
 
 CREATE OR REPLACE FUNCTION mosaic_search.search_product_evidence(

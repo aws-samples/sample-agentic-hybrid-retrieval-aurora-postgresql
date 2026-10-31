@@ -27,7 +27,7 @@
 -- functions without translating either.
 DROP FUNCTION IF EXISTS mosaic_search.search_hybrid_rrf_weighted(
     text, vector, jsonb, integer, integer, integer, integer, integer, real,
-    real, real, real, real
+    real, real, real
 );
 
 CREATE OR REPLACE FUNCTION mosaic_search.search_hybrid_rrf_weighted(
