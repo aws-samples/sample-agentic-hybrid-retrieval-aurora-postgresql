@@ -28,10 +28,10 @@ from scripts.lab_state import (
     applied_problem,
     database_fault_exit,
     lab2_contract_problem,
+    read_applied_sql_state,
     source_problem,
-    validate_database,
 )
-from service.participant_commands import APPLY_SQL, validate_applied
+from service.participant_commands import APPLY_SQL, validate_applied_command
 from service.search_sql import search_sql
 
 REFERENCE = """    UNION ALL
@@ -124,7 +124,7 @@ def test_a_working_branch_passes_in_the_file_and_in_aurora(lab_repo, branch):
     connection = _applied(_save(lab_repo, branch))
 
     assert source_problem(1, repo=lab_repo) is None
-    assert validate_database(1, connection, repo=lab_repo).state == "applied"
+    assert read_applied_sql_state(1, connection, repo=lab_repo).state == "applied"
 
 
 @pytest.mark.parametrize(
@@ -139,7 +139,7 @@ def test_a_broken_branch_fails_for_the_same_reason_in_the_file_and_in_aurora(
     assert problem is not None
     assert problem.finding.startswith(f"Lab 1 is not repaired: in {LABS[1][0]}, ")
     assert reason in problem.finding
-    applied = validate_database(1, connection, repo=lab_repo)
+    applied = read_applied_sql_state(1, connection, repo=lab_repo)
     assert applied.state == "stale"
     assert reason in applied.detail
 
@@ -149,7 +149,7 @@ def test_a_block_changed_after_apply_is_reported_as_not_in_aurora(lab_repo):
     _save(lab_repo, REFERENCE)
 
     assert source_problem(1, repo=lab_repo) is None
-    problem = applied_problem(1, validate_database(1, connection, repo=lab_repo))
+    problem = applied_problem(1, read_applied_sql_state(1, connection, repo=lab_repo))
     assert problem == LabProblem(
         "Lab 1's saved repair is not in Aurora. Aurora runs a different LAB1_EDIT "
         f"block from the one saved in {LABS[1][0]}. Saving changes only the file; "
@@ -162,7 +162,7 @@ def test_a_comment_added_after_apply_still_counts_as_applied(lab_repo):
     connection = _applied(_save(lab_repo, REFERENCE))
     _save(lab_repo, "    -- reconnect fuzzy matching\n" + REFERENCE)
 
-    assert validate_database(1, connection, repo=lab_repo).state == "applied"
+    assert read_applied_sql_state(1, connection, repo=lab_repo).state == "applied"
 
 
 @pytest.mark.parametrize(
@@ -215,7 +215,7 @@ def test_validate_lays_out_the_problem_the_fix_and_the_rerun(monkeypatch):
         "Lab 1: FAIL\n"
         "- Lab 1's saved repair is not in Aurora. Saved differs.\n"
         f"  Next: {APPLY_SQL}\n"
-        f"Then: {validate_applied(1)}"
+        f"Then: {validate_applied_command(1)}"
     )
 
 
@@ -230,7 +230,7 @@ def test_validate_without_a_database_url_says_how_to_get_one(monkeypatch):
     with pytest.raises(SystemExit, match="DATABASE_URL is empty") as refused:
         lab_state._validate_command(2, "")
 
-    assert str(refused.value).endswith(f"Then: {validate_applied(2)}")
+    assert str(refused.value).endswith(f"Then: {validate_applied_command(2)}")
 
 
 def test_validate_passes_only_when_aurora_runs_the_saved_repair(monkeypatch, capsys):

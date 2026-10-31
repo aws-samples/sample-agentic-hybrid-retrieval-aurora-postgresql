@@ -10,7 +10,7 @@ Two failure modes bound this file, and they pull in opposite directions.
 
 The first is the one the feature exists to stop: the controller overruling a
 declining model because products happen to sit in run state, which is what
-`_finalize_if_needed` did before this change. `_fallback_product_ids` has no
+`_finalize_or_failure` did before this change. `_fallback_product_ids` has no
 relevance criterion at all -- it takes the first two results of each search --
 so an unanchored query returned whatever RRF ranked highest and the answer of
 record presented it as the best fit.
@@ -35,7 +35,7 @@ import pytest
 
 from service import agent_tools
 from service.agent import SYSTEM_PROMPT, ProductDiscoveryAgent
-from service.coverage import summarize
+from service.coverage import decide_coverage
 from service.lab_checks import load_mission
 from service.models import (
     AgentRequest,
@@ -76,11 +76,11 @@ def _term(
 def unanchored(*tokens: str) -> QueryCoverage:
     """The verdict `mosaic_search.query_term_coverage` returns for an absence.
 
-    Built through `service.coverage.summarize`, the same reduction the request
+    Built through `service.coverage.decide_coverage`, the same reduction the request
     path runs, rather than by hand-setting `confidence`. A hand-built verdict
-    would keep passing after `summarize` stopped producing it.
+    would keep passing after `decide_coverage` stopped producing it.
     """
-    return summarize(
+    return decide_coverage(
         [
             _term("charging", "matched", ordinal=1, ndoc=9120),
             *(
@@ -92,7 +92,7 @@ def unanchored(*tokens: str) -> QueryCoverage:
 
 
 def grounded() -> QueryCoverage:
-    return summarize([_term("charging", "matched", ndoc=9120)])
+    return decide_coverage([_term("charging", "matched", ndoc=9120)])
 
 
 def unavailable() -> QueryCoverage:
@@ -236,7 +236,7 @@ def test_a_run_whose_every_search_is_unanchored_declines(monkeypatch, no_synthes
 def test_the_declining_answer_never_says_the_results_are_below():
     """Shop's wording promises products under the caveat. The agent has none."""
     state = run_state(coverage=[unanchored("A2342")])
-    assert agent_tools.record_declined_answer(state) is True
+    assert agent_tools.set_declined_answer_of_record(state) is True
     answer = state["answer_of_record"]["answer"]
 
     assert "results below" not in answer
@@ -262,7 +262,7 @@ def test_one_grounded_search_keeps_the_run_grounded(monkeypatch, no_synthesis):
             "usage": {},
         }
 
-    monkeypatch.setattr(agent_tools, "complete_grounded_answer", complete)
+    monkeypatch.setattr(agent_tools, "run_controller_fallback", complete)
     _install_run(monkeypatch, state)
     monkeypatch.setattr("service.agent.build_agent", _SilentAgent)
 
@@ -295,7 +295,7 @@ def test_a_run_without_a_full_unanchored_verdict_never_declines(verdicts, case):
     state = run_state(coverage=list(verdicts))
 
     assert agent_tools.coverage_refusal(state) is None, case
-    assert agent_tools.record_declined_answer(state) is False, case
+    assert agent_tools.set_declined_answer_of_record(state) is False, case
     assert state["answer_of_record"] is None, case
 
 
@@ -326,9 +326,9 @@ def test_finalize_does_not_fabricate_a_product_on_a_declined_run(monkeypatch):
             "manufactured a recommendation from the unanchored candidate pool"
         )
 
-    monkeypatch.setattr(agent_tools, "complete_grounded_answer", refuse)
+    monkeypatch.setattr(agent_tools, "run_controller_fallback", refuse)
 
-    error = ProductDiscoveryAgent._finalize_if_needed(
+    error = ProductDiscoveryAgent._finalize_or_failure(
         AgentRequest(question=QUESTION, result_limit=2),
         state,
     )
@@ -345,11 +345,11 @@ def test_finalize_still_completes_a_grounded_run(monkeypatch):
     completions: list[str] = []
     monkeypatch.setattr(
         agent_tools,
-        "complete_grounded_answer",
+        "run_controller_fallback",
         completions.append,
     )
 
-    error = ProductDiscoveryAgent._finalize_if_needed(
+    error = ProductDiscoveryAgent._finalize_or_failure(
         AgentRequest(question=QUESTION, result_limit=2),
         state,
     )
@@ -385,7 +385,7 @@ def test_a_grounded_mission_question_reaches_the_controller_unrefused(monkeypatc
             "usage": {},
         }
 
-    monkeypatch.setattr(agent_tools, "complete_grounded_answer", complete)
+    monkeypatch.setattr(agent_tools, "run_controller_fallback", complete)
     _install_run(monkeypatch, state)
     monkeypatch.setattr("service.agent.build_agent", _SilentAgent)
 
@@ -533,12 +533,12 @@ def test_a_grounded_search_with_an_empty_window_still_counts(monkeypatch):
         "unanchored",
     ]
     assert agent_tools.coverage_refusal(state) is None
-    assert agent_tools.record_declined_answer(state) is False
+    assert agent_tools.set_declined_answer_of_record(state) is False
     assert state["answer_of_record"] is None
 
 
 def test_an_unanchored_verdict_naming_no_term_refuses_to_decide():
-    """A shape `service.coverage.summarize` cannot produce, so it must not pass.
+    """A shape `service.coverage.decide_coverage` cannot produce, so it must not pass.
 
     Hand-built, because that is the only way to reach it. Returning `None` here
     would let an unanchored run recommend, and declining would write an answer
@@ -640,7 +640,7 @@ def test_the_outcome_reaches_extracted_intent(
     """
     state = run_state(coverage=[verdict])
     if expected_outcome == "declined":
-        assert agent_tools.record_declined_answer(state) is True
+        assert agent_tools.set_declined_answer_of_record(state) is True
     else:
         state["answer_of_record"] = {
             "answer": "Choose the Voltiq 65W GaN Charger [1].",
@@ -721,9 +721,9 @@ def test_a_grounded_run_with_no_products_still_fails_closed(monkeypatch):
             "the controller fallback ran with no retrieved product at all"
         )
 
-    monkeypatch.setattr(agent_tools, "complete_grounded_answer", refuse)
+    monkeypatch.setattr(agent_tools, "run_controller_fallback", refuse)
 
-    assert ProductDiscoveryAgent._finalize_if_needed(request, state) is None
+    assert ProductDiscoveryAgent._finalize_or_failure(request, state) is None
     assert state["answer_of_record"] is None
 
     with pytest.raises(RuntimeError, match="citation-bounded answer"):
@@ -799,8 +799,8 @@ def test_a_grounded_search_after_the_decline_does_not_reopen_it(monkeypatch):
             "the controller re-synthesized over an existing answer of record"
         )
 
-    monkeypatch.setattr(agent_tools, "complete_grounded_answer", refuse)
-    error = ProductDiscoveryAgent._finalize_if_needed(
+    monkeypatch.setattr(agent_tools, "run_controller_fallback", refuse)
+    error = ProductDiscoveryAgent._finalize_or_failure(
         AgentRequest(question=QUESTION, result_limit=2),
         state,
     )
@@ -863,7 +863,7 @@ def test_fallback_streams_receipts_without_blocking_other_requests(monkeypatch):
 
     def fallback(question):
         entered.set()
-        agent_tools._record(
+        agent_tools._append_trace_step(
             "get_product_evidence",
             {"product_id": 101},
             time.perf_counter(),
@@ -875,7 +875,7 @@ def test_fallback_streams_receipts_without_blocking_other_requests(monkeypatch):
         concurrent_progress.append(True)
         raise RuntimeError("synthesis refused")
 
-    monkeypatch.setattr(agent_tools, "complete_grounded_answer", fallback)
+    monkeypatch.setattr(agent_tools, "run_controller_fallback", fallback)
 
     async def collect():
         events = []
@@ -997,7 +997,7 @@ def test_closing_the_stream_stops_scheduling_further_tools_and_synthesis(monkeyp
             "fallback synthesis ran after the stream was closed for cancellation"
         )
 
-    monkeypatch.setattr(agent_tools, "complete_grounded_answer", refuse)
+    monkeypatch.setattr(agent_tools, "run_controller_fallback", refuse)
 
     async def collect():
         stream = ProductDiscoveryAgent().stream(
@@ -1022,7 +1022,7 @@ def test_closing_the_stream_during_the_fallback_tail_still_persists_and_finishes
     not skip persistence.
 
     `_stream_fallback` forwards tool-trace progress from its worker thread
-    while `complete_grounded_answer` is still running; `stream()` re-yields
+    while `run_controller_fallback` is still running; `stream()` re-yields
     each one at `yield fallback_event`. Closing the outer stream while it is
     suspended exactly there raises `GeneratorExit` at that point. Before this
     fix, that skipped straight past `_persist` and `observation.finish`, so a
@@ -1061,7 +1061,7 @@ def test_closing_the_stream_during_the_fallback_tail_still_persists_and_finishes
 
     def fallback(question: str) -> None:
         entered.set()
-        agent_tools._record(
+        agent_tools._append_trace_step(
             "get_product_evidence",
             {"product_id": 101},
             time.perf_counter(),
@@ -1080,7 +1080,7 @@ def test_closing_the_stream_during_the_fallback_tail_still_persists_and_finishes
             "usage": {},
         }
 
-    monkeypatch.setattr(agent_tools, "complete_grounded_answer", fallback)
+    monkeypatch.setattr(agent_tools, "run_controller_fallback", fallback)
 
     async def collect():
         async def unblock():
@@ -1093,7 +1093,7 @@ def test_closing_the_stream_during_the_fallback_tail_still_persists_and_finishes
         )
         try:
             # Drains the model loop's own event, then the two progress events
-            # `fallback`'s call to `agent_tools._record` enqueues, landing the
+            # `fallback`'s call to `agent_tools._append_trace_step` enqueues, landing the
             # generator at `yield fallback_event` with `fallback` itself
             # blocked on `release.wait` in its worker thread.
             await anext(stream)
@@ -1153,7 +1153,7 @@ def _decline_after_search(monkeypatch, results: list[ProductSummary]) -> dict[st
         agent_tools.search_products(f"Logitech Zone 900 {LAB1_TYPED}", limit=2)
     finally:
         agent_tools._RUN.reset(token)
-    assert agent_tools.record_declined_answer(state)
+    assert agent_tools.set_declined_answer_of_record(state)
     return state["answer_of_record"]
 
 

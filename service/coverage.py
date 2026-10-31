@@ -191,7 +191,7 @@ def decline_reason(unmatched_terms: Sequence[str]) -> str:
     return f"unanchored_query_terms: {_quoted(unmatched_terms)}"
 
 
-def summarize(terms: Sequence[TermCoverage]) -> QueryCoverage:
+def decide_coverage(terms: Sequence[TermCoverage]) -> QueryCoverage:
     """Reduce per-term verdicts to one decision.
 
     Pure: every branch is exercised without a database. `unavailable` is not
@@ -300,4 +300,4 @@ def assess(
             f"Query coverage is unavailable ({type(error).__name__}); "
             "search results are unaffected."
         )
-    return summarize([TermCoverage(**row) for row in rows])
+    return decide_coverage([TermCoverage(**row) for row in rows])

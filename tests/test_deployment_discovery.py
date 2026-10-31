@@ -194,7 +194,7 @@ def test_bootstrap_stage_leaves_the_stack_to_the_image_ready_signal(monkeypatch)
         "MOSAIC_RUNTIME_DATABASE_SECRET_ARN",
         "arn:aws:secretsmanager:us-east-1:123456789012:secret:runtime",
     )
-    deploy.stage(bootstrap=True)
+    deploy.publish_image_storing_dsn_at_bootstrap(bootstrap=True)
     assert services == ["secretsmanager"]
     secrets.put_secret_value.assert_called_once()
 

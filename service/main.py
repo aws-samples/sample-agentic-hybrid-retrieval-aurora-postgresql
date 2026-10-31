@@ -43,9 +43,9 @@ from service.catalog import (
     catalog_suggestions,
     catalog_summary,
     count_products,
+    fetch_and_register_product_evidence,
+    fetch_product_and_register_evidence,
     get_evidence_record,
-    get_product,
-    get_product_evidence_records,
     get_product_summaries,
     list_products,
     review_highlights,
@@ -500,7 +500,7 @@ def get_catalog_counts(
 
 @app.get("/api/products/{product_id}", response_model=ProductDetail)
 def get_product_detail(product_id: int) -> ProductDetail:
-    return get_product(product_id)
+    return fetch_product_and_register_evidence(product_id)
 
 
 @app.get("/api/products/{product_id}/similar", response_model=list[ProductSummary])
@@ -539,7 +539,7 @@ def get_question_ranked_product_evidence(
         raise HTTPException(404, SCOPE_DENIED_DETAIL) from error
     try:
         query_embedding = get_retrieval_service().embed_query(request.evidence_query)
-        evidence = get_product_evidence_records(
+        evidence = fetch_and_register_product_evidence(
             product_id,
             request.evidence_query,
             query_embedding,

@@ -87,9 +87,12 @@ def test_an_unknown_product_is_named(monkeypatch, capsys):
 
 
 def test_the_command_string_is_the_one_participants_type():
-    from service.participant_commands import check_claim as command
+    from service.participant_commands import check_claim_command
 
-    assert command(1551237, "…") == 'uv run python scripts/check_claim.py 1551237 "…"'
+    assert (
+        check_claim_command(1551237, "…")
+        == 'uv run python scripts/check_claim.py 1551237 "…"'
+    )
 
 
 def test_a_product_without_a_current_listing_is_named_not_a_traceback(

@@ -322,7 +322,7 @@ _EVIDENCE_METADATA_KEYS = (
 )
 
 
-def _ensure_evidence(connection, row: dict) -> list[dict]:
+def _register_evidence(connection, row: dict) -> list[dict]:
     """Register exact sources once so citations keep their existing FK checks.
 
     One insert and one lookup cover every record of the product. Registering
@@ -408,16 +408,21 @@ def ensure_product_evidence(product_id: int) -> None:
         rows = _source_rows(connection, [product_id])
         if not rows:
             raise HTTPException(404, "Product not found in the current catalog.")
-        _ensure_evidence(connection, rows[0])
+        _register_evidence(connection, rows[0])
 
 
-def get_product(product_id: int) -> ProductDetail:
+def fetch_product_and_register_evidence(product_id: int) -> ProductDetail:
+    """Return one staged-catalog product's detail and register its sources.
+
+    Writes: inserts the product's evidence records into `mosaic.product_evidence`
+    (`ON CONFLICT DO NOTHING`), so the reviews and questions shown here are citable.
+    """
     with connect() as connection:
         rows = _source_rows(connection, [product_id])
         if not rows:
             raise HTTPException(404, "Product not found in the current catalog.")
         row = rows[0]
-        records = _ensure_evidence(connection, row)
+        records = _register_evidence(connection, row)
         imported = connection.execute(
             "SELECT created_at FROM mosaic_catalog_stage.dataset WHERE dataset_id=%s",
             (active_dataset(),),

@@ -278,7 +278,7 @@ def test_multi_topic_review_fallback_keeps_the_product_type_and_limit(
     monkeypatch.setattr(catalog, "connect", connection)
     monkeypatch.setattr(catalog, "get_reranker", lambda: reranker)
     monkeypatch.setattr(live_catalog, "ensure_product_evidence", lambda _id: None)
-    records = catalog.get_product_evidence_records(
+    records = catalog.fetch_and_register_product_evidence(
         1000001, "noise cancellation and phone calls", [0.1], limit=2
     )
     assert [record.evidence_id for record in records] == [101, 102]
@@ -322,7 +322,7 @@ def test_review_fallback_skips_reranking_when_no_review_matches(
     monkeypatch.setattr(catalog, "connect", connection)
     monkeypatch.setattr(catalog, "get_reranker", lambda: reranker)
     monkeypatch.setattr(live_catalog, "ensure_product_evidence", lambda _id: None)
-    records = catalog.get_product_evidence_records(
+    records = catalog.fetch_and_register_product_evidence(
         1000001, "phone calls", [0.1], limit=2
     )
     assert [record.evidence_id for record in records] == [101]
@@ -369,7 +369,7 @@ def test_evidence_registration_takes_two_statements_for_any_number_of_reviews(
     monkeypatch.setattr(live_catalog, "product_evidence", lambda *_: (records, []))
     database = RegistrationConnection()
 
-    persisted = live_catalog._ensure_evidence(
+    persisted = live_catalog._register_evidence(
         database, {**real_product, "embedding_model_key": "model"}
     )
 

@@ -228,7 +228,7 @@ def restore(directory: Path, contract: dict) -> dict:
     )
     from scripts.catalog.stage_catalog_evidence import import_samples
     from scripts.catalog.stage_real_catalog import (
-        initialize,
+        create_dataset_record,
         load_embeddings,
         load_records,
         validate_dsn,
@@ -273,7 +273,7 @@ def restore(directory: Path, contract: dict) -> dict:
     with psycopg.connect(
         dsn, connect_timeout=20, application_name="mosaic-real-cache-restore"
     ) as connection:
-        initialize(connection, dataset, selection)
+        create_dataset_record(connection, dataset, selection)
         load_records(connection, dataset, directory, selection["products"])
         load_embeddings(connection, dataset, directory, selection["products"])
         report = verify(connection, dataset, directory)

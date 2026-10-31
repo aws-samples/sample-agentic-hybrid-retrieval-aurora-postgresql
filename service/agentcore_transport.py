@@ -21,7 +21,7 @@ from starlette.responses import StreamingResponse
 from service.agent_setup import AgentSetupError, agent_setup_message
 from service.config import get_settings
 from service.models import AgentRequest, AgentResponse
-from service.participant_commands import DEPLOY_AGENT, VERIFY_AGENT, reset
+from service.participant_commands import DEPLOY_AGENT, VERIFY_AGENT, reset_command
 
 logger = logging.getLogger(__name__)
 
@@ -104,7 +104,7 @@ def invoke(
         raise AgentSetupError(
             "Your Retrieval agent files cannot be read "
             f"({type(error).__name__}). "
-            f"Next: run {reset(3)} to put back the starting code, then deploy with "
+            f"Next: run {reset_command(3)} to put back the starting code, then deploy with "
             f"{DEPLOY_AGENT} and ask your question again."
         ) from error
     if operation != "status":

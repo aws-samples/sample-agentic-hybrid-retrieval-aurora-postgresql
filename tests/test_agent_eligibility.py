@@ -154,7 +154,7 @@ def test_synthesis_rechecks_inherited_products_without_another_search(
     )
     monkeypatch.setattr(agent_tools, "connect", lambda: connection)
     record = MagicMock()
-    monkeypatch.setattr(agent_tools, "_record", record)
+    monkeypatch.setattr(agent_tools, "_append_trace_step", record)
     with agent_tools.bind_run(state):
         result = agent_tools.synthesize_cited_answer(
             FOLLOW_UP, [over_budget.product_id]
@@ -197,7 +197,7 @@ def test_inherited_eligibility_uses_auroras_filter_rules(monkeypatch, synthesis_
         assert inherited.price_cents > 0
         state["base_filters"] = SearchFilters(max_price_cents=inherited.price_cents - 1)
     record = MagicMock()
-    monkeypatch.setattr(agent_tools, "_record", record)
+    monkeypatch.setattr(agent_tools, "_append_trace_step", record)
     with agent_tools.bind_run(state):
         if synthesis_path == "model":
             result = agent_tools.synthesize_cited_answer(FOLLOW_UP, [product_id])

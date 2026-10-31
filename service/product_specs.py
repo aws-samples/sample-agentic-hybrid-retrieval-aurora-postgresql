@@ -145,7 +145,7 @@ def _detail_size(text: str) -> float | None:
     return None if _OTHER_LENGTH_UNIT.search(text) else _size(_NUMBER)(text)
 
 
-def _refresh(text: str) -> int | None:
+def _refresh_rate_hz(text: str) -> int | None:
     match = _HERTZ.search(text)
     return int(match.group(1)) if match and 24 <= int(match.group(1)) <= 540 else None
 
@@ -247,10 +247,12 @@ def monitor_specs(original: dict[str, Any]) -> dict[str, ProductSpec]:
             _resolution,
         )
         or _from_sentences(original, _resolution),
-        "refresh_hz": _from_details(original, ("Refresh Rate",), _refresh)
+        "refresh_hz": _from_details(original, ("Refresh Rate",), _refresh_rate_hz)
         or _from_sentences(
             original,
-            lambda s: _refresh(s) if re.search(r"refresh", s, re.IGNORECASE) else None,
+            lambda s: (
+                _refresh_rate_hz(s) if re.search(r"refresh", s, re.IGNORECASE) else None
+            ),
         ),
         "usb_c_power_w": _from_sentences(original, _usb_c_power),
     }

@@ -105,7 +105,7 @@ def _pick_run() -> UUID | None:
     from service.agent_deploys import lab_3_started_at
     from service.db import connect
     from service.lab_checks import mission_for_lab
-    from service.participant_commands import ask_setup
+    from service.participant_commands import ask_setup_command
 
     started_at = lab_3_started_at(ROOT)
     with connect() as connection:
@@ -124,7 +124,7 @@ def _pick_run() -> UUID | None:
         )
         print(
             f"Lab 3 exercise: CANNOT GRADE - {found}. "
-            f"Next: ask it with\n{ask_setup()}\nthen run this command again."
+            f"Next: ask it with\n{ask_setup_command()}\nthen run this command again."
         )
         return None
     print(_choice(pick))

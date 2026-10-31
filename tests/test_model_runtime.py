@@ -850,7 +850,7 @@ def test_grounding_completion_uses_a_bounded_cross_search_shortlist(monkeypatch)
     monkeypatch.setattr(agent_tools, "explain_retrieval", explain)
     monkeypatch.setattr(agent_tools, "finalize_retrieved_answer", finalize)
     try:
-        agent_tools.complete_grounded_answer("Compare the options.")
+        agent_tools.run_controller_fallback("Compare the options.")
     finally:
         agent_tools._RUN.reset(token)
 
@@ -878,7 +878,7 @@ def test_grounding_completion_fails_when_evidence_is_not_attached(monkeypatch):
     )
     try:
         with pytest.raises(RuntimeError, match="No retrieved evidence"):
-            agent_tools.complete_grounded_answer("What should I buy?")
+            agent_tools.run_controller_fallback("What should I buy?")
     finally:
         agent_tools._RUN.reset(token)
 
@@ -1267,7 +1267,7 @@ def test_focused_followup_controller_fallback_skips_ranking_replay(monkeypatch):
     )
     token = agent_tools._RUN.set(state)
     try:
-        agent_tools.complete_grounded_answer("Does the first one support multipoint?")
+        agent_tools.run_controller_fallback("Does the first one support multipoint?")
     finally:
         agent_tools._RUN.reset(token)
 
@@ -1343,7 +1343,7 @@ def test_agent_surfaces_grounding_contract_failure_over_model_loop_error(
     monkeypatch.setattr("service.agent.build_agent", lambda: FailingAgent())
     monkeypatch.setattr(
         agent_tools,
-        "complete_grounded_answer",
+        "run_controller_fallback",
         fail_grounding,
     )
     monkeypatch.setattr(
@@ -1369,8 +1369,8 @@ def test_agent_turn_deadline_stops_the_loop_without_a_fallback_synthesis_call(
     """A deadline is a hard stop: no fallback model call after it fires.
 
     Falsifier: removing the `isinstance(error, AgentTurnDeadlineExceeded)`
-    branch ahead of `_finalize_if_needed` in `service.agent` makes this call
-    `complete_grounded_answer` anyway, and the assertion below catches it.
+    branch ahead of `_finalize_or_failure` in `service.agent` makes this call
+    `run_controller_fallback` anyway, and the assertion below catches it.
     """
     import asyncio
 
@@ -1393,7 +1393,7 @@ def test_agent_turn_deadline_stops_the_loop_without_a_fallback_synthesis_call(
     )
     monkeypatch.setattr(
         agent_tools,
-        "complete_grounded_answer",
+        "run_controller_fallback",
         lambda *_args, **_kwargs: fallback_calls.append("called"),
     )
     monkeypatch.setattr(
@@ -1443,7 +1443,7 @@ def test_streaming_agent_turn_deadline_reports_a_failure_event_and_no_fallback(
     )
     monkeypatch.setattr(
         agent_tools,
-        "complete_grounded_answer",
+        "run_controller_fallback",
         lambda *_args, **_kwargs: fallback_calls.append("called"),
     )
     monkeypatch.setattr(
@@ -1728,7 +1728,9 @@ def test_evidence_tool_forwards_question_and_embedding_to_catalog(monkeypatch):
     }
     token = agent_tools._RUN.set(state)
     monkeypatch.setattr(agent_tools, "get_retrieval_service", lambda: FakeRetrieval())
-    monkeypatch.setattr(agent_tools, "get_product_evidence_records", read_evidence)
+    monkeypatch.setattr(
+        agent_tools, "fetch_and_register_product_evidence", read_evidence
+    )
     try:
         result = agent_tools.get_product_evidence.__wrapped__(
             101,
@@ -1766,7 +1768,9 @@ def test_product_evidence_endpoint_uses_question_ranked_evidence(monkeypatch):
         return [evidence()]
 
     monkeypatch.setattr("service.main.get_retrieval_service", lambda: FakeRetrieval())
-    monkeypatch.setattr("service.main.get_product_evidence_records", read_evidence)
+    monkeypatch.setattr(
+        "service.main.fetch_and_register_product_evidence", read_evidence
+    )
 
     client = TestClient(app)
     monkeypatch.setattr(

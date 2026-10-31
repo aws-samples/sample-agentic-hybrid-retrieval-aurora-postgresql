@@ -63,8 +63,8 @@ def normalize_query(query: str) -> str:
     return re.sub(r"\s+", " ", query).strip()
 
 
-def _identity_key(value: str) -> str:
-    """Return the punctuation-insensitive representation of a catalog identity."""
+def _exact_lookup_key(value: str) -> str:
+    """Return the punctuation-insensitive form a query, SKU, title or model is compared by."""
     return re.sub(r"[^a-z0-9]", "", value.lower())
 
 
@@ -73,9 +73,9 @@ def _is_exact_identity_query(query: str, row: dict[str, Any]) -> bool:
     identities = [row.get("sku", ""), row.get("title", "")]
     if row.get("brand_name") and row.get("model_name"):
         identities.append(f"{row['brand_name']} {row['model_name']}")
-    key = _identity_key(query)
+    key = _exact_lookup_key(query)
     return bool(key) and any(
-        key == _identity_key(value) for value in identities if value
+        key == _exact_lookup_key(value) for value in identities if value
     )
 
 
@@ -92,7 +92,7 @@ def _served_candidates(
 
 def _is_exact_sku_match(query: str, sku: str) -> bool:
     """Return whether the request contains this complete, unambiguous catalog SKU."""
-    sku_key = _identity_key(sku)
+    sku_key = _exact_lookup_key(sku)
     if len(sku_key) < 8:
         return False
     optional_separators = r"[^a-z0-9]*"

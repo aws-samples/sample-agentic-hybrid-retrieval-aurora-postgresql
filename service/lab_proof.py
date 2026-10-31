@@ -48,9 +48,9 @@ from scripts.lab_state import (
 from scripts.lab_state import (
     LabDatabaseState,
     lab3_problem,
-    lab_is_solved,
+    lab_source_is_repaired,
+    read_applied_sql_state,
     source_problem,
-    validate_database,
 )
 from service import lab_checks
 from service.catalog import get_evidence_record
@@ -74,8 +74,13 @@ from service.models import (
     SearchRequest,
     SearchResponse,
 )
-from service.participant_commands import APPLY_SQL, DEPLOY_AGENT, DIFF, prove
-from service.participant_commands import start as start_command
+from service.participant_commands import (
+    APPLY_SQL,
+    DEPLOY_AGENT,
+    DIFF,
+    proof_steps_text,
+    start_command,
+)
 from service.retrieval import get_retrieval_service
 from service.retrieval_fingerprint import (
     compute_live_retrieval_settings_sha256,
@@ -139,7 +144,7 @@ def _state_detail(
     if problem is not None:
         return (
             f"{problem.finding} Next: {problem.next_step}, then prove it with "
-            f"{prove(lab_id)}."
+            f"{proof_steps_text(lab_id)}."
         )
     if database.state == "stale":
         return database.detail
@@ -173,7 +178,7 @@ def contained_database_state(
     """
     try:
         with connection.transaction():
-            return validate_database(lab_id, connection, repo=repo)
+            return read_applied_sql_state(lab_id, connection, repo=repo)
     except psycopg.DatabaseError as error:
         if isinstance(error, psycopg.OperationalError):
             raise
@@ -205,11 +210,11 @@ def ranking_fault_masks_lab_1(connection: Any, repo: Path) -> bool:
     Only then does a failing Lab 1 check say nothing about Lab 1's own repair.
     """
     lab_1_repaired = (
-        lab_is_solved(1, repo=repo)
+        lab_source_is_repaired(1, repo=repo)
         and contained_database_state(1, connection, repo).state == "applied"
     )
     return lab_1_repaired and (
-        not lab_is_solved(2, repo=repo)
+        not lab_source_is_repaired(2, repo=repo)
         or contained_database_state(2, connection, repo).state == "stale"
     )
 
@@ -277,7 +282,7 @@ def entry_check(
 
 def _lab_state(lab_id: int, connection: Any, repo: Path | None) -> LabStateRecord:
     root = repo or LAB_SOURCE_ROOT
-    solved = lab_is_solved(lab_id, repo=root)
+    solved = lab_source_is_repaired(lab_id, repo=root)
     database = contained_database_state(lab_id, connection, root)
     entry_state, next_step = _entry(lab_id, root)
     detail = _state_detail(lab_id, solved=solved, database=database, repo=root)
@@ -660,7 +665,7 @@ def completion_proof(
     started = perf_counter()
 
     root = repo or LAB_SOURCE_ROOT
-    solved = lab_is_solved(lab_id, repo=root)
+    solved = lab_source_is_repaired(lab_id, repo=root)
     with connect() as connection:
         database = contained_database_state(lab_id, connection, root)
         ranking_fault = lab_id == 1 and ranking_fault_masks_lab_1(connection, root)

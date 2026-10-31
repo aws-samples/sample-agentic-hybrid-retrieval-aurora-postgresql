@@ -95,19 +95,19 @@ def _commands() -> list[str]:
         commands.LIST_TOOLS,
         commands.DEPLOY_AGENT,
         commands.VERIFY_AGENT,
-        commands.start(1),
-        commands.reset(2),
-        commands.solution(3),
+        commands.start_command(1),
+        commands.reset_command(2),
+        commands.apply_solution_command(3),
         commands.DIFF,
-        commands.validate(1),
-        commands.complete_lab_3("RUN"),
-        commands.ask_setup(),
-        commands.validate_applied(1),
-        commands.repeat_request(2),
-        commands.exercise_check(3),
+        commands.prove_lab_command(1),
+        commands.grade_setup_run_command("RUN"),
+        commands.ask_setup_command(),
+        commands.validate_applied_command(1),
+        commands.repeat_request_command(2),
+        commands.grade_exercise_command(3),
         commands.COMPARE_SETTINGS,
         commands.RERANK_OFF_ON,
-        commands.HNSW_CHECK,
+        commands.HNSW_GRADE,
     ]
 
 
@@ -145,10 +145,10 @@ def ui_commands(text: str) -> dict[str, str]:
     found = dict(re.findall(r'export const (\w+) = "([^"]+)";', text))
     template = re.search(r"return `([^`]+)\$\{lab\}`;", text)
     if template:
-        found["validate"] = template.group(1) + "{lab}"
+        found["prove_lab"] = template.group(1) + "{lab}"
     run = re.search(r"return `([^`]+)\$\{runId\}`;", text)
     if run:
-        found["complete_lab_3"] = run.group(1) + "{run_id}"
+        found["grade_setup_run"] = run.group(1) + "{run_id}"
     return found
 
 
@@ -158,8 +158,8 @@ def test_the_ui_prints_the_same_commands_as_the_service() -> None:
         "APPLY_SQL": commands.APPLY_SQL,
         "DEPLOY_AGENT": commands.DEPLOY_AGENT,
         "VERIFY_AGENT": commands.VERIFY_AGENT,
-        "validate": commands.validate(1).removesuffix("1") + "{lab}",
-        "complete_lab_3": commands.complete_lab_3("{run_id}"),
+        "prove_lab": commands.prove_lab_command(1).removesuffix("1") + "{lab}",
+        "grade_setup_run": commands.grade_setup_run_command("{run_id}"),
     }, (
         f"Participant command rule: {UI_COMMANDS.relative_to(ROOT)} holds {ui}; "
         "fix: copy the strings from service/participant_commands.py exactly."

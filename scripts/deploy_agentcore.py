@@ -34,7 +34,7 @@ from service.participant_commands import (
     DEPLOY_AGENT,
     DEPLOY_PHASE_SECONDS,
     VERIFY_AGENT,
-    ask_setup,
+    ask_setup_command,
 )
 
 
@@ -248,8 +248,13 @@ def publish_image(repository_uri: str, *, bootstrap: bool) -> str:
         return f"{repository_uri}@{digest}"
 
 
-def stage(*, bootstrap: bool = False) -> str:
-    """Publish the image; the bootstrap then releases CloudFormation's runtime dependency."""
+def publish_image_storing_dsn_at_bootstrap(*, bootstrap: bool = False) -> str:
+    """Publish the runtime image and return its URI.
+
+    Writes: pushes the image to ECR. With `bootstrap`, also stores the runtime database
+    URL (TLS-verified) in Secrets Manager, which releases CloudFormation's runtime
+    dependency.
+    """
     image_uri = publish_image(
         required("MOSAIC_RUNTIME_IMAGE_REPOSITORY"), bootstrap=bootstrap
     )
@@ -771,7 +776,7 @@ def main() -> int:
     args = parser.parse_args()
     try:
         if args.action == "stage-bootstrap":
-            stage(bootstrap=True)
+            publish_image_storing_dsn_at_bootstrap(bootstrap=True)
         elif args.action == "connect-bootstrap":
             values = discover()
             write_connection_values(
@@ -780,15 +785,15 @@ def main() -> int:
             os.environ.update(values)
             verify()
         elif args.action == "deploy":
-            from scripts.lab_state import lab_is_solved
+            from scripts.lab_state import lab_source_is_repaired
 
-            if not lab_is_solved(3):
+            if not lab_source_is_repaired(3):
                 raise ValueError(not_ready_message())
             progress = deploy_progress()
             code = application_digest()
             try:
                 phase(progress, 0)
-                update(stage(), progress, code)
+                update(publish_image_storing_dsn_at_bootstrap(), progress, code)
                 phase(progress, 4)
                 verify()
             except BaseException:
@@ -798,7 +803,7 @@ def main() -> int:
             progress.finish()
             print(
                 "Your Retrieval agent is deployed and its SQL tools are connected through "
-                f"Gateway. Next: ask Alex's setup request:\n{ask_setup()}"
+                f"Gateway. Next: ask Alex's setup request:\n{ask_setup_command()}"
             )
         elif args.action == "resources":
             resources()

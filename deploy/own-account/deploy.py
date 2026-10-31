@@ -931,15 +931,17 @@ def plan_contracts_pull(ctx: Context) -> list[Step]:
 # --------------------------------------------------------------------------------------
 # Plans: check.
 # --------------------------------------------------------------------------------------
-def verdict(ctx: Context, ok: bool, name: str, fix: str = "") -> bool:
+def report_check(ctx: Context, ok: bool, name: str, fix: str = "") -> bool:
+    """Print one check as ok or FAIL (with its fix) and return `ok`; changes nothing else."""
     ctx.out(f"{'ok  ' if ok else 'FAIL'} {name}" + ("" if ok else f"\n     fix: {fix}"))
     return ok
 
 
-def check_identity(ctx: Context) -> None:
+def record_caller_identity(ctx: Context) -> None:
+    """Read the caller's identity from STS, store its account on `ctx` and report it."""
     identity = ctx.client("sts").get_caller_identity()
     ctx.account = identity["Account"]
-    verdict(
+    report_check(
         ctx,
         True,
         f"account {identity['Account']} in {ctx.region}; caller {identity['Arn']}",
@@ -950,7 +952,8 @@ def check_identity(ctx: Context) -> None:
     )
 
 
-def check_models(ctx: Context) -> None:
+def probe_model_access(ctx: Context) -> None:
+    """Run the model-access check in a subprocess and report whether it passed."""
     command = [
         sys.executable,
         str(REPO / "scripts" / "checks" / "check_model_access.py"),
@@ -969,7 +972,7 @@ def check_models(ctx: Context) -> None:
     result = subprocess.run(
         command, env=env, capture_output=True, text=True, check=False
     )
-    verdict(
+    report_check(
         ctx,
         result.returncode == 0,
         f"Bedrock access to {CHAT_MODEL}, {EMBED_MODEL}, {RERANK_MODEL}",
@@ -996,14 +999,14 @@ def check_service_linked_roles(ctx: Context) -> None:
         try:
             present = role_exists(iam, role_name)
         except Exception as error:  # noqa: BLE001 - reported as a FAIL line
-            verdict(
+            report_check(
                 ctx,
                 False,
                 f"service-linked role {role_name}",
                 f"{error_code(error)}: the caller needs iam:GetRole",
             )
             continue
-        verdict(
+        report_check(
             ctx,
             present,
             f"service-linked role {role_name} ({service})",
@@ -1155,7 +1158,7 @@ def check_network_capacity(ctx: Context) -> None:
         )
         return
     for name, used, quota, fix, quota_id in capacity:
-        verdict(ctx, used < quota, capacity_line(name, used, quota), fix)
+        report_check(ctx, used < quota, capacity_line(name, used, quota), fix)
         note_recent_quota_raise(ctx, quota_id)
 
 
@@ -1261,7 +1264,7 @@ def root_stacks(ctx: Context) -> list[dict[str, Any]]:
 def check_name_collisions(ctx: Context) -> None:
     """Report what an earlier deployment in this account would collide with."""
     problem = acl_collision(ctx)
-    verdict(
+    report_check(
         ctx,
         problem is None,
         f"no CloudFront web ACL named {ctx.stack_name}-mosaic-api"
@@ -1270,7 +1273,7 @@ def check_name_collisions(ctx: Context) -> None:
     )
     stacks = root_stacks(ctx)
     names = {stack["StackName"] for stack in stacks}
-    verdict(
+    report_check(
         ctx,
         ctx.stack_name not in names,
         f"no stack named {ctx.stack_name} in {ctx.region}",
@@ -1317,7 +1320,9 @@ def check_source(ctx: Context) -> None:
     except Refusal as refusal:
         problems.append(str(refusal))
     ok = not problems
-    verdict(ctx, ok, f"source tree clean at {ctx.source_revision}", "; ".join(problems))
+    report_check(
+        ctx, ok, f"source tree clean at {ctx.source_revision}", "; ".join(problems)
+    )
     template = (CLOUDFORMATION / MAIN_TEMPLATE).read_text(encoding="utf-8")
     pattern = re.search(
         r"^  RepoUrl:\n(?:^    .*\n)*?^    AllowedPattern: '(.*)'",
@@ -1325,7 +1330,7 @@ def check_source(ctx: Context) -> None:
         re.MULTILINE,
     )
     if pattern and not re.fullmatch(pattern.group(1), ctx.repo_url):
-        verdict(
+        report_check(
             ctx,
             False,
             f"RepoUrl {ctx.repo_url} satisfies the main template's AllowedPattern",
@@ -1333,7 +1338,7 @@ def check_source(ctx: Context) -> None:
             "deploy/cloudformation/hybrid-retrieval-main.yml before deploying a fork",
         )
     reason = probe_anonymous_fetch(ctx.repo_url, ctx.source_revision)
-    verdict(
+    report_check(
         ctx,
         reason is None,
         f"anonymous fetch of {ctx.repo_url}@{ctx.source_revision[:12]}",
@@ -1345,10 +1350,12 @@ def check_source(ctx: Context) -> None:
 def plan_check(ctx: Context) -> list[Step]:
     probe = (("git", "fetch --depth 1 origin <sha>", {"repo": ctx.repo_url}),)
     return [
-        Step("identity", (("sts", "GetCallerIdentity", {}),), run=check_identity),
+        Step(
+            "identity", (("sts", "GetCallerIdentity", {}),), run=record_caller_identity
+        ),
         Step(
             "Bedrock model access (scripts/checks/check_model_access.py)",
-            run=check_models,
+            run=probe_model_access,
         ),
         Step(
             "service-linked roles",
@@ -1999,7 +2006,7 @@ def plan_delete(ctx: Context) -> list[Step]:
             ("cloudformation", "ListStackResources", {"StackName": ctx.stack_name}),
             ("cloudformation", "DeleteStack", {"StackName": ctx.stack_name}),
         ),
-        run=delete_stack_root,
+        run=delete_set_aside_then_stack,
     )
     wait = Step(
         "wait for DELETE_COMPLETE; if only an AgentCore network interface blocks it, "
@@ -2008,7 +2015,7 @@ def plan_delete(ctx: Context) -> list[Step]:
             ("cloudformation", "DescribeStacks", {"StackName": ctx.stack_name}),
             ("ec2", "DescribeNetworkInterfaces", {"Filters": "<the stack's groups>"}),
         ),
-        run=wait_for_delete,
+        run=wait_for_delete_setting_aside_held,
     )
     return [delete, wait]
 
@@ -2044,7 +2051,7 @@ def security_groups_by_root_resource(ctx: Context) -> dict[str, list[str]]:
     return groups
 
 
-def held_by_agentcore(ctx: Context) -> tuple[list[str], list[str]]:
+def resources_held_by_agentcore(ctx: Context) -> tuple[list[str], list[str]]:
     """Root-level resources whose security groups an AgentCore interface still uses.
 
     Returns:
@@ -2073,7 +2080,7 @@ def held_by_agentcore(ctx: Context) -> tuple[list[str], list[str]]:
     return held, sorted(interface["NetworkInterfaceId"] for interface in interfaces)
 
 
-def set_aside_by_earlier_teardown(ctx: Context) -> list[dict[str, Any]]:
+def resources_set_aside_by_earlier_teardown(ctx: Context) -> list[dict[str, Any]]:
     """Root stacks and security groups an earlier teardown set aside.
 
     A delete with RetainResources leaves them DELETE_SKIPPED, and a later DeleteStack
@@ -2100,15 +2107,18 @@ def set_aside_by_earlier_teardown(ctx: Context) -> list[dict[str, Any]]:
     ]
 
 
-def delete_stack_root(ctx: Context) -> None:
+def delete_set_aside_then_stack(ctx: Context) -> None:
     """Delete the stack, first finishing what an earlier teardown set aside.
 
+    Writes: deletes the set-aside nested stacks and security groups when no AgentCore
+    interface holds them, then issues DeleteStack for the root stack.
+
     While AgentCore's interface still uses their security groups they stay aside, and
-    `wait_for_delete` sets them aside again and says when to come back.
+    `wait_for_delete_setting_aside_held` sets them aside again and says when to come back.
     """
-    set_aside = set_aside_by_earlier_teardown(ctx)
+    set_aside = resources_set_aside_by_earlier_teardown(ctx)
     if set_aside:
-        held, interfaces = held_by_agentcore(ctx)
+        held, interfaces = resources_held_by_agentcore(ctx)
         if held:
             ctx.out(
                 f"    {', '.join(held)} stay set aside: AgentCore's interface "
@@ -2145,19 +2155,22 @@ def delete_set_aside(ctx: Context, set_aside: list[dict[str, Any]]) -> None:
                 raise
 
 
-def wait_for_delete(ctx: Context) -> None:
+def wait_for_delete_setting_aside_held(ctx: Context) -> None:
     """Wait for the delete; when AgentCore's interface blocks it, remove what bills.
 
     AgentCore keeps a VPC runtime's network interface for up to 8 hours after the runtime
     is deleted, and only AWS can remove it, so the security groups it uses (and the VPC
     around them) cannot be deleted until then. The rest is deleted now by a second delete
     that sets those resources aside; a later `teardown` finishes once the interface goes.
+
+    Writes: when the interface blocks the first delete, issues a second DeleteStack with
+    RetainResources and appends the unfinished-teardown notice to `ctx.pending`.
     """
     try:
         wait_for_stack(ctx, "DELETE_COMPLETE")
         return
     except Refusal:
-        held, interfaces = held_by_agentcore(ctx)
+        held, interfaces = resources_held_by_agentcore(ctx)
         if not held:
             raise
     ctx.out(

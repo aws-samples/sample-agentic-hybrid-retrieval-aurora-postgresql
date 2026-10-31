@@ -18,7 +18,11 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
-from service.participant_commands import DEPLOY_AGENT, complete_lab_3, reset
+from service.participant_commands import (
+    DEPLOY_AGENT,
+    grade_setup_run_command,
+    reset_command,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -121,7 +125,7 @@ def lab_3_started_at(root: Path | None = None) -> datetime | None:
         # A hand-edited, truncated or unreadable record would otherwise be a bare 500.
         raise ValueError(
             f"Lab 3 start record rule: the saved start of Lab 3 cannot be read "
-            f"({type(error).__name__}); fix: run {reset(3)}."
+            f"({type(error).__name__}); fix: run {reset_command(3)}."
         ) from error
 
 
@@ -195,7 +199,7 @@ def run_deploy_problem(
             f"You have not deployed since Lab 3 started at {_clock(started)}, so this run "
             "came from the reference Retrieval agent this account was prepared with. "
             f"Next: deploy with {DEPLOY_AGENT}, ask Alex's setup request again, then run "
-            f"{complete_lab_3()}."
+            f"{grade_setup_run_command()}."
         )
     if any(
         deploy.application_sha256 == run_sha256 and deploy.deployed_at <= run_created_at
@@ -205,5 +209,5 @@ def run_deploy_problem(
     return (
         f"This run, made at {_clock(run_created_at)}, did not come from a deploy of yours "
         f"since Lab 3 started; your first was at {_clock(since[0].deployed_at)}. "
-        f"Next: ask Alex's setup request again, then run {complete_lab_3()}."
+        f"Next: ask Alex's setup request again, then run {grade_setup_run_command()}."
     )

@@ -15,13 +15,13 @@ from service.participant_commands import (
     DEPLOY_AGENT,
     LIST_TOOLS,
     USUAL_SECONDS,
-    exercise_check,
-    finish,
+    apply_solution_command,
+    finish_command,
     finish_steps,
-    repeat_request,
-    skip_to,
-    solution,
-    start,
+    grade_exercise_command,
+    repeat_request_command,
+    skip_to_command,
+    start_command,
 )
 
 LAPTOP_COLUMNS = 97
@@ -35,22 +35,27 @@ def _a_laptop_terminal(monkeypatch):
 
 def test_each_lab_finishes_through_its_guide_steps():
     assert finish_steps(1) == (
-        start(1),
-        solution(1),
+        start_command(1),
+        apply_solution_command(1),
         APPLY_SQL,
-        repeat_request(1),
+        repeat_request_command(1),
         ADVANCE_TO_LAB_2,
     )
     assert finish_steps(2) == (
-        start(2),
-        solution(2),
+        start_command(2),
+        apply_solution_command(2),
         APPLY_SQL,
-        repeat_request(2),
-        exercise_check(2),
+        repeat_request_command(2),
+        grade_exercise_command(2),
         ADVANCE_TO_LAB_3,
     )
     # Lab 3 stops at deployment: completion needs a setup run the participant asks.
-    assert finish_steps(3) == (start(3), solution(3), LIST_TOOLS, DEPLOY_AGENT)
+    assert finish_steps(3) == (
+        start_command(3),
+        apply_solution_command(3),
+        LIST_TOOLS,
+        DEPLOY_AGENT,
+    )
 
 
 def run_finish(
@@ -115,7 +120,7 @@ def test_every_step_puts_its_command_on_its_own_line_at_any_width(
 
 def test_every_step_finish_or_skip_to_runs_has_a_measured_usual_time():
     steps = {step for lab in (1, 2, 3) for step in finish_steps(lab)}
-    steps |= {start(lab) for lab in (1, 2, 3)}
+    steps |= {start_command(lab) for lab in (1, 2, 3)}
     assert steps <= set(USUAL_SECONDS), sorted(steps - set(USUAL_SECONDS))
 
 
@@ -125,7 +130,7 @@ def test_finish_stops_at_the_first_failure_and_says_how_to_resume(monkeypatch, c
     assert code == 3
     assert len(ran) == 3
     assert f"stopped at: {APPLY_SQL}" in out
-    assert finish(2) in out
+    assert finish_command(2) in out
 
 
 @pytest.mark.parametrize(
@@ -174,7 +179,7 @@ def test_skip_to_finishes_earlier_labs_and_stops_at_the_chosen_lab_start(
     expected = [step for number in earlier for step in finish_steps(number)]
     assert [command[1:] for command in ran] == as_commands(expected)
     # The chosen lab itself is only started, by the last hand-off: never solved.
-    assert solution(lab) not in out
+    assert apply_solution_command(lab) not in out
     assert f"Lab {lab}: ready." in out
 
 
@@ -187,7 +192,7 @@ def test_skip_to_a_lab_already_reachable_only_starts_it(
     )
 
     assert code == 0
-    assert [command[1:] for command in ran] == as_commands([start(lab)])
+    assert [command[1:] for command in ran] == as_commands([start_command(lab)])
 
 
 def test_skip_to_stops_at_a_failure_and_names_its_own_command(monkeypatch, capsys):
@@ -197,8 +202,8 @@ def test_skip_to_stops_at_a_failure_and_names_its_own_command(monkeypatch, capsy
 
     assert code == 3
     assert len(ran) == 2
-    assert f"stopped at: {solution(1)}" in out
-    assert skip_to(3) in out
+    assert f"stopped at: {apply_solution_command(1)}" in out
+    assert skip_to_command(3) in out
 
 
 def test_the_bar_counts_finished_steps():

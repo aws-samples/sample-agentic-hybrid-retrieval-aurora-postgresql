@@ -3,10 +3,9 @@ import re
 import pytest
 
 from scripts import prove_lab
-from scripts.prove_lab import sql_lab_problem as checked_sql_lab_problem
+from scripts.prove_lab import applied_sql_problem
 from service.config import get_settings
-from service.participant_commands import complete_lab_3
-from service.participant_commands import start as start_command
+from service.participant_commands import grade_setup_run_command, start_command
 
 PLAN = [{"Plan": {"Node Type": "Append"}}]
 
@@ -21,7 +20,7 @@ def isolated_repo(monkeypatch, tmp_path):
 @pytest.fixture(autouse=True)
 def saved_sql_runs_in_aurora(monkeypatch):
     """Aurora is a boundary: by default it runs the saved, repaired block."""
-    monkeypatch.setattr(prove_lab, "sql_lab_problem", lambda _lab: None)
+    monkeypatch.setattr(prove_lab, "applied_sql_problem", lambda _lab: None)
 
 
 def _agent_response():
@@ -739,7 +738,7 @@ def test_a_participant_is_sent_to_their_saved_run_for_lab_3(monkeypatch) -> None
 
     message = str(raised.value)
     assert "--lab 3" in message and "saved" in message
-    assert complete_lab_3() in message
+    assert grade_setup_run_command() in message
 
 
 @pytest.mark.parametrize("flag", ["--save-receipt", "--reuse-receipt"])
@@ -909,11 +908,11 @@ def test_an_unreachable_api_points_at_the_service_check_not_a_server_start(monke
 
 def test_saved_sql_that_aurora_does_not_run_fails_before_any_search(monkeypatch):
     from scripts.lab_state import LabProblem
-    from service.participant_commands import APPLY_SQL, validate
+    from service.participant_commands import APPLY_SQL, prove_lab_command
 
     monkeypatch.setattr(
         prove_lab,
-        "sql_lab_problem",
+        "applied_sql_problem",
         lambda _lab: LabProblem(
             "Lab 1's saved repair is not in Aurora. Differs.", APPLY_SQL
         ),
@@ -933,7 +932,7 @@ def test_saved_sql_that_aurora_does_not_run_fails_before_any_search(monkeypatch)
         "Lab 1: FAIL\n"
         "- Lab 1's saved repair is not in Aurora. Differs.\n"
         f"  Next: {APPLY_SQL}\n"
-        f"Then: {validate(1)}"
+        f"Then: {prove_lab_command(1)}"
     )
 
 
@@ -951,7 +950,7 @@ def test_the_precheck_reads_the_saved_block_before_aurora(monkeypatch, tmp_path)
         "service.db.connect", lambda: pytest.fail("read Aurora for an unrepaired file")
     )
 
-    problem = checked_sql_lab_problem(1)
+    problem = applied_sql_problem(1)
 
     assert problem is not None
     assert problem.finding.startswith("Lab 1 is not repaired: in labs/lab1_retrieve")

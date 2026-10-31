@@ -40,7 +40,7 @@ def test_empty_searches_keep_receipts_and_stop_at_the_search_budget(monkeypatch)
         assert state["search_event_ids"] == [r.search_event_id for r in responses]
         assert len(state["searches"]) == len(responses)
         assert all(step["outcome"] == "success" for step in state["trace"])
-        error = ProductDiscoveryAgent._finalize_if_needed(request, state)
+        error = ProductDiscoveryAgent._finalize_or_failure(request, state)
 
     assert error is None
     response = ProductDiscoveryAgent()._response(request, state, None, None)
@@ -72,7 +72,7 @@ def test_database_failures_are_not_reported_as_empty_searches(
         agent_tools.search_products(QUESTION)
         agent_tools.search_products(QUESTION)
         assert calls == len(agent_tools.SEARCH_SLOTS)
-        ProductDiscoveryAgent._finalize_if_needed(
+        ProductDiscoveryAgent._finalize_or_failure(
             AgentRequest(question=QUESTION), state
         )
     assert state["answer_of_record"] is None

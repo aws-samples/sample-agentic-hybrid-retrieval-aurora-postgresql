@@ -189,7 +189,7 @@ def test_failed_push_never_releases_cloudformation(monkeypatch):
     aws = Mock()
     monkeypatch.setattr(deploy, "client", aws)
     with pytest.raises(RuntimeError, match="push failed"):
-        deploy.stage(bootstrap=True)
+        deploy.publish_image_storing_dsn_at_bootstrap(bootstrap=True)
     aws.assert_not_called()
 
 

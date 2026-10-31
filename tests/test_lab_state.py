@@ -9,11 +9,11 @@ from scripts.lab_state import (
     LABS,
     REPO,
     lab_diff,
-    lab_is_solved,
+    lab_source_is_repaired,
     set_lab_state,
 )
 from service.lab_files import solution_path
-from service.participant_commands import DIFF_ANSWER, solution
+from service.participant_commands import DIFF_ANSWER, apply_solution_command
 
 PARTICIPANT_CHANNEL = """    UNION ALL
     SELECT product_id, 'fuzzy'::text AS channel, fuzzy_rank AS source_rank,
@@ -54,13 +54,13 @@ def participant_lab1(repo: Path) -> str:
 
 def test_lab1_accepts_the_participant_repair_that_passed_live_retrieval(lab_repo):
     participant_lab1(lab_repo)
-    assert lab_is_solved(1, repo=lab_repo)
+    assert lab_source_is_repaired(1, repo=lab_repo)
 
 
 def test_applied_lab1_accepts_the_participant_repair(lab_repo, monkeypatch):
     from unittest.mock import MagicMock
 
-    from scripts.lab_state import validate_database
+    from scripts.lab_state import read_applied_sql_state
 
     monkeypatch.setenv("MOSAIC_CATALOG_DATASET", "reviews-2023-v2")
     connection = MagicMock()
@@ -71,19 +71,19 @@ def test_applied_lab1_accepts_the_participant_repair(lab_repo, monkeypatch):
     connection.execute.return_value.fetchone.return_value = {
         "definition": definition.replace("mosaic_search.", "mosaic_search.")
     }
-    assert validate_database(1, connection, repo=lab_repo).state == "applied"
+    assert read_applied_sql_state(1, connection, repo=lab_repo).state == "applied"
 
 
 def test_applied_lab1_does_not_accept_disconnected_name_mentions():
     from unittest.mock import MagicMock
 
-    from scripts.lab_state import validate_database
+    from scripts.lab_state import read_applied_sql_state
 
     connection = MagicMock()
     connection.execute.return_value.fetchone.return_value = {
         "definition": "-- search_fuzzy is missing\nSELECT product_id FROM fuzzy"
     }
-    assert validate_database(1, connection).state == "stale"
+    assert read_applied_sql_state(1, connection).state == "stale"
 
 
 @pytest.mark.parametrize(
@@ -105,10 +105,10 @@ def test_lab1_contract_rejects_changed_data_flow_and_restores(lab_repo, old, new
     original = path.read_bytes()
     assert old in original.decode()
     path.write_text(original.decode().replace(old, new))
-    assert not lab_is_solved(1, repo=lab_repo)
+    assert not lab_source_is_repaired(1, repo=lab_repo)
     path.write_bytes(original)
     assert path.read_bytes() == original
-    assert lab_is_solved(1, repo=lab_repo)
+    assert lab_source_is_repaired(1, repo=lab_repo)
 
 
 def test_lab1_contract_ignores_local_names_comments_and_projection_order(lab_repo):
@@ -117,7 +117,7 @@ def test_lab1_contract_ignores_local_names_comments_and_projection_order(lab_rep
     source = source.replace("FROM fuzzy", "FROM recovered")
     source = source.replace("AS raw_score", "AS ignored_union_alias -- output name\n")
     (lab_repo / LABS[1][0]).write_text(source)
-    assert lab_is_solved(1, repo=lab_repo)
+    assert lab_source_is_repaired(1, repo=lab_repo)
 
 
 @pytest.mark.parametrize("lab", [1, 2, 3])
@@ -137,19 +137,19 @@ def test_source_gate_ignores_layout_but_preserves_the_repair(lab_repo, lab):
         source = _replace_block(source, start, end, formatted)
     assert source.encode() != original
     path.write_text(source)
-    assert lab_is_solved(lab, repo=lab_repo)
+    assert lab_source_is_repaired(lab, repo=lab_repo)
     set_lab_state(lab, solved=False, repo=lab_repo)
-    assert not lab_is_solved(lab, repo=lab_repo)
+    assert not lab_source_is_repaired(lab, repo=lab_repo)
     path.write_bytes(original)
     assert path.read_bytes() == original
-    assert lab_is_solved(lab, repo=lab_repo)
+    assert lab_source_is_repaired(lab, repo=lab_repo)
 
 
 def test_source_gate_preserves_string_contents(lab_repo):
     set_lab_state(1, solved=True, repo=lab_repo)
     path = lab_repo / LABS[1][0]
     path.write_text(path.read_text().replace("'fuzzy'", "'tri gram'"))
-    assert not lab_is_solved(1, repo=lab_repo)
+    assert not lab_source_is_repaired(1, repo=lab_repo)
 
 
 @pytest.mark.parametrize("later_lab", [2, 3])
@@ -162,8 +162,8 @@ def test_a_later_reset_keeps_the_participants_valid_lab1_repair(
 
     source = (lab_repo / LABS[1][0]).read_text()
     assert PARTICIPANT_CHANNEL in source
-    assert lab_is_solved(1, repo=lab_repo)
-    assert not lab_is_solved(later_lab, repo=lab_repo)
+    assert lab_source_is_repaired(1, repo=lab_repo)
+    assert not lab_source_is_repaired(later_lab, repo=lab_repo)
 
 
 @pytest.mark.parametrize(
@@ -181,14 +181,14 @@ def test_lab3_reset_preserves_participant_lab2_formula(lab_repo, formula):
     start, end, _, _ = LABS[2][1][0]
     path.write_text(_replace_block(path.read_text(), start, end, formula))
     original = path.read_bytes()
-    assert lab_is_solved(2, repo=lab_repo)
+    assert lab_source_is_repaired(2, repo=lab_repo)
 
     changed = set_lab_state(3, solved=False, repo=lab_repo)
 
     assert changed == lab_repo / LABS[3][0]
-    assert not lab_is_solved(3, repo=lab_repo)
+    assert not lab_source_is_repaired(3, repo=lab_repo)
     assert path.read_bytes() == original
-    assert lab_is_solved(2, repo=lab_repo)
+    assert lab_source_is_repaired(2, repo=lab_repo)
 
 
 @pytest.mark.parametrize(
@@ -206,13 +206,13 @@ def test_lab2_contract_rejects_wrong_formula_and_restores(lab_repo, formula):
 
     path = lab_repo / LABS[2][0]
     original = path.read_bytes()
-    assert lab_is_solved(2, repo=lab_repo)
+    assert lab_source_is_repaired(2, repo=lab_repo)
     start, end, _, _ = LABS[2][1][0]
     path.write_text(_replace_block(path.read_text(), start, end, formula))
-    assert not lab_is_solved(2, repo=lab_repo)
+    assert not lab_source_is_repaired(2, repo=lab_repo)
     path.write_bytes(original)
     assert path.read_bytes() == original
-    assert lab_is_solved(2, repo=lab_repo)
+    assert lab_source_is_repaired(2, repo=lab_repo)
 
 
 @pytest.mark.parametrize("lab", sorted(LABS))
@@ -222,9 +222,9 @@ def test_reset_and_solution_are_idempotent(lab_repo: Path, lab: int) -> None:
     set_lab_state(lab, solved=False, repo=lab_repo)
 
     assert _lab_bytes(lab_repo) == first_reset
-    assert not lab_is_solved(lab, repo=lab_repo)
+    assert not lab_source_is_repaired(lab, repo=lab_repo)
     assert all(
-        lab_is_solved(candidate, repo=lab_repo)
+        lab_source_is_repaired(candidate, repo=lab_repo)
         for candidate in LABS
         if candidate != lab
     )
@@ -234,7 +234,7 @@ def test_reset_and_solution_are_idempotent(lab_repo: Path, lab: int) -> None:
     set_lab_state(lab, solved=True, repo=lab_repo)
 
     assert _lab_bytes(lab_repo) == first_solution
-    assert all(lab_is_solved(candidate, repo=lab_repo) for candidate in LABS)
+    assert all(lab_source_is_repaired(candidate, repo=lab_repo) for candidate in LABS)
 
 
 @pytest.mark.parametrize(
@@ -256,7 +256,7 @@ def test_reset_and_solution_are_idempotent(lab_repo: Path, lab: int) -> None:
 def test_reset_guard_rejects_wrong_environment(monkeypatch, identity):
     from unittest.mock import MagicMock
 
-    from scripts.lab_state import assert_reset_database
+    from scripts.lab_state import assert_workshop_database
 
     connection = MagicMock()
     connection.__enter__.return_value = connection
@@ -264,13 +264,13 @@ def test_reset_guard_rejects_wrong_environment(monkeypatch, identity):
     monkeypatch.setattr("psycopg.connect", lambda *a, **kw: connection)
     monkeypatch.delenv("MOSAIC_WORKSHOP_DATABASE", raising=False)
     with pytest.raises(SystemExit, match="Lab reset rule"):
-        assert_reset_database("test-only")
+        assert_workshop_database("test-only")
 
 
 def test_reset_guard_accepts_named_aurora_and_rejects_missing_dsn(monkeypatch):
     from unittest.mock import MagicMock
 
-    from scripts.lab_state import assert_reset_database
+    from scripts.lab_state import assert_workshop_database
 
     connection = MagicMock()
     connection.__enter__.return_value = connection
@@ -281,9 +281,9 @@ def test_reset_guard_accepts_named_aurora_and_rejects_missing_dsn(monkeypatch):
     }
     monkeypatch.setattr("psycopg.connect", lambda *a, **kw: connection)
     monkeypatch.setenv("MOSAIC_WORKSHOP_DATABASE", "named_workshop")
-    assert_reset_database("test-only")
+    assert_workshop_database("test-only")
     with pytest.raises(SystemExit, match="DATABASE_URL is missing"):
-        assert_reset_database(None)
+        assert_workshop_database(None)
 
 
 def test_reset_checks_identity_before_editing_files(monkeypatch):
@@ -296,7 +296,7 @@ def test_reset_checks_identity_before_editing_files(monkeypatch):
     def refuse(_):
         raise SystemExit("wrong database")
 
-    monkeypatch.setattr(lab_state, "assert_reset_database", refuse)
+    monkeypatch.setattr(lab_state, "assert_workshop_database", refuse)
     monkeypatch.setattr(
         lab_state,
         "set_lab_state",
@@ -311,7 +311,7 @@ def test_applied_state_reads_the_catalog_served_by_the_api(monkeypatch, lab):
     from unittest.mock import MagicMock
 
     from scripts.checks.retrieval_profile import load_profile
-    from scripts.lab_state import validate_database
+    from scripts.lab_state import read_applied_sql_state
 
     monkeypatch.setenv("MOSAIC_CATALOG_DATASET", "reviews-2023-v2")
     k = load_profile().rrf_k
@@ -321,7 +321,7 @@ def test_applied_state_reads_the_catalog_served_by_the_api(monkeypatch, lab):
         "first_contribution": 1 / (k + 1),
         "second_contribution": 1 / (k + 2),
     }
-    assert validate_database(lab, connection).state == "applied"
+    assert read_applied_sql_state(lab, connection).state == "applied"
     statement = connection.execute.call_args.args[0]
     assert "mosaic_search." in statement
     assert "mosaic_live_search" not in statement
@@ -338,7 +338,7 @@ def test_lab3_accepts_extra_instructions_and_local_variable_names(lab_repo):
     path = lab_repo / LABS[3][0]
     start, end, _, _ = LABS[3][1][0]
     path.write_text(_replace_block(path.read_text(), start, end, PARTICIPANT_LAB3))
-    assert lab_is_solved(3, repo=lab_repo)
+    assert lab_source_is_repaired(3, repo=lab_repo)
 
 
 @pytest.mark.parametrize(
@@ -363,10 +363,10 @@ def test_lab3_rejects_missing_agent_parts_and_accepts_byte_identical_restore(
     original = path.read_bytes()
     start, end, _, _ = LABS[3][1][0]
     path.write_text(_replace_block(original.decode(), start, end, body))
-    assert not lab_is_solved(3, repo=lab_repo)
+    assert not lab_source_is_repaired(3, repo=lab_repo)
     path.write_bytes(original)
     assert path.read_bytes() == original
-    assert lab_is_solved(3, repo=lab_repo)
+    assert lab_source_is_repaired(3, repo=lab_repo)
 
 
 @pytest.mark.parametrize(
@@ -436,7 +436,7 @@ def test_lab3_names_a_missing_marker_line(lab_repo):
 def test_lab3_probe_does_not_import_module_startup_code(lab_repo):
     path = lab_repo / LABS[3][0]
     path.write_text(path.read_text() + '\nraise RuntimeError("unrelated startup")\n')
-    assert lab_is_solved(3, repo=lab_repo)
+    assert lab_source_is_repaired(3, repo=lab_repo)
 
 
 def test_lab3_probe_bounds_a_nonterminating_edit(lab_repo):
@@ -447,7 +447,7 @@ def test_lab3_probe_bounds_a_nonterminating_edit(lab_repo):
     path.write_text(
         _replace_block(path.read_text(), start, end, "    while True:\n        pass")
     )
-    assert not lab_is_solved(3, repo=lab_repo)
+    assert not lab_source_is_repaired(3, repo=lab_repo)
 
 
 def test_status_reports_the_participants_lab_not_the_shipped_seam(lab_repo) -> None:
@@ -455,7 +455,7 @@ def test_status_reports_the_participants_lab_not_the_shipped_seam(lab_repo) -> N
     import json
 
     from scripts.lab_state import status_line
-    from service.participant_commands import start as start_command
+    from service.participant_commands import start_command
 
     assert status_line(1, repo=lab_repo) == "Lab 1: SOLVED"
     assert status_line(2, repo=lab_repo) == "Lab 2: NOT STARTED"
@@ -501,12 +501,12 @@ def test_lab3_source_check_names_the_next_commands_instead_of_passing(
     monkeypatch, capsys
 ):
     from scripts import lab_state
-    from service.participant_commands import DEPLOY_AGENT, complete_lab_3
+    from service.participant_commands import DEPLOY_AGENT, grade_setup_run_command
 
     monkeypatch.setattr(
         "sys.argv", ["lab_state.py", "validate", "--lab", "3", "--database-url", ""]
     )
-    monkeypatch.setattr(lab_state, "lab_is_solved", lambda *_a, **_k: True)
+    monkeypatch.setattr(lab_state, "lab_source_is_repaired", lambda *_a, **_k: True)
 
     assert lab_state.main() == 0
 
@@ -514,7 +514,7 @@ def test_lab3_source_check_names_the_next_commands_instead_of_passing(
     assert "PASS" not in output
     assert "assembled" in output
     assert DEPLOY_AGENT in output
-    assert complete_lab_3() in output
+    assert grade_setup_run_command() in output
 
 
 def test_an_unreachable_aurora_exits_with_facilitator_advice_not_a_traceback(
@@ -522,14 +522,14 @@ def test_an_unreachable_aurora_exits_with_facilitator_advice_not_a_traceback(
 ):
     import psycopg
 
-    from scripts.lab_state import assert_reset_database
+    from scripts.lab_state import assert_workshop_database
 
     def refuse(*_args, **_kwargs):
         raise psycopg.OperationalError("connection to server failed")
 
     monkeypatch.setattr("psycopg.connect", refuse)
     with pytest.raises(SystemExit) as exit_info:
-        assert_reset_database("postgresql://redacted")
+        assert_workshop_database("postgresql://redacted")
 
     message = str(exit_info.value)
     assert "facilitator" in message
@@ -562,7 +562,11 @@ def test_solution_says_what_it_overwrote_and_the_next_commands(
     monkeypatch, capsys, tmp_path, lab, expected
 ):
     from scripts import lab_state
-    from service.participant_commands import DEPLOY_AGENT, complete_lab_3, prove
+    from service.participant_commands import (
+        DEPLOY_AGENT,
+        grade_setup_run_command,
+        proof_steps_text,
+    )
 
     monkeypatch.setattr(
         "sys.argv", ["lab_state.py", "apply-solution", "--lab", str(lab)]
@@ -579,9 +583,9 @@ def test_solution_says_what_it_overwrote_and_the_next_commands(
     assert "git diff" not in output
     assert expected in output
     if lab == 3:
-        assert DEPLOY_AGENT in output and complete_lab_3() in output
+        assert DEPLOY_AGENT in output and grade_setup_run_command() in output
     else:
-        assert prove(lab) in output
+        assert proof_steps_text(lab) in output
 
 
 @pytest.mark.parametrize("lab", sorted(LABS))
@@ -654,7 +658,7 @@ def test_diff_hides_the_answer_unless_asked(lab_repo: Path, lab: int) -> None:
         "the hint printed the answer"
     )
     assert f"      {DIFF_ANSWER}" in lines
-    assert lines[-1].endswith(solution(lab))
+    assert lines[-1].endswith(apply_solution_command(lab))
 
 
 @pytest.mark.parametrize("lab", sorted(LABS))
@@ -679,7 +683,7 @@ def test_diff_shows_the_reference_against_the_participants_block(
     assert any("TODO(Lab" in line for line in lines)
     assert not any(line.startswith(("---", "+++", "@@")) for line in lines)
     assert DIFF_ANSWER not in report
-    assert lines[-1].endswith(solution(lab))
+    assert lines[-1].endswith(apply_solution_command(lab))
     assert "\033[" not in report
 
 
@@ -837,7 +841,7 @@ def test_reset_recovers_a_file_whose_marker_was_deleted(
     restored = path.read_text(encoding="utf-8")
     assert restored.count(start) == 1
     assert LABS[lab].blocks[0].broken.strip() in restored
-    assert not lab_is_solved(lab, repo=lab_repo)
+    assert not lab_source_is_repaired(lab, repo=lab_repo)
 
 
 @pytest.mark.parametrize("lab", [1, 2, 3])
@@ -851,7 +855,7 @@ def test_reset_recreates_a_deleted_lab_file(lab_repo: Path, lab: int) -> None:
     restored = path.read_text(encoding="utf-8")
     assert restored.count(LABS[lab].blocks[0].start) == 1
     assert LABS[lab].blocks[0].broken.strip() in restored
-    assert not lab_is_solved(lab, repo=lab_repo)
+    assert not lab_source_is_repaired(lab, repo=lab_repo)
 
 
 @pytest.mark.parametrize("lab", [1, 2, 3])
@@ -874,7 +878,7 @@ def test_reset_puts_back_a_deleted_lab_folder_from_git(
 
     restored = (checkout / exercise).read_text(encoding="utf-8")
     assert LABS[lab].blocks[0].broken.strip() in restored
-    assert not lab_is_solved(lab, repo=checkout)
+    assert not lab_source_is_repaired(lab, repo=checkout)
     assert (checkout / reference).read_bytes() == shipped_reference
     assert (checkout / folder / "README.md").read_bytes() == readme
 
@@ -947,10 +951,10 @@ def test_diff_tool_names_the_lab_files_for_an_unknown_file(lab_repo: Path) -> No
 
 
 def _missing_message(lab: int) -> str:
-    from service.participant_commands import reset
+    from service.participant_commands import reset_command
 
     return (
-        f"Lab {lab}: FILE MISSING ({LABS[lab].exercise}). Next: run {reset(lab)} to "
+        f"Lab {lab}: FILE MISSING ({LABS[lab].exercise}). Next: run {reset_command(lab)} to "
         "put back its starting code; your edits to that file are gone either way."
     )
 
@@ -996,7 +1000,7 @@ def test_a_deleted_exercise_is_not_solved_and_has_no_source_problem_traceback(
 
     (lab_repo / LABS[lab].exercise).unlink()
 
-    assert lab_is_solved(lab, repo=lab_repo) is False
+    assert lab_source_is_repaired(lab, repo=lab_repo) is False
     if lab == 3:
         assert "deleted" in lab3_problem(repo=lab_repo)
     else:
@@ -1135,7 +1139,7 @@ def test_validate_points_lab_1_at_its_proof_not_back_at_itself(
     monkeypatch: pytest.MonkeyPatch, capsys
 ) -> None:
     from scripts import lab_state
-    from service.participant_commands import ADVANCE_TO_LAB_2, repeat_request
+    from service.participant_commands import ADVANCE_TO_LAB_2, repeat_request_command
 
     monkeypatch.setattr(lab_state, "source_problem", lambda _lab, **_k: None)
     monkeypatch.setattr(lab_state, "_applied_problem_in", lambda *_: None)
@@ -1143,7 +1147,7 @@ def test_validate_points_lab_1_at_its_proof_not_back_at_itself(
     assert lab_state._validate_command(1, "postgresql://aurora") == 0
 
     out = capsys.readouterr().out
-    assert f"Next: {repeat_request(1)}, then {ADVANCE_TO_LAB_2}" in out
+    assert f"Next: {repeat_request_command(1)}, then {ADVANCE_TO_LAB_2}" in out
     assert "prove_lab.py" not in out
 
 
@@ -1254,14 +1258,14 @@ def test_lab_3_is_solved_only_after_the_deployed_agent_passed_completion(
     lab_repo: Path,
 ) -> None:
     from scripts.lab_state import status_line
-    from service.participant_commands import ask_setup, complete_lab_3
+    from service.participant_commands import ask_setup_command, grade_setup_run_command
 
     _lab_3_started(lab_repo)
     assert status_line(3, repo=lab_repo).startswith("Lab 3: REPAIRED, NOT DEPLOYED")
 
     _lab_3_deployed(lab_repo, "2026-10-29T11:00:00+00:00")
     assert status_line(3, repo=lab_repo) == (
-        f"Lab 3: DEPLOYED, NOT YET PROVED. Next: {ask_setup()}, then {complete_lab_3()}"
+        f"Lab 3: DEPLOYED, NOT YET PROVED. Next: {ask_setup_command()}, then {grade_setup_run_command()}"
     )
 
     _lab_3_graded(lab_repo, "FAIL", "2026-10-29T11:30:00+00:00")

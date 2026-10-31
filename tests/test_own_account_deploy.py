@@ -1005,7 +1005,7 @@ def test_the_probe_step_refuses_a_fork_the_host_cannot_clone(tmp_path, monkeypat
 # ---------------------------------------------------------------- check
 def test_check_probes_the_requested_region(tmp_path, monkeypatch):
     calls = recorded_runs(monkeypatch)
-    deploy.check_models(live_context(tmp_path, FakeS3(), [], region="us-west-2"))
+    deploy.probe_model_access(live_context(tmp_path, FakeS3(), [], region="us-west-2"))
     command = calls[0][0]
     assert command[command.index("--region") + 1] == "us-west-2"
 
@@ -2239,7 +2239,7 @@ def test_a_delete_blocked_by_agentcores_interface_deletes_everything_else(
     fake = FakeStackTree(["DELETE_FAILED"], BLOCKED_TREE, [AGENTCORE_INTERFACE])
     lines: list[str] = []
     ctx = live_context(tmp_path, fake, lines)
-    deploy.wait_for_delete(ctx)
+    deploy.wait_for_delete_setting_aside_held(ctx)
     assert fake.deletes == [
         {
             "StackName": "mosaic-hybrid-retrieval",
@@ -2258,7 +2258,7 @@ def test_a_delete_blocked_by_anything_else_is_still_refused(tmp_path, no_sleep):
     fake = FakeStackTree(["DELETE_FAILED"], BLOCKED_TREE, [other])
     ctx = live_context(tmp_path, fake, [])
     with pytest.raises(deploy.Refusal, match="DELETE_FAILED"):
-        deploy.wait_for_delete(ctx)
+        deploy.wait_for_delete_setting_aside_held(ctx)
     assert fake.deletes == []
     assert ctx.pending == []
 
@@ -2268,7 +2268,7 @@ def test_a_delete_that_completes_needs_no_second_pass(tmp_path, no_sleep):
         ["DELETE_IN_PROGRESS", None], BLOCKED_TREE, [AGENTCORE_INTERFACE]
     )
     ctx = live_context(tmp_path, fake, [])
-    deploy.wait_for_delete(ctx)
+    deploy.wait_for_delete_setting_aside_held(ctx)
     assert fake.deletes == [] and ctx.pending == []
 
 
@@ -2308,7 +2308,7 @@ def test_a_later_teardown_deletes_what_the_first_set_aside_once_nothing_holds_it
     set-aside security groups still kept, so the stack stayed DELETE_FAILED."""
     fake = FakeSetAsideTree(interfaces=[])
     lines: list[str] = []
-    deploy.delete_stack_root(live_context(tmp_path, fake, lines))
+    deploy.delete_set_aside_then_stack(live_context(tmp_path, fake, lines))
     assert fake.order == ["arn:editor", "sg-client", "mosaic-hybrid-retrieval"]
     assert "CodeEditorStack" in "\n".join(lines)
 
@@ -2316,20 +2316,20 @@ def test_a_later_teardown_deletes_what_the_first_set_aside_once_nothing_holds_it
 def test_set_aside_resources_wait_while_agentcore_still_holds_them(tmp_path, no_sleep):
     fake = FakeSetAsideTree(interfaces=[AGENTCORE_INTERFACE])
     lines: list[str] = []
-    deploy.delete_stack_root(live_context(tmp_path, fake, lines))
+    deploy.delete_set_aside_then_stack(live_context(tmp_path, fake, lines))
     assert fake.order == ["mosaic-hybrid-retrieval"]
     assert "eni-agentcore" in "\n".join(lines)
 
 
 def test_a_set_aside_group_already_gone_does_not_stop_the_teardown(tmp_path, no_sleep):
     fake = FakeSetAsideTree(interfaces=[], missing_groups={"sg-client"})
-    deploy.delete_stack_root(live_context(tmp_path, fake, []))
+    deploy.delete_set_aside_then_stack(live_context(tmp_path, fake, []))
     assert fake.order == ["arn:editor", "sg-client", "mosaic-hybrid-retrieval"]
 
 
 def test_a_first_teardown_only_deletes_the_stack(tmp_path, no_sleep):
     fake = FakeStackTree(["DELETE_COMPLETE"], BLOCKED_TREE, [])
-    deploy.delete_stack_root(live_context(tmp_path, fake, []))
+    deploy.delete_set_aside_then_stack(live_context(tmp_path, fake, []))
     assert fake.deletes == [{"StackName": "mosaic-hybrid-retrieval"}]
 
 

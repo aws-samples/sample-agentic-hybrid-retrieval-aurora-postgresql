@@ -28,7 +28,7 @@ from service import coverage
 from service.coverage import (
     QueryCoverage,
     TermCoverage,
-    summarize,
+    decide_coverage,
     unanchored_note,
 )
 
@@ -115,14 +115,14 @@ CHARGING_BRICK_TERMS = [
 
 def test_all_misspelled_query_stays_grounded():
     """The Lab 1 falsifier. Zero exact matches is not evidence of absence."""
-    result = summarize(LAB1_MISSPELLED_TERMS)
+    result = decide_coverage(LAB1_MISSPELLED_TERMS)
     assert result.confidence == "grounded"
     assert result.unmatched_terms == []
     assert result.is_anchored is True
 
 
 def test_absent_model_number_is_unanchored():
-    result = summarize(CHARGING_BRICK_TERMS)
+    result = decide_coverage(CHARGING_BRICK_TERMS)
     assert result.confidence == "unanchored"
     assert result.unmatched_terms == ["A2342"]
     assert result.is_anchored is False
@@ -130,14 +130,14 @@ def test_absent_model_number_is_unanchored():
 
 def test_unanchored_note_names_the_term_not_the_mechanism():
     """A shopper reads this. It must not say 'lexeme' or 'fuzzy'."""
-    result = summarize(CHARGING_BRICK_TERMS)
+    result = decide_coverage(CHARGING_BRICK_TERMS)
     assert "A2342" in result.note
     for mechanism in ("lexeme", "fuzzy", "tsvector", "ndoc"):
         assert mechanism not in result.note.lower()
 
 
 def test_note_is_empty_when_grounded():
-    assert summarize(LAB1_MISSPELLED_TERMS).note == ""
+    assert decide_coverage(LAB1_MISSPELLED_TERMS).note == ""
     assert unanchored_note([]) == ""
 
 
@@ -146,7 +146,7 @@ def test_note_pluralizes_on_multiple_unmatched_terms():
         _term("A2342", "unmatched_anchor", ordinal=1, token_kind="numword"),
         _term("X9911", "unmatched_anchor", ordinal=2, token_kind="numword"),
     ]
-    result = summarize(terms)
+    result = decide_coverage(terms)
     assert result.unmatched_terms == ["A2342", "X9911"]
     assert "terms 'A2342', 'X9911'" in result.note
 
@@ -156,13 +156,13 @@ def test_matched_and_ignored_terms_alone_are_grounded():
         _term("the", "ignored", ordinal=1),
         _term("chargers", "matched", ordinal=2, ndoc=9120),
     ]
-    assert summarize(terms).confidence == "grounded"
+    assert decide_coverage(terms).confidence == "grounded"
 
 
 def test_one_unmatched_anchor_among_matches_still_unanchored():
     """Partial anchoring is the actual failure. Most of the query matching is
     exactly what makes the wrong answer look right."""
-    result = summarize(CHARGING_BRICK_TERMS)
+    result = decide_coverage(CHARGING_BRICK_TERMS)
     matched = [t for t in CHARGING_BRICK_TERMS if t.verdict == "matched"]
     assert len(matched) == 4
     assert result.confidence == "unanchored"
@@ -170,11 +170,11 @@ def test_one_unmatched_anchor_among_matches_still_unanchored():
 
 def test_empty_term_list_is_grounded_not_unanchored():
     """A request with nothing to classify has named nothing absent."""
-    assert summarize([]).confidence == "grounded"
+    assert decide_coverage([]).confidence == "grounded"
 
 
 def test_summarize_preserves_every_term_for_inspection():
-    result = summarize(CHARGING_BRICK_TERMS)
+    result = decide_coverage(CHARGING_BRICK_TERMS)
     assert [t.token for t in result.terms] == [
         "replacement",
         "charging",
@@ -332,7 +332,7 @@ def test_an_identifier_token_is_refused_however_close_its_neighbour(kind):
     Python layer starts re-deriving recoverability from `closest_similarity`
     instead of reading the verdict the SQL reached.
     """
-    result = summarize(
+    result = decide_coverage(
         [
             _term("charger", "matched", ordinal=1, ndoc=9120),
             _term(

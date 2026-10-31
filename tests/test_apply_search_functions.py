@@ -97,7 +97,7 @@ def apply_command(monkeypatch):
     """`main()` with Aurora's connection and the reset guard replaced."""
     monkeypatch.setenv("DATABASE_URL", "postgresql://redacted")
     monkeypatch.setattr(
-        apply_search_functions, "assert_reset_database", lambda _dsn: None
+        apply_search_functions, "assert_workshop_database", lambda _dsn: None
     )
     monkeypatch.setattr(psycopg, "connect", lambda *_, **__: MagicMock())
     monkeypatch.setattr(
@@ -250,7 +250,7 @@ def test_an_unreachable_database_before_the_apply_exits_cleanly(monkeypatch):
     def refuse(_dsn):
         raise psycopg.OperationalError("connection refused")
 
-    monkeypatch.setattr(apply_search_functions, "assert_reset_database", refuse)
+    monkeypatch.setattr(apply_search_functions, "assert_workshop_database", refuse)
     monkeypatch.setattr(
         apply_search_functions, "apply", lambda *_a, **_k: pytest.fail("applied")
     )
@@ -273,7 +273,7 @@ def test_applying_with_a_lab_file_deleted_names_the_way_back_not_a_traceback(
     monkeypatch.setattr(apply_search_functions, "ROOT", tmp_path)
     monkeypatch.setattr(
         apply_search_functions,
-        "assert_reset_database",
+        "assert_workshop_database",
         lambda _dsn: pytest.fail("reached Aurora with a lab file missing"),
     )
 

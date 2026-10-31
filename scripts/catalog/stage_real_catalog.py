@@ -130,8 +130,12 @@ def create_staging_tables(conn) -> None:
     """)
 
 
-def initialize(conn, dataset: str, manifest: dict) -> None:
-    """Create a separate dataset record, refusing to overwrite another selection."""
+def create_dataset_record(conn, dataset: str, manifest: dict) -> None:
+    """Create the dataset record (and the staging tables), refusing another selection.
+
+    Writes and commits: staging tables if missing and one `mosaic_catalog_stage.dataset`
+    row; a dataset ID holding a different selection raises instead.
+    """
     require_aurora_writer(conn, dataset)
     create_staging_tables(conn)
     conn.execute(
@@ -174,7 +178,8 @@ def iter_record_pages(directory: Path):
         yield page
 
 
-def loaded(conn, dataset: str, key: str, kind: str) -> bool:
+def is_batch_loaded(conn, dataset: str, key: str, kind: str) -> bool:
+    """Whether this batch was already recorded as loaded; reads only."""
     return (
         conn.execute(
             "SELECT 1 FROM mosaic_catalog_stage.loaded_batch WHERE dataset_id=%s AND batch_sha256=%s AND kind=%s",
@@ -184,7 +189,8 @@ def loaded(conn, dataset: str, key: str, kind: str) -> bool:
     )
 
 
-def mark_batch(conn, dataset: str, key: str, kind: str, count: int) -> None:
+def mark_batch_loaded(conn, dataset: str, key: str, kind: str, count: int) -> None:
+    """Record one loaded batch in `loaded_batch` and commit."""
     conn.execute(
         "INSERT INTO mosaic_catalog_stage.loaded_batch (dataset_id, batch_sha256, kind, products) VALUES (%s,%s,%s,%s)",
         (dataset, key, kind, count),
@@ -202,7 +208,7 @@ def load_records(conn, dataset: str, directory: Path, expected: int) -> None:
                 [[row["parent_asin"], row["source_record_sha256"]] for row in rows]
             )
         )
-        if not loaded(conn, dataset, key, "records"):
+        if not is_batch_loaded(conn, dataset, key, "records"):
             with conn.cursor().copy("""
                 COPY mosaic_catalog_stage.product
                 (dataset_id, parent_asin, source_department, original,
@@ -224,7 +230,7 @@ def load_records(conn, dataset: str, directory: Path, expected: int) -> None:
                             row["embedding_text_sha256"],
                         )
                     )
-            mark_batch(conn, dataset, key, "records", len(rows))
+            mark_batch_loaded(conn, dataset, key, "records", len(rows))
         count += len(rows)
         if count % 10000 == 0:
             print(
@@ -442,7 +448,7 @@ def main() -> None:
     with psycopg.connect(
         dsn, connect_timeout=10, application_name="mosaic-real-catalog-stage"
     ) as conn:
-        initialize(conn, args.dataset_id, manifest)
+        create_dataset_record(conn, args.dataset_id, manifest)
         if args.phase == "records":
             load_records(conn, args.dataset_id, args.selection, manifest["products"])
         elif args.phase == "embeddings":

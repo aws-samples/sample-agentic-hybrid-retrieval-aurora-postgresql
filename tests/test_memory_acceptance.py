@@ -14,7 +14,7 @@ def test_bootstrap_memory_cookie_round_trips_without_weakening_https():
     """The real cookie producer and HTTPX jar must agree on the probe scheme."""
     from fastapi import HTTPException, Request, Response
 
-    from service.session_memory import _actor, shopper_id
+    from service.session_memory import _actor, resolve_or_issue_shopper_id
 
     bootstrap = (Path(__file__).parents[1] / "deploy/mosaic-bootstrap.sh").read_text()
     api = re.search(r"--api (\S+) --memory-id", bootstrap)[1]
@@ -36,7 +36,7 @@ def test_bootstrap_memory_cookie_round_trips_without_weakening_https():
             )
             response = Response()
             if request.method == "GET":
-                shopper_id(incoming, response)
+                resolve_or_issue_shopper_id(incoming, response)
             else:
                 try:
                     _actor(incoming)

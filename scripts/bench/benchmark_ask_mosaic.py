@@ -101,7 +101,7 @@ def _activate_models(agent_model_id: str, synthesis_model_id: str) -> None:
 
 def _controlled_context(question: str, result_limit: int):
     """Retrieve one stable product/evidence set for a fair synthesis comparison."""
-    from service.catalog import get_product_evidence_records
+    from service.catalog import fetch_and_register_product_evidence
     from service.models import SearchFilters, SearchRequest
     from service.retrieval import get_retrieval_service
 
@@ -123,7 +123,7 @@ def _controlled_context(question: str, result_limit: int):
     evidence = []
     evidence_query_embedding = retrieval_service.embed_query(question)
     for candidate in result.results:
-        records = get_product_evidence_records(
+        records = fetch_and_register_product_evidence(
             candidate.product_id,
             question,
             evidence_query_embedding,

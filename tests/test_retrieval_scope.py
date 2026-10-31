@@ -329,7 +329,7 @@ def test_evidence_route_serves_a_granted_product(monkeypatch):
     monkeypatch.setattr(main, "get_retrieval_service", lambda: FakeRetrieval())
     monkeypatch.setattr(
         main,
-        "get_product_evidence_records",
+        "fetch_and_register_product_evidence",
         lambda product_id, query, embedding, *, limit: [_evidence_record()],
     )
     monkeypatch.setattr(

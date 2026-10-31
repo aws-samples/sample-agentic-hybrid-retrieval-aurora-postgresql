@@ -125,7 +125,7 @@ def _turns(monkeypatch, turns: list[dict]) -> None:
 def test_no_checkable_setup_run_says_how_to_make_one(
     monkeypatch, capsys, workspace, turns, said
 ) -> None:
-    from service.participant_commands import ask_setup
+    from service.participant_commands import ask_setup_command
 
     _turns(monkeypatch, turns)
     monkeypatch.setattr(sys, "argv", ["grade_setup_run.py"])
@@ -133,7 +133,7 @@ def test_no_checkable_setup_run_says_how_to_make_one(
     assert grade_setup_run.main() == 2
 
     output = capsys.readouterr().out
-    assert said in output and ask_setup() in output
+    assert said in output and ask_setup_command() in output
     assert workspace == []
 
 

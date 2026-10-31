@@ -22,8 +22,11 @@ from scripts.investigate_lab import paired_searches
 from scripts.prove_lab import LabValidationError, _request, _require, _search
 from service import lab_checks
 from service.lab_checks import FACILITATOR
-from service.participant_commands import complete_lab_3, repeat_request
-from service.participant_commands import start as start_command
+from service.participant_commands import (
+    grade_setup_run_command,
+    repeat_request_command,
+    start_command,
+)
 
 NEW_TERMINAL = (
     "open a new terminal from the Terminal menu; it loads the workshop settings"
@@ -221,12 +224,12 @@ def _without_before(lab: int, output: Path) -> str:
     if lab == 3:
         raise LabValidationError(
             f"there is no saved failing Retrieval agent turn in {path} to compare with. Lab 3 "
-            f"is checked on your own saved run instead: {complete_lab_3()}"
+            f"is checked on your own saved run instead: {grade_setup_run_command()}"
         )
     if not record.get("completed_at"):
         raise LabValidationError(
             f"Lab {lab} has not started, so there is no saved failing request to "
-            f"compare with.\nNext: {start_command(lab)}\nThen: {repeat_request(lab)}"
+            f"compare with.\nNext: {start_command(lab)}\nThen: {repeat_request_command(lab)}"
         )
     if (record.get("steps", {}).get("evidence") or {}).get("search_event_id"):
         return (

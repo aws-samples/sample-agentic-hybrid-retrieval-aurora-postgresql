@@ -21,7 +21,7 @@ from service.answerability import (
     PartlySupportedSelection,
     SynthesisDeclined,
 )
-from service.catalog import get_product_evidence_records, get_product_summaries
+from service.catalog import fetch_and_register_product_evidence, get_product_summaries
 from service.catalog_runtime import active_dataset, search_schema
 from service.config import get_settings
 from service.coverage import decline_note, decline_reason, near_listing
@@ -101,7 +101,7 @@ class ConversationContextError(RuntimeError):
 class CoverageContractError(RuntimeError):
     """A coverage verdict reached the decline gate in a shape it cannot decide.
 
-    Raised rather than absorbed. Every shape `service.coverage.summarize`
+    Raised rather than absorbed. Every shape `service.coverage.decide_coverage`
     produces has a documented verdict here, so an undecidable one means the
     reduction changed and the gate is now guessing.
     """
@@ -476,11 +476,11 @@ def _stopping_error(
         if isinstance(stopping, AgentSetupError)
         else f"{name} stopped: {type(stopping).__name__}."
     )
-    _record(name, arguments, started, detail=detail, outcome="error")
+    _append_trace_step(name, arguments, started, detail=detail, outcome="error")
     return stopping
 
 
-def _record(
+def _append_trace_step(
     name: str,
     arguments: dict[str, Any],
     started: float,
@@ -492,6 +492,10 @@ def _record(
     origin: Literal["model", "controller_fallback"] | None = None,
     search_sql_sha256: str | None = None,
 ) -> None:
+    """Append one step to the run's trace and notify the progress callback.
+
+    Writes only to the in-memory run state; `persist_completed_run` saves the trace.
+    """
     state = _state()
     route = None
     if name in CATALOG_TOOLS:
@@ -853,7 +857,7 @@ def search_products(
         if stopping is not None:
             raise stopping from error
         logger.warning("search_products failed: error_type=%s", type(error).__name__)
-        _record(
+        _append_trace_step(
             "search_products",
             arguments,
             started,
@@ -896,7 +900,7 @@ def search_products(
         }
     )
     if not ranked_results:
-        _record(
+        _append_trace_step(
             "search_products",
             arguments,
             started,
@@ -919,7 +923,7 @@ def search_products(
         }
     for product in ranked_results:
         state["products"].setdefault(product.product_id, product)
-    _record(
+    _append_trace_step(
         "search_products",
         arguments,
         started,
@@ -1035,7 +1039,7 @@ def get_product_evidence(product_id: int, evidence_query: str) -> dict[str, Any]
             evidence = ProductEvidenceResponse.model_validate(result).evidence
         else:
             query_embedding = get_retrieval_service().embed_query(evidence_query)
-            evidence = get_product_evidence_records(
+            evidence = fetch_and_register_product_evidence(
                 product_id,
                 evidence_query,
                 query_embedding,
@@ -1050,7 +1054,7 @@ def get_product_evidence(product_id: int, evidence_query: str) -> dict[str, Any]
         logger.warning(
             "get_product_evidence failed: error_type=%s", type(error).__name__
         )
-        _record(
+        _append_trace_step(
             "get_product_evidence",
             arguments,
             started,
@@ -1063,7 +1067,7 @@ def get_product_evidence(product_id: int, evidence_query: str) -> dict[str, Any]
             "retry with a focused evidence question or another retrieved product.",
         )
     if not evidence:
-        _record(
+        _append_trace_step(
             "get_product_evidence",
             arguments,
             started,
@@ -1076,7 +1080,7 @@ def get_product_evidence(product_id: int, evidence_query: str) -> dict[str, Any]
             "choose another retrieved product or state the evidence gap.",
         )
     register_evidence(state, product_id, evidence)
-    _record(
+    _append_trace_step(
         "get_product_evidence",
         arguments,
         started,
@@ -1120,7 +1124,7 @@ def compare_products(product_ids: list[int]) -> dict[str, Any]:
             "compare products from the current retrieval or previous grounded answer.",
         )
     products = [state["products"][item] for item in unique_ids]
-    _record(
+    _append_trace_step(
         "compare_products",
         {"product_ids": unique_ids},
         started,
@@ -1197,7 +1201,7 @@ def explain_retrieval(search_event_id: str) -> dict[str, Any]:
         candidates = replay["candidates"][:12]
     else:
         event, candidates = _read_ranking_event(parsed)
-    _record(
+    _append_trace_step(
         "explain_retrieval",
         {"search_event_id": search_event_id},
         started,
@@ -1253,7 +1257,7 @@ def coverage_refusal(state: dict[str, Any]) -> tuple[str, str] | None:
       working guardrail.
 
     This reads the verdicts recorded so far, so it is a snapshot rather than a
-    final judgement. The chosen consequence: once `record_declined_answer` has
+    final judgement. The chosen consequence: once `set_declined_answer_of_record` has
     written the declining answer of record, a later grounded search does not
     revoke it. The answer of record is written once per turn, the prompt bounds
     `synthesize_cited_answer` to one call, and a turn that synthesized and then
@@ -1270,7 +1274,7 @@ def coverage_refusal(state: dict[str, Any]) -> tuple[str, str] | None:
 
     Raises:
         CoverageContractError: When a verdict claims `unanchored` but names no
-            unmatched term. `coverage.summarize` cannot produce that pair, so it
+            unmatched term. `coverage.decide_coverage` cannot produce that pair, so it
             means the reduction changed underneath this gate. Returning `None`
             instead would let an unanchored run recommend, and declining would
             write an answer of record that names no term.
@@ -1287,7 +1291,7 @@ def coverage_refusal(state: dict[str, Any]) -> tuple[str, str] | None:
         raise CoverageContractError(
             explain(
                 "an 'unanchored' coverage verdict with no unmatched_terms",
-                "service.coverage.summarize returns 'unanchored' only with a "
+                "service.coverage.decide_coverage returns 'unanchored' only with a "
                 "non-empty unmatched list; restore that invariant or teach "
                 "coverage_refusal what the new pair means",
             )
@@ -1301,8 +1305,8 @@ def coverage_refusal(state: dict[str, Any]) -> tuple[str, str] | None:
     return decline_note(unmatched, near), decline_reason(unmatched)
 
 
-def record_declined_answer(state: dict[str, Any]) -> bool:
-    """Write the declining answer of record, if this run declines.
+def set_declined_answer_of_record(state: dict[str, Any]) -> bool:
+    """Set the declining answer of record on `state`, if this run declines.
 
     The answer of record still exists; it just recommends nothing. Leaving it
     unset would raise out of `ProductDiscoveryAgent._response` as a 503, which
@@ -1356,10 +1360,13 @@ def _excluded_inherited_products(
     return excluded
 
 
-def record_unsupported_answer(
+def set_unsupported_answer_of_record(
     state: dict[str, Any], decline: SynthesisDeclined | None = None
 ) -> None:
-    """Persist a refusal without attaching unrelated recommendation cards."""
+    """Set a refusal as the answer of record, with no recommendation cards.
+
+    Writes `state["answer_of_record"]`; `persist_completed_run` saves it later.
+    """
     reason = decline.review.reason if decline else "no_supported_catalog_answer"
     unmet = decline.review.unmet_requirements if decline else []
     note = {
@@ -1396,8 +1403,13 @@ def record_unsupported_answer(
     }
 
 
-def record_no_results_answer(state: dict[str, Any]) -> bool:
-    """Explain completed empty searches without hiding dependency failures."""
+def set_no_results_answer_of_record(state: dict[str, Any]) -> bool:
+    """Set the no-matching-products answer of record after completed empty searches.
+
+    Writes `state["answer_of_record"]` and returns True; returns False, writing
+    nothing, when a search failed or found products, so a dependency failure stays
+    visible.
+    """
     searches = state["searches"]
     attempts = [step for step in state["trace"] if step["tool"] == "search_products"]
     if (
@@ -1474,12 +1486,12 @@ def synthesize_cited_answer(
             "A draft failed citation checks; changing products cannot repair that draft.",
             f"Retry synthesis with the same product IDs {retry_ids} and correct the cited claims.",
         )
-    if record_declined_answer(state):
+    if set_declined_answer_of_record(state):
         # Checked before the product bounds, because which products the model
         # chose cannot matter: every search this turn named something the
         # catalog does not carry, so no selection of them is grounded.
         record = state["answer_of_record"]
-        _record(
+        _append_trace_step(
             "synthesize_cited_answer",
             {"question": question, "product_ids": unique_ids},
             started,
@@ -1504,7 +1516,7 @@ def synthesize_cited_answer(
         )
     excluded = _excluded_inherited_products(state, unique_ids)
     if excluded:
-        _record(
+        _append_trace_step(
             "synthesize_cited_answer",
             {"question": question, "product_ids": unique_ids},
             started,
@@ -1524,7 +1536,7 @@ def synthesize_cited_answer(
         and step.get("outcome", "success") == "success"
     ]
     if state["searches"] and len(explanations) != 1:
-        _record(
+        _append_trace_step(
             "synthesize_cited_answer",
             {"question": question, "product_ids": unique_ids},
             started,
@@ -1541,7 +1553,7 @@ def synthesize_cited_answer(
             "before synthesis.",
         )
     if len(unique_ids) > 1 and not _comparison_covers(state, unique_ids):
-        _record(
+        _append_trace_step(
             "synthesize_cited_answer",
             {"question": question, "product_ids": unique_ids},
             started,
@@ -1559,7 +1571,7 @@ def synthesize_cited_answer(
         if not state["evidence_by_product"].get(product_id)
     ]
     if missing_evidence:
-        _record(
+        _append_trace_step(
             "synthesize_cited_answer",
             {"question": question, "product_ids": unique_ids},
             started,
@@ -1586,8 +1598,8 @@ def synthesize_cited_answer(
             current_request=state["question"],
         )
     except SynthesisDeclined as decline:
-        record_unsupported_answer(state, decline)
-        _record(
+        set_unsupported_answer_of_record(state, decline)
+        _append_trace_step(
             "synthesize_cited_answer",
             {"question": state["question"], "product_ids": unique_ids},
             started,
@@ -1601,7 +1613,7 @@ def synthesize_cited_answer(
             "citations": [],
         }
     except PartlySupportedSelection as partial:
-        _record(
+        _append_trace_step(
             "synthesize_cited_answer",
             {"question": question, "product_ids": unique_ids},
             started,
@@ -1631,7 +1643,7 @@ def synthesize_cited_answer(
         # The application's own check errors name the rule and the offending IDs
         # or sentence, so the trace says which check failed, not just its type.
         named = isinstance(error, (AnswerabilityError, SynthesisOutputError))
-        _record(
+        _append_trace_step(
             "synthesize_cited_answer",
             {"question": question, "product_ids": unique_ids},
             started,
@@ -1661,7 +1673,7 @@ def synthesize_cited_answer(
     }
     detail = f"Validated and persisted {len(citations)} source citation(s)."
     detail += _left_out_note(left_out) + _lead_note(agent_lead, promoted, products)
-    _record(
+    _append_trace_step(
         "synthesize_cited_answer",
         {"question": question, "product_ids": unique_ids},
         started,
@@ -1707,16 +1719,20 @@ def _fallback_product_ids(state: dict[str, Any]) -> list[int]:
     return selected[:limit]
 
 
-def complete_grounded_answer(question: str) -> None:
-    """Complete missing grounded steps and label them as controller-owned."""
+def run_controller_fallback(question: str) -> None:
+    """Complete missing grounded steps and label them as controller-owned.
+
+    Writes: the steps it runs append to the run's trace, and the final step may set the
+    answer of record.
+    """
     token = _TRACE_ORIGIN.set("controller_fallback")
     try:
-        _complete_grounded_answer(question)
+        _fill_missing_steps_then_finalize(question)
     finally:
         _TRACE_ORIGIN.reset(token)
 
 
-def _complete_grounded_answer(question: str) -> None:
+def _fill_missing_steps_then_finalize(question: str) -> None:
     """Complete missing compare/evidence steps over retrieved products only."""
     state = _state()
     product_ids = _fallback_product_ids(state)
@@ -1813,8 +1829,8 @@ def finalize_retrieved_answer(
             state, products, started
         )
     except SynthesisDeclined as decline:
-        record_unsupported_answer(state, decline)
-        _record(
+        set_unsupported_answer_of_record(state, decline)
+        _append_trace_step(
             "synthesize_cited_answer",
             {"question": state["question"], "product_ids": selected_ids},
             started,
@@ -1831,7 +1847,7 @@ def finalize_retrieved_answer(
         "recommendations": recommendations_in_answer_order(answer, products, citations),
         "usage": usage,
     }
-    _record(
+    _append_trace_step(
         "synthesize_cited_answer",
         {
             "question": question,
@@ -1895,7 +1911,7 @@ def _synthesize_supported(
     try:
         return products, synthesize(products)
     except PartlySupportedSelection as partial:
-        _record(
+        _append_trace_step(
             "synthesize_cited_answer",
             {
                 "question": state["question"],

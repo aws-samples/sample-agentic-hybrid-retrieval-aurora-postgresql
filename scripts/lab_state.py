@@ -39,19 +39,19 @@ from service.participant_commands import (
     DIFF,
     DIFF_ANSWER,
     USUAL_SECONDS,
-    ask_setup,
-    complete_lab_3,
-    exercise_check,
-    finish,
+    apply_solution_command,
+    ask_setup_command,
+    finish_command,
     finish_steps,
-    prove,
-    repeat_request,
-    reset,
-    skip_to,
-    solution,
-    validate_applied,
+    grade_exercise_command,
+    grade_setup_run_command,
+    proof_steps_text,
+    repeat_request_command,
+    reset_command,
+    skip_to_command,
+    start_command,
+    validate_applied_command,
 )
-from service.participant_commands import start as start_command
 
 #: Slack for one reciprocal-rank contribution read back out of PostgreSQL by
 #: calling `mosaic_search.reciprocal_rank_contribution` directly. Not a
@@ -277,7 +277,7 @@ def _diff_footer(
                 "as the original file has them."
             ),
             "To start over instead (it discards your edits to this lab):",
-            f"{COMMAND_INDENT}{reset(lab)}",
+            f"{COMMAND_INDENT}{reset_command(lab)}",
         ]
     if block_differs and lab == 3:
         footer += [
@@ -286,14 +286,14 @@ def _diff_footer(
                 "some difference is expected."
             ),
             f"Deploy:   {DEPLOY_AGENT}",
-            f"Check:    {complete_lab_3()}",
+            f"Check:    {grade_setup_run_command()}",
         ]
     elif block_differs:
-        check = ADVANCE_TO_LAB_2 if lab == 1 else exercise_check(lab)
+        check = ADVANCE_TO_LAB_2 if lab == 1 else grade_exercise_command(lab)
         footer += [
             "A different line is not always wrong: other SQL can work too.",
             f"Apply:    {APPLY_SQL}",
-            f"Prove:    {repeat_request(lab)}",
+            f"Prove:    {repeat_request_command(lab)}",
             f"Then:     {check}",
         ]
     if block_differs and not answer:
@@ -304,7 +304,7 @@ def _diff_footer(
     if block_differs:
         footer += [
             "To use the reference answer instead (it replaces your block):",
-            f"{COMMAND_INDENT}{solution(lab)}",
+            f"{COMMAND_INDENT}{apply_solution_command(lab)}",
         ]
     return footer
 
@@ -621,7 +621,7 @@ def _markers_problem(source: str, start: str, end: str) -> str | None:
     return (
         f"{' and '.join(faults)}: your edit goes between the lines '{start}' and "
         f"'{end}', each once and in that order, with the first directly under "
-        f"'{anchor}'; put the marker lines back, or run {reset(lab)} to put back "
+        f"'{anchor}'; put the marker lines back, or run {reset_command(lab)} to put back "
         f"the starting code (it discards your Lab {lab} edits)"
     )
 
@@ -807,11 +807,12 @@ def _lab3_matches_contract(source: str) -> bool:
 def lab3_problem(*, repo: Path = REPO) -> str | None:
     """Say why the saved `agent.py` cannot run as the Retrieval agent, or None."""
     if missing_file_problem(3, repo):
-        return f"{LABS[3][0]} was deleted; run {reset(3)} to put back its starting code"
+        return f"{LABS[3][0]} was deleted; run {reset_command(3)} to put back its starting code"
     return lab3_contract_problem((repo / LABS[3][0]).read_text(encoding="utf-8"))
 
 
-def lab_is_solved(lab: int, *, repo: Path = REPO) -> bool:
+def lab_source_is_repaired(lab: int, *, repo: Path = REPO) -> bool:
+    """Whether the lab's saved source holds the repair; reads the file and writes nothing."""
     relative_path, _ = LABS[lab]
     if missing_file_problem(lab, repo):
         return False
@@ -943,7 +944,7 @@ def _lab_2_database_state(connection: Any) -> LabDatabaseState:
     )
 
 
-def validate_database(
+def read_applied_sql_state(
     lab: int, connection: Any, *, repo: Path = REPO
 ) -> LabDatabaseState:
     """Report whether Aurora holds the repair this lab's source declares.
@@ -1006,7 +1007,7 @@ def missing_file_problem(lab: int, repo: Path = REPO) -> LabProblem | None:
         return None
     return LabProblem(
         f"Lab {lab}: FILE MISSING ({exercise}).",
-        f"run {reset(lab)} to put back its starting code; your edits to that file "
+        f"run {reset_command(lab)} to put back its starting code; your edits to that file "
         "are gone either way.",
     )
 
@@ -1048,7 +1049,9 @@ def status_line(lab: int, *, repo: Path = REPO) -> str:
         )
     if lab == 3:
         return _lab_3_status(repo)
-    return f"Lab {lab}: {'SOLVED' if lab_is_solved(lab, repo=repo) else 'BROKEN'}"
+    return (
+        f"Lab {lab}: {'SOLVED' if lab_source_is_repaired(lab, repo=repo) else 'BROKEN'}"
+    )
 
 
 def _lab_3_passed_since(deployed_at: datetime, repo: Path) -> bool:
@@ -1067,9 +1070,9 @@ def _lab_3_passed_since(deployed_at: datetime, repo: Path) -> bool:
 def _lab_3_status(repo: Path) -> str:
     """Lab 3 is solved by a passing run of the participant's deployed agent, not by source."""
     from service.agent_deploys import lab_3_started_at, load_deploys
-    from service.participant_commands import ask_setup, complete_lab_3
+    from service.participant_commands import ask_setup_command, grade_setup_run_command
 
-    if not lab_is_solved(3, repo=repo):
+    if not lab_source_is_repaired(3, repo=repo):
         return "Lab 3: BROKEN"
     try:
         started = lab_3_started_at(repo)
@@ -1080,9 +1083,7 @@ def _lab_3_status(repo: Path) -> str:
         return f"Lab 3: REPAIRED, NOT DEPLOYED. Next: deploy with {DEPLOY_AGENT}."
     if _lab_3_passed_since(deploys[-1].deployed_at, repo):
         return "Lab 3: SOLVED"
-    return (
-        f"Lab 3: DEPLOYED, NOT YET PROVED. Next: {ask_setup()}, then {complete_lab_3()}"
-    )
+    return f"Lab 3: DEPLOYED, NOT YET PROVED. Next: {ask_setup_command()}, then {grade_setup_run_command()}"
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -1139,10 +1140,12 @@ def solution_summary(lab: int, path: Path, *, run_by: str | None = None) -> str:
     if lab == 3:
         next_step = (
             f"deploy with {DEPLOY_AGENT}, ask Alex's setup request with "
-            f"{ask_setup()}, then check that run with {complete_lab_3()}"
+            f"{ask_setup_command()}, then check that run with {grade_setup_run_command()}"
         )
     else:
-        next_step = f"apply it with {APPLY_SQL}, then prove it with {prove(lab)}"
+        next_step = (
+            f"apply it with {APPLY_SQL}, then prove it with {proof_steps_text(lab)}"
+        )
     return f"{overwrote}\nNext: {next_step}."
 
 
@@ -1197,14 +1200,14 @@ def finish_lab(lab: int) -> int:
     """
     labs = [*_earlier_labs_to_finish(lab), lab]
     steps = [step for number in labs for step in finish_steps(number)]
-    code = _run_steps(steps, label=f"Finish Lab {lab}", resume=finish(lab))
+    code = _run_steps(steps, label=f"Finish Lab {lab}", resume=finish_command(lab))
     if code:
         return code
     if lab == 3:
         print(
             "\nLab 3: the reference Retrieval agent is deployed. Next: ask Alex's "
-            f"setup request with {ask_setup()}, then check that run with "
-            f"{complete_lab_3()}."
+            f"setup request with {ask_setup_command()}, then check that run with "
+            f"{grade_setup_run_command()}."
         )
     else:
         print(f"\nLab {lab}: finished with the reference answer.")
@@ -1220,7 +1223,9 @@ def skip_to_lab(lab: int) -> int:
     earlier = _earlier_labs_to_finish(lab)
     steps = [step for number in earlier for step in finish_steps(number)]
     code = _run_steps(
-        steps or [start_command(lab)], label=f"Skip to Lab {lab}", resume=skip_to(lab)
+        steps or [start_command(lab)],
+        label=f"Skip to Lab {lab}",
+        resume=skip_to_command(lab),
     )
     if code:
         return code
@@ -1248,7 +1253,7 @@ def main() -> int:
     if args.action == "reset" and args.source_only:
         # Provisioning installs Lab 1's fault before the API exists, then
         # applies it itself. Only the named lab's seam changes.
-        assert_reset_database(args.database_url)
+        assert_workshop_database(args.database_url)
         path = set_lab_state(args.lab, solved=False)
         print(f"Lab {args.lab}: RESET ({path.relative_to(REPO)})")
         return 0
@@ -1287,14 +1292,14 @@ def _validate_command(lab: int, database_url: str | None, *, repo: Path = REPO) 
     if missing := missing_file_problem(lab, repo):
         raise SystemExit(missing.line)
     if lab == 3:
-        if not lab_is_solved(3):
+        if not lab_source_is_repaired(3):
             from service.agent_setup import AGENT_STARTER_MESSAGE
 
             raise SystemExit(AGENT_STARTER_MESSAGE)
         print(
             "Lab 3: source assembled. This checks the file's shape, not your Retrieval agent. "
             f"Next: deploy with {DEPLOY_AGENT}, ask Alex's setup request with "
-            f"{ask_setup()}, then check that run with {complete_lab_3()}."
+            f"{ask_setup_command()}, then check that run with {grade_setup_run_command()}."
         )
         return 0
     problem = source_problem(lab)
@@ -1307,11 +1312,13 @@ def _validate_command(lab: int, database_url: str | None, *, repo: Path = REPO) 
         problem = _applied_problem_in(lab, database_url)
     if problem is not None:
         raise SystemExit(
-            explain_problems(f"Lab {lab}: FAIL", [problem], validate_applied(lab))
+            explain_problems(
+                f"Lab {lab}: FAIL", [problem], validate_applied_command(lab)
+            )
         )
     print(
         f"Lab {lab}: PASS. {LABS[lab][0]} is repaired and Aurora runs it.\n"
-        f"Next: {prove(lab)}"
+        f"Next: {proof_steps_text(lab)}"
     )
     return 0
 
@@ -1325,7 +1332,7 @@ def _applied_problem_in(lab: int, database_url: str) -> LabProblem | None:
         with psycopg.connect(
             database_url, connect_timeout=20, row_factory=dict_row
         ) as connection:
-            return applied_problem(lab, validate_database(lab, connection))
+            return applied_problem(lab, read_applied_sql_state(lab, connection))
     except psycopg.Error as error:
         raise database_fault_exit(error, f"check Lab {lab} in Aurora") from error
 
@@ -1377,8 +1384,11 @@ def database_fault_exit(error, doing: str) -> SystemExit:
     )
 
 
-def assert_reset_database(database_url: str | None) -> None:
-    """Refuse a destructive exercise reset outside the named workshop database."""
+def assert_workshop_database(database_url: str | None) -> None:
+    """Exit unless `database_url` is the named workshop database with the Mosaic catalog.
+
+    Reads only (one identity query); guards the destructive exercise reset.
+    """
     import psycopg
     from psycopg.rows import dict_row
 

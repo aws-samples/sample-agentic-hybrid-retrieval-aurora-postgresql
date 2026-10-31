@@ -147,7 +147,7 @@ def test_replay_rejects_evidence_changed_since_validation_and_recovers_byte_iden
     )
     checks = receipt.replay_receipt(payload, payload["identity"])
     with pytest.raises(prove_lab.LabValidationError, match="resolve"):
-        prove_lab._graded(checks)
+        prove_lab._require_all_passed(checks)
     assert len(reads) == 2
     monkeypatch.setattr(lab_proof, "resolve_evidence", _evidence_row)
     assert _evidence_row(9001) == baseline

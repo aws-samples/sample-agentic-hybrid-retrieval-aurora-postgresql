@@ -486,23 +486,29 @@ def _usage(result: Any) -> dict[str, Any]:
 
 class ProductDiscoveryAgent:
     @staticmethod
-    def _finalize_if_needed(
+    def _finalize_or_failure(
         request: AgentRequest,
         state: dict[str, Any],
     ) -> Exception | None:
+        """Set the answer of record when none exists, or return why that failed.
+
+        Writes: may set `state["answer_of_record"]` (declined, no results or a cited
+        answer) and, through the fallback, append trace steps. Returns the failure
+        rather than raising it so the caller can persist the run first.
+        """
         if state["answer_of_record"] is not None:
             return None
         # Before the product check, not after it. An unanchored search still
         # returns its closest products, so `state["products"]` is populated and
         # the fallback would otherwise select from it on rank alone and present
         # the result as the answer of record.
-        if agent_tools.record_declined_answer(state):
+        if agent_tools.set_declined_answer_of_record(state):
             return None
         if not state["products"]:
-            agent_tools.record_no_results_answer(state)
+            agent_tools.set_no_results_answer_of_record(state)
             return None
         try:
-            agent_tools.complete_grounded_answer(request.question)
+            agent_tools.run_controller_fallback(request.question)
         except Exception as error:  # noqa: BLE001 - plugin boundary; return a typed failure
             classified = model_runtime_error(error)
             if classified is not None:
@@ -636,7 +642,7 @@ class ProductDiscoveryAgent:
             # fallback synthesis attempt entirely rather than spending one more
             # model call after the turn already blew its time budget. This is
             # what makes `AgentTurnDeadlineExceeded` observable at all -- every
-            # other path through `_finalize_if_needed` ends by either setting
+            # other path through `_finalize_or_failure` ends by either setting
             # `answer_of_record` or replacing `error` with a classified
             # `GroundingContractError`/`ModelRuntimeError`, which is exactly
             # the deliberate behavior `ToolCallBudgetExceeded` still gets.
@@ -653,9 +659,9 @@ class ProductDiscoveryAgent:
                 and not state["products"]
                 and not state["trace"]
             ):
-                agent_tools.record_unsupported_answer(state)
+                agent_tools.set_unsupported_answer_of_record(state)
             if fallback_error is None:
-                fallback_error = self._finalize_if_needed(request, state)
+                fallback_error = self._finalize_or_failure(request, state)
             if fallback_error is not None:
                 error = fallback_error
             strands_usage = _usage(result) if result is not None else {}
@@ -690,7 +696,9 @@ class ProductDiscoveryAgent:
         async def finish():
             state["_progress_callback"] = progress
             try:
-                return await asyncio.to_thread(self._finalize_if_needed, request, state)
+                return await asyncio.to_thread(
+                    self._finalize_or_failure, request, state
+                )
             finally:
                 state.pop("_progress_callback", None)
                 queue.put_nowait(None)
@@ -846,7 +854,7 @@ class ProductDiscoveryAgent:
                     and not state["products"]
                     and not state["trace"]
                 ):
-                    agent_tools.record_unsupported_answer(state)
+                    agent_tools.set_unsupported_answer_of_record(state)
                 # A disconnect while this loop is suspended at `yield
                 # fallback_event` must not skip persisting a synthesis
                 # that already completed (or is about to, inside

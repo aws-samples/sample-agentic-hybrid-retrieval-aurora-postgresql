@@ -171,9 +171,9 @@ def test_runtime_role_can_attach_a_browser_conversation(
         actor, session_id = uuid4().hex + uuid4().hex, uuid4()
         if omit_profile_grant:
             with pytest.raises(psycopg.errors.InsufficientPrivilege):
-                session_memory._profile(connection, actor)
+                session_memory._get_or_create_profile(connection, actor)
             return
-        session_memory._profile(connection, actor)
+        session_memory._get_or_create_profile(connection, actor)
         connection.execute(
             "INSERT INTO mosaic.agent_session (agent_session_id) VALUES (%s)",
             (session_id,),

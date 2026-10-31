@@ -28,24 +28,24 @@ from scripts.lab_state import (
     LabProblem,
     _replace_block,
     applied_problem,
-    assert_reset_database,
+    assert_workshop_database,
     explain_problems,
     missing_file_problem,
+    read_applied_sql_state,
     set_lab_state,
     source_problem,
-    validate_database,
 )
 from service.participant_commands import (
     ADVANCE_TO_LAB_2,
     ADVANCE_TO_LAB_3,
     APPLY_SQL,
     DEPLOY_AGENT,
-    complete_lab_3,
-    reset,
-    validate,
-    validate_applied,
+    grade_setup_run_command,
+    prove_lab_command,
+    reset_command,
+    start_command,
+    validate_applied_command,
 )
-from service.participant_commands import start as start_command
 
 #: Each lab and the earlier repairs it needs before it starts.
 PREREQUISITES: dict[int, tuple[int, ...]] = {1: (), 2: (1,), 3: (1, 2)}
@@ -76,7 +76,7 @@ def load_record(lab: int, repo: Path = REPO) -> dict[str, Any] | None:
     if record.get("version") != RECORD_VERSION or record.get("lab") != lab:
         raise LabEntryError(
             f"Lab entry rule: {path} is not a Lab {lab} start record; fix: reset "
-            f"the lab with {reset(lab)}."
+            f"the lab with {reset_command(lab)}."
         )
     return record
 
@@ -126,7 +126,7 @@ def unmet_prerequisites(
     problems = []
     for earlier in PREREQUISITES[lab]:
         problem = source_problem(earlier, repo=repo) or applied_problem(
-            earlier, validate_database(earlier, connection, repo=repo)
+            earlier, read_applied_sql_state(earlier, connection, repo=repo)
         )
         if problem:
             problems.append(problem)
@@ -156,7 +156,9 @@ def _apply_saved_repairs(lab: int, dsn: str | None, repo: Path, say: Say) -> Non
         stale = [
             each
             for each in earlier
-            if applied_problem(each, validate_database(each, connection, repo=repo))
+            if applied_problem(
+                each, read_applied_sql_state(each, connection, repo=repo)
+            )
         ]
     if not stale:
         return
@@ -245,7 +247,7 @@ def _failing_search_evidence(
     if applied.state == "applied":
         say(
             f"Your Lab {lab} repair is already applied, so no failing run was saved "
-            f"and there is no Before to compare. Next: {validate(lab)}"
+            f"and there is no Before to compare. Next: {prove_lab_command(lab)}"
         )
         return {"state": "done", "note": "repair already applied; no failing run saved"}
     from scripts.lab_request import AlreadyRepaired, prepare
@@ -258,7 +260,7 @@ def _failing_search_evidence(
         # applied, so no failing request exists; the state says why.
         say(
             f"Lab {lab}: {repaired}. {applied.detail}\n"
-            f"Next: {validate_applied(lab)} names what to change or run."
+            f"Next: {validate_applied_command(lab)} names what to change or run."
         )
         return {
             "state": "done",
@@ -291,7 +293,7 @@ def _capture(
             f"      {DEPLOY_AGENT}"
         )
     else:
-        applied = validate_database(lab, connection, repo=repo)
+        applied = read_applied_sql_state(lab, connection, repo=repo)
         evidence = _failing_search_evidence(lab, applied, api_url, repo, say)
     record["steps"]["evidence"] = evidence
     _save(lab, repo, record)
@@ -317,7 +319,7 @@ def start(
         return record
     if lab not in FAULT_AT_ENTRY and (missing := missing_file_problem(lab, repo)):
         raise LabEntryError(missing.line)
-    assert_reset_database(dsn)
+    assert_workshop_database(dsn)
     with _connect(dsn) as connection:
         problems = unmet_prerequisites(lab, connection, repo)
     if problems:
@@ -342,12 +344,14 @@ def restart(
     lab: int, *, api_url: str, dsn: str | None, repo: Path = REPO, say: Say = print
 ) -> dict[str, Any]:
     """Discard the entered lab's edits and prepare it again from its starting code."""
-    assert_reset_database(dsn)
+    assert_workshop_database(dsn)
     with _connect(dsn) as connection:
         problems = unmet_prerequisites(lab, connection, repo)
     if problems:
         raise LabEntryError(
-            explain_problems(f"Lab {lab} cannot restart yet.", problems, reset(lab))
+            explain_problems(
+                f"Lab {lab} cannot restart yet.", problems, reset_command(lab)
+            )
         )
     set_lab_state(lab, solved=False, repo=repo)
     for path in (record_path(lab, repo), completion_path(lab, repo)):
@@ -410,7 +414,7 @@ def advance(
         return _advance_lab_2(api_url=api_url, dsn=dsn, repo=repo, say=say)
     raise LabEntryError(
         f"Handoff rule: found Lab {lab}; fix: use advance --lab 1 or advance --lab 2. "
-        f"Lab 3 ends when {complete_lab_3()} passes on your setup run."
+        f"Lab 3 ends when {grade_setup_run_command()} passes on your setup run."
     )
 
 
@@ -429,7 +433,7 @@ def _advance_lab_2(
     entered = entry_check(2, repo)
     if not entered.passed:
         raise LabEntryError(f"Lab 2 cannot hand off yet.\n- {entered.detail}")
-    assert_reset_database(dsn)
+    assert_workshop_database(dsn)
     _apply_saved_repairs(3, dsn, repo, say)
     with _connect(dsn) as connection:
         problems = unmet_prerequisites(3, connection, repo)
@@ -460,7 +464,7 @@ def _lab_2_can_mask(dsn: str | None, repo: Path) -> bool:
     with _connect(dsn) as connection:
         return bool(
             source_problem(2, repo=repo)
-            or applied_problem(2, validate_database(2, connection, repo=repo))
+            or applied_problem(2, read_applied_sql_state(2, connection, repo=repo))
         )
 
 
@@ -475,7 +479,7 @@ def _advance_lab_1(
     """
     from scripts.prove_lab import prove_lab_1, record_completion
 
-    assert_reset_database(dsn)
+    assert_workshop_database(dsn)
     _apply_saved_repairs(2, dsn, repo, say)
     with _connect(dsn) as connection:
         problems = unmet_prerequisites(2, connection, repo)

@@ -511,11 +511,16 @@ def similar_products(product_id: int) -> list[ProductSummary]:
     return [_summary(dict(row)) for row in rows]
 
 
-def get_product(product_id: int) -> ProductDetail:
+def fetch_product_and_register_evidence(product_id: int) -> ProductDetail:
+    """Return one product's detail page; with a staged catalog it also registers its sources.
+
+    Registering inserts the product's review, question and specification records into
+    `mosaic.product_evidence` (idempotent), so a later citation can reference them.
+    """
     if active_dataset():
         from service import live_catalog
 
-        return live_catalog.get_product(product_id)
+        return live_catalog.fetch_product_and_register_evidence(product_id)
     with connect() as connection:
         row = connection.execute(
             f"""
@@ -646,14 +651,18 @@ def _most_relevant_reviews(
     return [rows[index]["evidence_id"] for index, _ in ranked]
 
 
-def get_product_evidence_records(
+def fetch_and_register_product_evidence(
     product_id: int,
     query: str,
     query_embedding: list[float],
     *,
     limit: int = 6,
 ) -> list[EvidenceRecord]:
-    """Return question-ranked, source-addressable evidence for one product."""
+    """Return question-ranked, source-addressable evidence for one product.
+
+    Writes: with a staged catalog active, first registers the product's source records
+    in `mosaic.product_evidence` (idempotent) so each returned record is citable.
+    """
     if not query.strip():
         raise ValueError("Evidence retrieval requires a non-empty evidence query")
     if active_dataset():

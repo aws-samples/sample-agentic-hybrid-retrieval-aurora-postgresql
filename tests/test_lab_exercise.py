@@ -260,19 +260,19 @@ def test_lab3_names_the_contract_part_the_agent_misses(monkeypatch):
 
 
 def test_a_missing_context_names_the_command_that_saves_one(monkeypatch, tmp_path):
-    from service.participant_commands import repeat_request
+    from service.participant_commands import repeat_request_command
 
     monkeypatch.setattr(lab_exercise, "REPO", tmp_path)
 
     for lab in (1, 2):
         with pytest.raises(ExerciseError) as refused:
             lab_exercise.load_context(lab)
-        assert f"run `{repeat_request(lab)}` first" in str(refused.value)
+        assert f"run `{repeat_request_command(lab)}` first" in str(refused.value)
         assert "--phase before" not in str(refused.value)
 
 
 def test_a_saved_run_for_another_request_names_the_repeat_command():
-    from service.participant_commands import repeat_request
+    from service.participant_commands import repeat_request_command
 
     cur = MagicMock()
     cur.fetchone.return_value = None
@@ -282,7 +282,7 @@ def test_a_saved_run_for_another_request_names_the_repeat_command():
             cur, {"lab_search_id": "s", "lab_query": "q", "lab_filters": "{}"}
         )
 
-    assert str(refused.value).endswith(f"rerun `{repeat_request(2)}`")
+    assert str(refused.value).endswith(f"rerun `{repeat_request_command(2)}`")
 
 
 def test_the_graded_files_are_found_from_the_checkout_not_the_shells_folder(
@@ -299,7 +299,7 @@ def test_the_graded_files_are_found_from_the_checkout_not_the_shells_folder(
 
 
 def test_lab_3_without_a_graded_run_points_at_the_lab_3_commands(monkeypatch, tmp_path):
-    from service.participant_commands import ask_setup, complete_lab_3
+    from service.participant_commands import ask_setup_command, grade_setup_run_command
 
     monkeypatch.setattr(lab_exercise, "REPO", tmp_path)
 
@@ -307,8 +307,8 @@ def test_lab_3_without_a_graded_run_points_at_the_lab_3_commands(monkeypatch, tm
         lab_exercise.load_context(3)
 
     message = str(refused.value)
-    assert ask_setup() in message
-    assert complete_lab_3() in message
+    assert ask_setup_command() in message
+    assert grade_setup_run_command() in message
     assert "lab_request" not in message
 
 

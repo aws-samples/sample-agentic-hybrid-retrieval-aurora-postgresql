@@ -389,9 +389,9 @@ def test_a_slow_answer_is_reported_with_its_wait_and_a_fix(monkeypatch, capsys):
 
 
 def test_the_command_string_is_the_one_participants_type():
-    from service.participant_commands import ask_agent as command
+    from service.participant_commands import ask_agent_command
 
-    assert command("…") == 'uv run python scripts/ask_agent.py "…"'
+    assert ask_agent_command("…") == 'uv run python scripts/ask_agent.py "…"'
 
 
 @pytest.mark.parametrize("question", ["", "abc"])
@@ -489,9 +489,9 @@ def test_the_setup_command_asks_the_question_completion_checks():
     import shlex
 
     from service import lab_checks
-    from service.participant_commands import ask_setup
+    from service.participant_commands import ask_setup_command
 
-    words = shlex.split(ask_setup())
+    words = shlex.split(ask_setup_command())
     mission = lab_checks.mission_for_lab(3)
     asked = lab_checks.mission_request_check(mission, {"question": words[-1]})
 

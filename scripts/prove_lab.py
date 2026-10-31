@@ -37,9 +37,9 @@ from service.participant_commands import (
     ADVANCE_TO_LAB_3,
     APPLY_SQL,
     DIFF,
-    ask_setup,
-    complete_lab_3,
-    validate,
+    ask_setup_command,
+    grade_setup_run_command,
+    prove_lab_command,
 )
 
 
@@ -118,7 +118,7 @@ def _search(base_url: str, mission: dict[str, Any]) -> dict[str, Any]:
     )
 
 
-def _graded(checks: list[LabCheck]) -> list[str]:
+def _require_all_passed(checks: list[LabCheck]) -> list[str]:
     """Raise on the first failed check, then report what was proven."""
     for check in checks:
         _require(check.passed, check.detail)
@@ -133,7 +133,7 @@ def prove_lab_1(
     if events is not None:
         events.append(response["search_event_id"])
     try:
-        checks = _graded(lab_checks.lab_1_checks(mission, response))
+        checks = _require_all_passed(lab_checks.lab_1_checks(mission, response))
         return checks + _validate_controls(base_url, 1)
     except LabValidationError as error:
         from service.db import connect
@@ -156,7 +156,7 @@ def prove_lab_2(
     if events is not None:
         events.extend([first["search_event_id"], second["search_event_id"]])
     try:
-        checks = _graded(lab_checks.lab_2_checks(mission, first, second))
+        checks = _require_all_passed(lab_checks.lab_2_checks(mission, first, second))
         return checks + _validate_controls(base_url, 2)
     except LabValidationError as error:
         raise LabValidationError(_with_block_in_place(str(error), 2, rerun)) from error
@@ -174,7 +174,7 @@ def _with_block_in_place(failure: str, lab: int, rerun: str | None = None) -> st
         lab_checks.repair_next_step(lab),
         f"your saved block in {lab_checks.LAB_FILES[lab]} is repaired and Aurora "
         "runs it, so the cause is outside it. Undo any edits outside the marked "
-        f"block ({DIFF} shows them), run {APPLY_SQL} and run {rerun or validate(lab)} "
+        f"block ({DIFF} shows them), run {APPLY_SQL} and run {rerun or prove_lab_command(lab)} "
         "again; if it still fails, give this message to your facilitator",
     )
 
@@ -199,7 +199,7 @@ def _under_ranking_fault(failure: str, repo: Path) -> str:
     )
 
 
-def sql_lab_problem(lab: int) -> LabProblem | None:
+def applied_sql_problem(lab: int) -> LabProblem | None:
     """Say why Lab 1 or 2's saved repair is not what Aurora runs, before any search.
 
     The live checks prove what Aurora does, which can be SQL the participant has
@@ -211,8 +211,8 @@ def sql_lab_problem(lab: int) -> LabProblem | None:
     from scripts.lab_state import (
         applied_problem,
         database_fault_exit,
+        read_applied_sql_state,
         source_problem,
-        validate_database,
     )
     from service.db import connect
 
@@ -221,7 +221,9 @@ def sql_lab_problem(lab: int) -> LabProblem | None:
         return problem
     try:
         with connect() as connection:
-            return applied_problem(lab, validate_database(lab, connection, repo=REPO))
+            return applied_problem(
+                lab, read_applied_sql_state(lab, connection, repo=REPO)
+            )
     except psycopg.Error as error:
         raise database_fault_exit(error, f"check Lab {lab} in Aurora") from error
 
@@ -259,7 +261,7 @@ def _validate_controls(base_url: str, lab_id: int) -> list[str]:
             base_url, f"/api/retrieval/events/{response['search_event_id']}"
         )
         checks.extend(
-            _graded(
+            _require_all_passed(
                 lab_checks.retrieval_control_checks(
                     mission, response, receipt.get("candidates") or []
                 )
@@ -344,7 +346,9 @@ def validate_agent_response(
         captured_plan=captured_plan,
         replayed_plan=replayed_plan,
     )
-    return _graded(lab_checks.agent_response_checks(mission, agent, evidence))
+    return _require_all_passed(
+        lab_checks.agent_response_checks(mission, agent, evidence)
+    )
 
 
 def prove_lab_3(
@@ -365,7 +369,9 @@ def prove_lab_3(
         else None
     )
     if reuse_receipt:
-        return _graded(replay_receipt(read_receipt(reuse_receipt), identity))
+        return _require_all_passed(
+            replay_receipt(read_receipt(reuse_receipt), identity)
+        )
     checks: list[str] = []
     runs: dict[str, str] = {}
     for mission in (_mission("reason"), _case("evidence-grounding")):
@@ -436,7 +442,7 @@ def main() -> int:
         raise SystemExit(
             "Lab 3 validation rule: found --lab 3 without a receipt; Lab 3 is checked "
             "on your saved Retrieval agent run, not on fresh answers. fix: ask Alex's setup "
-            f"request with {ask_setup()}, then run {complete_lab_3()} "
+            f"request with {ask_setup_command()}, then run {grade_setup_run_command()} "
             "(a maintainer passes --save-receipt PATH or --reuse-receipt PATH)."
         )
     validator = {
@@ -455,10 +461,12 @@ def main() -> int:
         if not entered.passed:
             raise SystemExit(f"Lab {args.lab}: FAIL. {entered.detail}")
     if args.lab in {1, 2}:
-        problem = sql_lab_problem(args.lab)
+        problem = applied_sql_problem(args.lab)
         if problem is not None:
             raise SystemExit(
-                explain_problems(f"Lab {args.lab}: FAIL", [problem], validate(args.lab))
+                explain_problems(
+                    f"Lab {args.lab}: FAIL", [problem], prove_lab_command(args.lab)
+                )
             )
     events: list[str] = []
     try:

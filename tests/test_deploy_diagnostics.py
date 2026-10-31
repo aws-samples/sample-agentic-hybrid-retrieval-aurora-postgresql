@@ -125,8 +125,10 @@ def test_gateway_sync_waits_through_synchronizing_until_ready(monkeypatch, capsy
 
 def run_main(monkeypatch, action, failure):
     monkeypatch.setattr(sys, "argv", ["deploy_agentcore.py", action])
-    monkeypatch.setattr("scripts.lab_state.lab_is_solved", lambda lab: True)
-    monkeypatch.setattr(deploy, "stage", Mock(side_effect=failure))
+    monkeypatch.setattr("scripts.lab_state.lab_source_is_repaired", lambda lab: True)
+    monkeypatch.setattr(
+        deploy, "publish_image_storing_dsn_at_bootstrap", Mock(side_effect=failure)
+    )
     monkeypatch.setattr(deploy, "verify", Mock(side_effect=failure))
     return deploy.main()
 
@@ -333,8 +335,12 @@ def test_deploy_shows_each_phase_with_its_usual_time_and_what_is_left(
     control = Mock()
     gateway_environment(monkeypatch, control, [{"status": "READY"}])
     monkeypatch.setattr(sys, "argv", ["deploy_agentcore.py", "deploy"])
-    monkeypatch.setattr("scripts.lab_state.lab_is_solved", lambda lab: True)
-    monkeypatch.setattr(deploy, "stage", lambda: "example.ecr/repo@sha256:" + "a" * 64)
+    monkeypatch.setattr("scripts.lab_state.lab_source_is_repaired", lambda lab: True)
+    monkeypatch.setattr(
+        deploy,
+        "publish_image_storing_dsn_at_bootstrap",
+        lambda: "example.ecr/repo@sha256:" + "a" * 64,
+    )
     monkeypatch.setattr(deploy, "verify", lambda: None)
 
     assert deploy.main() == 0

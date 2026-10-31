@@ -109,9 +109,9 @@ def measured(monkeypatch):
         clock.advance(COVERAGE_DELAY_SECONDS)
         return captured["verdict"]
 
-    from service.coverage import summarize
+    from service.coverage import decide_coverage
 
-    captured["verdict"] = summarize([])
+    captured["verdict"] = decide_coverage([])
     monkeypatch.setattr(retrieval_module, "assess_coverage", coverage)
 
     service = RetrievalService(

@@ -42,10 +42,15 @@ class MemoryQuery(BaseModel):
     session_id: UUID | None = None
 
 
-def shopper_id(
+def resolve_or_issue_shopper_id(
     request: Request | None, response: Response | None = None, *, fresh: bool = False
 ) -> str | None:
-    """Resolve a random browser capability without accepting a caller's actor ID."""
+    """Resolve the browser's random capability to an actor ID, or issue a new one.
+
+    A caller's own actor ID is never accepted. Writes: when the cookie is missing,
+    malformed or `fresh`, and a `response` is given, sets a new cookie on it; without a
+    response a missing capability resolves to None.
+    """
     if request is None:
         return None
     token = "" if fresh else request.cookies.get(COOKIE, "")
@@ -104,13 +109,18 @@ def _memory_error() -> HTTPException:
 
 
 def _actor(request: Request) -> str:
-    actor = shopper_id(request)
+    actor = resolve_or_issue_shopper_id(request)
     if not actor:
         raise HTTPException(409, "Open Session & Memory first, then retry.")
     return actor
 
 
-def _profile(connection, actor: str, *, lock: bool = False):
+def _get_or_create_profile(connection, actor: str, *, lock: bool = False):
+    """Return the shopper's profile row, inserting it first when missing.
+
+    Writes: `INSERT ... ON CONFLICT DO NOTHING` into `mosaic.shopper_profile`. With
+    `lock`, the returned row is locked `FOR UPDATE` until the transaction ends.
+    """
     connection.execute(
         "INSERT INTO mosaic.shopper_profile (shopper_id) VALUES (%s) ON CONFLICT DO NOTHING",
         (actor,),
@@ -204,7 +214,7 @@ def _events(actor: str, session_id: str) -> dict:
 
 @router.get("/identity")
 def initialize_browser(request: Request, response: Response):
-    shopper_id(request, response)
+    resolve_or_issue_shopper_id(request, response)
     response.headers["Cache-Control"] = "no-store"
     return {"ready": True}
 
@@ -213,15 +223,15 @@ def initialize_browser(request: Request, response: Response):
 def reset_browser(request: Request, response: Response):
     """Start a separate actor without deleting the previous actor's records."""
     _actor(request)
-    shopper_id(request, response, fresh=True)
+    resolve_or_issue_shopper_id(request, response, fresh=True)
     response.headers["Cache-Control"] = "no-store"
 
 
 @router.get("")
 def read_session_memory(request: Request, response: Response):
-    actor = shopper_id(request, response)
+    actor = resolve_or_issue_shopper_id(request, response)
     with connect() as connection:
-        profile = _profile(connection, actor)
+        profile = _get_or_create_profile(connection, actor)
         sessions = connection.execute(
             """SELECT agent_session_id, started_at, ended_at, metadata->>'label' AS label
                FROM mosaic.agent_session WHERE user_context->>'shopper_id' = %s
@@ -307,7 +317,7 @@ def add_event(event: ConversationEvent, request: Request):
         # slow or throttled Memory service exhaust the pool for every other
         # request on the host.
         with connect() as connection:
-            _profile(connection, actor, lock=True)
+            _get_or_create_profile(connection, actor, lock=True)
             saved_request = connection.execute(
                 "SELECT * FROM mosaic.memory_event_request WHERE shopper_id = %s AND request_id = %s",
                 (actor, event.request_id),
@@ -471,10 +481,10 @@ def recall_memory(query: MemoryQuery, request: Request, response: Response):
 
 @router.post("/new-session", status_code=204)
 def new_session(request: Request):
-    actor = shopper_id(request)
+    actor = resolve_or_issue_shopper_id(request)
     if actor:
         with connect() as connection:
-            profile = _profile(connection, actor, lock=True)
+            profile = _get_or_create_profile(connection, actor, lock=True)
             if profile["active_session_id"]:
                 connection.execute(
                     "UPDATE mosaic.agent_session SET ended_at = now() WHERE agent_session_id = %s",
@@ -491,7 +501,7 @@ def prepare_request(
     request: AgentRequest, http_request: Request | None
 ) -> AgentRequest:
     """Restore owned conversation context and retrieve memories before the model runs."""
-    actor = shopper_id(http_request)
+    actor = resolve_or_issue_shopper_id(http_request)
     if not actor and request.session_id:
         raise HTTPException(404, "This session is not available in this browser.")
     if not actor and not request.context:
@@ -521,7 +531,7 @@ def prepare_request(
         # still pass the check above when the caller omits its cookie.
         if not actor:
             return request
-        _profile(connection, actor)
+        _get_or_create_profile(connection, actor)
         if request.session_id:
             _own_session(connection, actor, request.session_id)
         if request.session_id and context is None:

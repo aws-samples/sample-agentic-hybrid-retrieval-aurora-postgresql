@@ -19,8 +19,8 @@ from service.lab_checks import FACILITATOR
 from service.participant_commands import (
     APPLY_SQL,
     DIFF,
-    repeat_request,
-    validate_applied,
+    repeat_request_command,
+    validate_applied_command,
 )
 
 #: What each pinned field of a saved run is, in the participant's words.
@@ -45,7 +45,7 @@ def paired_searches(before: dict, after: dict, mission: dict) -> dict:
             f"this search used a different {label} ({key}) from the saved failing "
             "request, so the two cannot be compared. Next: open a new terminal from "
             "the Terminal menu, which loads the workshop settings, and run "
-            f"{repeat_request(lab)} again; if it still differs, {FACILITATOR}.",
+            f"{repeat_request_command(lab)} again; if it still differs, {FACILITATOR}.",
         )
     _require(
         new["query_text"] == mission["query"] and new["filters"] == mission["filters"],
@@ -65,9 +65,9 @@ def paired_searches(before: dict, after: dict, mission: dict) -> dict:
         row is not None,
         f"product {target} is still missing from the candidates sent to reranking, "
         "so the repair has not reached the search Aurora runs.\n"
-        f"Next: {validate_applied(lab)} names what to change in the marked block, or "
+        f"Next: {validate_applied_command(lab)} names what to change in the marked block, or "
         "says that Aurora still runs an older one.\n"
-        f"Then: {repeat_request(lab)}",
+        f"Then: {repeat_request_command(lab)}",
     )
     outside = [
         row["product_id"]
@@ -78,9 +78,9 @@ def paired_searches(before: dict, after: dict, mission: dict) -> dict:
         not outside,
         f"product(s) {outside} among this search's candidates do not match the "
         "request's filters; a repair adds a branch and must not loosen any filter.\n"
-        f"Next: {validate_applied(lab)}. If it passes, undo any edits outside the "
+        f"Next: {validate_applied_command(lab)}. If it passes, undo any edits outside the "
         f"marked block ({DIFF} shows them) and run {APPLY_SQL}.\n"
-        f"Then: {repeat_request(lab)}",
+        f"Then: {repeat_request_command(lab)}",
     )
     return {
         "target": target,

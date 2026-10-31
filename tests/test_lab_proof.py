@@ -28,7 +28,7 @@ import pytest
 from scripts.lab_state import (
     LABS,
     REPO,
-    lab_is_solved,
+    lab_source_is_repaired,
     set_lab_state,
 )
 from service import lab_proof
@@ -41,8 +41,7 @@ from service.models import (
     RetrievalProfile,
     SearchResponse,
 )
-from service.participant_commands import APPLY_SQL, DEPLOY_AGENT
-from service.participant_commands import start as start_command
+from service.participant_commands import APPLY_SQL, DEPLOY_AGENT, start_command
 from service.scorecard import retrieval_scorecard
 
 INDEPENDENT_FILE = "service/catalog.py"
@@ -554,7 +553,7 @@ def test_a_reset_lab_reports_broken_source_state(monkeypatch, lab_repo: Path) ->
     _use(monkeypatch, _FakeConnection())
     _lab_1_search(monkeypatch, solved=False)
 
-    assert lab_is_solved(1, repo=lab_repo) is False
+    assert lab_source_is_repaired(1, repo=lab_repo) is False
     proof = lab_proof.completion_proof(1, repo=lab_repo)
 
     assert proof.source_state == "broken"
@@ -699,7 +698,7 @@ def test_a_reset_lab_3_reports_broken_source_state(monkeypatch, lab_repo: Path) 
     _use(monkeypatch, _grounded_connection())
     _resolve_evidence(monkeypatch)
 
-    assert lab_is_solved(3, repo=lab_repo) is False
+    assert lab_source_is_repaired(3, repo=lab_repo) is False
     proof = lab_proof.completion_proof(3, agent_run_id=AGENT_RUN_ID, repo=lab_repo)
 
     assert all(check.passed for check in proof.checks), [

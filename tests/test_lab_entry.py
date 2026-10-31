@@ -20,10 +20,10 @@ from scripts.lab_state import (
     REPO,
     LabDatabaseState,
     _replace_block,
-    lab_is_solved,
+    lab_source_is_repaired,
     set_lab_state,
 )
-from service.participant_commands import start as start_command
+from service.participant_commands import start_command
 
 PARTICIPANT_LAB_2 = "SELECT 1.0 / (rrf_k + source_rank)"
 
@@ -59,7 +59,7 @@ def aurora(monkeypatch) -> Boundaries:
     def connect(_dsn):
         yield object()
 
-    def validate_database(lab, _connection, **_kwargs):
+    def read_applied_sql_state(lab, _connection, **_kwargs):
         return LabDatabaseState(
             state=state.applied.get(lab, "not_applicable"), detail=""
         )
@@ -70,7 +70,7 @@ def aurora(monkeypatch) -> Boundaries:
         state.applies += 1
         if state.applies_saved_files:
             for lab in (1, 2):
-                solved = lab_is_solved(lab, repo=repo)
+                solved = lab_source_is_repaired(lab, repo=repo)
                 state.applied[lab] = "applied" if solved else "stale"
         say("Applied it to Aurora.")
         return "sha"
@@ -85,9 +85,9 @@ def aurora(monkeypatch) -> Boundaries:
         )
         return output / "context.psql"
 
-    monkeypatch.setattr(lab_entry, "assert_reset_database", lambda _dsn: None)
+    monkeypatch.setattr(lab_entry, "assert_workshop_database", lambda _dsn: None)
     monkeypatch.setattr(lab_entry, "_connect", connect)
-    monkeypatch.setattr(lab_entry, "validate_database", validate_database)
+    monkeypatch.setattr(lab_entry, "read_applied_sql_state", read_applied_sql_state)
     monkeypatch.setattr(lab_entry, "_apply", apply)
     monkeypatch.setattr("scripts.lab_request.prepare", prepare)
     return state
@@ -140,9 +140,9 @@ def test_lab_2_start_installs_only_its_fault_applies_and_saves_the_failing_run(
 
     record = _start(2, repo)
 
-    assert not lab_is_solved(2, repo=repo)
-    assert lab_is_solved(1, repo=repo)
-    assert lab_is_solved(3, repo=repo)
+    assert not lab_source_is_repaired(2, repo=repo)
+    assert lab_source_is_repaired(1, repo=repo)
+    assert lab_source_is_repaired(3, repo=repo)
     after = _seam_file(1, repo).read_text()
     assert all(block in after for block in lab_1_before)
     assert (aurora.applies, aurora.captures) == (1, 1)
@@ -171,7 +171,7 @@ def test_an_interruption_before_the_file_changed_installs_the_fault_on_retry(
 
     record = _start(2, repo)
 
-    assert not lab_is_solved(2, repo=repo)
+    assert not lab_source_is_repaired(2, repo=repo)
     assert record["steps"]["fault"]["state"] == "done"
     assert record["completed_at"]
 
@@ -278,7 +278,9 @@ def test_an_unmet_prerequisite_explains_the_fix_and_changes_nothing(
     assert lab_entry.load_record(lab, repo) is None
     assert (aurora.applies, aurora.captures) == (0, 0)
     if unmet:
-        assert not lab_is_solved(unmet, repo=repo), "a start never installs a solution"
+        assert not lab_source_is_repaired(unmet, repo=repo), (
+            "a start never installs a solution"
+        )
 
 
 def test_restart_discards_only_the_selected_labs_edits(repo, aurora) -> None:
@@ -292,8 +294,8 @@ def test_restart_discards_only_the_selected_labs_edits(repo, aurora) -> None:
         2, api_url="http://api", dsn="aurora", repo=repo, say=print
     )
 
-    assert not lab_is_solved(2, repo=repo)
-    assert lab_is_solved(1, repo=repo)
+    assert not lab_source_is_repaired(2, repo=repo)
+    assert lab_source_is_repaired(1, repo=repo)
     assert _seam_file(3, repo).read_bytes() == lab_3
     assert not completion.exists()
     assert record["completed_at"]
@@ -311,7 +313,7 @@ def test_restart_puts_back_a_deleted_lab_file(repo, aurora, lab: int) -> None:
     )
 
     assert _seam_file(lab, repo).exists()
-    assert not lab_is_solved(lab, repo=repo)
+    assert not lab_source_is_repaired(lab, repo=repo)
     assert record["completed_at"]
 
 
@@ -333,8 +335,8 @@ def test_lab_1_restart_restores_and_applies_its_starter(repo, aurora) -> None:
 
     lab_entry.restart(1, api_url="http://api", dsn="aurora", repo=repo, say=print)
 
-    assert not lab_is_solved(1, repo=repo)
-    assert lab_is_solved(2, repo=repo)
+    assert not lab_source_is_repaired(1, repo=repo)
+    assert lab_source_is_repaired(2, repo=repo)
     assert aurora.applies == 1
     for start, end, _, _ in LABS[2][1]:
         assert (
@@ -348,8 +350,8 @@ def test_lab_3_start_installs_the_starter_and_records_the_refusal(repo, aurora) 
 
     record = _start(3, repo)
 
-    assert not lab_is_solved(3, repo=repo)
-    assert lab_is_solved(2, repo=repo)
+    assert not lab_source_is_repaired(3, repo=repo)
+    assert lab_source_is_repaired(2, repo=repo)
     assert aurora.applies == 0
     assert "agent_refusal" in record["steps"]["evidence"]
 
@@ -392,7 +394,7 @@ def test_handoff_saves_passing_evidence_before_installing_fault(
         1, api_url="http://api", dsn="aurora", repo=repo, say=lines.append
     )
     assert handoff_checks == ["validate"]
-    assert not lab_is_solved(2, repo=repo)
+    assert not lab_source_is_repaired(2, repo=repo)
     assert aurora.applies == 1 and aurora.captures == 1
     saved = json.loads(lab_entry.completion_path(1, repo).read_text())
     assert saved["search_event_ids"] == ["verified-lab-1"]
@@ -410,7 +412,7 @@ def test_failed_lab1_validation_never_starts_lab2(repo, aurora, monkeypatch):
     monkeypatch.setattr("scripts.prove_lab.prove_lab_1", fail)
     with pytest.raises(LabValidationError, match="target missing"):
         lab_entry.advance(1, api_url="http://api", dsn="aurora", repo=repo)
-    assert lab_is_solved(2, repo=repo)
+    assert lab_source_is_repaired(2, repo=repo)
     assert lab_entry.load_record(2, repo) is None
     assert not lab_entry.completion_path(1, repo).exists()
     assert aurora.applies == 0
@@ -469,7 +471,7 @@ def _own_wording(repo: Path) -> None:
             "SELECT product_id, 'fuzzy'::text AS channel, fuzzy_rank AS source_rank,",
         )
     )
-    assert lab_is_solved(1, repo=repo)
+    assert lab_source_is_repaired(1, repo=repo)
 
 
 def test_a_handoff_applies_a_saved_repair_aurora_does_not_run_yet(
@@ -553,8 +555,8 @@ def test_lab_2_handoff_saves_passing_evidence_then_installs_the_lab_3_starter(
     )
 
     assert lab_2_checks == [ADVANCE_TO_LAB_3]
-    assert not lab_is_solved(3, repo=lab_2_repaired)
-    assert lab_is_solved(2, repo=lab_2_repaired)
+    assert not lab_source_is_repaired(3, repo=lab_2_repaired)
+    assert lab_source_is_repaired(2, repo=lab_2_repaired)
     saved = json.loads(lab_entry.completion_path(2, lab_2_repaired).read_text())
     assert saved["search_event_ids"] == ["first-lab-2", "second-lab-2"]
     assert lines.index(
@@ -585,7 +587,7 @@ def test_failed_lab_2_validation_never_starts_lab_3(lab_2_repaired, monkeypatch)
     with pytest.raises(LabValidationError, match="target missing"):
         lab_entry.advance(2, api_url="http://api", dsn="aurora", repo=lab_2_repaired)
     assert lab_entry.load_record(3, lab_2_repaired) is None
-    assert lab_is_solved(3, repo=lab_2_repaired)
+    assert lab_source_is_repaired(3, repo=lab_2_repaired)
     assert not lab_entry.completion_path(2, lab_2_repaired).exists()
 
 
@@ -649,13 +651,13 @@ def test_a_lab_2_handoff_applies_a_saved_repair_aurora_does_not_run_yet(
 
 
 def test_lab_3_has_no_handoff_and_says_how_it_ends(repo, aurora) -> None:
-    from service.participant_commands import complete_lab_3
+    from service.participant_commands import grade_setup_run_command
 
     with pytest.raises(lab_entry.LabEntryError) as refused:
         lab_entry.advance(3, api_url="http://api", dsn="aurora", repo=repo)
 
     assert "advance --lab 1 or advance --lab 2" in str(refused.value)
-    assert complete_lab_3() in str(refused.value)
+    assert grade_setup_run_command() in str(refused.value)
 
 
 def test_a_lab_1_reset_after_a_repaired_lab_2_validates_lab_1_again(
@@ -693,7 +695,7 @@ def test_start_puts_back_a_deleted_exercise_before_installing_the_fault(
     record = _start(lab, repo, said)
 
     assert _seam_file(lab, repo).exists()
-    assert not lab_is_solved(lab, repo=repo)
+    assert not lab_source_is_repaired(lab, repo=repo)
     assert record["completed_at"]
     assert any("Put back" in line and "deleted" in line for line in said)
 

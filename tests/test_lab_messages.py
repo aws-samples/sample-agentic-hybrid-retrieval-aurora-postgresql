@@ -37,13 +37,13 @@ from service.lab_files import LAB1_SQL, LAB2_SQL
 from service.participant_commands import (
     ADVANCE_TO_LAB_3,
     APPLY_SQL,
-    complete_lab_3,
-    prove,
-    repeat_request,
-    validate,
-    validate_applied,
+    grade_setup_run_command,
+    proof_steps_text,
+    prove_lab_command,
+    repeat_request_command,
+    start_command,
+    validate_applied_command,
 )
-from service.participant_commands import start as start_command
 from service.search_sql import SEARCH_SQL_FILES, search_sql
 
 INTERNAL_NAMES = (
@@ -125,7 +125,7 @@ def test_a_missing_close_spelling_result_points_at_the_lab_1_file_and_its_check(
     assert "Fuzzy matching candidates are not reaching the combined results" in (
         anchor.detail
     )
-    assert validate_applied(1) in anchor.detail
+    assert validate_applied_command(1) in anchor.detail
     assert str(LAB1_SQL) in anchor.detail
 
 
@@ -135,9 +135,9 @@ def test_the_terminal_skips_the_step_it_has_already_taken():
 
     in_place = prove_lab._with_block_in_place(generic, 2)
 
-    assert validate_applied(2) not in in_place
+    assert validate_applied_command(2) not in in_place
     assert f"your saved block in {LAB2_SQL} is repaired and Aurora runs it" in in_place
-    assert f"run {validate(2)} again" in in_place
+    assert f"run {prove_lab_command(2)} again" in in_place
     assert prove_lab._with_block_in_place(environment, 2) == environment
 
 
@@ -147,7 +147,7 @@ def test_a_handoff_failure_repeats_the_handoff_not_the_bare_check():
     in_place = prove_lab._with_block_in_place(generic, 2, ADVANCE_TO_LAB_3)
 
     assert f"run {ADVANCE_TO_LAB_3} again" in in_place
-    assert validate(2) not in in_place
+    assert prove_lab_command(2) not in in_place
 
 
 def _start_record(output: Path, evidence: dict) -> None:
@@ -168,7 +168,7 @@ def test_an_after_run_without_a_start_names_the_start_command(tmp_path):
 
     assert str(refused.value) == (
         "Lab 1 has not started, so there is no saved failing request to compare with.\n"
-        f"Next: {start_command(1)}\nThen: {repeat_request(1)}"
+        f"Next: {start_command(1)}\nThen: {repeat_request_command(1)}"
     )
 
 
@@ -190,7 +190,9 @@ def test_an_after_run_with_a_lost_before_file_says_which_file(tmp_path):
 
 
 def test_lab_3_has_no_before_and_after_pair(tmp_path):
-    with pytest.raises(LabValidationError, match=complete_lab_3().replace("<", ".")):
+    with pytest.raises(
+        LabValidationError, match=grade_setup_run_command().replace("<", ".")
+    ):
         lab_request._without_before(3, tmp_path)
 
 
@@ -243,7 +245,7 @@ def test_a_start_whose_search_already_works_finishes_and_says_why(repo, monkeypa
         (
             "Lab 1: the search already finds product 1 among its 50 candidates, so "
             f"there is no failing request to save. {detail}\n"
-            f"Next: {validate_applied(1)} names what to change or run."
+            f"Next: {validate_applied_command(1)} names what to change or run."
         )
     ]
 
@@ -273,8 +275,8 @@ def test_a_repair_that_has_not_reached_aurora_says_what_to_check_and_repeat():
         f"product {RANK['target_product_ids'][0]} is still missing from the candidates"
     )
     assert "so the repair has not reached the search Aurora runs" in message
-    assert f"Next: {validate_applied(2)}" in message
-    assert message.endswith(f"Then: {repeat_request(2)}")
+    assert f"Next: {validate_applied_command(2)}" in message
+    assert message.endswith(f"Then: {repeat_request_command(2)}")
 
 
 def test_a_loosened_filter_is_named_with_the_products_outside_it():
@@ -378,4 +380,4 @@ def test_the_playground_names_what_is_wrong_in_an_unrepaired_block(repo):
     assert detail.startswith(
         f"Lab 1 is not repaired: in {LAB1_SQL}, the marked block holds only comments"
     )
-    assert detail.endswith(f"then prove it with {prove(1)}.")
+    assert detail.endswith(f"then prove it with {proof_steps_text(1)}.")

@@ -375,7 +375,8 @@ def reference_name(product: ProductSummary) -> str:
 _MODEL_CODE = re.compile(r"(?!ip)[a-z]+\d[a-z0-9-]*", re.IGNORECASE)
 
 
-def _identity_key(value: str) -> str:
+def _model_code_key(value: str) -> str:
+    """Lower-case a brand, model or title word and drop punctuation, to compare model codes."""
     return re.sub(r"[^a-z0-9]", "", value.casefold())
 
 
@@ -388,9 +389,9 @@ def _leading_code(product: ProductSummary) -> str:
     words = product.title.split(maxsplit=1)
     if not words or not _MODEL_CODE.fullmatch(words[0]):
         return ""
-    code = _identity_key(words[0])
-    if _identity_key(product.model).startswith(code) or (
-        _identity_key(product.brand) == code
+    code = _model_code_key(words[0])
+    if _model_code_key(product.model).startswith(code) or (
+        _model_code_key(product.brand) == code
     ):
         return words[0]
     return ""
@@ -1127,7 +1128,7 @@ def _requirement_bound(
 #: A reviewer's stars as an answer reports them: "gave it 5.0", "rated it 3 out of 5",
 #: "a 4-star review". The model is given each review's rating beside its text, and the
 #: citation shows it, so the record's rating field supports these figures and no other.
-_STAR_RATING = re.compile(
+_STAR_RATING_CANDIDATE = re.compile(
     r"(?P<lead>\b(?:rated|gave|gives|giving|awarded|scored)"
     r"(?:\s+(?:it|this|them|the\s+[\w-]+))?(?:\s+(?:an?|only|just))?\s+)?"
     r"(?<![\w.])(?P<value>[0-5](?:\.\d+)?)(?!\d|[.,]\d)"
@@ -1139,14 +1140,14 @@ _STAR_RATING = re.compile(
 _AVERAGE_RATING = re.compile(r"\b(?:average|overall|mean)\b", re.IGNORECASE)
 
 
-def _reviewer_stars(segment: str) -> dict[int, float]:
+def _framed_star_ratings(segment: str) -> dict[int, float]:
     """Each figure framed as a reviewer's stars, by its offset, with the stars it states.
 
     A frame needs a rating verb or the word "star"; a bare "3 out of 5" can count
     anything. The scale in "out of 5" stands or falls with the stars beside it.
     """
     framed: dict[int, float] = {}
-    for match in _STAR_RATING.finditer(segment):
+    for match in _STAR_RATING_CANDIDATE.finditer(segment):
         window = segment[max(0, match.start() - 30) : match.end() + 30]
         if not (match["lead"] or match["stars"]) or _AVERAGE_RATING.search(window):
             continue
@@ -1156,10 +1157,10 @@ def _reviewer_stars(segment: str) -> dict[int, float]:
     return framed
 
 
-def _states_cited_stars(
+def _matches_cited_review_rating(
     claim: MeasurableClaim, segment: str, records: Sequence[EvidenceRecord]
 ) -> bool:
-    stars = _reviewer_stars(segment).get(claim.start)
+    stars = _framed_star_ratings(segment).get(claim.start)
     return (
         stars is not None
         and claim.unit is None
@@ -1179,7 +1180,7 @@ def _figure_supported(
     return (
         _claim_supported(claim, segment, products, records)
         or _requirement_bound(claim, segment, question_figures, products, records)
-        or _states_cited_stars(claim, segment, records)
+        or _matches_cited_review_rating(claim, segment, records)
     )
 
 

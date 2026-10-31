@@ -13,7 +13,7 @@ sys.path.insert(0, str(ROOT))
 
 from scripts.lab_state import (
     FACILITATOR_ADVICE,
-    assert_reset_database,
+    assert_workshop_database,
     fault_untouched,
     is_environment_fault,
     missing_file_problem,
@@ -224,7 +224,7 @@ def main() -> None:
     dsn = os.getenv("DATABASE_URL")
     source = search_sql(ROOT)
     try:
-        assert_reset_database(dsn)
+        assert_workshop_database(dsn)
         with psycopg.connect(dsn, connect_timeout=15) as connection:
             apply(connection, source, participant_sql_digest(ROOT))
     except ValueError as error:

@@ -6,7 +6,7 @@ import pytest
 
 from service.answerability import assess_answerability
 from service.bedrock import get_bedrock_client
-from service.catalog import get_product_evidence_records, get_product_summaries
+from service.catalog import fetch_and_register_product_evidence, get_product_summaries
 from service.catalog_runtime import active_dataset
 from service.config import get_settings
 from service.retrieval import get_retrieval_service
@@ -22,7 +22,7 @@ def real_sources():
     evidence = [
         record
         for product in products
-        for record in get_product_evidence_records(
+        for record in fetch_and_register_product_evidence(
             product.product_id, question, embedding
         )
     ]
@@ -92,7 +92,7 @@ def test_missing_reviews_allow_source_limits_not_invented_endorsements(
             "clear calls in noisy rooms", "comfort through a full workday"
         )
     products = get_product_summaries([product_id])
-    evidence = get_product_evidence_records(
+    evidence = fetch_and_register_product_evidence(
         product_id, question, get_retrieval_service().embed_query(question)
     )
     assert evidence and {record.evidence_type for record in evidence} == {

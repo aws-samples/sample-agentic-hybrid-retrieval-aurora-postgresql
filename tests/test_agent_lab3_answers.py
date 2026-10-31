@@ -154,7 +154,9 @@ def _declined(unmet: list[str]) -> SynthesisDeclined:
 
 def test_a_decline_names_what_the_sources_do_not_establish():
     state = run_state(coverage=[grounded()])
-    agent_tools.record_unsupported_answer(state, _declined(["90W laptop charging"]))
+    agent_tools.set_unsupported_answer_of_record(
+        state, _declined(["90W laptop charging"])
+    )
     answer = state["answer_of_record"]["answer"]
     assert "90W laptop charging" in answer
     assert "No product is recommended" in answer
@@ -162,7 +164,7 @@ def test_a_decline_names_what_the_sources_do_not_establish():
 
 def test_a_decline_without_named_gaps_keeps_the_general_explanation():
     state = run_state(coverage=[grounded()])
-    agent_tools.record_unsupported_answer(state, _declined([]))
+    agent_tools.set_unsupported_answer_of_record(state, _declined([]))
     assert "do not establish the requirements" in state["answer_of_record"]["answer"]
 
 
@@ -261,7 +263,7 @@ def test_an_empty_alternatives_section_is_not_shown():
 def test_a_declined_budget_question_still_says_how_the_budget_was_matched():
     state = run_state(coverage=[grounded()])
     state["source_price_limits"] = ["a price of at most $300.00"]
-    agent_tools.record_unsupported_answer(state, _declined(["clear call audio"]))
+    agent_tools.set_unsupported_answer_of_record(state, _declined(["clear call audio"]))
     answer = state["answer_of_record"]["answer"]
     assert "clear call audio" in answer
     assert PRICE_NOTE in answer
@@ -274,7 +276,7 @@ def test_an_empty_budget_search_says_listings_without_a_price_were_left_out(
     state = _empty_run_state()
     with agent_tools.bind_run(state):
         agent_tools.search_products("headphones", max_price_cents=500)
-    assert agent_tools.record_no_results_answer(state)
+    assert agent_tools.set_no_results_answer_of_record(state)
     answer = state["answer_of_record"]["answer"]
     assert PRICE_NOTE in answer
     assert "listings without one were left out" in answer
@@ -285,5 +287,5 @@ def test_an_empty_stock_search_still_says_stock_was_not_checked(monkeypatch):
     state = _empty_run_state()
     with agent_tools.bind_run(state):
         agent_tools.search_products("chair", in_stock_only=True)
-    assert agent_tools.record_no_results_answer(state)
+    assert agent_tools.set_no_results_answer_of_record(state)
     assert STOCK_NOTE in state["answer_of_record"]["answer"]

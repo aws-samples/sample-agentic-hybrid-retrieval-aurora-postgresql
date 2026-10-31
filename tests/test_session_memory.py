@@ -25,7 +25,7 @@ def test_private_memory_context_cannot_be_forged_in_json():
 
 def test_cookie_is_private_random_and_hashed():
     response = Response()
-    actor = memory.shopper_id(
+    actor = memory.resolve_or_issue_shopper_id(
         Request({"type": "http", "scheme": "https", "headers": []}), response
     )
     cookie = response.headers["set-cookie"]
@@ -33,7 +33,7 @@ def test_cookie_is_private_random_and_hashed():
     token = cookie.split(";", 1)[0].split("=", 1)[1]
     assert len(token) == 64 and actor != token
     assert (
-        memory.shopper_id(
+        memory.resolve_or_issue_shopper_id(
             Request(
                 {
                     "type": "http",
@@ -43,7 +43,10 @@ def test_cookie_is_private_random_and_hashed():
         )
         == actor
     )
-    assert memory.shopper_id(Request({"type": "http", "headers": []})) is None
+    assert (
+        memory.resolve_or_issue_shopper_id(Request({"type": "http", "headers": []}))
+        is None
+    )
 
 
 def test_namespaces_require_actor_and_separate_session_summaries():
@@ -272,12 +275,12 @@ def test_follow_up_checks_owner_even_without_a_cookie(monkeypatch, cookie):
             }
         )
 
-    owner = memory.shopper_id(browser("a" * 64))
+    owner = memory.resolve_or_issue_shopper_id(browser("a" * 64))
     connection = MagicMock()
     connection.execute.return_value.fetchone.return_value = {"shopper_id": owner}
     monkeypatch.setattr(memory, "connect", lambda: connection)
     connection.__enter__.return_value = connection
-    monkeypatch.setattr(memory, "_profile", MagicMock())
+    monkeypatch.setattr(memory, "_get_or_create_profile", MagicMock())
     request = AgentRequest(
         question="Tell me more",
         context={
@@ -334,11 +337,11 @@ def test_explicit_follow_up_context_is_preserved_and_bound_to_its_session(
     connection = MagicMock()
     connection.__enter__.return_value = connection
     connection.execute.return_value.fetchone.return_value = {
-        "shopper_id": memory.shopper_id(browser),
+        "shopper_id": memory.resolve_or_issue_shopper_id(browser),
         "agent_session_id": session if same_session else uuid4(),
     }
     monkeypatch.setattr(memory, "connect", lambda: connection)
-    monkeypatch.setattr(memory, "_profile", MagicMock())
+    monkeypatch.setattr(memory, "_get_or_create_profile", MagicMock())
     owned = MagicMock()
     monkeypatch.setattr(memory, "_own_session", owned)
     recall = MagicMock()
@@ -356,7 +359,9 @@ def test_explicit_follow_up_context_is_preserved_and_bound_to_its_session(
     )
     if same_session:
         assert memory.prepare_request(request, browser).context == request.context
-        owned.assert_called_once_with(connection, memory.shopper_id(browser), session)
+        owned.assert_called_once_with(
+            connection, memory.resolve_or_issue_shopper_id(browser), session
+        )
     else:
         with pytest.raises(HTTPException) as rejected:
             memory.prepare_request(request, browser)

@@ -37,7 +37,12 @@ from typing import Any
 
 from service.assertions import evaluate_signal_assertions, falsifier_for, label_for
 from service.lab_files import LAB1_SQL, LAB2_SQL
-from service.participant_commands import APPLY_SQL, DEPLOY_AGENT, DIFF, validate_applied
+from service.participant_commands import (
+    APPLY_SQL,
+    DEPLOY_AGENT,
+    DIFF,
+    validate_applied_command,
+)
 from service.retrieval_fingerprint import explain
 
 REPO = Path(__file__).resolve().parents[1]
@@ -69,7 +74,7 @@ def repair_next_step(lab_id: int) -> str:
     the step first asks the check that tells those states apart.
     """
     return (
-        f"run {validate_applied(lab_id)}. It names what to change in the marked block "
+        f"run {validate_applied_command(lab_id)}. It names what to change in the marked block "
         f"of {LAB_FILES[lab_id]}, or confirms that Aurora runs your repair. If it "
         f"confirms, undo any edits outside the marked block ({DIFF} shows them), "
         f"run {APPLY_SQL} and repeat this check; if the check still fails, give this "
@@ -324,7 +329,7 @@ def same_request(first: object, second: object) -> bool:
 def mission_request_check(
     mission: Mapping[str, Any], agent: Mapping[str, Any]
 ) -> LabCheck:
-    from service.participant_commands import ask_setup, complete_lab_3
+    from service.participant_commands import ask_setup_command, grade_setup_run_command
 
     matched = same_request(mission.get("query"), agent.get("question"))
     return LabCheck(
@@ -338,8 +343,8 @@ def mission_request_check(
         else explain(
             "a run that asked a different question from Alex's setup request, such as "
             "the 100W follow-up",
-            f"run {complete_lab_3()} without --run-id to check your newest setup run, "
-            f"or ask the setup request with {ask_setup()}",
+            f"run {grade_setup_run_command()} without --run-id to check your newest setup run, "
+            f"or ask the setup request with {ask_setup_command()}",
         ),
     )
 

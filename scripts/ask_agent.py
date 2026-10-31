@@ -35,8 +35,7 @@ from scripts.progress import bar
 from scripts.prove_lab import LabValidationError
 from service.config import get_settings
 from service.lab_validation_receipt import participant_sql_digest
-from service.participant_commands import APPLY_SQL, STATUS
-from service.participant_commands import ask_agent as ask_command
+from service.participant_commands import APPLY_SQL, STATUS, ask_agent_command
 
 # Code Editor's terminal on a 16-inch laptop holds 124 characters a line. Every line stays
 # well inside it, so a long title or quote is shortened rather than wrapped mid-word.
@@ -292,7 +291,7 @@ def main(argv: list[str] | None = None) -> int:
     if len(args.question.strip()) < MIN_QUESTION:
         print(
             f"Question rule: ask at least {MIN_QUESTION} characters, in quotes; "
-            f"fix: {ask_command('Find headphones for calls')}",
+            f"fix: {ask_agent_command('Find headphones for calls')}",
             file=sys.stderr,
         )
         return 2

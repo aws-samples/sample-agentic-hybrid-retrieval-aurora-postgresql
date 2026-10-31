@@ -42,9 +42,9 @@ from service.lab_files import LAB2_SQL
 from service.participant_commands import (
     APPLY_SQL,
     DEPLOY_AGENT,
-    ask_setup,
-    complete_lab_3,
-    repeat_request,
+    ask_setup_command,
+    grade_setup_run_command,
+    repeat_request_command,
 )
 
 SCORE_TOLERANCE = 1e-9
@@ -100,12 +100,12 @@ def load_context(lab: int) -> dict[str, str]:
     if not path.exists() and lab == 3:
         raise ExerciseError(
             "no graded run of Alex's setup request yet; ask it with "
-            f"`{ask_setup()}`, then run `{complete_lab_3()}`"
+            f"`{ask_setup_command()}`, then run `{grade_setup_run_command()}`"
         )
     if not path.exists():
         raise ExerciseError(
             f"no saved context at {path.relative_to(REPO)}; run "
-            f"`{repeat_request(lab)}` first"
+            f"`{repeat_request_command(lab)}` first"
         )
     return json.loads(path.read_text(encoding="utf-8"))
 
@@ -430,7 +430,7 @@ def _saved_run(cur: Any, values: dict[str, str]) -> dict[int, float]:
     ):
         raise ExerciseError(
             f"saved run {search_id} is not this lab's request; rerun "
-            f"`{repeat_request(2)}`"
+            f"`{repeat_request_command(2)}`"
         )
     cur.execute(
         "SELECT product_id, (SELECT sum((c.value->>'rrf_contribution')::float8) "
@@ -493,7 +493,7 @@ def grade_lab2(values: dict[str, str]) -> dict[str, Any]:
         ),
         "target_saved": target in saved,
     }
-    rerun = f"rerun `{repeat_request(2)}`, then check again"
+    rerun = f"rerun `{repeat_request_command(2)}`, then check again"
     if not saved:
         report["failures"].append(f"no saved rows prove the fusion repair; {rerun}")
     else:

@@ -191,7 +191,7 @@ def uv_python(script: str, *args: str) -> tuple[str, ...]:
     return ("uv", "run", "python", script, *args)
 
 
-def helper(name: str, *args: str) -> tuple[str, ...]:
+def helper_command(name: str, *args: str) -> tuple[str, ...]:
     """Build the argv that runs one of this file's own helper subcommands."""
     return uv_python(f"{SCRIPTS}build_bundle.py", name, *args)
 
@@ -213,7 +213,7 @@ def plan_fetch(config: Config) -> list[Command]:
         target = config.pqa_dir / name
         commands.append(
             Command(
-                helper(
+                helper_command(
                     "download",
                     "--url",
                     FILE_URL.format(name=name),
@@ -278,7 +278,7 @@ def plan_evidence(config: Config) -> list[Command]:
     """Review samples seeded from the staged leaves, filtered to the catalog, plus questions."""
     commands = [
         Command(
-            helper(
+            helper_command(
                 "derive-parents",
                 "--selection",
                 str(config.selection_dir),
@@ -386,7 +386,7 @@ def plan_restore_check(config: Config) -> list[Command]:
     environment = (("MOSAIC_CATALOG_DATASET", config.dataset_id),)
     return [
         Command(
-            helper(
+            helper_command(
                 "copy-parts",
                 "--source",
                 str(config.bundle_dir),

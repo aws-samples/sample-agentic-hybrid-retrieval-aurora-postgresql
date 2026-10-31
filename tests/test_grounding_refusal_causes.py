@@ -188,8 +188,10 @@ def _fallback_raising(monkeypatch, error: Exception) -> None:
     def fail(_question):
         raise error
 
-    monkeypatch.setattr(agent_tools, "record_declined_answer", lambda _state: False)
-    monkeypatch.setattr(agent_tools, "complete_grounded_answer", fail)
+    monkeypatch.setattr(
+        agent_tools, "set_declined_answer_of_record", lambda _state: False
+    )
+    monkeypatch.setattr(agent_tools, "run_controller_fallback", fail)
 
 
 def test_the_answer_checks_refusing_a_draft_is_recorded_as_a_refused_draft(
@@ -197,7 +199,7 @@ def test_the_answer_checks_refusing_a_draft_is_recorded_as_a_refused_draft(
 ):
     _fallback_raising(monkeypatch, SynthesisOutputError("claim not stated by [1]"))
 
-    failure = ProductDiscoveryAgent._finalize_if_needed(
+    failure = ProductDiscoveryAgent._finalize_or_failure(
         AgentRequest(question="What should I buy?"), _state()
     )
 
@@ -211,7 +213,7 @@ def test_a_step_that_did_not_complete_is_recorded_as_an_incomplete_step(
 ):
     _fallback_raising(monkeypatch, RuntimeError(message))
 
-    failure = ProductDiscoveryAgent._finalize_if_needed(
+    failure = ProductDiscoveryAgent._finalize_or_failure(
         AgentRequest(question="What should I buy?"), _state()
     )
 

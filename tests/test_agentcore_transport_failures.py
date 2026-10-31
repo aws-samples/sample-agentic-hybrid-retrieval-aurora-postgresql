@@ -18,7 +18,7 @@ def source(monkeypatch):
     monkeypatch.setattr(
         "service.lab_validation_receipt.application_digest", lambda: SHA
     )
-    monkeypatch.setattr("scripts.lab_state.lab_is_solved", lambda lab: True)
+    monkeypatch.setattr("scripts.lab_state.lab_source_is_repaired", lambda lab: True)
     monkeypatch.setattr("scripts.lab_state.lab3_problem", lambda **_: None)
 
 
