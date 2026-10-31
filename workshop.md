@@ -47,7 +47,7 @@ beside the contribution the search recorded.
 Lab 2 ends with `advance --lab 2`, which proves Lab 2 and installs the
 Retrieval agent's starting code. Lab 3 stays in the terminal: deploy, ask the setup
 request and the 100W follow-up with `scripts/ask_agent.py`, then complete with
-`scripts/complete_agent.py`, which checks the newest setup run. Ask Mosaic is an
+`scripts/grade_setup_run.py`, which checks the newest setup run. Ask Mosaic is an
 optional view of the same runs.
 
 Each lab opens with its time and a link to **Running behind**. That section's
@@ -132,7 +132,7 @@ evidence, then prepares Lab 2. Run it only after inspecting all Lab 1 examples.
 When the saved block is repaired but Aurora runs an earlier version of it, the
 handoff applies the saved SQL first, as the apply command does.
 Retries preserve edits and resume any interrupted preparation. Every Lab 1 and
-Lab 2 check reads the saved block the same way, so `validate_lab.py` cannot pass
+Lab 2 check reads the saved block the same way, so `prove_lab.py` cannot pass
 while `advance` refuses. A refusal names the first difference (for example
 `column 3 is fuzzy_score`), the fix and the rerun. Equivalent SQL passes:
 column or table aliases and qualified columns. Live-check failures in the
@@ -189,7 +189,7 @@ After the deploy, participants ask Alex's setup request from the terminal with
 the request completion checks word for word. It prints the answer, the plan, the
 tool trace with the search SQL Aurora ran, the products, each citation with its
 quote, the outcome and the **Run ID**. They ask the 100W follow-up the same way;
-each call is its own run. `uv run python scripts/complete_agent.py` then checks the
+each call is its own run. `uv run python scripts/grade_setup_run.py` then checks the
 newest run of the setup request since Lab 3 started that opened its own conversation,
 and says which run it chose; `--run-id` checks a particular one. A follow-up question
 is not graded against the lab.

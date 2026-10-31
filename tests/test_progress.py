@@ -176,7 +176,7 @@ def test_a_running_line_never_wraps_and_keeps_its_time_whole(width: int) -> None
 def test_a_start_line_too_wide_for_the_terminal_puts_its_label_on_its_own_line(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    command = "uv run python scripts/lab_terminal.py run --lab 1 --phase after"
+    command = "uv run python scripts/lab_request.py send --lab 1 --phase after"
     out = io.StringIO()
     progress = Progress(stream=out, now=Clock(), interval=None, name="step")
     progress.plan([5, 1])

@@ -794,7 +794,7 @@ commands and proof boundaries. Follow the Workshop Studio lab guide.
   model IDs, indexes, shared prompts, or tool schemas. In Lab 3 keep
   the supplied instructions as the system prompt, with the tools and
   execution hooks; a participant's own rule may follow them.
-- Do not run uv run python scripts/lab_state.py solution --lab N,
+- Do not run uv run python scripts/lab_state.py apply-solution --lab N,
   finish --lab N or skip-to --lab N unless the participant explicitly
   asks for the full recovery path or to start at a later lab.
 - After editing, run git diff --check. In Labs 1 and 2, apply SQL changes
@@ -804,7 +804,7 @@ commands and proof boundaries. Follow the Workshop Studio lab guide.
   lab's proof commands shown in the guide.
   In Lab 3, run uv run python scripts/deploy_agentcore.py deploy: questions
   and completion wait for a deploy made since Lab 3 started. Then check the
-  participant's newest setup run with uv run python scripts/complete_agent.py
+  participant's newest setup run with uv run python scripts/grade_setup_run.py
   as the guide describes.
 - If Aurora, Bedrock, the API, or the storefront is unhealthy, stop
   and identify it as an environment failure rather than changing code

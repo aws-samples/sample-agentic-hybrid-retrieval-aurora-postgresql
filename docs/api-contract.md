@@ -543,8 +543,8 @@ page labels them differently because they are different kinds of claim.
 
 - `GET /api/labs/state`
 
-Labs are proved in the terminal (`scripts/validate_lab.py`,
-`scripts/complete_agent.py`) with the checks in `service/lab_checks.py` and
+Labs are proved in the terminal (`scripts/prove_lab.py`,
+`scripts/grade_setup_run.py`) with the checks in `service/lab_checks.py` and
 `service/lab_proof.py`; no browser route grades a lab.
 
 State reports both places a lab can be broken, per lab: `source_state`
@@ -622,11 +622,11 @@ against the evidence row it names on all five fields `GET /api/evidence/{id}`
 serves for it: `evidence_id`, `product_id`, `source_uri`, `revision`, and the
 citation's `quote` against the row's own `text`. A field missing from either
 side is a mismatch, never a vacuous agreement. This is the same comparison
-`scripts/validate_lab.py` makes over the HTTP response, so a fabricated quote
+`scripts/prove_lab.py` makes over the HTTP response, so a fabricated quote
 attached to a real product fails in the browser exactly as it does in the
 terminal.
 
-The same checks back `scripts/validate_lab.py`; they live in
+The same checks back `scripts/prove_lab.py`; they live in
 `service/lab_checks.py` so the terminal and the browser cannot disagree about
 whether a lab is finished.
 

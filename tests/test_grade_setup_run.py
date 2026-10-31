@@ -10,7 +10,7 @@ from uuid import uuid4
 
 import pytest
 
-from scripts import complete_agent
+from scripts import grade_setup_run
 from service.lab_checks import mission_for_lab
 
 REQUEST = mission_for_lab(3)["query"]
@@ -47,11 +47,11 @@ def test_the_newest_grounded_setup_run_is_checked() -> None:
     earlier, newest = _run(5, "grounded"), _run(9, "grounded")
     connection = _Connection([earlier, newest, _run(12, "grounded", question="100W?")])
 
-    pick = complete_agent.pick_setup_run(connection, REQUEST, STARTED)
+    pick = grade_setup_run.pick_setup_run(connection, REQUEST, STARTED)
 
     assert pick.run is newest and pick.skipped == []
     assert connection.params["started"] == STARTED
-    assert complete_agent._choice(pick).startswith("Checking your newest setup run,")
+    assert grade_setup_run._choice(pick).startswith("Checking your newest setup run,")
 
 
 def test_a_stopped_or_declined_retry_does_not_hide_an_earlier_grounded_run() -> None:
@@ -59,10 +59,10 @@ def test_a_stopped_or_declined_retry_does_not_hide_an_earlier_grounded_run() -> 
     grounded = _run(5, "grounded")
     connection = _Connection([grounded, _run(8, "declined"), _run(11, None)])
 
-    pick = complete_agent.pick_setup_run(connection, REQUEST, STARTED)
+    pick = grade_setup_run.pick_setup_run(connection, REQUEST, STARTED)
 
     assert pick.run is grounded and len(pick.skipped) == 2
-    choice = complete_agent._choice(pick)
+    choice = grade_setup_run._choice(pick)
     assert f"newest grounded setup run, {grounded['agent_turn_id']}" in choice
     assert (
         "asked at 10:05:00 UTC; 2 newer runs ended without a grounded answer" in choice
@@ -74,29 +74,29 @@ def test_without_a_grounded_run_the_newest_answered_one_is_checked() -> None:
     declined = _run(6, "declined")
     connection = _Connection([_run(2, "declined"), declined, _run(9, None)])
 
-    pick = complete_agent.pick_setup_run(connection, REQUEST, STARTED)
+    pick = grade_setup_run.pick_setup_run(connection, REQUEST, STARTED)
 
     assert pick.run is declined
-    assert "with an answer" in complete_agent._choice(pick)
-    assert "1 newer run stopped without one" in complete_agent._choice(pick)
+    assert "with an answer" in grade_setup_run._choice(pick)
+    assert "1 newer run stopped without one" in grade_setup_run._choice(pick)
 
 
 def test_the_request_matches_whatever_its_case_and_spacing() -> None:
     respaced = _run(4, "grounded", question="  " + REQUEST.upper().replace(" ", "  "))
-    pick = complete_agent.pick_setup_run(_Connection([respaced]), REQUEST, STARTED)
+    pick = grade_setup_run.pick_setup_run(_Connection([respaced]), REQUEST, STARTED)
     assert pick.run is respaced
 
 
 @pytest.fixture
 def workspace(monkeypatch, tmp_path):
-    monkeypatch.setattr(complete_agent, "ROOT", tmp_path)
-    monkeypatch.setattr(complete_agent, "load_dotenv", lambda _path: None)
+    monkeypatch.setattr(grade_setup_run, "ROOT", tmp_path)
+    monkeypatch.setattr(grade_setup_run, "load_dotenv", lambda _path: None)
     monkeypatch.setattr(
         "service.agent_deploys.lab_3_started_at", lambda _root=None: STARTED
     )
     graded = []
     monkeypatch.setattr(
-        complete_agent.lab_exercise, "main", lambda: graded.append(1) or 0
+        grade_setup_run.lab_exercise, "main", lambda: graded.append(1) or 0
     )
     return graded
 
@@ -128,9 +128,9 @@ def test_no_checkable_setup_run_says_how_to_make_one(
     from service.participant_commands import ask_setup
 
     _turns(monkeypatch, turns)
-    monkeypatch.setattr(sys, "argv", ["complete_agent.py"])
+    monkeypatch.setattr(sys, "argv", ["grade_setup_run.py"])
 
-    assert complete_agent.main() == 2
+    assert grade_setup_run.main() == 2
 
     output = capsys.readouterr().out
     assert said in output and ask_setup() in output
@@ -140,11 +140,11 @@ def test_no_checkable_setup_run_says_how_to_make_one(
 def test_the_picked_run_is_saved_for_the_check(monkeypatch, capsys, workspace) -> None:
     grounded = _run(5, "grounded")
     _turns(monkeypatch, [grounded, _run(8, None)])
-    monkeypatch.setattr(sys, "argv", ["complete_agent.py"])
+    monkeypatch.setattr(sys, "argv", ["grade_setup_run.py"])
 
-    assert complete_agent.main() == 0
+    assert grade_setup_run.main() == 0
 
-    saved = json.loads((complete_agent.ROOT / ".local/lab-3/context.json").read_text())
+    saved = json.loads((grade_setup_run.ROOT / ".local/lab-3/context.json").read_text())
     assert saved == {"lab_agent_id": str(grounded["agent_turn_id"])}
     assert "1 newer run ended without a grounded answer" in capsys.readouterr().out
     assert workspace == [1]
@@ -155,9 +155,9 @@ def test_a_named_run_is_checked_without_a_pick(monkeypatch, workspace) -> None:
     monkeypatch.setattr(
         "service.db.connect", lambda: pytest.fail("a named run needs no pick")
     )
-    monkeypatch.setattr(sys, "argv", ["complete_agent.py", "--run-id", str(named)])
+    monkeypatch.setattr(sys, "argv", ["grade_setup_run.py", "--run-id", str(named)])
 
-    assert complete_agent.main() == 0
+    assert grade_setup_run.main() == 0
 
-    saved = json.loads((complete_agent.ROOT / ".local/lab-3/context.json").read_text())
+    saved = json.loads((grade_setup_run.ROOT / ".local/lab-3/context.json").read_text())
     assert saved == {"lab_agent_id": str(named)}

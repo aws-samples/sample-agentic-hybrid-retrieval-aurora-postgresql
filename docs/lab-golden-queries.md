@@ -24,7 +24,7 @@ The internal ID `compare-cheaper-alternative` is retained for existing links. G-
 
 Run the same request before and after the marked repair on Aurora. Preserve each response and search/agent run ID. The guide uses `scripts/apply_search_functions.py`, which verifies the selected real-catalog receipt and installs the participant's SQL into the active search schema without automatically solving its gaps. Deploy the edited Lab 3 agent to AgentCore Runtime; a file edit alone does not update it.
 
-Run `scripts/validate_lab.py` for each lab. Lab 2 repeats the same search; Lab 3 also runs G-019 and saves its receipt for completion without extra model calls. The production path must fail on the deliberate defect and pass on the restored code. Source-state labels alone are insufficient. Keep live functions and source byte-identical after an operator proof.
+Run `scripts/prove_lab.py` for each lab. Lab 2 repeats the same search; Lab 3 also runs G-019 and saves its receipt for completion without extra model calls. The production path must fail on the deliberate defect and pass on the restored code. Source-state labels alone are insufficient. Keep live functions and source byte-identical after an operator proof.
 
 The broader measured alternatives and unchanged/failing controls are in [the worked-example library](real-catalog-exercise-library.md). They are not substituted into required validators.
 

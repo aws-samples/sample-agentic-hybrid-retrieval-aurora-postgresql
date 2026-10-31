@@ -2,8 +2,8 @@ import re
 
 import pytest
 
-from scripts import validate_lab
-from scripts.validate_lab import sql_lab_problem as checked_sql_lab_problem
+from scripts import prove_lab
+from scripts.prove_lab import sql_lab_problem as checked_sql_lab_problem
 from service.config import get_settings
 from service.participant_commands import complete_lab_3
 from service.participant_commands import start as start_command
@@ -14,14 +14,14 @@ PLAN = [{"Plan": {"Node Type": "Append"}}]
 @pytest.fixture(autouse=True)
 def isolated_repo(monkeypatch, tmp_path):
     """A passing `main()` records completion; it must never write the checkout."""
-    monkeypatch.setattr(validate_lab, "REPO", tmp_path)
+    monkeypatch.setattr(prove_lab, "REPO", tmp_path)
     return tmp_path
 
 
 @pytest.fixture(autouse=True)
 def saved_sql_runs_in_aurora(monkeypatch):
     """Aurora is a boundary: by default it runs the saved, repaired block."""
-    monkeypatch.setattr(validate_lab, "sql_lab_problem", lambda _lab: None)
+    monkeypatch.setattr(prove_lab, "sql_lab_problem", lambda _lab: None)
 
 
 def _agent_response():
@@ -36,7 +36,7 @@ def _agent_response():
         for product_id, price in ((370001, 69900), (420001, 54900))
     ]
     return {
-        "question": validate_lab._mission("reason")["query"],
+        "question": prove_lab._mission("reason")["query"],
         "recommendations": recommendations,
         "trace": [
             {
@@ -155,7 +155,7 @@ def test_monitor_mission_requires_video_evidence_not_just_charging(
             record["text"] = citation["quote"]
         return record
 
-    monkeypatch.setattr(validate_lab, "_request", resolve)
+    monkeypatch.setattr(prove_lab, "_request", resolve)
     mission = _mission()
     mission["required_citation_support"].append(
         {
@@ -165,14 +165,14 @@ def test_monitor_mission_requires_video_evidence_not_just_charging(
         }
     )
     if supports_video:
-        assert "required claims supported" in validate_lab.validate_agent_response(
+        assert "required claims supported" in prove_lab.validate_agent_response(
             "http://example", mission, agent
         )
     else:
         with pytest.raises(
-            validate_lab.LabValidationError, match="required citation support.*video"
+            prove_lab.LabValidationError, match="required citation support.*video"
         ):
-            validate_lab.validate_agent_response("http://example", mission, agent)
+            prove_lab.validate_agent_response("http://example", mission, agent)
 
 
 def _fake_request(_base_url, path, _payload=None):
@@ -207,9 +207,9 @@ def _fake_request(_base_url, path, _payload=None):
 
 
 def test_lab_3_validator_proves_tools_grounding_and_citations(monkeypatch):
-    monkeypatch.setattr(validate_lab, "_request", _fake_request)
+    monkeypatch.setattr(prove_lab, "_request", _fake_request)
 
-    checks = validate_lab.validate_agent_response(
+    checks = prove_lab.validate_agent_response(
         "http://example.test",
         _mission(),
         _agent_response(),
@@ -223,12 +223,12 @@ def test_lab_3_validator_proves_tools_grounding_and_citations(monkeypatch):
 
 
 def test_lab_3_validator_rejects_an_unattributed_controller_step(monkeypatch):
-    monkeypatch.setattr(validate_lab, "_request", _fake_request)
+    monkeypatch.setattr(prove_lab, "_request", _fake_request)
     response = _agent_response()
     response["trace"][0].pop("origin")
 
-    with pytest.raises(validate_lab.LabValidationError, match="execution origin"):
-        validate_lab.validate_agent_response(
+    with pytest.raises(prove_lab.LabValidationError, match="execution origin"):
+        prove_lab.validate_agent_response(
             "http://example.test",
             _mission(),
             response,
@@ -242,10 +242,10 @@ def test_lab_3_validator_rejects_unresolved_citation(monkeypatch):
             result["product_id"] = 123
         return result
 
-    monkeypatch.setattr(validate_lab, "_request", mismatched)
+    monkeypatch.setattr(prove_lab, "_request", mismatched)
 
-    with pytest.raises(validate_lab.LabValidationError, match="does not resolve"):
-        validate_lab.validate_agent_response(
+    with pytest.raises(prove_lab.LabValidationError, match="does not resolve"):
+        prove_lab.validate_agent_response(
             "http://example.test",
             _mission(),
             _agent_response(),
@@ -253,12 +253,12 @@ def test_lab_3_validator_rejects_unresolved_citation(monkeypatch):
 
 
 def test_lab_3_validator_requires_citation_coverage(monkeypatch):
-    monkeypatch.setattr(validate_lab, "_request", _fake_request)
+    monkeypatch.setattr(prove_lab, "_request", _fake_request)
     response = _agent_response()
     response["citations"] = response["citations"][:1]
 
-    with pytest.raises(validate_lab.LabValidationError, match="every recommended"):
-        validate_lab.validate_agent_response(
+    with pytest.raises(prove_lab.LabValidationError, match="every recommended"):
+        prove_lab.validate_agent_response(
             "http://example.test",
             _mission(),
             response,
@@ -266,17 +266,17 @@ def test_lab_3_validator_requires_citation_coverage(monkeypatch):
 
 
 def test_lab_3_validator_requires_one_successful_ranking_explanation(monkeypatch):
-    monkeypatch.setattr(validate_lab, "_request", _fake_request)
+    monkeypatch.setattr(prove_lab, "_request", _fake_request)
     response = _agent_response()
     response["trace"] = [
         step for step in response["trace"] if step["tool"] != "explain_retrieval"
     ]
 
     with pytest.raises(
-        validate_lab.LabValidationError,
+        prove_lab.LabValidationError,
         match="exactly one successful explain_retrieval",
     ):
-        validate_lab.validate_agent_response(
+        prove_lab.validate_agent_response(
             "http://example.test",
             _mission(),
             response,
@@ -292,7 +292,7 @@ def test_lab_3_validator_requires_one_focused_search_per_intent(monkeypatch):
             ]
         return result
 
-    monkeypatch.setattr(validate_lab, "_request", broad_search)
+    monkeypatch.setattr(prove_lab, "_request", broad_search)
     mission = _mission()
     response = _agent_response()
     response["trace"] = [
@@ -302,10 +302,10 @@ def test_lab_3_validator_requires_one_focused_search_per_intent(monkeypatch):
     ]
 
     with pytest.raises(
-        validate_lab.LabValidationError,
+        prove_lab.LabValidationError,
         match="independent intent",
     ):
-        validate_lab.validate_agent_response(
+        prove_lab.validate_agent_response(
             "http://example.test",
             mission,
             response,
@@ -321,7 +321,7 @@ def test_lab_3_validator_binds_distinct_queries_to_target_receipts(monkeypatch):
             result["candidates"] = []
         return result
 
-    monkeypatch.setattr(validate_lab, "_request", with_empty_decoy)
+    monkeypatch.setattr(prove_lab, "_request", with_empty_decoy)
     response = _agent_response()
     searches = [step for step in response["trace"] if step["tool"] == "search_products"]
     for step in searches:
@@ -341,10 +341,10 @@ def test_lab_3_validator_binds_distinct_queries_to_target_receipts(monkeypatch):
     )
 
     with pytest.raises(
-        validate_lab.LabValidationError,
+        prove_lab.LabValidationError,
         match="independent intent",
     ):
-        validate_lab.validate_agent_response(
+        prove_lab.validate_agent_response(
             "http://example.test",
             _mission(),
             response,
@@ -362,13 +362,13 @@ def test_lab_3_validator_requires_every_canonical_target_class(monkeypatch):
             ]
         return result
 
-    monkeypatch.setattr(validate_lab, "_request", chair_only)
+    monkeypatch.setattr(prove_lab, "_request", chair_only)
 
     with pytest.raises(
-        validate_lab.LabValidationError,
+        prove_lab.LabValidationError,
         match="missed canonical target classes.*420001",
     ):
-        validate_lab.validate_agent_response(
+        prove_lab.validate_agent_response(
             "http://example.test",
             _mission(),
             _agent_response(),
@@ -382,14 +382,14 @@ def test_lab_3_validator_requires_a_captured_and_persisted_explain_plan(monkeypa
             return {"search_event_id": "run-1", "plan": []}
         return result
 
-    monkeypatch.setattr(validate_lab, "_request", missing_plan)
+    monkeypatch.setattr(prove_lab, "_request", missing_plan)
     mission = _mission()
 
     with pytest.raises(
-        validate_lab.LabValidationError,
+        prove_lab.LabValidationError,
         match="EXPLAIN.*plan",
     ):
-        validate_lab.validate_agent_response(
+        prove_lab.validate_agent_response(
             "http://example.test",
             mission,
             _agent_response(),
@@ -403,13 +403,13 @@ def test_lab_3_validator_rejects_an_explain_plan_that_was_not_persisted(monkeypa
             result["run"]["plan_json"] = None
         return result
 
-    monkeypatch.setattr(validate_lab, "_request", unpersisted_plan)
+    monkeypatch.setattr(prove_lab, "_request", unpersisted_plan)
 
     with pytest.raises(
-        validate_lab.LabValidationError,
+        prove_lab.LabValidationError,
         match="EXPLAIN plan was not persisted",
     ):
-        validate_lab.validate_agent_response(
+        prove_lab.validate_agent_response(
             "http://example.test",
             _mission(),
             _agent_response(),
@@ -435,13 +435,13 @@ def test_lab_3_validator_rejects_a_resolved_but_unsupported_claim(monkeypatch):
             "text": citation["quote"],
         }
 
-    monkeypatch.setattr(validate_lab, "_request", unsupported)
+    monkeypatch.setattr(prove_lab, "_request", unsupported)
 
     with pytest.raises(
-        validate_lab.LabValidationError,
+        prove_lab.LabValidationError,
         match="required citation support.*12.*hour",
     ):
-        validate_lab.validate_agent_response(
+        prove_lab.validate_agent_response(
             "http://example.test",
             _mission(),
             response,
@@ -449,15 +449,15 @@ def test_lab_3_validator_rejects_a_resolved_but_unsupported_claim(monkeypatch):
 
 
 def test_lab_3_validator_rejects_dropped_jsonb_constraints(monkeypatch):
-    monkeypatch.setattr(validate_lab, "_request", _fake_request)
+    monkeypatch.setattr(prove_lab, "_request", _fake_request)
     mission = _mission()
     mission["filters"]["attributes"] = {"seat_depth_adjustable": True}
 
     with pytest.raises(
-        validate_lab.LabValidationError,
+        prove_lab.LabValidationError,
         match="does not preserve structured constraints",
     ):
-        validate_lab.validate_agent_response(
+        prove_lab.validate_agent_response(
             "http://example.test",
             mission,
             _agent_response(),
@@ -496,16 +496,14 @@ def _lab_2_response(*, pre_rerank_rank=1, final_rank=1):
 def test_lab_2_validator_proves_the_canonical_fused_and_final_winner(monkeypatch):
     response = _lab_2_response()
     monkeypatch.setattr(
-        validate_lab,
+        prove_lab,
         "_mission",
         lambda _stage: {"target_product_ids": [370002]},
     )
-    monkeypatch.setattr(validate_lab, "_search", lambda _url, _mission: response)
+    monkeypatch.setattr(prove_lab, "_search", lambda _url, _mission: response)
 
-    monkeypatch.setattr(
-        validate_lab.lab_checks, "supporting_checks_for_lab", lambda _: []
-    )
-    checks = validate_lab.validate_lab_2("http://example.test")
+    monkeypatch.setattr(prove_lab.lab_checks, "supporting_checks_for_lab", lambda _: [])
+    checks = prove_lab.prove_lab_2("http://example.test")
 
     assert "required product reaches the declared final shortlist" in checks
 
@@ -513,14 +511,14 @@ def test_lab_2_validator_proves_the_canonical_fused_and_final_winner(monkeypatch
 def test_lab_2_validator_rejects_a_wrong_final_winner(monkeypatch):
     response = _lab_2_response(final_rank=2)
     monkeypatch.setattr(
-        validate_lab,
+        prove_lab,
         "_mission",
         lambda _stage: {"target_product_ids": [370002]},
     )
-    monkeypatch.setattr(validate_lab, "_search", lambda _url, _mission: response)
+    monkeypatch.setattr(prove_lab, "_search", lambda _url, _mission: response)
 
-    with pytest.raises(validate_lab.LabValidationError, match="final position 2"):
-        validate_lab.validate_lab_2("http://example.test")
+    with pytest.raises(prove_lab.LabValidationError, match="final position 2"):
+        prove_lab.prove_lab_2("http://example.test")
 
 
 @pytest.mark.parametrize(
@@ -529,17 +527,15 @@ def test_lab_2_validator_rejects_a_wrong_final_winner(monkeypatch):
 )
 def test_cli_dispatches_primary_and_every_control(monkeypatch, lab_id, expected):
     executed = []
-    monkeypatch.setattr(
-        validate_lab.lab_checks, f"lab_{lab_id}_checks", lambda *args: []
-    )
+    monkeypatch.setattr(prove_lab.lab_checks, f"lab_{lab_id}_checks", lambda *args: [])
 
     def search(base, mission):
         executed.append(mission["canonical_query_id"])
         return {"search_event_id": mission["canonical_query_id"]}
 
-    monkeypatch.setattr(validate_lab, "_search", search)
+    monkeypatch.setattr(prove_lab, "_search", search)
     monkeypatch.setattr(
-        validate_lab,
+        prove_lab,
         "_request",
         lambda *args: {"candidates": [{"product_id": 1, "eligible": True}]},
     )
@@ -550,8 +546,8 @@ def test_cli_dispatches_primary_and_every_control(monkeypatch, lab_id, expected)
         assert candidates
         return []
 
-    monkeypatch.setattr(validate_lab.lab_checks, "retrieval_control_checks", control)
-    getattr(validate_lab, f"validate_lab_{lab_id}")("http://example.test")
+    monkeypatch.setattr(prove_lab.lab_checks, "retrieval_control_checks", control)
+    getattr(prove_lab, f"prove_lab_{lab_id}")("http://example.test")
     assert executed == expected
     assert checked == expected[-2:]
 
@@ -586,10 +582,10 @@ def test_request_sends_the_configured_origin_secret_header(monkeypatch):
         captured["request"] = request
         return _FakeResponse()
 
-    monkeypatch.setattr(validate_lab, "urlopen", fake_urlopen)
+    monkeypatch.setattr(prove_lab, "urlopen", fake_urlopen)
 
     try:
-        validate_lab._request("http://127.0.0.1:8000", "/api/readiness")
+        prove_lab._request("http://127.0.0.1:8000", "/api/readiness")
     finally:
         get_settings.cache_clear()
 
@@ -606,10 +602,10 @@ def test_request_omits_the_header_when_no_secret_is_configured(monkeypatch):
         captured["request"] = request
         return _FakeResponse()
 
-    monkeypatch.setattr(validate_lab, "urlopen", fake_urlopen)
+    monkeypatch.setattr(prove_lab, "urlopen", fake_urlopen)
 
     try:
-        validate_lab._request("http://127.0.0.1:8000", "/api/readiness")
+        prove_lab._request("http://127.0.0.1:8000", "/api/readiness")
     finally:
         get_settings.cache_clear()
 
@@ -619,18 +615,18 @@ def test_request_omits_the_header_when_no_secret_is_configured(monkeypatch):
 def test_main_loads_dotenv_before_any_request_is_made(monkeypatch):
     """Findings 2/3: a non-interactive invocation (no shell to have already
     sourced .env) must still pick up MOSAIC_ORIGIN_VERIFY_SECRET, the same
-    way scripts/lab_terminal.py's `main()` already loads it for its own peer
+    way scripts/lab_request.py's `main()` already loads it for its own peer
     invocation. Without this, every call from a fresh shell gets a silent 401.
     """
     calls: list[object] = []
     monkeypatch.setattr("dotenv.load_dotenv", lambda path: calls.append(path))
-    monkeypatch.setattr(validate_lab, "validate_lab_1", lambda *_args, **_kw: [])
+    monkeypatch.setattr(prove_lab, "prove_lab_1", lambda *_args, **_kw: [])
     monkeypatch.setattr(
-        "sys.argv", ["validate_lab.py", "--lab", "1", "--api-url", "http://x"]
+        "sys.argv", ["prove_lab.py", "--lab", "1", "--api-url", "http://x"]
     )
 
-    assert validate_lab.main() == 0
-    assert calls == [validate_lab.REPO / ".env"]
+    assert prove_lab.main() == 0
+    assert calls == [prove_lab.REPO / ".env"]
 
 
 class _NoConnection:
@@ -643,15 +639,15 @@ class _NoConnection:
 
 def _failing_lab_1(monkeypatch, *, masked: bool) -> None:
     monkeypatch.setattr(
-        validate_lab,
+        prove_lab,
         "_search",
         lambda *_: {"search_event_id": "fresh-run", "results": []},
     )
     monkeypatch.setattr(
-        validate_lab.lab_checks,
+        prove_lab.lab_checks,
         "lab_1_checks",
         lambda *_: [
-            validate_lab.LabCheck(
+            prove_lab.LabCheck(
                 name="target",
                 passed=False,
                 falsifier="the target is absent",
@@ -666,18 +662,18 @@ def _failing_lab_1(monkeypatch, *, masked: bool) -> None:
 
 
 def _saved_lab_1(repo) -> None:
-    validate_lab.record_completion(1, ["target"], ["earlier-run"], repo=repo)
+    prove_lab.record_completion(1, ["target"], ["earlier-run"], repo=repo)
 
 
 def test_lab_1_under_lab_2s_fault_explains_and_keeps_old_evidence_separate(
     monkeypatch, tmp_path
 ) -> None:
-    monkeypatch.setattr(validate_lab, "REPO", tmp_path)
+    monkeypatch.setattr(prove_lab, "REPO", tmp_path)
     _saved_lab_1(tmp_path)
     _failing_lab_1(monkeypatch, masked=True)
 
-    with pytest.raises(validate_lab.LabValidationError) as failure:
-        validate_lab.validate_lab_1("http://api")
+    with pytest.raises(prove_lab.LabValidationError) as failure:
+        prove_lab.prove_lab_1("http://api")
 
     message = str(failure.value)
     assert message.startswith("Lab 1 live check failed: target missing. Lab 2's")
@@ -691,55 +687,55 @@ def test_lab_1_under_lab_2s_fault_explains_and_keeps_old_evidence_separate(
 def test_lab_1_failing_on_its_own_says_only_its_own_reason(
     monkeypatch, tmp_path
 ) -> None:
-    monkeypatch.setattr(validate_lab, "REPO", tmp_path)
+    monkeypatch.setattr(prove_lab, "REPO", tmp_path)
     _saved_lab_1(tmp_path)
     _failing_lab_1(monkeypatch, masked=False)
 
     with pytest.raises(
-        validate_lab.LabValidationError,
+        prove_lab.LabValidationError,
         match="^target missing; fix: restore the fuzzy CTE.$",
     ):
-        validate_lab.validate_lab_1("http://api")
+        prove_lab.prove_lab_1("http://api")
 
 
 def test_a_saved_completion_never_turns_a_failing_check_into_a_pass(
     monkeypatch, tmp_path
 ) -> None:
-    monkeypatch.setattr(validate_lab, "REPO", tmp_path)
+    monkeypatch.setattr(prove_lab, "REPO", tmp_path)
     _saved_lab_1(tmp_path)
     saved = (tmp_path / ".local/lab-1/completion.json").read_bytes()
     _failing_lab_1(monkeypatch, masked=True)
-    monkeypatch.setattr("sys.argv", ["validate_lab.py", "--lab", "1"])
+    monkeypatch.setattr("sys.argv", ["prove_lab.py", "--lab", "1"])
 
     with pytest.raises(SystemExit, match="^Lab 1: FAIL"):
-        validate_lab.main()
+        prove_lab.main()
 
     assert (tmp_path / ".local/lab-1/completion.json").read_bytes() == saved
 
 
 def test_an_unentered_lab_is_not_validated(monkeypatch, tmp_path) -> None:
-    monkeypatch.setattr(validate_lab, "REPO", tmp_path)
+    monkeypatch.setattr(prove_lab, "REPO", tmp_path)
     monkeypatch.setattr(
-        validate_lab,
-        "validate_lab_2",
+        prove_lab,
+        "prove_lab_2",
         lambda *_, **__: pytest.fail("validated a lab that never started"),
     )
-    monkeypatch.setattr("sys.argv", ["validate_lab.py", "--lab", "2"])
+    monkeypatch.setattr("sys.argv", ["prove_lab.py", "--lab", "2"])
 
     with pytest.raises(SystemExit, match=re.escape(start_command(2))):
-        validate_lab.main()
+        prove_lab.main()
 
 
 def test_a_participant_is_sent_to_their_saved_run_for_lab_3(monkeypatch) -> None:
     monkeypatch.setattr(
-        validate_lab,
-        "validate_lab_3",
+        prove_lab,
+        "prove_lab_3",
         lambda *_, **__: pytest.fail("issued fresh agent answers for a participant"),
     )
-    monkeypatch.setattr("sys.argv", ["validate_lab.py", "--lab", "3"])
+    monkeypatch.setattr("sys.argv", ["prove_lab.py", "--lab", "3"])
 
     with pytest.raises(SystemExit) as raised:
-        validate_lab.main()
+        prove_lab.main()
 
     message = str(raised.value)
     assert "--lab 3" in message and "saved" in message
@@ -750,14 +746,14 @@ def test_a_participant_is_sent_to_their_saved_run_for_lab_3(monkeypatch) -> None
 def test_a_maintainer_receipt_still_validates_lab_3(monkeypatch, tmp_path, flag):
     calls = []
     monkeypatch.setattr(
-        validate_lab, "validate_lab_3", lambda *_a, **kw: calls.append(kw) or []
+        prove_lab, "prove_lab_3", lambda *_a, **kw: calls.append(kw) or []
     )
     monkeypatch.setattr(
         "sys.argv",
-        ["validate_lab.py", "--lab", "3", flag, str(tmp_path / "receipt.json")],
+        ["prove_lab.py", "--lab", "3", flag, str(tmp_path / "receipt.json")],
     )
 
-    assert validate_lab.main() == 0
+    assert prove_lab.main() == 0
     assert len(calls) == 1
 
 
@@ -765,16 +761,14 @@ def test_a_maintainer_receipt_still_validates_lab_3(monkeypatch, tmp_path, flag)
 def test_a_reference_check_needs_no_start_and_records_no_completion(
     monkeypatch, tmp_path, capsys, lab
 ) -> None:
-    monkeypatch.setattr(validate_lab, "REPO", tmp_path)
+    monkeypatch.setattr(prove_lab, "REPO", tmp_path)
     monkeypatch.setattr("dotenv.load_dotenv", lambda *_: None)
     monkeypatch.setattr(
-        validate_lab, f"validate_lab_{lab}", lambda *_a, **_k: ["reference holds"]
+        prove_lab, f"prove_lab_{lab}", lambda *_a, **_k: ["reference holds"]
     )
-    monkeypatch.setattr(
-        "sys.argv", ["validate_lab.py", "--lab", str(lab), "--reference"]
-    )
+    monkeypatch.setattr("sys.argv", ["prove_lab.py", "--lab", str(lab), "--reference"])
 
-    assert validate_lab.main() == 0
+    assert prove_lab.main() == 0
     assert not (tmp_path / f".local/lab-{lab}").exists()
     output = capsys.readouterr().out
     assert "PASS: reference holds" in output
@@ -782,10 +776,10 @@ def test_a_reference_check_needs_no_start_and_records_no_completion(
 
 
 def test_a_reference_check_is_refused_for_lab_3(monkeypatch) -> None:
-    monkeypatch.setattr("sys.argv", ["validate_lab.py", "--lab", "3", "--reference"])
+    monkeypatch.setattr("sys.argv", ["prove_lab.py", "--lab", "3", "--reference"])
 
     with pytest.raises(SystemExit):
-        validate_lab.main()
+        prove_lab.main()
 
 
 class _ReachedApi(Exception):
@@ -796,14 +790,12 @@ def _release_lab_step() -> dict:
     import yaml
 
     workflow = yaml.safe_load(
-        (
-            validate_lab.Path(__file__).parents[1] / ".github/workflows/ci.yml"
-        ).read_text()
+        (prove_lab.Path(__file__).parents[1] / ".github/workflows/ci.yml").read_text()
     )
     (step,) = [
         step
         for step in workflow["jobs"]["model-release"]["steps"]
-        if "scripts/validate_lab.py" in step.get("run", "")
+        if "scripts/prove_lab.py" in step.get("run", "")
     ]
     return step
 
@@ -821,21 +813,21 @@ def test_the_release_workflow_lab_commands_reach_the_api_from_a_clean_checkout(
     def network(*_args, **_kwargs):
         raise _ReachedApi
 
-    monkeypatch.setattr(validate_lab, "_request", network)
+    monkeypatch.setattr(prove_lab, "_request", network)
     monkeypatch.setattr("dotenv.load_dotenv", lambda *_: None)
     commands = [
         line.strip()
         for line in _release_lab_step()["run"].splitlines()
-        if "scripts/validate_lab.py" in line
+        if "scripts/prove_lab.py" in line
     ]
     assert len(commands) == 3
     for command in commands:
         command = command.replace("$RELEASE_EVIDENCE_DIR", str(tmp_path))
         words = shlex.split(command.split("2>&1")[0])
-        argv = words[words.index("scripts/validate_lab.py") :]
+        argv = words[words.index("scripts/prove_lab.py") :]
         monkeypatch.setattr("sys.argv", argv)
         with pytest.raises(_ReachedApi):
-            validate_lab.main()
+            prove_lab.main()
 
 
 def test_the_release_workflow_api_can_boot_on_loopback(monkeypatch) -> None:
@@ -855,16 +847,16 @@ def test_the_release_workflow_api_can_boot_on_loopback(monkeypatch) -> None:
 
 def test_api_url_defaults_to_the_lab_api_url_setting(monkeypatch, tmp_path) -> None:
     urls = []
-    monkeypatch.setattr(validate_lab, "REPO", tmp_path)
+    monkeypatch.setattr(prove_lab, "REPO", tmp_path)
     monkeypatch.setenv("LAB_API_URL", "http://127.0.0.1:8123")
     monkeypatch.setattr(
-        validate_lab, "validate_lab_1", lambda url, *_a, **_k: urls.append(url) or []
+        prove_lab, "prove_lab_1", lambda url, *_a, **_k: urls.append(url) or []
     )
-    monkeypatch.setattr("sys.argv", ["validate_lab.py", "--lab", "1"])
+    monkeypatch.setattr("sys.argv", ["prove_lab.py", "--lab", "1"])
     monkeypatch.setattr("dotenv.load_dotenv", lambda *_: None)
     monkeypatch.setattr("service.lab_proof.entry_check", lambda *_: _Entered())
 
-    assert validate_lab.main() == 0
+    assert prove_lab.main() == 0
     assert urls == ["http://127.0.0.1:8123"]
 
 
@@ -876,16 +868,16 @@ class _Entered:
 def test_a_passing_check_records_its_own_fresh_evidence(
     monkeypatch, tmp_path, capsys
 ) -> None:
-    monkeypatch.setattr(validate_lab, "REPO", tmp_path)
+    monkeypatch.setattr(prove_lab, "REPO", tmp_path)
 
     def passing(_url, events):
         events.append("fresh-run")
         return ["target"]
 
-    monkeypatch.setattr(validate_lab, "validate_lab_1", passing)
-    monkeypatch.setattr("sys.argv", ["validate_lab.py", "--lab", "1"])
+    monkeypatch.setattr(prove_lab, "prove_lab_1", passing)
+    monkeypatch.setattr("sys.argv", ["prove_lab.py", "--lab", "1"])
 
-    assert validate_lab.main() == 0
+    assert prove_lab.main() == 0
 
     import json
 
@@ -903,10 +895,10 @@ def test_an_unreachable_api_points_at_the_service_check_not_a_server_start(monke
     def refuse(*_args, **_kwargs):
         raise URLError("connection refused")
 
-    monkeypatch.setattr(validate_lab, "urlopen", refuse)
+    monkeypatch.setattr(prove_lab, "urlopen", refuse)
 
-    with pytest.raises(validate_lab.LabValidationError) as error:
-        validate_lab._request("http://127.0.0.1:8000", "/api/search")
+    with pytest.raises(prove_lab.LabValidationError) as error:
+        prove_lab._request("http://127.0.0.1:8000", "/api/search")
 
     message = str(error.value)
     assert "connection refused" in message
@@ -920,22 +912,22 @@ def test_saved_sql_that_aurora_does_not_run_fails_before_any_search(monkeypatch)
     from service.participant_commands import APPLY_SQL, validate
 
     monkeypatch.setattr(
-        validate_lab,
+        prove_lab,
         "sql_lab_problem",
         lambda _lab: LabProblem(
             "Lab 1's saved repair is not in Aurora. Differs.", APPLY_SQL
         ),
     )
     monkeypatch.setattr(
-        validate_lab,
-        "validate_lab_1",
+        prove_lab,
+        "prove_lab_1",
         lambda *_a, **_k: pytest.fail("searched before checking the saved SQL"),
     )
     monkeypatch.setattr("dotenv.load_dotenv", lambda *_: None)
-    monkeypatch.setattr("sys.argv", ["validate_lab.py", "--lab", "1"])
+    monkeypatch.setattr("sys.argv", ["prove_lab.py", "--lab", "1"])
 
     with pytest.raises(SystemExit) as refused:
-        validate_lab.main()
+        prove_lab.main()
 
     assert str(refused.value) == (
         "Lab 1: FAIL\n"
@@ -954,7 +946,7 @@ def test_the_precheck_reads_the_saved_block_before_aurora(monkeypatch, tmp_path)
         (tmp_path / relative_path).parent.mkdir(parents=True, exist_ok=True)
         copy2(REPO / relative_path, tmp_path / relative_path)
     set_lab_state(1, solved=False, repo=tmp_path)
-    monkeypatch.setattr(validate_lab, "REPO", tmp_path)
+    monkeypatch.setattr(prove_lab, "REPO", tmp_path)
     monkeypatch.setattr(
         "service.db.connect", lambda: pytest.fail("read Aurora for an unrepaired file")
     )

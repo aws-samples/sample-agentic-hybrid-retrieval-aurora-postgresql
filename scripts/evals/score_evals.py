@@ -295,7 +295,7 @@ def validate_hard_negatives(
 
     Nothing enforced that. `tests/test_canonical_evals.py` asserts the *judgments*
     grade every hard negative 0, which is a property of the fixture, and
-    `validate_lab.py` checks eligibility against the mission filters, which is a
+    `prove_lab.py` checks eligibility against the mission filters, which is a
     different claim: a hard negative can satisfy every filter and still be the wrong
     product. So a documented control could regress silently while every gate stayed
     green.

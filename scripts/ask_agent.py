@@ -32,7 +32,7 @@ from urllib.request import Request, urlopen
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scripts.progress import bar
-from scripts.validate_lab import LabValidationError
+from scripts.prove_lab import LabValidationError
 from service.config import get_settings
 from service.lab_validation_receipt import participant_sql_digest
 from service.participant_commands import APPLY_SQL, STATUS

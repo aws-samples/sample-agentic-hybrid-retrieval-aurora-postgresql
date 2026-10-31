@@ -16,7 +16,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from scripts import lab_entry, lab_terminal, validate_lab
+from scripts import lab_entry, lab_request, prove_lab
 from scripts.apply_search_functions import (
     _apply_fix,
     describe_apply_failure,
@@ -31,7 +31,7 @@ from scripts.lab_state import (
     _replace_block,
     set_lab_state,
 )
-from scripts.validate_lab import LabValidationError
+from scripts.prove_lab import LabValidationError
 from service import lab_checks
 from service.lab_files import LAB1_SQL, LAB2_SQL
 from service.participant_commands import (
@@ -133,18 +133,18 @@ def test_the_terminal_skips_the_step_it_has_already_taken():
     generic = f"found no result; fix: {lab_checks.repair_next_step(2)}"
     environment = f"found no reranking; fix: {lab_checks.FACILITATOR}"
 
-    in_place = validate_lab._with_block_in_place(generic, 2)
+    in_place = prove_lab._with_block_in_place(generic, 2)
 
     assert validate_applied(2) not in in_place
     assert f"your saved block in {LAB2_SQL} is repaired and Aurora runs it" in in_place
     assert f"run {validate(2)} again" in in_place
-    assert validate_lab._with_block_in_place(environment, 2) == environment
+    assert prove_lab._with_block_in_place(environment, 2) == environment
 
 
 def test_a_handoff_failure_repeats_the_handoff_not_the_bare_check():
     generic = f"found no result; fix: {lab_checks.repair_next_step(2)}"
 
-    in_place = validate_lab._with_block_in_place(generic, 2, ADVANCE_TO_LAB_3)
+    in_place = prove_lab._with_block_in_place(generic, 2, ADVANCE_TO_LAB_3)
 
     assert f"run {ADVANCE_TO_LAB_3} again" in in_place
     assert validate(2) not in in_place
@@ -164,7 +164,7 @@ def _start_record(output: Path, evidence: dict) -> None:
 
 def test_an_after_run_without_a_start_names_the_start_command(tmp_path):
     with pytest.raises(LabValidationError) as refused:
-        lab_terminal._without_before(1, tmp_path)
+        lab_request._without_before(1, tmp_path)
 
     assert str(refused.value) == (
         "Lab 1 has not started, so there is no saved failing request to compare with.\n"
@@ -175,7 +175,7 @@ def test_an_after_run_without_a_start_names_the_start_command(tmp_path):
 def test_an_after_run_of_a_lab_started_repaired_shows_the_search_alone(tmp_path):
     _start_record(tmp_path, {"state": "done", "note": "repair already applied"})
 
-    note = lab_terminal._without_before(1, tmp_path)
+    note = lab_request._without_before(1, tmp_path)
 
     assert note.startswith("Lab 1 started with its repair already working")
     assert "shows the search as it is now" in note
@@ -184,28 +184,28 @@ def test_an_after_run_of_a_lab_started_repaired_shows_the_search_alone(tmp_path)
 def test_an_after_run_with_a_lost_before_file_says_which_file(tmp_path):
     _start_record(tmp_path, {"state": "done", "search_event_id": "run-1"})
 
-    note = lab_terminal._without_before(2, tmp_path)
+    note = lab_request._without_before(2, tmp_path)
 
     assert str(tmp_path / "before-state.json") in note
 
 
 def test_lab_3_has_no_before_and_after_pair(tmp_path):
     with pytest.raises(LabValidationError, match=complete_lab_3().replace("<", ".")):
-        lab_terminal._without_before(3, tmp_path)
+        lab_request._without_before(3, tmp_path)
 
 
 def test_the_terminal_exits_with_the_lab_and_no_traceback(monkeypatch, tmp_path):
     def refuse(*_args):
         raise LabValidationError("the search returned no candidates")
 
-    monkeypatch.setattr(lab_terminal, "prepare", refuse)
+    monkeypatch.setattr(lab_request, "prepare", refuse)
     monkeypatch.setattr("dotenv.load_dotenv", lambda *_: None)
     monkeypatch.setattr(
-        "sys.argv", ["lab_terminal.py", "run", "--lab", "2", "--phase", "after"]
+        "sys.argv", ["lab_request.py", "send", "--lab", "2", "--phase", "after"]
     )
 
     with pytest.raises(SystemExit) as stopped:
-        lab_terminal.main()
+        lab_request.main()
 
     assert str(stopped.value) == "Lab 2: the search returned no candidates"
 
@@ -224,12 +224,12 @@ def test_a_start_whose_search_already_works_finishes_and_says_why(repo, monkeypa
     detail = "Aurora runs a different LAB1_EDIT block from the one saved."
 
     def already_working(*_args):
-        raise lab_terminal.AlreadyRepaired(
+        raise lab_request.AlreadyRepaired(
             "the search already finds product 1 among its 50 candidates, so there "
             "is no failing request to save"
         )
 
-    monkeypatch.setattr(lab_terminal, "prepare", already_working)
+    monkeypatch.setattr(lab_request, "prepare", already_working)
 
     saved = lab_entry._failing_search_evidence(
         1, LabDatabaseState("stale", detail), "http://api", repo, said.append

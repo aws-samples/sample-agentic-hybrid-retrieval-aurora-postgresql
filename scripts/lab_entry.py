@@ -248,7 +248,7 @@ def _failing_search_evidence(
             f"and there is no Before to compare. Next: {validate(lab)}"
         )
         return {"state": "done", "note": "repair already applied; no failing run saved"}
-    from scripts.lab_terminal import AlreadyRepaired, prepare
+    from scripts.lab_request import AlreadyRepaired, prepare
 
     output = repo / ".local" / f"lab-{lab}"
     try:
@@ -423,7 +423,7 @@ def _advance_lab_2(
     touches the searches Lab 2's checks run, so every rerun proves Lab 2 again
     rather than reusing saved evidence, and a started Lab 3 keeps its edits.
     """
-    from scripts.validate_lab import record_completion, validate_lab_2
+    from scripts.prove_lab import prove_lab_2, record_completion
     from service.lab_proof import entry_check
 
     entered = entry_check(2, repo)
@@ -442,7 +442,7 @@ def _advance_lab_2(
         "Validating Lab 2 in Aurora: Alex's monitor request, then the requests that "
         "must still work…"
     )
-    checks = validate_lab_2(api_url, events, rerun=ADVANCE_TO_LAB_3)
+    checks = prove_lab_2(api_url, events, rerun=ADVANCE_TO_LAB_3)
     for check in checks:
         say(f"PASS: {check}")
     record_completion(2, checks, events, repo)
@@ -473,7 +473,7 @@ def _advance_lab_1(
     fault. It is bound to this database, Lab 1 entry and repaired seam, so a
     reset or a changed repair cannot silently reuse it.
     """
-    from scripts.validate_lab import record_completion, validate_lab_1
+    from scripts.prove_lab import prove_lab_1, record_completion
 
     assert_reset_database(dsn)
     _apply_saved_repairs(2, dsn, repo, say)
@@ -510,7 +510,7 @@ def _advance_lab_1(
         say(
             "Validating Lab 1 in Aurora: the typo request, then two searches that must still work…"
         )
-        checks = validate_lab_1(api_url, events, rerun=ADVANCE_TO_LAB_2)
+        checks = prove_lab_1(api_url, events, rerun=ADVANCE_TO_LAB_2)
         for check in checks:
             say(f"PASS: {check}")
         record_completion(1, checks, events, repo)

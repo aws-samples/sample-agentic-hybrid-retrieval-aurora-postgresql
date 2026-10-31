@@ -35,7 +35,7 @@ uv run python scripts/apply_search_functions.py
 Repeat the identical request:
 
 ```bash
-uv run python scripts/lab_terminal.py run --lab 1 --phase after
+uv run python scripts/lab_request.py send --lab 1 --phase after
 ```
 
 ## Check the exact ID and his description, then hand off
@@ -55,7 +55,7 @@ through semantic search), saves your passing evidence and prepares Lab 2.
 [reference answer](solution/hybrid_search.sql), inside and outside the markers, without
 printing it, and changes nothing. Add `--answer` to see the answer's lines;
 try the guide's hints first.
-`uv run python scripts/lab_state.py solution --lab 1` overwrites your edit with
+`uv run python scripts/lab_state.py apply-solution --lab 1` overwrites your edit with
 the answer; apply and prove it as above.
 `uv run python scripts/lab_state.py finish --lab 1` does all of it in one
 command, with the hand-off.

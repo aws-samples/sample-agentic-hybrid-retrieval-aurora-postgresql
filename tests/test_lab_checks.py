@@ -1,8 +1,8 @@
 """The lab acceptance checks, evaluated directly on already-loaded evidence.
 
-These are the same functions `scripts/validate_lab.py` and
+These are the same functions `scripts/prove_lab.py` and
 `service/lab_proof.py` call, so a check that passes here is the check both
-transports run. `tests/test_validate_lab.py` covers the HTTP transport's
+transports run. `tests/test_prove_lab.py` covers the HTTP transport's
 failure messages; this file covers the check vocabulary itself.
 """
 

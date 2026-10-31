@@ -1,6 +1,6 @@
 """Every command that judges Lab 1 or Lab 2 reads the saved block the same way.
 
-A tester saw `validate_lab.py --lab 1` pass and `advance --lab 1` refuse the
+A tester saw `prove_lab.py --lab 1` pass and `advance --lab 1` refuse the
 same state. The file check accepted names that apply did not rewrite, rejected
 aliases the live search ran correctly, and the Aurora check re-ran a text
 contract instead of asking whether Aurora runs the block saved in the file.

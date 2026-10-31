@@ -59,7 +59,7 @@ import type {
 } from "../types";
 import { CatalogPage } from "./CatalogPage";
 import { HintsContext } from "../useHint";
-import { completeLab3Command } from "../participantCommands";
+import { gradeSetupRunCommand } from "../participantCommands";
 
 // The label appears only after three timed stages have run in sequence: the
 // progress phases hold for `stageDwellMs` each (three of them), the answer
@@ -1642,7 +1642,7 @@ describe("CatalogPage", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Send request" }));
 
-    expect(await screen.findByText(completeLab3Command(agentResponse.agent_run_id))).toBeTruthy();
+    expect(await screen.findByText(gradeSetupRunCommand(agentResponse.agent_run_id))).toBeTruthy();
     expect(screen.queryByRole("link", { name: /Prove this run/ })).toBeNull();
   });
 
@@ -1679,7 +1679,7 @@ describe("CatalogPage", () => {
 
     expect(screen.queryByText("Answer declined")).toBeNull();
     expect(screen.getByText("Looks grounded")).toBeTruthy();
-    expect(screen.getByText(completeLab3Command("agent-1"))).toBeTruthy();
+    expect(screen.getByText(gradeSetupRunCommand("agent-1"))).toBeTruthy();
   });
 
   it("keeps the Lab 3 banner and its command when Ask Mosaic is closed", async () => {
@@ -1696,7 +1696,7 @@ describe("CatalogPage", () => {
       { target: { value: labThreeRequest.query } },
     );
     fireEvent.click(screen.getByRole("button", { name: "Send request" }));
-    await screen.findByText(completeLab3Command(agentResponse.agent_run_id));
+    await screen.findByText(gradeSetupRunCommand(agentResponse.agent_run_id));
 
     fireEvent.click(
       within(screen.getByRole("complementary", { name: "Ask Mosaic" }))
@@ -1706,7 +1706,7 @@ describe("CatalogPage", () => {
     const params = new URLSearchParams(window.location.search);
     expect(params.get("mission")).toBe("agentic-research");
     expect(params.has("ask")).toBe(false);
-    expect(await screen.findByText(completeLab3Command(agentResponse.agent_run_id))).toBeTruthy();
+    expect(await screen.findByText(gradeSetupRunCommand(agentResponse.agent_run_id))).toBeTruthy();
   });
 
   it("opens Ask Mosaic, renders grounded receipts, and cross-highlights products", async () => {

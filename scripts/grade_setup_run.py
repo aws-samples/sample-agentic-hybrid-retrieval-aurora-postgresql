@@ -1,7 +1,7 @@
 """Check the participant's Lab 3 setup run and the deployed Retrieval agent.
 
-    uv run python scripts/complete_agent.py
-    uv run python scripts/complete_agent.py --run-id RUN_ID
+    uv run python scripts/grade_setup_run.py
+    uv run python scripts/grade_setup_run.py --run-id RUN_ID
 
 Without --run-id it checks a run of Alex's setup request since Lab 3 started that
 opened its own conversation, from the terminal, Playground or Ask Mosaic: the newest

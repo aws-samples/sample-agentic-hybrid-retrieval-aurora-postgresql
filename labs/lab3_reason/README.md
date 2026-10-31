@@ -49,7 +49,7 @@ them.
 Ask the guide's 100W follow-up the same way. Then prove the setup run:
 
 ```bash
-uv run python scripts/complete_agent.py
+uv run python scripts/grade_setup_run.py
 ```
 
 It finds your newest setup run since Lab 3 started, says which it chose, and
@@ -63,7 +63,7 @@ prove completion.
 `uv run python scripts/diff.py` names the lines of your file that differ from the
 [reference answer](solution/agent.py), inside and outside the markers, without
 printing it, and changes nothing; an instruction you added shows as a difference.
-Add `--answer` to see the answer's lines; try the guide's hints first. `uv run python scripts/lab_state.py solution --lab 3`
+Add `--answer` to see the answer's lines; try the guide's hints first. `uv run python scripts/lab_state.py apply-solution --lab 3`
 overwrites your edit with the answer; deploy it, then run the setup request
 yourself and prove that run. `uv run python scripts/lab_state.py finish --lab 3`
 installs and deploys the answer in one command.

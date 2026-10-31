@@ -1,7 +1,7 @@
 """The participant-visible acceptance checks for the three labs, defined once.
 
 Two transports evaluate the same conditions over the same evidence:
-`scripts/validate_lab.py`, which fetches it over HTTP from a running API, and
+`scripts/prove_lab.py`, which fetches it over HTTP from a running API, and
 `service/lab_proof.py`, which runs the production search path in-process and
 reads persisted Aurora receipts. Neither owns the logic. The CLI held the only
 copy until the completion-proof endpoint needed the same claims, and two

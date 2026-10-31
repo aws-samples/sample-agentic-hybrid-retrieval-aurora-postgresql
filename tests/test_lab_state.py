@@ -478,7 +478,7 @@ def test_a_failed_lab_check_during_entry_is_a_clean_exit_not_a_traceback(
     monkeypatch, action
 ):
     from scripts import lab_entry, lab_state
-    from scripts.validate_lab import LabValidationError
+    from scripts.prove_lab import LabValidationError
 
     def fail(*_args, **_kwargs):
         raise LabValidationError(
@@ -564,7 +564,9 @@ def test_solution_says_what_it_overwrote_and_the_next_commands(
     from scripts import lab_state
     from service.participant_commands import DEPLOY_AGENT, complete_lab_3, prove
 
-    monkeypatch.setattr("sys.argv", ["lab_state.py", "solution", "--lab", str(lab)])
+    monkeypatch.setattr(
+        "sys.argv", ["lab_state.py", "apply-solution", "--lab", str(lab)]
+    )
     monkeypatch.delenv(lab_state.RUN_BY, raising=False)
     monkeypatch.setattr(
         lab_state, "set_lab_state", lambda *_a, **_k: lab_state.REPO / "x.sql"
@@ -590,7 +592,9 @@ def test_solution_run_by_finish_leaves_the_next_commands_to_it(
     command to run next; the step lines that follow show them running."""
     from scripts import lab_state
 
-    monkeypatch.setattr("sys.argv", ["lab_state.py", "solution", "--lab", str(lab)])
+    monkeypatch.setattr(
+        "sys.argv", ["lab_state.py", "apply-solution", "--lab", str(lab)]
+    )
     monkeypatch.setenv(lab_state.RUN_BY, f"Finish Lab {lab}")
     monkeypatch.setattr(
         lab_state, "set_lab_state", lambda *_a, **_k: lab_state.REPO / "x.sql"
@@ -603,7 +607,7 @@ def test_solution_run_by_finish_leaves_the_next_commands_to_it(
     assert "Next:" not in output
 
 
-@pytest.mark.parametrize("action", ["start", "reset", "solution", "validate"])
+@pytest.mark.parametrize("action", ["start", "reset", "apply-solution", "validate"])
 def test_a_missing_lab_names_the_valid_values(monkeypatch, action):
     from scripts import lab_state
 
@@ -1140,7 +1144,7 @@ def test_validate_points_lab_1_at_its_proof_not_back_at_itself(
 
     out = capsys.readouterr().out
     assert f"Next: {repeat_request(1)}, then {ADVANCE_TO_LAB_2}" in out
-    assert "validate_lab.py" not in out
+    assert "prove_lab.py" not in out
 
 
 def _break_solution_markers(checkout: Path, lab: int) -> Path:

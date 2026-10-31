@@ -162,11 +162,11 @@ reset-lab-1:
 
 validate-lab-1:
 	@$(PYTHON) scripts/lab_state.py validate --lab 1 --database-url "$$DATABASE_URL"
-	@$(PYTHON) scripts/validate_lab.py --lab 1 --api-url "$(LAB_API_URL)"
+	@$(PYTHON) scripts/prove_lab.py --lab 1 --api-url "$(LAB_API_URL)"
 	@echo "Your hybrid search now handles fuzzy matching and keeps the requested filters."
 
 solution-lab-1:
-	@$(PYTHON) scripts/lab_state.py solution --lab 1
+	@$(PYTHON) scripts/lab_state.py apply-solution --lab 1
 	@$(MAKE) db-apply-search-functions
 
 start-lab-2:
@@ -178,11 +178,11 @@ reset-lab-2:
 
 validate-lab-2:
 	@$(PYTHON) scripts/lab_state.py validate --lab 2 --database-url "$$DATABASE_URL"
-	@$(PYTHON) scripts/validate_lab.py --lab 2 --api-url "$(LAB_API_URL)"
+	@$(PYTHON) scripts/prove_lab.py --lab 2 --api-url "$(LAB_API_URL)"
 	@echo "Your search now combines ranks correctly and sends its shortlist to reranking."
 
 solution-lab-2:
-	@$(PYTHON) scripts/lab_state.py solution --lab 2
+	@$(PYTHON) scripts/lab_state.py apply-solution --lab 2
 	@$(MAKE) db-apply-search-functions
 
 start-lab-3:
@@ -197,10 +197,10 @@ reset-lab-3:
 
 validate-lab-3:
 	@$(PYTHON) scripts/lab_state.py validate --lab 3
-	@$(PYTHON) scripts/validate_lab.py --lab 3 --api-url "$(LAB_API_URL)" --save-receipt .local/lab-3/maintainer-receipt.json
+	@$(PYTHON) scripts/prove_lab.py --lab 3 --api-url "$(LAB_API_URL)" --save-receipt .local/lab-3/maintainer-receipt.json
 
 solution-lab-3:
-	@$(PYTHON) scripts/lab_state.py solution --lab 3
+	@$(PYTHON) scripts/lab_state.py apply-solution --lab 3
 	@echo "Agent code restored. Next: run make deploy-agent, then ask Alex's question in Mosaic."
 
 .PHONY: deploy-agent verify-agent agent-tools complete-lab-3
@@ -215,7 +215,7 @@ agent-tools:
 	@$(PYTHON) scripts/deploy_agentcore.py tools
 
 complete-lab-3:
-	@$(PYTHON) scripts/complete_agent.py $(if $(RUN_ID),--run-id "$(RUN_ID)")
+	@$(PYTHON) scripts/grade_setup_run.py $(if $(RUN_ID),--run-id "$(RUN_ID)")
 
 restart-lab-api:
 	@if command -v systemctl >/dev/null 2>&1 \

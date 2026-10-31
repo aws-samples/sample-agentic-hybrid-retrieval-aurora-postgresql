@@ -253,7 +253,7 @@ def main() -> int:
 
     load_dotenv(REPO / ".env")
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("action", choices=("check",))
+    parser.add_argument("action", choices=("grade",))
     args = parser.parse_args()
     del args
     try:
@@ -265,7 +265,7 @@ def main() -> int:
         if not search.strip() and index.strip():
             raise ExerciseError(
                 f"{SEARCH_WORK} is empty; write one SELECT returning product_id for the "
-                "nearest :hnsw_limit headphones to :'hnsw_vector', then check again"
+                "nearest :hnsw_limit headphones to :'hnsw_vector', then grade again"
             )
         report = grade(index, search)
     except ExerciseError as error:

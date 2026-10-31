@@ -15,7 +15,7 @@ VERIFY_AGENT = "uv run python scripts/deploy_agentcore.py verify"
 AGENTCORE_RESOURCES = "uv run python scripts/deploy_agentcore.py resources"
 COMPARE_SETTINGS = "uv run python scripts/lab_exercise.py compare --lab 2"
 RERANK_OFF_ON = "uv run python labs/lab2_rank/rerank_off_on.py"
-HNSW_CHECK = "uv run python scripts/hnsw_exercise.py check"
+HNSW_CHECK = "uv run python scripts/hnsw_exercise.py grade"
 
 
 def check_claim(product_id: int, sentence: str) -> str:
@@ -42,7 +42,7 @@ def reset(lab: int) -> str:
 
 
 def solution(lab: int) -> str:
-    return f"uv run python scripts/lab_state.py solution --lab {lab}"
+    return f"uv run python scripts/lab_state.py apply-solution --lab {lab}"
 
 
 def finish(lab: int) -> str:
@@ -74,12 +74,12 @@ DIFF_ANSWER = "uv run python scripts/diff.py --answer"
 
 
 def validate(lab: int) -> str:
-    return f"uv run python scripts/validate_lab.py --lab {lab}"
+    return f"uv run python scripts/prove_lab.py --lab {lab}"
 
 
 def complete_lab_3(run_id: str | None = None) -> str:
     """Prove Lab 3 on the newest setup run since Lab 3 started, or on the run named."""
-    command = "uv run python scripts/complete_agent.py"
+    command = "uv run python scripts/grade_setup_run.py"
     return f"{command} --run-id {run_id}" if run_id else command
 
 
@@ -93,12 +93,12 @@ def validate_applied(lab: int) -> str:
 
 def repeat_request(lab: int) -> str:
     """Repeat the lab's saved request against the repaired state."""
-    return f"uv run python scripts/lab_terminal.py run --lab {lab} --phase after"
+    return f"uv run python scripts/lab_request.py send --lab {lab} --phase after"
 
 
 def exercise_check(lab: int) -> str:
     """Grade the participant's own exercise or saved run, without a new answer."""
-    return f"uv run python scripts/lab_exercise.py check --lab {lab}"
+    return f"uv run python scripts/lab_exercise.py grade --lab {lab}"
 
 
 def prove(lab: int) -> str:

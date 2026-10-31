@@ -361,11 +361,11 @@ jobs:
           done
           curl --fail --silent http://127.0.0.1:8017/api/health >/dev/null
           api=http://127.0.0.1:8017
-          uv run python scripts/validate_lab.py --lab 1 --reference --api-url "$api" 2>&1 \
+          uv run python scripts/prove_lab.py --lab 1 --reference --api-url "$api" 2>&1 \
             | tee "$RELEASE_EVIDENCE_DIR/validate-lab-1.log"
-          uv run python scripts/validate_lab.py --lab 2 --reference --api-url "$api" 2>&1 \
+          uv run python scripts/prove_lab.py --lab 2 --reference --api-url "$api" 2>&1 \
             | tee "$RELEASE_EVIDENCE_DIR/validate-lab-2.log"
-          uv run python scripts/validate_lab.py --lab 3 --save-receipt "$RELEASE_EVIDENCE_DIR/lab-3-receipt.json" --api-url "$api" 2>&1 \
+          uv run python scripts/prove_lab.py --lab 3 --save-receipt "$RELEASE_EVIDENCE_DIR/lab-3-receipt.json" --api-url "$api" 2>&1 \
             | tee "$RELEASE_EVIDENCE_DIR/validate-lab-3.log"
 
       - name: Upload model-backed release evidence

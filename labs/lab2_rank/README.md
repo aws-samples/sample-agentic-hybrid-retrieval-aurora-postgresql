@@ -30,8 +30,8 @@ uv run python scripts/apply_search_functions.py
 Repeat the identical request and grade the applied formula:
 
 ```bash
-uv run python scripts/lab_terminal.py run --lab 2 --phase after
-uv run python scripts/lab_exercise.py check --lab 2
+uv run python scripts/lab_request.py send --lab 2 --phase after
+uv run python scripts/lab_exercise.py grade --lab 2
 ```
 
 ## See what reranking changes
@@ -80,7 +80,7 @@ It compares the same candidates without changing default settings or replacing p
 [reference answer](solution/rrf_contribution.sql), inside and outside the markers, without
 printing it, and changes nothing. Add `--answer` to see the answer's lines;
 try the guide's hints first.
-`uv run python scripts/lab_state.py solution --lab 2` overwrites your edit with
+`uv run python scripts/lab_state.py apply-solution --lab 2` overwrites your edit with
 the answer; apply and prove it as above.
 `uv run python scripts/lab_state.py finish --lab 2` does all of it in one
 command, with the hand-off.

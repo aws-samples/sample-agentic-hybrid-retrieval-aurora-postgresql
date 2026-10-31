@@ -40,7 +40,7 @@ import { RankLabCard } from "../components/RankLabCard";
 import { useLabStates } from "../useLabStates";
 import { TerminalCommand } from "../components/TerminalCommand";
 import { PulseDot } from "../components/PulseDot";
-import { completeLab3Command } from "../participantCommands";
+import { gradeSetupRunCommand } from "../participantCommands";
 import { SpotlightTour } from "../components/SpotlightTour";
 import { SHOP_PLAYGROUND_HINT } from "../tour";
 import { useHint } from "../useHint";
@@ -1462,7 +1462,7 @@ export function CatalogPage() {
               paid for, a second time. Offered whenever a run exists, including a
               declined one; whether it completes the lab is the script's call. */}
           {labMission && missionRun?.agent_run_id ? (
-            <TerminalCommand lead="To check this run, in Code Editor run" command={completeLab3Command(missionRun.agent_run_id)} />
+            <TerminalCommand lead="To check this run, in Code Editor run" command={gradeSetupRunCommand(missionRun.agent_run_id)} />
           ) : null}
 
           {/* A callout, not a modal. The results it is about stay on screen

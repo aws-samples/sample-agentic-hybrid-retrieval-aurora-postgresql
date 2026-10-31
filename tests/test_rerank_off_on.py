@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from scripts.validate_lab import LabValidationError
+from scripts.prove_lab import LabValidationError
 from service.lab_checks import mission_for_lab
 
 SCRIPT = Path(__file__).resolve().parents[1] / "labs" / "lab2_rank" / "rerank_off_on.py"

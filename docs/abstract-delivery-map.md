@@ -78,7 +78,7 @@ decision**. Keep the stage names Retrieve, Rank and Reason. Lab 1 recovers the
 Logitech Zone 900 Alex saved; Lab 2 keeps the ViewSonic VG2756-4K, a
 27-inch 4K monitor documenting USB-C charging up to 90W over one cable, in
 reach of the reranker; Lab 3 asks the Retrieval agent to check those headphones, that monitor and the
-Steelcase Gesture chair against their sources. The completion check, `complete_agent.py`, reads the participant's saved setup
+Steelcase Gesture chair against their sources. The completion check, `grade_setup_run.py`, reads the participant's saved setup
 run, its decisions and citations back from Aurora without
 another model call. The [presenter brief](../workshop.md) owns the spoken
 narrative and transitions.

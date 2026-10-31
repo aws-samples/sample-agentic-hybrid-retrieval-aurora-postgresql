@@ -40,13 +40,13 @@ def _code_files(root: Path) -> list[Path]:
         + sorted((root / "deploy/agentcore").glob("*.py"))
         + [
             root / LAB3_AGENT,
-            root / "scripts/validate_lab.py",
+            root / "scripts/prove_lab.py",
             root / "scripts/lab_state.py",
             root / "scripts/agent_assembly_probe.py",
             root / "scripts/package_agentcore.py",
             root / "scripts/deploy_agentcore.py",
             root / "scripts/lab_exercise.py",
-            root / "scripts/complete_agent.py",
+            root / "scripts/grade_setup_run.py",
             root / "uv.lock",
         ]
     )
@@ -126,7 +126,7 @@ def replay_receipt(
     if receipt.get("version") != 1 or receipt.get("identity") != identity:
         raise ValueError(
             "found a Lab 3 receipt from different code or settings; "
-            "fix: rerun validate_lab.py --lab 3 --save-receipt PATH"
+            "fix: rerun prove_lab.py --lab 3 --save-receipt PATH"
         )
     missions = [
         lab_checks.load_mission("reason"),
@@ -184,5 +184,5 @@ def read_receipt(path: Path) -> dict[str, Any]:
     except (OSError, TypeError, ValueError) as error:
         raise ValueError(
             f"found unreadable Lab 3 receipt {path}: {error}; "
-            "fix: rerun validate_lab.py --lab 3 --save-receipt PATH"
+            "fix: rerun prove_lab.py --lab 3 --save-receipt PATH"
         ) from error

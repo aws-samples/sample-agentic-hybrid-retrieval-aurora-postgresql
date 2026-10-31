@@ -40,7 +40,7 @@ of the participant's own may follow the instructions, but it steers the agent's 
 not the answer's wording, which the cited-answer step writes under its own fixed prompt.
 Use a reset only when the
 participant asks to restart a lab. Use `uv run python scripts/lab_state.py
-solution --lab N` only when they explicitly request the full recovery path; it
+apply-solution --lab N` only when they explicitly request the full recovery path; it
 overwrites the exercise seam. `uv run python scripts/lab_state.py finish --lab N`
 runs that whole path, from start through the lab's checks, and first finishes
 any earlier lab that has not handed off; `skip-to --lab N` finishes the earlier
@@ -81,8 +81,8 @@ The Makefile wraps them for maintainers only.
 |---|---|
 | Inspect the current source/applied lab state; Lab 3 reads SOLVED only after your deployed agent passed completion (otherwise BROKEN, REPAIRED NOT DEPLOYED, or DEPLOYED NOT YET PROVED) | `uv run python scripts/lab_state.py status` |
 | Enter a lab: save its failing request; Labs 2 and 3 also install their fault once | `uv run python scripts/lab_state.py start --lab N` |
-| Finish Lab 1: validate its repair, save passing evidence and prepare Lab 2 without discarding edits; a repaired saved file that Aurora does not run yet is applied first | `uv run python scripts/lab_state.py advance --lab 1` |
-| Finish Lab 2: validate its repair, save passing evidence and install the Retrieval agent's starting code for Lab 3 without discarding edits; a repaired saved file that Aurora does not run yet is applied first | `uv run python scripts/lab_state.py advance --lab 2` |
+| Hand off Lab 1: validate its repair, save passing evidence and prepare Lab 2 without discarding edits; a repaired saved file that Aurora does not run yet is applied first | `uv run python scripts/lab_state.py advance --lab 1` |
+| Hand off Lab 2: validate its repair, save passing evidence and install the Retrieval agent's starting code for Lab 3 without discarding edits; a repaired saved file that Aurora does not run yet is applied first | `uv run python scripts/lab_state.py advance --lab 2` |
 | Discard one lab's edits and restore its starting code, only when asked to restart; it also puts back a deleted lab file or lab folder from Git's copy, and a `solution/` file whose LAB markers were edited away. `status` reports a deleted file as FILE MISSING; `start --lab 2` and `--lab 3` restore it themselves, while `start --lab 1`, `advance`, `validate`, `diff.py` and `apply_search_functions.py` stop with that message and name `reset` | `uv run python scripts/lab_state.py reset --lab N` |
 | Finish a lab with the reference answer, only when asked: start, the answer, apply or deploy, and the lab's checks and hand-off, after any earlier lab not handed off (Lab 3 stops at deploy) | `uv run python scripts/lab_state.py finish --lab N` |
 | Start at a later lab, only when asked: the earlier labs are finished as `finish` does, then lab N starts with its own exercise | `uv run python scripts/lab_state.py skip-to --lab N` |
@@ -90,19 +90,19 @@ The Makefile wraps them for maintainers only.
 | The same, with the reference answer's lines, only when the participant asks to compare with the answer | `uv run python scripts/diff.py --answer` |
 | Apply the participant's SQL repair in Labs 1 or 2 | `uv run python scripts/apply_search_functions.py` |
 | Check the saved source and the SQL Aurora last applied (Labs 1 and 2); `DATABASE_URL` comes from the prepared terminal, and the command reads it itself when the flag is left off; its `Next:` is the lab's proof, for Lab 1 the repeat-request command, then `advance --lab 1` | `uv run python scripts/lab_state.py validate --lab N --database-url "$DATABASE_URL"` |
-| Repeat the saved request against the repaired state; prints Before and After | `uv run python scripts/lab_terminal.py run --lab N --phase after` |
-| Prove the Lab 1 or Lab 2 repair after repeating the request (Lab 3 is rejected: it is graded on the saved run) | `uv run python scripts/validate_lab.py --lab N` |
-| Grade the participant's own exercise or saved run without generating a new answer | `uv run python scripts/lab_exercise.py check --lab N` |
+| Repeat the saved request against the repaired state; prints Before and After | `uv run python scripts/lab_request.py send --lab N --phase after` |
+| Prove the Lab 1 or Lab 2 repair after repeating the request (Lab 3 is rejected: it is graded on the saved run) | `uv run python scripts/prove_lab.py --lab N` |
+| Grade the participant's own exercise or saved run without generating a new answer | `uv run python scripts/lab_exercise.py grade --lab N` |
 | Run Lab 2's request with reranking off, then on, and print both pages (changes no served setting) | `uv run python labs/lab2_rank/rerank_off_on.py` |
 | Judge three retrieval settings in Lab 2 | `uv run python scripts/lab_exercise.py compare --lab 2` |
-| Check the optional HNSW index exercise | `uv run python scripts/hnsw_exercise.py check` |
+| Check the optional HNSW index exercise | `uv run python scripts/hnsw_exercise.py grade` |
 | List managed SQL tools | `uv run python scripts/deploy_agentcore.py tools` |
 | Deploy edited Lab 3 code and check managed connectivity; shows each of its five steps against its usual time (about 1:11 in all), says how long is left and names the failing step on error | `uv run python scripts/deploy_agentcore.py deploy` |
 | Recheck deployed code, Gateway tools and Aurora evidence | `uv run python scripts/deploy_agentcore.py verify` |
 | See the agent and tools runtimes, Gateway and Memory a deploy updates (read-only Get calls) | `uv run python scripts/deploy_agentcore.py resources` |
 | Ask the deployed agent from the terminal: answer, tool trace, citations, outcome, decline reason and Run ID. Lab 3's setup request and 100W follow-up use it; Ask Mosaic is the optional browser view | `uv run python scripts/ask_agent.py "QUESTION"` |
 | Run one sentence through the agent's answer checks, citing a product's listing as [1] (generates and saves nothing) | `uv run python scripts/check_claim.py PRODUCT_ID "SENTENCE [1]"` |
-| Check the participant's newest setup run since Lab 3 started (or one named with `--run-id <run-id>`) | `uv run python scripts/complete_agent.py` |
+| Check the participant's newest setup run since Lab 3 started (or one named with `--run-id <run-id>`) | `uv run python scripts/grade_setup_run.py` |
 | Inspect the diff for whitespace errors | `git diff --check` |
 
 A SQL file edit alone does not update Aurora; an agent edit alone does not

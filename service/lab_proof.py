@@ -1,7 +1,7 @@
 """Lab state and completion proof: the two "did I finish?" answers, served.
 
 Until this module the only answers were on the terminal. `scripts/lab_state.py`
-reports the marker blocks a participant edited and `scripts/validate_lab.py`
+reports the marker blocks a participant edited and `scripts/prove_lab.py`
 grades a running API, and neither is reachable from the browser the workshop is
 otherwise driven from.
 

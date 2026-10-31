@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate each DAT410 lab through the production HTTP and retrieval paths.
+"""Prove each DAT410 lab through the production HTTP and retrieval paths.
 
 Transport only. Every acceptance condition lives in `service.lab_checks`, which
 `service/lab_proof.py` also calls, so this check and a saved-run check cannot
@@ -7,7 +7,7 @@ disagree about a check they both run. This file fetches the evidence those
 checks need over HTTP and raises on the first failure. Labs 1 and 2 check the
 participant's repair; Lab 3 is a maintainer check of the reference agent, which
 also runs the `evidence-grounding` control (G-019) as its own agent run.
-Participants complete Lab 3 on their saved run with `scripts/complete_agent.py`.
+Participants complete Lab 3 on their saved run with `scripts/grade_setup_run.py`.
 """
 
 from __future__ import annotations
@@ -125,7 +125,7 @@ def _graded(checks: list[LabCheck]) -> list[str]:
     return [check.name for check in checks]
 
 
-def validate_lab_1(
+def prove_lab_1(
     base_url: str, events: list[str] | None = None, *, rerun: str | None = None
 ) -> list[str]:
     mission = _mission("retrieve")
@@ -147,7 +147,7 @@ def validate_lab_1(
         raise LabValidationError(_under_ranking_fault(str(error), REPO)) from error
 
 
-def validate_lab_2(
+def prove_lab_2(
     base_url: str, events: list[str] | None = None, *, rerun: str | None = None
 ) -> list[str]:
     mission = _mission("rank")
@@ -347,7 +347,7 @@ def validate_agent_response(
     return _graded(lab_checks.agent_response_checks(mission, agent, evidence))
 
 
-def validate_lab_3(
+def prove_lab_3(
     base_url: str,
     *,
     save_receipt: Path | None = None,
@@ -440,9 +440,9 @@ def main() -> int:
             "(a maintainer passes --save-receipt PATH or --reuse-receipt PATH)."
         )
     validator = {
-        1: validate_lab_1,
-        2: validate_lab_2,
-        3: validate_lab_3,
+        1: prove_lab_1,
+        2: prove_lab_2,
+        3: prove_lab_3,
     }[args.lab]
     # A receipt or a reference check is maintainer evidence about the shipped
     # answer, not a participant's completion, so only a participant check needs

@@ -51,9 +51,9 @@ make validate-evals
 FUNCTION_CENSUS_REQUIRE_DB=1 make validate-functions
 make db-verify-bootstrap
 make score-evals
-uv run python scripts/validate_lab.py --lab 1 --reference
-uv run python scripts/validate_lab.py --lab 2 --reference
-uv run python scripts/validate_lab.py --lab 3 --save-receipt .local/lab-3/maintainer-receipt.json
+uv run python scripts/prove_lab.py --lab 1 --reference
+uv run python scripts/prove_lab.py --lab 2 --reference
+uv run python scripts/prove_lab.py --lab 3 --save-receipt .local/lab-3/maintainer-receipt.json
 make check-shop-collection
 make check-hnsw-anchors
 make check-exact-neighbors
@@ -86,13 +86,13 @@ an attendee's repairs.
 
 Attendees prove each lab in the Code Editor terminal with the guide's commands;
 the browser shows requests and results but grades nothing. For Labs 1 and 2,
-`uv run python scripts/lab_terminal.py run --lab N --phase after` repeats the
+`uv run python scripts/lab_request.py send --lab N --phase after` repeats the
 saved request against the applied repair, and
-`uv run python scripts/validate_lab.py --lab N` runs the mission request through
+`uv run python scripts/prove_lab.py --lab N` runs the mission request through
 the production search path, checks it and records the new `search_event_id`s.
 `lab_state.py advance --lab 1` and `--lab 2` run the same checks before they
 prepare the next lab. Lab 3 grades the attendee's own persisted agent run:
-`uv run python scripts/complete_agent.py` evaluates the newest setup run (or one
+`uv run python scripts/grade_setup_run.py` evaluates the newest setup run (or one
 named with `--run-id`) without generating a new answer, including whether the
 application deployed now and the SQL Aurora runs now are the ones that made it, and
 whether a deploy the attendee made since Lab 3 started produced it. Each check carries its falsifier.
@@ -101,9 +101,9 @@ State inspection is separate and proves no result:
 `uv run python scripts/lab_state.py validate --lab N --database-url "$DATABASE_URL"`
 and `GET /api/labs/state` report the saved source and the SQL Aurora last applied,
 per lab. The offline suite covers the checks (`tests/test_lab_checks.py`,
-`tests/test_lab_proof.py`, `tests/test_validate_lab.py`). Against Aurora, a
+`tests/test_lab_proof.py`, `tests/test_prove_lab.py`). Against Aurora, a
 maintainer checks the answers a clean checkout ships, as the release workflow
-does: `scripts/validate_lab.py --lab 1 --reference`, `--lab 2 --reference` and
+does: `scripts/prove_lab.py --lab 1 --reference`, `--lab 2 --reference` and
 `--lab 3 --save-receipt PATH`. A reference check records no completion.
 
 ## Optional Vector index at scale lens

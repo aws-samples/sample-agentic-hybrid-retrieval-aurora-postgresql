@@ -12,7 +12,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 from scripts.evals.prepare_reference_examples import validate_bundle
-from scripts.validate_lab import _request
+from scripts.prove_lab import _request
 
 
 def main() -> None:

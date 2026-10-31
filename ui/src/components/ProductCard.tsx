@@ -41,7 +41,7 @@ function topAttributes(attributes: Record<string, unknown>, count = 2) {
 /**
  * The product's way through this search, in the terminal's words: each search
  * that found it with its rank, then its combined position and its final one.
- * `lab_terminal.py` prints the same run as "combined position 21, final
+ * `lab_request.py` prints the same run as "combined position 21, final
  * position 5, found by semantic search rank 10". A search that did not find it
  * is left out here; the strip and Why this match say so.
  */

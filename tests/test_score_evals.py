@@ -652,7 +652,7 @@ def test_hard_negatives_must_stay_out_of_the_result_window():
     """`docs/lab-golden-queries.md` calls these validator-owned controls.
 
     Before this gate existed, nothing asserted the behaviour: the canonical-eval test
-    checks that the fixture grades a hard negative 0, and validate_lab.py checks
+    checks that the fixture grades a hard negative 0, and prove_lab.py checks
     eligibility against the mission filters, which is a different claim — a hard
     negative can satisfy every filter and still be the wrong product.
     """

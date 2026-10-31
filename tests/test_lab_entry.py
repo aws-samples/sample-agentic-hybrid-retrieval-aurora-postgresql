@@ -89,7 +89,7 @@ def aurora(monkeypatch) -> Boundaries:
     monkeypatch.setattr(lab_entry, "_connect", connect)
     monkeypatch.setattr(lab_entry, "validate_database", validate_database)
     monkeypatch.setattr(lab_entry, "_apply", apply)
-    monkeypatch.setattr("scripts.lab_terminal.prepare", prepare)
+    monkeypatch.setattr("scripts.lab_request.prepare", prepare)
     return state
 
 
@@ -380,7 +380,7 @@ def handoff_checks(monkeypatch):
         events.append("verified-lab-1")
         return ["target_recovered", "filter_controls"]
 
-    monkeypatch.setattr("scripts.validate_lab.validate_lab_1", validate)
+    monkeypatch.setattr("scripts.prove_lab.prove_lab_1", validate)
     return calls
 
 
@@ -402,12 +402,12 @@ def test_handoff_saves_passing_evidence_before_installing_fault(
 
 
 def test_failed_lab1_validation_never_starts_lab2(repo, aurora, monkeypatch):
-    from scripts.validate_lab import LabValidationError
+    from scripts.prove_lab import LabValidationError
 
     def fail(*_args, **_options):
         raise LabValidationError("target missing")
 
-    monkeypatch.setattr("scripts.validate_lab.validate_lab_1", fail)
+    monkeypatch.setattr("scripts.prove_lab.prove_lab_1", fail)
     with pytest.raises(LabValidationError, match="target missing"):
         lab_entry.advance(1, api_url="http://api", dsn="aurora", repo=repo)
     assert lab_is_solved(2, repo=repo)
@@ -538,7 +538,7 @@ def lab_2_checks(monkeypatch):
         events.extend(["first-lab-2", "second-lab-2"])
         return ["contribution correct", "G-007: right product in the top 10"]
 
-    monkeypatch.setattr("scripts.validate_lab.validate_lab_2", validate)
+    monkeypatch.setattr("scripts.prove_lab.prove_lab_2", validate)
     return calls
 
 
@@ -576,12 +576,12 @@ def test_lab_2_handoff_refuses_before_lab_2_has_started(repo, aurora, lab_2_chec
 
 
 def test_failed_lab_2_validation_never_starts_lab_3(lab_2_repaired, monkeypatch):
-    from scripts.validate_lab import LabValidationError
+    from scripts.prove_lab import LabValidationError
 
     def fail(*_args, **_options):
         raise LabValidationError("target missing")
 
-    monkeypatch.setattr("scripts.validate_lab.validate_lab_2", fail)
+    monkeypatch.setattr("scripts.prove_lab.prove_lab_2", fail)
     with pytest.raises(LabValidationError, match="target missing"):
         lab_entry.advance(2, api_url="http://api", dsn="aurora", repo=lab_2_repaired)
     assert lab_entry.load_record(3, lab_2_repaired) is None

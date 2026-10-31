@@ -95,7 +95,7 @@ class ExerciseError(RuntimeError):
 
 
 def load_context(lab: int) -> dict[str, str]:
-    """Read the values ``lab_terminal.py run`` saved for this lab's psql session."""
+    """Read the values ``lab_request.py send`` saved for this lab's psql session."""
     path = REPO / f".local/lab-{lab}/context.json"
     if not path.exists() and lab == 3:
         raise ExerciseError(
@@ -693,7 +693,7 @@ def main() -> int:
 
     load_dotenv(REPO / ".env")
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("action", choices=("check", "compare"))
+    parser.add_argument("action", choices=("grade", "compare"))
     parser.add_argument("--lab", type=int, choices=(1, 2, 3), required=True)
     parser.add_argument("--work", type=Path)
     args = parser.parse_args()

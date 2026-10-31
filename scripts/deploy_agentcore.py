@@ -494,7 +494,7 @@ def verify() -> dict:
         raise RuntimeError(
             f"Gateway discovery rule: found {sorted(names)}; expected {sorted(expected)}. Synchronize the target."
         )
-    from scripts.validate_lab import _case
+    from scripts.prove_lab import _case
 
     case = _case("exact-identity")
     response = gateway_tools.call_tool(
@@ -743,9 +743,22 @@ def main() -> int:
     from dotenv import load_dotenv
 
     load_dotenv(ROOT / ".env")
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        epilog=(
+            "stage-bootstrap and connect-bootstrap run only during provisioning, "
+            "from the host's bootstrap; participants use deploy, verify, tools "
+            "and resources."
+        ),
+    )
     parser.add_argument(
         "action",
+        help=(
+            "tools, deploy, verify and resources are the participant commands; "
+            "stage-bootstrap (publish the image and store the runtime DSN) and "
+            "connect-bootstrap (write the discovered connection keys, then verify) "
+            "run only during provisioning"
+        ),
         choices=(
             "stage-bootstrap",
             "connect-bootstrap",

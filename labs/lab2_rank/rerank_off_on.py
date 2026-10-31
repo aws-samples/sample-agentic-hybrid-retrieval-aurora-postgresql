@@ -18,8 +18,8 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from scripts.lab_terminal import request_payload
-from scripts.validate_lab import LabValidationError, _request
+from scripts.lab_request import request_payload
+from scripts.prove_lab import LabValidationError, _request
 from service.lab_checks import mission_for_lab
 
 TITLE_CHARS = 40

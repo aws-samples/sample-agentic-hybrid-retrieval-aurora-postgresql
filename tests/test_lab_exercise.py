@@ -309,7 +309,7 @@ def test_lab_3_without_a_graded_run_points_at_the_lab_3_commands(monkeypatch, tm
     message = str(refused.value)
     assert ask_setup() in message
     assert complete_lab_3() in message
-    assert "lab_terminal" not in message
+    assert "lab_request" not in message
 
 
 def test_comparison_scope_wraps_at_word_boundaries(capsys):

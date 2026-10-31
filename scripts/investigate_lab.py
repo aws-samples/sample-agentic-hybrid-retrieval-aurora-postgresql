@@ -13,7 +13,7 @@ from typing import Any
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
-from scripts.validate_lab import LabValidationError, _request, _require
+from scripts.prove_lab import LabValidationError, _request, _require
 from service import lab_checks
 from service.lab_checks import FACILITATOR
 from service.participant_commands import (

@@ -320,6 +320,6 @@ def test_hnsw_exercise_names_an_empty_search_file(monkeypatch, tmp_path, capsys)
     (tmp_path / ".local/hnsw/index.sql").write_text(HALFVEC_INDEX)
     (tmp_path / ".local/hnsw/search.sql").write_text("")
     monkeypatch.setattr(hnsw_exercise, "REPO", tmp_path)
-    monkeypatch.setattr("sys.argv", ["hnsw_exercise.py", "check"])
+    monkeypatch.setattr("sys.argv", ["hnsw_exercise.py", "grade"])
     assert hnsw_exercise.main() == 2
     assert "search.sql is empty; write one SELECT" in capsys.readouterr().out

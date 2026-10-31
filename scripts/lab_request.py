@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from scripts.investigate_lab import paired_searches
-from scripts.validate_lab import LabValidationError, _request, _require, _search
+from scripts.prove_lab import LabValidationError, _request, _require, _search
 from service import lab_checks
 from service.lab_checks import FACILITATOR
 from service.participant_commands import complete_lab_3, repeat_request
@@ -436,7 +436,7 @@ def main() -> int:
 
     load_dotenv(ROOT / ".env")
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=("run", "wait"))
+    parser.add_argument("action", choices=("send", "wait"))
     parser.add_argument("--lab", type=int, choices=(1, 2, 3))
     parser.add_argument("--phase", choices=("before", "after"))
     parser.add_argument(
@@ -463,7 +463,7 @@ def main() -> int:
                     ) from error
                 time.sleep(1)
     if args.lab is None or args.phase is None:
-        parser.error("run requires --lab and --phase")
+        parser.error("send requires --lab and --phase")
     try:
         prepare(
             args.lab,

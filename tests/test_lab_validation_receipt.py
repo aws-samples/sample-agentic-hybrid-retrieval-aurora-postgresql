@@ -9,7 +9,7 @@ from uuid import uuid4
 import pytest
 from test_lab_proof import _citation, _evidence_row, _grounded_connection
 
-from scripts import validate_lab
+from scripts import prove_lab
 from service import lab_checks, lab_proof
 from service import lab_validation_receipt as receipt
 from service.lab_files import LAB1_SQL
@@ -29,15 +29,13 @@ def test_saved_validation_keeps_actual_answers_for_participant_inspection(
             "citations": [],
         }
 
-    monkeypatch.setattr(validate_lab, "_request", request)
+    monkeypatch.setattr(prove_lab, "_request", request)
     monkeypatch.setattr(
         receipt, "validation_identity", lambda *_: {"source": "current"}
     )
-    monkeypatch.setattr(
-        validate_lab, "validate_agent_response", lambda *args: ["graded"]
-    )
+    monkeypatch.setattr(prove_lab, "validate_agent_response", lambda *args: ["graded"])
     path = tmp_path / "lab-3.json"
-    checks = validate_lab.validate_lab_3("http://example.test", save_receipt=path)
+    checks = prove_lab.prove_lab_3("http://example.test", save_receipt=path)
     saved = json.loads(path.read_text())
     assert len(checks) == 2
     for mission in (
@@ -148,8 +146,8 @@ def test_replay_rejects_evidence_changed_since_validation_and_recovers_byte_iden
         lambda eid: changed if eid == 9001 else _evidence_row(eid),
     )
     checks = receipt.replay_receipt(payload, payload["identity"])
-    with pytest.raises(validate_lab.LabValidationError, match="resolve"):
-        validate_lab._graded(checks)
+    with pytest.raises(prove_lab.LabValidationError, match="resolve"):
+        prove_lab._graded(checks)
     assert len(reads) == 2
     monkeypatch.setattr(lab_proof, "resolve_evidence", _evidence_row)
     assert _evidence_row(9001) == baseline
@@ -195,7 +193,7 @@ def test_source_binding_changes_with_agent_code_but_not_readme(
     )
     for path in (
         "service/agent.py",
-        "scripts/validate_lab.py",
+        "scripts/prove_lab.py",
         "scripts/lab_state.py",
         "labs/lab3_reason/agent.py",
         "deploy/agentcore/app.py",
@@ -203,7 +201,7 @@ def test_source_binding_changes_with_agent_code_but_not_readme(
         "scripts/package_agentcore.py",
         "scripts/deploy_agentcore.py",
         "scripts/lab_exercise.py",
-        "scripts/complete_agent.py",
+        "scripts/grade_setup_run.py",
         "uv.lock",
     ):
         target = tmp_path / path
@@ -233,9 +231,9 @@ def test_cli_reuse_never_invokes_the_agent(saved_runs, monkeypatch, tmp_path):
         assert route == "/api/readiness"
         return {}
 
-    monkeypatch.setattr(validate_lab, "_request", request)
+    monkeypatch.setattr(prove_lab, "_request", request)
     monkeypatch.setattr(receipt, "validation_identity", lambda *_: payload["identity"])
-    checks = validate_lab.validate_lab_3("http://example.test", reuse_receipt=path)
+    checks = prove_lab.prove_lab_3("http://example.test", reuse_receipt=path)
     assert len(checks) >= 30
     assert requests == ["/api/readiness"]
     assert len(reads) == 2
@@ -246,13 +244,13 @@ def _identity_tree(tmp_path, monkeypatch):
         "service/agent.py",
         "labs/lab3_reason/agent.py",
         "deploy/agentcore/app.py",
-        "scripts/validate_lab.py",
+        "scripts/prove_lab.py",
         "scripts/lab_state.py",
         "scripts/agent_assembly_probe.py",
         "scripts/package_agentcore.py",
         "scripts/deploy_agentcore.py",
         "scripts/lab_exercise.py",
-        "scripts/complete_agent.py",
+        "scripts/grade_setup_run.py",
         "uv.lock",
     ]
     manifest = [

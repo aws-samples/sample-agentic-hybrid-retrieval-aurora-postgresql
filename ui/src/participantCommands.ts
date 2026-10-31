@@ -9,10 +9,10 @@ export const APPLY_SQL = "uv run python scripts/apply_search_functions.py";
 export const DEPLOY_AGENT = "uv run python scripts/deploy_agentcore.py deploy";
 export const VERIFY_AGENT = "uv run python scripts/deploy_agentcore.py verify";
 
-export function completeLab3Command(runId: string): string {
-  return `uv run python scripts/complete_agent.py --run-id ${runId}`;
+export function gradeSetupRunCommand(runId: string): string {
+  return `uv run python scripts/grade_setup_run.py --run-id ${runId}`;
 }
 
-export function validateCommand(lab: number): string {
-  return `uv run python scripts/validate_lab.py --lab ${lab}`;
+export function proveLabCommand(lab: number): string {
+  return `uv run python scripts/prove_lab.py --lab ${lab}`;
 }

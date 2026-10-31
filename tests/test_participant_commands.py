@@ -29,15 +29,15 @@ PARTICIPANT_MAKE = re.compile(
 
 PARTICIPANT_SCRIPTS = (
     "apply_search_functions.py",
-    "complete_agent.py",
+    "grade_setup_run.py",
     "configure_retrieval_database.py",
     "deploy_agentcore.py",
     "diff.py",
     "lab_entry.py",
     "lab_exercise.py",
     "lab_state.py",
-    "lab_terminal.py",
-    "validate_lab.py",
+    "lab_request.py",
+    "prove_lab.py",
 )
 PARTICIPANT_DOCS = ("README.md", "START_HERE.md", "workshop.md", "AGENTS.md")
 

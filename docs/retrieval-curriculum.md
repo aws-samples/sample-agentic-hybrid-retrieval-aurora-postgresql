@@ -43,7 +43,7 @@ them; the Playground landing (`/labs/retrieval` with no saved Shop search) opens
 on Alex's requests. Scale & HNSW and Session & Memory stay optional; a
 participant can finish the required sequence without opening either.
 Completion is never inferred from having visited a page: only the guide's
-terminal commands (`validate_lab.py` for Labs 1 and 2, `complete_agent.py` for
+terminal commands (`prove_lab.py` for Labs 1 and 2, `grade_setup_run.py` for
 Lab 3) can mark a lab passed.
 
 ## Lab 1: Retrieve - Debug hybrid search
@@ -151,7 +151,7 @@ performance, laptop compatibility and personal comfort stated separately.
 ## Prove (unnumbered finale)
 
 Prove is included inside Lab 3's 20-minute budget, not an additional lab:
-`complete_agent.py` checks the participant's newest setup run without a
+`grade_setup_run.py` checks the participant's newest setup run without a
 new model call. The required path
 contains three repairs and five controls. A separate representative evaluation
 is needed to make whole-catalog ranking claims.

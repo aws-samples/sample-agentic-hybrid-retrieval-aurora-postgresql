@@ -5,7 +5,7 @@ from copy import deepcopy
 import pytest
 
 from scripts.investigate_lab import citation_challenges, paired_searches
-from scripts.validate_lab import LabValidationError
+from scripts.prove_lab import LabValidationError
 
 
 def pair():

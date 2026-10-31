@@ -1104,7 +1104,7 @@ def _parser() -> argparse.ArgumentParser:
             "start",
             "advance",
             "reset",
-            "solution",
+            "apply-solution",
             "finish",
             "skip-to",
             "validate",
@@ -1128,7 +1128,7 @@ def _parser() -> argparse.ArgumentParser:
 
 
 def solution_summary(lab: int, path: Path, *, run_by: str | None = None) -> str:
-    """Say what `solution` overwrote and, run by hand, which commands come next."""
+    """Say what `apply-solution` overwrote and, run by hand, which commands come next."""
     overwrote = (
         f"Lab {lab}: SOLUTION ({path})\n"
         f"This overwrote the marked LAB{lab}_ block in {path} with the reference "
@@ -1256,7 +1256,7 @@ def main() -> int:
         import psycopg
 
         from scripts.lab_entry import LabEntryError, advance, restart, start
-        from scripts.validate_lab import LabValidationError
+        from scripts.prove_lab import LabValidationError
 
         action = {"start": start, "advance": advance, "reset": restart}[args.action]
         try:
@@ -1271,7 +1271,7 @@ def main() -> int:
         except psycopg.Error as error:
             raise database_fault_exit(error, f"{args.action} Lab {args.lab}") from error
         return 0
-    if args.action == "solution":
+    if args.action == "apply-solution":
         path = set_lab_state(args.lab, solved=True)
         print(
             solution_summary(
