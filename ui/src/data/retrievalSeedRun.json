@@ -1,14 +1,14 @@
 {
  "provenance": {
-  "captured_at": "2026-10-03",
+  "captured_at": "2026-10-31",
   "mission_id": "typo-recovery",
   "dataset_id": "reviews-2023-v2",
   "producer": "scripts/evals/capture_retrieval_seed.py",
-  "search_event_id": "edf1639c-58e3-45f3-be9c-ce72bf213dc5",
+  "search_event_id": "3f6f9a05-1fbe-4668-8ab7-c11955236144",
   "note": "One real Aurora retrieval run, captured through /api/search so the Observatory opens on measured ranks. Run pipeline replaces it."
  },
  "response": {
-  "search_event_id": "edf1639c-58e3-45f3-be9c-ce72bf213dc5",
+  "search_event_id": "3f6f9a05-1fbe-4668-8ab7-c11955236144",
   "query": "B0C2WWFCQB",
   "normalized_query": "B0C2WWFCQB",
   "applied_filters": {
@@ -104,7 +104,7 @@
       "raw_score": null,
       "rrf_contribution": null
      },
-     "trigram": {
+     "fuzzy": {
       "rank": 1,
       "raw_score": 0.54545456,
       "rrf_contribution": 0.01639344262295082
@@ -181,11 +181,6 @@
       "source": "features[1]",
       "quote": "NOISE CANCELLING HEADPHONES WITH MIC - The all-new active noise cancellation is designed to block unwanted noise and ensure superior musicality;"
      },
-     "wireless": {
-      "value": false,
-      "source": "details.Connectivity Technology",
-      "quote": "USB"
-     },
      "form_factor": {
       "value": "over-ear",
       "source": "details.Form Factor",
@@ -218,7 +213,7 @@
       "raw_score": null,
       "rrf_contribution": null
      },
-     "trigram": {
+     "fuzzy": {
       "rank": null,
       "raw_score": null,
       "rrf_contribution": null
@@ -326,7 +321,7 @@
       "raw_score": null,
       "rrf_contribution": null
      },
-     "trigram": {
+     "fuzzy": {
       "rank": null,
       "raw_score": null,
       "rrf_contribution": null
@@ -437,7 +432,7 @@
       "raw_score": null,
       "rrf_contribution": null
      },
-     "trigram": {
+     "fuzzy": {
       "rank": null,
       "raw_score": null,
       "rrf_contribution": null
@@ -544,7 +539,7 @@
       "raw_score": null,
       "rrf_contribution": null
      },
-     "trigram": {
+     "fuzzy": {
       "rank": null,
       "raw_score": null,
       "rrf_contribution": null
@@ -638,7 +633,7 @@
       "raw_score": null,
       "rrf_contribution": null
      },
-     "trigram": {
+     "fuzzy": {
       "rank": null,
       "raw_score": null,
       "rrf_contribution": null
@@ -749,7 +744,7 @@
       "raw_score": null,
       "rrf_contribution": null
      },
-     "trigram": {
+     "fuzzy": {
       "rank": null,
       "raw_score": null,
       "rrf_contribution": null
@@ -869,7 +864,7 @@
       "raw_score": null,
       "rrf_contribution": null
      },
-     "trigram": {
+     "fuzzy": {
       "rank": null,
       "raw_score": null,
       "rrf_contribution": null
@@ -982,7 +977,7 @@
       "raw_score": null,
       "rrf_contribution": null
      },
-     "trigram": {
+     "fuzzy": {
       "rank": null,
       "raw_score": null,
       "rrf_contribution": null
@@ -1088,7 +1083,7 @@
       "raw_score": null,
       "rrf_contribution": null
      },
-     "trigram": {
+     "fuzzy": {
       "rank": null,
       "raw_score": null,
       "rrf_contribution": null
@@ -1124,22 +1119,22 @@
    "rerank_model_id": "cohere.rerank-v3-5:0",
    "rerank_status": "applied",
    "ranking_policy": [
-    "RRF candidate fusion",
+    "RRF candidate fusion, unweighted: each contribution is 1/(k+rank); the profile's weight_* values apply only to the weighted comparison strategy",
     "managed reranking",
     "exact SKU preservation"
    ],
    "retrieval_profile": {
     "fts_limit": 120,
-    "trigram_limit": 80,
+    "fuzzy_limit": 80,
     "semantic_limit": 150,
     "fused_limit": 50,
     "result_limit": 10,
     "authorized_limit": 10,
     "rrf_k": 60,
-    "trigram_threshold": 0.2,
-    "weight_lexical": 0.3,
+    "fuzzy_threshold": 0.2,
+    "weight_fts": 0.3,
     "weight_semantic": 0.45,
-    "weight_trigram": 0.1,
+    "weight_fuzzy": 0.1,
     "ef_search": 100,
     "iterative_scan": "relaxed_order",
     "max_scan_tuples": 20000,
@@ -1148,18 +1143,19 @@
    "candidate_counts": {
     "fused_pool": 50,
     "fts_in_pool": 0,
-    "trigram_in_pool": 1,
+    "fuzzy_in_pool": 1,
     "semantic_in_pool": 49
    },
    "stage_timings_ms": {
-    "embedding": 1511.359,
-    "postgresql_retrieval": 846.875,
-    "rerank": 929.077,
-    "coverage": 218.564,
-    "result_persistence": 188.056
+    "embedding": 367.058,
+    "postgresql_retrieval": 886.327,
+    "rerank": 992.682,
+    "coverage": 273.548,
+    "result_persistence": 234.241
    },
-   "total_latency_ms": 5065,
-   "warnings": []
+   "total_latency_ms": 4186,
+   "warnings": [],
+   "search_sql_sha256": "7483e408eb9626ebdf9af4a680399dbb8358768e1f29d561a3b0b0f0686ed439"
   },
   "coverage": {
    "confidence": "unanchored",
