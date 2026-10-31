@@ -1,9 +1,9 @@
 {
-  "ablation_methodology_sha256": "afc5518122d8f0a21cd3c3e2e7a92735539929932e92c90240f14681b1e7b2ac",
+  "ablation_methodology_sha256": "671354907b7d6468de8b2bfba3db7fb813ec4f2f3acf6278d527eb421d568f79",
   "arms": {
-    "lexical_only": {
-      "description": "search_fts alone: PostgreSQL full-text search over the weighted product document, with no trigram or semantic arm and no fusion.",
-      "label": "Lexical only",
+    "fts_only": {
+      "description": "search_fts alone: PostgreSQL full-text search over the weighted product document, with no fuzzy or semantic arm and no fusion.",
+      "label": "Full-text only",
       "mrr": 0.4444444444444444,
       "ndcg@10": 0.40146079919616207,
       "ndcg@10_max": 1.0,
@@ -12,8 +12,19 @@
       "ndcg@10_stdev": 0.4905879789058192,
       "recall@10": 0.3888888888888889
     },
+    "fuzzy_only": {
+      "description": "search_fuzzy alone: pg_trgm similarity over the product identity text, with no full-text or semantic arm and no fusion.",
+      "label": "Fuzzy only",
+      "mrr": 0.5555555555555556,
+      "ndcg@10": 0.5555555555555556,
+      "ndcg@10_max": 1.0,
+      "ndcg@10_min": 0.0,
+      "ndcg@10_query_wins": 5,
+      "ndcg@10_stdev": 0.5270462766947299,
+      "recall@10": 0.5555555555555556
+    },
     "rrf_fused_no_rerank": {
-      "description": "The served fusion function (unweighted reciprocal rank fusion over FTS, trigram, and semantic candidates), with managed reranking disabled so the fused order is returned unchanged.",
+      "description": "The served fusion function (unweighted reciprocal rank fusion over FTS, fuzzy, and semantic candidates), with managed reranking disabled so the fused order is returned unchanged.",
       "label": "RRF fused, reranking off",
       "mrr": 0.537037037037037,
       "ndcg@10": 0.5736423092767501,
@@ -35,7 +46,7 @@
       "recall@10": 1.0
     },
     "semantic_only": {
-      "description": "search_vector alone: dense cosine ranking over the product embedding, with no lexical or trigram arm and no fusion.",
+      "description": "search_semantic alone: dense cosine ranking over the product embedding, with no full-text or fuzzy arm and no fusion.",
       "label": "Semantic only",
       "mrr": 0.22777777777777775,
       "ndcg@10": 0.2751159234664661,
@@ -44,17 +55,6 @@
       "ndcg@10_query_wins": 1,
       "ndcg@10_stdev": 0.3517869080201697,
       "recall@10": 0.4444444444444444
-    },
-    "trigram_only": {
-      "description": "search_trigram alone: pg_trgm similarity over the product identity text, with no lexical or semantic arm and no fusion.",
-      "label": "Trigram only",
-      "mrr": 0.5555555555555556,
-      "ndcg@10": 0.5555555555555556,
-      "ndcg@10_max": 1.0,
-      "ndcg@10_min": 0.0,
-      "ndcg@10_query_wins": 5,
-      "ndcg@10_stdev": 0.5270462766947299,
-      "recall@10": 0.5555555555555556
     }
   },
   "candidate_recall_ceiling": {
@@ -66,22 +66,22 @@
     "judged_relevant_never_fetched": 0,
     "pool_recall_ceiling": 1.0,
     "unbounded_arms": {
-      "lexical_only": {
+      "fts_only": {
         "note": "Not bounded by this ceiling. This channel returns its own candidate limit and this arm takes its own top-K from those, while the fused pool is capped at fused_limit after RRF scores three channels together, so a judged-relevant product can appear here and still be absent from the fused pool. Recorded for comparison, never asserted against.",
         "recall@10": 0.3888888888888889
+      },
+      "fuzzy_only": {
+        "note": "Not bounded by this ceiling. This channel returns its own candidate limit and this arm takes its own top-K from those, while the fused pool is capped at fused_limit after RRF scores three channels together, so a judged-relevant product can appear here and still be absent from the fused pool. Recorded for comparison, never asserted against.",
+        "recall@10": 0.5555555555555556
       },
       "semantic_only": {
         "note": "Not bounded by this ceiling. This channel returns its own candidate limit and this arm takes its own top-K from those, while the fused pool is capped at fused_limit after RRF scores three channels together, so a judged-relevant product can appear here and still be absent from the fused pool. Recorded for comparison, never asserted against.",
         "recall@10": 0.4444444444444444
-      },
-      "trigram_only": {
-        "note": "Not bounded by this ceiling. This channel returns its own candidate limit and this arm takes its own top-K from those, while the fused pool is capped at fused_limit after RRF scores three channels together, so a judged-relevant product can appear here and still be absent from the fused pool. Recorded for comparison, never asserted against.",
-        "recall@10": 0.5555555555555556
       }
     }
   },
   "k": 10,
-  "measured_at": "2026-10-29T22:39:08.986375+00:00",
+  "measured_at": "2026-10-31T15:26:43.615296+00:00",
   "models": {
     "embedding": "us.cohere.embed-v4:0",
     "rerank": "cohere.rerank-v3-5:0"
@@ -91,11 +91,11 @@
       "found_in_pool": 1,
       "missed_product_ids": [],
       "ndcg@10": {
-        "lexical_only": 1.0,
+        "fts_only": 1.0,
+        "fuzzy_only": 1.0,
         "rrf_fused_no_rerank": 1.0,
         "rrf_fused_reranked": 1.0,
-        "semantic_only": 0.0,
-        "trigram_only": 1.0
+        "semantic_only": 0.0
       },
       "pool_recall": 1.0,
       "query_id": "G-001",
@@ -106,11 +106,11 @@
       "found_in_pool": 1,
       "missed_product_ids": [],
       "ndcg@10": {
-        "lexical_only": 0.0,
+        "fts_only": 0.0,
+        "fuzzy_only": 1.0,
         "rrf_fused_no_rerank": 1.0,
         "rrf_fused_reranked": 1.0,
-        "semantic_only": 0.0,
-        "trigram_only": 1.0
+        "semantic_only": 0.0
       },
       "pool_recall": 1.0,
       "query_id": "G-003",
@@ -121,11 +121,11 @@
       "found_in_pool": 1,
       "missed_product_ids": [],
       "ndcg@10": {
-        "lexical_only": 0.0,
+        "fts_only": 0.0,
+        "fuzzy_only": 0.0,
         "rrf_fused_no_rerank": 0.0,
         "rrf_fused_reranked": 0.43067655807339306,
-        "semantic_only": 0.0,
-        "trigram_only": 0.0
+        "semantic_only": 0.0
       },
       "pool_recall": 1.0,
       "query_id": "G-004",
@@ -136,11 +136,11 @@
       "found_in_pool": 2,
       "missed_product_ids": [],
       "ndcg@10": {
-        "lexical_only": 0.6131471927654584,
+        "fts_only": 0.6131471927654584,
+        "fuzzy_only": 0.0,
         "rrf_fused_no_rerank": 0.3065735963827292,
         "rrf_fused_reranked": 0.7977228895450266,
-        "semantic_only": 0.23719771276929622,
-        "trigram_only": 0.0
+        "semantic_only": 0.23719771276929622
       },
       "pool_recall": 1.0,
       "query_id": "G-007",
@@ -151,11 +151,11 @@
       "found_in_pool": 2,
       "missed_product_ids": [],
       "ndcg@10": {
-        "lexical_only": 0.0,
+        "fts_only": 0.0,
+        "fuzzy_only": 0.0,
         "rrf_fused_no_rerank": 0.0,
         "rrf_fused_reranked": 0.5012658353418871,
-        "semantic_only": 0.17723928678404774,
-        "trigram_only": 0.0
+        "semantic_only": 0.17723928678404774
       },
       "pool_recall": 1.0,
       "query_id": "G-008",
@@ -166,11 +166,11 @@
       "found_in_pool": 1,
       "missed_product_ids": [],
       "ndcg@10": {
-        "lexical_only": 0.0,
+        "fts_only": 0.0,
+        "fuzzy_only": 0.0,
         "rrf_fused_no_rerank": 0.3562071871080222,
         "rrf_fused_reranked": 0.5,
-        "semantic_only": 0.43067655807339306,
-        "trigram_only": 0.0
+        "semantic_only": 0.43067655807339306
       },
       "pool_recall": 1.0,
       "query_id": "G-009",
@@ -181,11 +181,11 @@
       "found_in_pool": 1,
       "missed_product_ids": [],
       "ndcg@10": {
-        "lexical_only": 1.0,
+        "fts_only": 1.0,
+        "fuzzy_only": 1.0,
         "rrf_fused_no_rerank": 1.0,
         "rrf_fused_reranked": 1.0,
-        "semantic_only": 1.0,
-        "trigram_only": 1.0
+        "semantic_only": 1.0
       },
       "pool_recall": 1.0,
       "query_id": "G-012",
@@ -196,11 +196,11 @@
       "found_in_pool": 1,
       "missed_product_ids": [],
       "ndcg@10": {
-        "lexical_only": 1.0,
+        "fts_only": 1.0,
+        "fuzzy_only": 1.0,
         "rrf_fused_no_rerank": 1.0,
         "rrf_fused_reranked": 1.0,
-        "semantic_only": 0.6309297535714575,
-        "trigram_only": 1.0
+        "semantic_only": 0.6309297535714575
       },
       "pool_recall": 1.0,
       "query_id": "G-019",
@@ -211,11 +211,11 @@
       "found_in_pool": 1,
       "missed_product_ids": [],
       "ndcg@10": {
-        "lexical_only": 0.0,
+        "fts_only": 0.0,
+        "fuzzy_only": 1.0,
         "rrf_fused_no_rerank": 0.5,
         "rrf_fused_reranked": 1.0,
-        "semantic_only": 0.0,
-        "trigram_only": 1.0
+        "semantic_only": 0.0
       },
       "pool_recall": 1.0,
       "query_id": "G-022",
@@ -224,19 +224,19 @@
     }
   ],
   "query_set": "data/evals/canonical_queries.jsonl",
-  "query_set_sha256": "df68a119f0a366e9a7c4154ee34ef8d0aa073a9bbfd9c3f4569dec3f2d978876",
-  "retrieval_fingerprint": "7ac74bc7325fc43701fd26aa501b03ba66491e6777969d98f1c59b9941f570fa",
-  "retrieval_settings_sha256": "3635fb13943e9504b42c530ffcd75317f5f326d1abf569e108078aa55498116e",
+  "query_set_sha256": "337b8158e378c31a09e7d8292b7d85ed09d24721e6ff0fd5399683bdfe15c8d1",
+  "retrieval_fingerprint": "a154739cf0d1d17fdcb0610a8ad8ea08d13fe639ab233c809427a4b3a0aec1b6",
+  "retrieval_settings_sha256": "f97893ed1217126bb78dc7cadd85b0bdf098a0c0dddf3b613d1b43b0a78f4f51",
   "scored_query_count": 9,
-  "scored_query_set_sha256": "fc0703965e00eef4f262affbb92d9fd9fd22b6c842976b4f2e8387f7e622ef47",
+  "scored_query_set_sha256": "952f034619dec9b0964e7dd3dac061619894f7ce315dfdef9ac28ccaf6c7b06d",
   "served_scorecard_reference": {
-    "measured_at": "2026-10-29T22:38:09.403228+00:00",
+    "measured_at": "2026-10-31T15:25:38.811599+00:00",
     "path": "data/evals/canonical_scorecard.json",
-    "retrieval_fingerprint": "7ac74bc7325fc43701fd26aa501b03ba66491e6777969d98f1c59b9941f570fa",
-    "source_revision": "f319469b3d88da270f34c52f18df688824a00650"
+    "retrieval_fingerprint": "a154739cf0d1d17fdcb0610a8ad8ea08d13fe639ab233c809427a4b3a0aec1b6",
+    "source_revision": "f364f7d259cd17952db9a25b8b18fa35c14f14e7"
   },
   "source": {
-    "revision": "fb2262f16c74d9a61b6308253e009bd4cf5874a5",
+    "revision": "641958a158825c1e21388f60f0d06e5ead35c78b",
     "worktree_dirty": false
   },
   "spread_note": "9 queries and 14 judgments cannot separate small differences between these paths. Every path answers the same searches, so read each step as the difference on each search rather than as two separate averages: the comparison below reports that difference, the spread of the differences, and how many searches each step won and lost. A step whose average difference is smaller than that spread is one this query set cannot tell apart from no change."
