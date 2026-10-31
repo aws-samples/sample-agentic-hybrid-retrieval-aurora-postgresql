@@ -127,9 +127,8 @@ logger = logging.getLogger(__name__)
 _GROUNDING_MESSAGES = {
     DRAFT_REFUSED: (
         "The answer checks refused every draft of this answer, so there is no answer to "
-        "show. The run's synthesize_cited_answer steps in TOOL TRACE record why each "
-        "draft was refused. Ask again; the Retrieval agent words its searches and its "
-        "answer afresh each time."
+        "show. Ask again; the Retrieval agent words its searches and its answer afresh "
+        "each time."
     ),
     DRAFT_STOPPED: (
         "The draft of this answer stopped before it was finished, so there is no answer "
