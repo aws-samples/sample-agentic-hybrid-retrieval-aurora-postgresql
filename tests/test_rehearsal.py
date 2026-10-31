@@ -601,7 +601,7 @@ def _fully_rehearsed_manifest(
             manifest,
             f"lab_{lab}_rehearsal",
             status="passed",
-            detail=f"lab {lab}: reset isolated, solution applied, validate-lab-{lab} PASS",
+            detail=f"lab {lab}: reset isolated, solution applied, prove-lab-{lab} PASS",
         )
 
     reranker_client = _mock_client(

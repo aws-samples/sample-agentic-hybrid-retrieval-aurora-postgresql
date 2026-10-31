@@ -37,12 +37,12 @@ CATALOG_BUNDLE_ARGS ?=
 SCHEMA_PACKAGE ?= db
 VECTOR_DIM ?= 1024
 BOOTSTRAP_TIMINGS_FILE ?= build/bootstrap-timings.tsv
-.PHONY: check-model-access setup doctor check-dsn check-python check-bootstrap-python check-mcp-python validate validate-db lint test test-aurora-contracts test-aurora-invariants db-install db-install-labs db-configure-retrieval validate-missions validate-evals score-evals ablation-evals validate-config validate-functions lab-status start-lab-1 reset-lab-1 validate-lab-1 solution-lab-1 start-lab-2 reset-lab-2 validate-lab-2 solution-lab-2 start-lab-3 reset-lab-3 validate-lab-3 solution-lab-3 restart-lab-api db-apply-search-functions db-render db-bootstrap-schema db-verify-bootstrap db-smoke db-drop-invalid-indexes db-index-quantized-catalog simulate db-seed-exact-neighbors check-exact-neighbors select-hnsw-anchors check-hnsw-anchors curate-shop-collection check-shop-collection benchmark-hnsw benchmark-index-build benchmark-hardware benchmark-ask-mosaic rehearsal-validate rehearsal-summary load-exercise api-serve ui-install ui-build ui-test ui-audit ui-dev mcp-lock-check mcp-install mcp-test mcp-wheel-smoke mcp-serve sync-bootstrap check-bootstrap-sync check-bootstrap-release validate-release-workflow
+.PHONY: check-model-access setup doctor check-dsn check-python check-bootstrap-python check-mcp-python validate validate-db lint test test-aurora-contracts test-aurora-invariants db-install db-install-labs db-configure-retrieval validate-missions validate-evals score-evals ablation-evals validate-config validate-functions lab-status start-lab-1 reset-lab-1 prove-lab-1 apply-solution-lab-1 start-lab-2 reset-lab-2 prove-lab-2 apply-solution-lab-2 start-lab-3 reset-lab-3 prove-lab-3 apply-solution-lab-3 restart-lab-api db-apply-search-functions db-render db-bootstrap-schema db-verify-bootstrap db-smoke db-drop-invalid-indexes db-index-quantized-catalog simulate db-seed-exact-neighbors check-exact-neighbors select-hnsw-anchors check-hnsw-anchors curate-shop-collection check-shop-collection benchmark-hnsw benchmark-index-build benchmark-hardware benchmark-ask-mosaic rehearsal-validate rehearsal-summary load-exercise api-serve ui-install ui-build ui-test ui-audit ui-dev mcp-lock-check mcp-install mcp-test mcp-wheel-smoke mcp-serve sync-bootstrap check-bootstrap-sync check-bootstrap-release validate-release-workflow
 
 PYTHON_TARGETS := validate validate-db validate-missions validate-evals score-evals ablation-evals validate-config validate-functions \
-	test db-render simulate db-configure-retrieval lab-status validate-lab-3 solution-lab-3 api-serve \
+	test db-render simulate db-configure-retrieval lab-status prove-lab-3 apply-solution-lab-3 api-serve \
 	mcp-install check-bootstrap-release validate-release-workflow rehearsal-validate rehearsal-summary load-exercise deploy-agent verify-agent \
-	agent-tools complete-lab-3 curate-shop-collection check-shop-collection
+	agent-tools grade-setup-run curate-shop-collection check-shop-collection
 
 $(PYTHON_TARGETS): check-python
 
@@ -58,8 +58,8 @@ check-dsn:
 
 DSN_TARGETS := test test-aurora-contracts test-aurora-invariants db-install db-install-labs validate-missions validate-evals score-evals \
 	ablation-evals validate-functions db-drop-invalid-indexes db-smoke db-bootstrap-schema \
-	db-verify-bootstrap db-configure-retrieval db-apply-search-functions start-lab-1 reset-lab-1 validate-lab-1 solution-lab-1 start-lab-2 \
-	reset-lab-2 validate-lab-2 solution-lab-2 start-lab-3 reset-lab-3 api-serve curate-shop-collection check-shop-collection
+	db-verify-bootstrap db-configure-retrieval db-apply-search-functions start-lab-1 reset-lab-1 prove-lab-1 apply-solution-lab-1 start-lab-2 \
+	reset-lab-2 prove-lab-2 apply-solution-lab-2 start-lab-3 reset-lab-3 api-serve curate-shop-collection check-shop-collection
 
 $(DSN_TARGETS): check-dsn
 
@@ -160,12 +160,12 @@ start-lab-1:
 reset-lab-1:
 	@$(PYTHON) scripts/lab_state.py reset --lab 1 --api-url "$(LAB_API_URL)"
 
-validate-lab-1:
+prove-lab-1:
 	@$(PYTHON) scripts/lab_state.py validate --lab 1 --database-url "$$DATABASE_URL"
 	@$(PYTHON) scripts/prove_lab.py --lab 1 --api-url "$(LAB_API_URL)"
 	@echo "Your hybrid search now handles fuzzy matching and keeps the requested filters."
 
-solution-lab-1:
+apply-solution-lab-1:
 	@$(PYTHON) scripts/lab_state.py apply-solution --lab 1
 	@$(MAKE) db-apply-search-functions
 
@@ -176,12 +176,12 @@ start-lab-2:
 reset-lab-2:
 	@$(PYTHON) scripts/lab_state.py reset --lab 2 --api-url "$(LAB_API_URL)"
 
-validate-lab-2:
+prove-lab-2:
 	@$(PYTHON) scripts/lab_state.py validate --lab 2 --database-url "$$DATABASE_URL"
 	@$(PYTHON) scripts/prove_lab.py --lab 2 --api-url "$(LAB_API_URL)"
 	@echo "Your search now combines ranks correctly and sends its shortlist to reranking."
 
-solution-lab-2:
+apply-solution-lab-2:
 	@$(PYTHON) scripts/lab_state.py apply-solution --lab 2
 	@$(MAKE) db-apply-search-functions
 
@@ -195,15 +195,15 @@ reset-lab-3:
 	@$(MAKE) restart-lab-api
 	@echo "Agent starting code restored. Next: build create_agent in labs/lab3_reason/agent.py, then run make deploy-agent."
 
-validate-lab-3:
+prove-lab-3:
 	@$(PYTHON) scripts/lab_state.py validate --lab 3
 	@$(PYTHON) scripts/prove_lab.py --lab 3 --api-url "$(LAB_API_URL)" --save-receipt .local/lab-3/maintainer-receipt.json
 
-solution-lab-3:
+apply-solution-lab-3:
 	@$(PYTHON) scripts/lab_state.py apply-solution --lab 3
 	@echo "Agent code restored. Next: run make deploy-agent, then ask Alex's question in Mosaic."
 
-.PHONY: deploy-agent verify-agent agent-tools complete-lab-3
+.PHONY: deploy-agent verify-agent agent-tools grade-setup-run
 deploy-agent:
 	@$(PYTHON) scripts/deploy_agentcore.py deploy
 	@$(MAKE) restart-lab-api
@@ -214,7 +214,7 @@ verify-agent:
 agent-tools:
 	@$(PYTHON) scripts/deploy_agentcore.py tools
 
-complete-lab-3:
+grade-setup-run:
 	@$(PYTHON) scripts/grade_setup_run.py $(if $(RUN_ID),--run-id "$(RUN_ID)")
 
 restart-lab-api:

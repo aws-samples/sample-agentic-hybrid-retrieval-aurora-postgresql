@@ -109,7 +109,7 @@ predicates (0.2 to 0.5 s per count, category filters through the index).
 
 Final live gates on `mosaic_v2` (2026-09-26 03:20): `make validate-missions`
 with `MISSION_GATE_REQUIRE_DB=1` (111 checks), `make validate-evals`
-(720, 15 and 38 judged targets), `make validate-lab-1`, `-2` and `-3`
+(720, 15 and 38 judged targets), `make prove-lab-1`, `-2` and `-3`
 (production-path validation passed), the independent relevance contract
 (24 queries) and the held-out ESCI contract (407 queries) all pass. Offline:
 1,834 passed / 62 skipped; UI 751 passed; `make lint`, `make validate`,

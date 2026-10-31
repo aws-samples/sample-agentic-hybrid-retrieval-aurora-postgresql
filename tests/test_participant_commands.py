@@ -22,9 +22,9 @@ from service import participant_commands as commands
 ROOT = Path(__file__).resolve().parents[1]
 
 PARTICIPANT_MAKE = re.compile(
-    r"\bmake (?:lab-status|start-lab|reset-lab|solution-lab|validate-lab|"
+    r"\bmake (?:lab-status|start-lab|reset-lab|apply-solution-lab|prove-lab|"
     r"db-apply-search-functions|agent-tools|deploy-agent|verify-agent|"
-    r"complete-lab-3|restart-lab-api)"
+    r"grade-setup-run|restart-lab-api)"
 )
 
 PARTICIPANT_SCRIPTS = (

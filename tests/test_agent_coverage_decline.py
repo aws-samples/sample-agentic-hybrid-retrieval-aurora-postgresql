@@ -369,7 +369,7 @@ def test_a_grounded_mission_question_reaches_the_controller_unrefused(monkeypatc
     Whether the mission's terms are actually in the catalog is decided by
     `mosaic_search.query_term_coverage` against a seeded database, so it is
     owned by the live probes: `make validate-missions` with a DSN, and
-    `make validate-lab-3`. No offline vocabulary check is invented here, because
+    `make prove-lab-3`. No offline vocabulary check is invented here, because
     a check built from the same question it judges could not fail.
     """
     mission = load_mission("reason")

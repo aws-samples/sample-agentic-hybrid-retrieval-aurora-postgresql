@@ -153,13 +153,13 @@ their output, then record one stage per lab:
 
 ```sh
 make reset-lab-1 > .local/lab-1-rehearsal.log 2>&1
-make solution-lab-1 >> .local/lab-1-rehearsal.log 2>&1
-DATABASE_URL="$DATABASE_URL" make validate-lab-1 >> .local/lab-1-rehearsal.log 2>&1
+make apply-solution-lab-1 >> .local/lab-1-rehearsal.log 2>&1
+DATABASE_URL="$DATABASE_URL" make prove-lab-1 >> .local/lab-1-rehearsal.log 2>&1
 
 uv run python scripts/checks/rehearsal.py record-stage \
   --manifest build/rehearsal-evidence.json \
   --stage lab_1_rehearsal --status passed \
-  --detail "reset lab 1 only; solution applied; validate-lab-1 PASS (see artifact)" \
+  --detail "reset lab 1 only; solution applied; prove-lab-1 PASS (see artifact)" \
   --artifact .local/lab-1-rehearsal.log
 ```
 
