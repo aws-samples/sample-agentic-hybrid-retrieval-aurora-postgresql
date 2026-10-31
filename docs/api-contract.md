@@ -312,7 +312,10 @@ general semantic entailment.
 Controller fallback work streams partial tool receipts as they arrive and runs
 blocking dependencies in a worker. If a persisted run fails, the terminal
 `error` event includes `agent_run_id`, a `grounding_contract` or `agent_runtime`
-code, and a safe `detail`. The browser can inspect that failed run without
+code, and a safe `detail`. A `grounding_contract` error also carries a `cause`:
+`draft_refused` when the answer checks refused a draft, or `step_incomplete` when a
+step an answer with sources needs did not complete and no draft was written. Each
+cause has its own `detail`. The browser can inspect that failed run without
 retaining a completion verdict from an earlier attempt. Failures before a run
 is persisted may have no run ID.
 

@@ -32,6 +32,7 @@ from service.access_control import (
     verify_origin_access,
 )
 from service.agent import (
+    DRAFT_REFUSED,
     AgentTurnDeadlineExceeded,
     GroundingContractError,
     get_product_discovery_agent,
@@ -115,17 +116,39 @@ from service.telemetry_contract import (
 ROOT = Path(__file__).resolve().parents[1]
 settings = get_settings()
 logger = logging.getLogger(__name__)
+# One message per cause and path (see GroundingContractError.cause). The streaming
+# path is read next to the run ID the terminal or the panel prints; the non-streaming
+# path returns only this text, so it asks the participant to share the run ID.
 _GROUNDING_ERROR_DETAIL = (
-    "Mosaic could not attach the supporting sources needed for this answer. "
+    "A step this answer needs did not complete: Mosaic could not find products, compare "
+    "them or attach their supporting sources, so no draft was written. "
     "Next: open the Retrieval agent's tool activity and check whether get_product_evidence "
     "returned records. If it did not, try a more specific product request. "
     "If it did, share the run ID with your facilitator."
+)
+_GROUNDING_STEP_INCOMPLETE = (
+    "A step this answer needs, such as finding products, comparing them or attaching their "
+    "supporting sources, did not complete, so no draft was written and there is no "
+    "answer to show. Next: open the Retrieval agent's tool activity, find the step that "
+    "stopped (search_products, compare_products or get_product_evidence) and ask again "
+    "with a more specific request. If it stops at the same step, share the run ID with "
+    "your facilitator."
 )
 _GROUNDING_REFUSED = (
     "The answer checks refused every draft of this answer: each claim must be stated by a "
     "record it cites, so there is no answer to show. Ask again; the Retrieval agent words "
     "its searches and its answer afresh each time."
 )
+_GROUNDING_REFUSED_DETAIL = f"{_GROUNDING_REFUSED} If it keeps refusing, share the run ID with your facilitator."
+
+
+def _grounding_detail(cause: str | None, *, streaming: bool) -> str:
+    """The plain message for one cause on one path; no cause reads as an incomplete step."""
+    if cause == DRAFT_REFUSED:
+        return _GROUNDING_REFUSED if streaming else _GROUNDING_REFUSED_DETAIL
+    return _GROUNDING_STEP_INCOMPLETE if streaming else _GROUNDING_ERROR_DETAIL
+
+
 _CONVERSATION_ERROR_DETAIL = "Mosaic could not reopen the previous answer. Start a new conversation and try again."
 
 
@@ -262,7 +285,7 @@ def _agent_error(error: Exception) -> HTTPException:
     if isinstance(error, AgentSetupError):
         return _CodedHTTPException(503, "agent_setup", str(error))
     if isinstance(error, GroundingContractError):
-        return HTTPException(503, _GROUNDING_ERROR_DETAIL)
+        return HTTPException(503, _grounding_detail(error.cause, streaming=False))
     if isinstance(error, AgentTurnDeadlineExceeded):
         return HTTPException(503, str(error))
     return HTTPException(
@@ -616,7 +639,12 @@ def _stream_error_payload(error: Exception) -> dict[str, Any]:
             "detail": str(error.detail),
         }
     if isinstance(error, GroundingContractError):
-        return {"code": "supporting_sources", "detail": _GROUNDING_ERROR_DETAIL}
+        refused = error.cause == DRAFT_REFUSED
+        return {
+            "code": "grounding_contract" if refused else "supporting_sources",
+            "cause": error.cause,
+            "detail": _grounding_detail(error.cause, streaming=True),
+        }
     if isinstance(error, AgentTurnDeadlineExceeded):
         return {"code": "agent_turn_deadline", "detail": str(error)}
     return {
@@ -768,7 +796,9 @@ async def stream_agent_answer(
                         "error",
                         {
                             **failure,
-                            "detail": _GROUNDING_REFUSED
+                            "detail": _grounding_detail(
+                                failure.get("cause"), streaming=True
+                            )
                             if failure.get("code") == "grounding_contract"
                             else failure["detail"],
                         },

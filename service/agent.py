@@ -37,6 +37,7 @@ from service.models import (
     AgentResponse,
     ToolTraceStep,
 )
+from service.synthesis import SynthesisOutputError
 from service.telemetry import agent_outcome_attributes, observe_agent_turn
 
 logger = logging.getLogger(__name__)
@@ -204,8 +205,22 @@ class AgentTurnDeadlineExceeded(RuntimeError):
     """
 
 
+DRAFT_REFUSED = "draft_refused"
+STEP_INCOMPLETE = "step_incomplete"
+
+
 class GroundingContractError(RuntimeError):
-    """The retrieved state cannot support a citation-bounded answer."""
+    """The retrieved state cannot support a citation-bounded answer.
+
+    `cause` says which of two things stopped the answer: `DRAFT_REFUSED`, where a
+    draft existed and the answer checks refused it, or `STEP_INCOMPLETE`, where a step an
+    answer with sources needs (finding products, comparing them, reading their
+    sources) did not complete, so no draft was written.
+    """
+
+    def __init__(self, message: str, *, cause: str = STEP_INCOMPLETE) -> None:
+        super().__init__(message)
+        self.cause = cause
 
 
 class _ToolCallBudget:
@@ -496,9 +511,16 @@ class ProductDiscoveryAgent:
                 "Fallback cited synthesis failed: error_type=%s",
                 type(error).__name__,
             )
+            if isinstance(error, SynthesisOutputError):
+                return GroundingContractError(
+                    "The answer checks refused the draft because it did not satisfy "
+                    "the evidence and citation contract.",
+                    cause=DRAFT_REFUSED,
+                )
             return GroundingContractError(
-                "Grounded synthesis refused to continue because the retrieved "
-                "state did not satisfy the evidence and citation contract."
+                "A step an answer with sources needs did not complete, so no draft "
+                "was written.",
+                cause=STEP_INCOMPLETE,
             )
         return None
 
@@ -862,6 +884,7 @@ class ProductDiscoveryAgent:
 
                 if error is not None and record is None:
                     yield {"agent_partial": _partial(state)}
+                    failure_cause = None
                     if isinstance(error, AgentSetupError):
                         failure_code, failure_detail = "agent_setup", str(error)
                     elif isinstance(error, GroundingContractError):
@@ -869,6 +892,7 @@ class ProductDiscoveryAgent:
                             "grounding_contract",
                             str(error),
                         )
+                        failure_cause = error.cause
                     elif isinstance(error, AgentTurnDeadlineExceeded):
                         failure_code, failure_detail = (
                             "agent_turn_deadline",
@@ -885,6 +909,7 @@ class ProductDiscoveryAgent:
                             "agent_run_id": str(state["agent_run_id"]),
                             "code": failure_code,
                             "detail": failure_detail,
+                            **({"cause": failure_cause} if failure_cause else {}),
                         }
                     }
                     raise error

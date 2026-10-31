@@ -1354,7 +1354,7 @@ def test_agent_surfaces_grounding_contract_failure_over_model_loop_error(
 
     with pytest.raises(
         GroundingContractError,
-        match="evidence and citation contract",
+        match="did not complete",
     ):
         ProductDiscoveryAgent().answer(
             AgentRequest(question="What should I buy?", result_limit=2)
@@ -2053,6 +2053,7 @@ def test_failed_stream_exposes_its_persisted_run_and_last_receipts(monkeypatch):
                 "agent_failure": {
                     "agent_run_id": run_id,
                     "code": "grounding_contract",
+                    "cause": "draft_refused",
                     "detail": "Internal validation failure",
                 }
             }
