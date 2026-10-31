@@ -41,9 +41,9 @@ strategy ran, what was fused, what was granted, and to what `authorized_limit`.
 
 Do not infer transport parity from the shared capability registry. The HTTP
 skill surface has four operations. MCP has four: `search_products`,
-`get_product_evidence`, `compare_products`, and the transport-specific
-`inspect_retrieval_run`. The latter accepts `run_id`, while the HTTP skill calls
-ranking inspection `explain_retrieval` with `retrieval_scope_id`. Shared
+`get_product_evidence`, `compare_products`, and
+`explain_retrieval`. MCP and the agent accept `search_event_id`, while the HTTP
+skill calls the same operation with `retrieval_scope_id`. Shared
 capabilities preserve their semantic payload, while wire names, accepted inputs,
 and envelopes may differ by adapter. See [the MCP mapping](mcp.md).
 
@@ -156,8 +156,8 @@ the mechanics, not about who is permitted to see them.
 HTTP and MCP are implemented adapters; a registry entry does not prove a particular endpoint is deployed or reachable. `GET /api/tools?surface=skill` serves
 the four-operation HTTP skill contract, while `GET /api/tools?surface=mcp`
 describes the four-operation MCP projection and `make mcp-test` exercises that
-adapter. The MCP inspection wire name is `inspect_retrieval_run`, and it accepts
-the search event as `run_id`; it is not a second `explain_retrieval` declaration.
+adapter. The MCP wire name is `explain_retrieval`, and it accepts the search
+event as `search_event_id`; it is one declaration with the agent and skill surfaces.
 **A2A is neither.** No A2A endpoint is deployed for this workshop, and none is
 provisioned. Section 5 is a documentation profile, written so the composition
 story stays concrete instead of hand-waved, not a claim that it runs anywhere.

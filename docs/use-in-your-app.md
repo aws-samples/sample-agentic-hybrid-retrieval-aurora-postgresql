@@ -19,8 +19,8 @@ Keep a full checkout of Mosaic as the runnable reference. The downloadable exerc
 2. Download `/api/skill-package` and keep its folder intact in your agent's skill
    directory. It guides search, comparison, ranking inspection and source checks
    through the tools you connected. The tool sets differ by surface. The Gateway exposes three tools
-   (`search_products`, `get_product_evidence`, `inspect_retrieval_run`). The portable MCP
-   adapter exposes four (search, evidence, compare and inspect). The in-process agent has
+   (`search_products`, `get_product_evidence`, `explain_retrieval`). The portable MCP
+   adapter exposes four (search, evidence, compare and explain). The in-process agent has
    five (`search_products`, `get_product_evidence`, `compare_products`, `explain_retrieval`,
    `synthesize_cited_answer`). Wire names and input shapes are documented separately.
 3. Ask for results and supporting records together. Use Mosaic's answer endpoint

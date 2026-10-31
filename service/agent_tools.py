@@ -451,7 +451,7 @@ def _retrieved_product_ids(state: Mapping[str, Any]) -> set[int]:
 
 #: The tools that read the catalog, and so run through AgentCore Gateway when
 #: the agent is deployed. `explain_retrieval` replays a search through the
-#: Gateway's `inspect_retrieval_run`; `compare_products` reads only this run.
+#: Gateway tool of the same name; `compare_products` reads only this run.
 CATALOG_TOOLS = frozenset(
     {"search_products", "get_product_evidence", "explain_retrieval"}
 )
@@ -1180,7 +1180,7 @@ def explain_retrieval(search_event_id: str) -> dict[str, Any]:
         )
     if gateway_tools.gateway_url():
         replay = gateway_tools.call_tool(
-            "inspect_retrieval_run", {"run_id": str(parsed)}
+            "explain_retrieval", {"search_event_id": str(parsed)}
         )
         event = {
             key: replay["run"][key]

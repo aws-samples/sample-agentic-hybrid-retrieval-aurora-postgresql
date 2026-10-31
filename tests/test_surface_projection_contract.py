@@ -169,8 +169,7 @@ def test_required_projection_matches_properties_projection_per_surface():
     # Independent witness (house-standards.md rule 7): a literal counted by
     # hand from db/config/agent_tool_contracts.json's "surfaces" lists --
     # search_products (3) + get_product_evidence (3) + compare_products (3)
-    # + explain_retrieval (2) + synthesize_cited_answer (1) +
-    # inspect_retrieval_run (1) = 13 -- never derived from the same
+    # + explain_retrieval (3) + synthesize_cited_answer (1) = 13 -- never derived from the same
     # surface-membership predicate the loop above uses.
     assert examined == 13, (
         f"expected exactly 13 (contract, surface) projections, examined "

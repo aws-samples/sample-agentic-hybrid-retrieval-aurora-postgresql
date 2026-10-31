@@ -248,11 +248,19 @@
     {
       "name": "explain_retrieval",
       "tool_version": "1.0",
-      "description": "Replay persisted ranking signals for an event authorized by the current retrieval or previous grounded answer.",
+      "description": "Replay persisted ranking signals for a saved search. The agent replays only an event authorized by the current retrieval or previous grounded answer; the MCP tool resolves any valid search_event_id.",
       "read_only": true,
-      "surfaces": ["agent", "skill"],
+      "surfaces": ["agent", "mcp", "skill"],
       "input_schemas": {
         "agent": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["search_event_id"],
+          "properties": {
+            "search_event_id": {"type": "string", "format": "uuid"}
+          }
+        },
+        "mcp": {
           "type": "object",
           "additionalProperties": false,
           "required": ["search_event_id"],
@@ -270,7 +278,7 @@
         }
       },
       "capability": "explain_retrieval",
-      "envelope_fields": {"agent": ["ok"], "skill": []},
+      "envelope_fields": {"agent": ["ok"], "mcp": [], "skill": []},
       "payload_schema": {
         "type": "object",
         "required": ["run", "candidates"],
@@ -329,41 +337,6 @@
           "ok": {"type": "boolean"},
           "answer": {"type": "string"},
           "citations": {"type": "array"}
-        }
-      }
-    },
-    {
-      "name": "inspect_retrieval_run",
-      "tool_version": "1.0",
-      "description": "Replay a persisted retrieval event through the stateless MCP adapter.",
-      "read_only": true,
-      "surfaces": ["mcp"],
-      "input_schemas": {
-        "mcp": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["run_id"],
-          "properties": {
-            "run_id": {"type": "string", "format": "uuid"}
-          }
-        }
-      },
-      "capability": "explain_retrieval",
-      "envelope_fields": {"mcp": []},
-      "payload_schema": {
-        "type": "object",
-        "required": ["run", "candidates"],
-        "properties": {
-          "run": {"type": ["object", "null"]},
-          "candidates": {"type": "array"}
-        }
-      },
-      "output_schema": {
-        "type": "object",
-        "required": ["run", "candidates"],
-        "properties": {
-          "run": {"type": ["object", "null"]},
-          "candidates": {"type": "array"}
         }
       }
     }

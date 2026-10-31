@@ -208,7 +208,7 @@ def capability_parity_receipt() -> dict[str, Any]:
     """Prove one capability means the same thing on every surface it appears on.
 
     Grouped by `capability`, not by wire name. The previous receipt keyed on name
-    and therefore reported `explain_retrieval` and `inspect_retrieval_run` as
+    and therefore reported `explain_retrieval` and `explain_retrieval` as
     unrelated, which let their output schemas drift unobserved. A transport may
     wrap the payload in its own envelope, but only in the fields it declared.
     """

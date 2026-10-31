@@ -17,7 +17,7 @@ from service.config import get_settings
 from service.participant_commands import DEPLOY_AGENT, VERIFY_AGENT
 
 TARGET_NAME = "mosaic"
-TOOL_NAMES = ("search_products", "get_product_evidence", "inspect_retrieval_run")
+TOOL_NAMES = ("search_products", "get_product_evidence", "explain_retrieval")
 
 
 def gateway_url() -> str | None:

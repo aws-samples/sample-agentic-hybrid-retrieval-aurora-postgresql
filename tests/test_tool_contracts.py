@@ -47,8 +47,9 @@ def test_shared_capabilities_preserve_portable_semantic_invariants():
     """Grouped by capability, so two wire names for one capability are compared.
 
     The previous version of this test grouped by name and reported
-    `explain_retrieval` and `inspect_retrieval_run` as unrelated, which is how
-    their output schemas drifted unobserved.
+    `explain_retrieval` and its MCP twin as unrelated, which is how their output
+    schemas drifted unobserved. The twin is gone: one record now carries all three
+    surfaces, so no capability is compared across records.
     """
     assert capability_parity_receipt() == {
         "shared_capabilities": [
@@ -57,7 +58,7 @@ def test_shared_capabilities_preserve_portable_semantic_invariants():
             "get_product_evidence",
             "open_retrieval",
         ],
-        "cross_contract_capabilities": ["explain_retrieval"],
+        "cross_contract_capabilities": [],
         "capabilities": [
             "compare_products",
             "explain_retrieval",
@@ -72,7 +73,7 @@ def test_shared_capabilities_preserve_portable_semantic_invariants():
             "envelope_fields",
             "transport_trace",
         ],
-        "union_checks_performed": 6,
+        "union_checks_performed": 5,
     }
 
 

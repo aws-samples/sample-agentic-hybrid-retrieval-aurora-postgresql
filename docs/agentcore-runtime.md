@@ -5,7 +5,7 @@ Runtime. It calls three SQL capabilities through an IAM-authenticated AgentCore 
 
 - `mosaic___search_products`: hybrid search, rank fusion and reranking.
 - `mosaic___get_product_evidence`: source records for a retrieved product.
-- `mosaic___inspect_retrieval_run`: saved search and ranking details.
+- `mosaic___explain_retrieval`: saved search and ranking details.
 
 Gateway forwards MCP requests to a separate tools Runtime. Both runtimes use
 private VPC access to Aurora and read their database credential from Secrets

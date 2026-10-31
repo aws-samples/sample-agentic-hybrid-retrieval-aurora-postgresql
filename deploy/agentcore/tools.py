@@ -37,6 +37,6 @@ def get_product_evidence(product_id: int, request: ProductEvidenceRequest) -> di
 
 
 @mcp.tool()
-def inspect_retrieval_run(run_id: UUID) -> dict:
-    """Read the candidate ranks and saved results for a retrieval event."""
-    return _result(retrieval_event(run_id))
+def explain_retrieval(search_event_id: UUID) -> dict:
+    """Read the candidate ranks and saved results for a saved search."""
+    return _result(retrieval_event(search_event_id))

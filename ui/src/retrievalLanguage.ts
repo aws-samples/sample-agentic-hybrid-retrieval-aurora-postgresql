@@ -69,9 +69,8 @@ export const toolPurpose: Record<string, string> = {
   search_products: "Search Aurora with full-text search, fuzzy matching and semantic search, then combine and rerank the filtered matches.",
   get_product_evidence: "Read current specifications and reviews for a product returned by search.",
   compare_products: "Compare products from the current search or the previous answer.",
-  explain_retrieval: "Read the saved search to explain which methods found a product and how its rank changed.",
+  explain_retrieval: "Read a saved search, without running it again, to explain which methods found a product and how its rank changed.",
   synthesize_cited_answer: "Write an answer using allowed products and current sources, check its citations and claims, then save the checked answer.",
-  inspect_retrieval_run: "Read a saved search through MCP, without running the search again.",
 };
 
 /**

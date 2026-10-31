@@ -1,6 +1,6 @@
 """The MCP tool has to request a path the API actually serves.
 
-`inspect_retrieval_run` requested `/retrieval/runs/{run_id}` while the API serves
+The MCP `explain_retrieval` tool once requested `/retrieval/runs/{run_id}` while the API serves
 `/api/retrieval/events/{search_event_id}`, so the tool returned HTTP 404 on every
 call. The existing MCP contract tests are source-text assertions, so nothing
 exercised the URL. These checks resolve the request against the real FastAPI
@@ -68,7 +68,7 @@ def test_mcp_adapter_holds_no_scope_policy():
         "search_products",
         "get_product_evidence",
         "compare_products",
-        "inspect_retrieval_run",
+        "explain_retrieval",
     ):
         assert re.search(rf"\bdef {tool_name}\(", SERVER_SOURCE), (
             f"the MCP adapter no longer defines {tool_name!r}; a deleted or "
@@ -98,10 +98,12 @@ def test_the_api_does_not_serve_the_path_the_tool_used_to_request():
     assert not _route_exists(f"/api/retrieval/runs/{uuid4()}")
 
 
-def test_inspect_retrieval_run_requests_a_path_the_api_resolves():
+def test_explain_retrieval_requests_a_path_the_api_resolves():
     """Drive the real route shape: the tool's URL must not 404."""
-    match = re.search(r'get\(f"(/retrieval/[^"]*)\{parsed_run_id\}"\)', SERVER_SOURCE)
-    assert match, "inspect_retrieval_run must build its path from parsed_run_id"
+    match = re.search(
+        r'get\(f"(/retrieval/[^"]*)\{parsed_search_event_id\}"\)', SERVER_SOURCE
+    )
+    assert match, "explain_retrieval must build its path from parsed_search_event_id"
     tool_path = f"{match.group(1)}{uuid4()}"
 
     # The client's base URL already carries `/api`, so that is the served path.
@@ -158,8 +160,10 @@ def test_the_mcp_tool_path_is_a_route_the_app_declares():
     """
     from fastapi.routing import APIRoute
 
-    match = re.search(r'get\(f"(/retrieval/[^"]*)\{parsed_run_id\}"\)', SERVER_SOURCE)
-    assert match, "inspect_retrieval_run must build its path from parsed_run_id"
+    match = re.search(
+        r'get\(f"(/retrieval/[^"]*)\{parsed_search_event_id\}"\)', SERVER_SOURCE
+    )
+    assert match, "explain_retrieval must build its path from parsed_search_event_id"
     tool_template = f"/api{match.group(1)}{{search_event_id}}"
 
     declared = {route.path for route in app.routes if isinstance(route, APIRoute)}

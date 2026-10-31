@@ -59,8 +59,8 @@ mcp = MCPServer(
         "the search_event_id it returns as retrieval_scope_id to "
         "get_product_evidence, which serves evidence only for products that "
         "retrieval granted. Use compare_products with that same scope and "
-        "two to five returned product IDs. Pass the search ID as run_id to "
-        "inspect_retrieval_run to explain ranking. These tools read catalog "
+        "two to five returned product IDs. Pass the search_event_id it returns to "
+        "explain_retrieval to explain ranking. These tools read catalog "
         "records; search also saves audit records. Tool annotations and "
         "instructions do not grant access or enforce permissions."
     ),
@@ -199,28 +199,28 @@ def compare_products(
 
 
 @mcp.tool(
-    title="Inspect a retrieval run",
+    title="Explain a retrieval",
     description=(
         "Replay persisted full-text, fuzzy, semantic, RRF, rerank, "
-        "filter, timing, and final-order signals for one search run. Unscoped "
-        "by design: unlike explain_retrieval, any valid run ID resolves here, "
-        "on the single-attendee disposable-instance assumption."
+        "filter, timing, and final-order signals for one saved search. Unscoped "
+        "by design: unlike the agent's explain_retrieval tool, any valid "
+        "search_event_id resolves here, on the single-attendee disposable-instance assumption."
     ),
     annotations=READ_ONLY_LOOKUP,
     structured_output=True,
 )
-def inspect_retrieval_run(run_id: str) -> RetrievalRunResponse:
-    """Read the ranking provenance persisted for a retrieval run.
+def explain_retrieval(search_event_id: str) -> RetrievalRunResponse:
+    """Read the ranking provenance persisted for a saved search.
 
     Deliberately unscoped, unlike the agent's `explain_retrieval` tool, which
     refuses events outside its turn. Acceptable only because the workshop is
     single-attendee and disposable, and because a v4 UUID is not enumerable.
     """
-    parsed_run_id = UUID(run_id)
+    parsed_search_event_id = UUID(search_event_id)
     # The API serves this as `/api/retrieval/events/{search_event_id}`; the
     # client's base URL already carries `/api`. Requesting `/retrieval/runs/`
     # returned HTTP 404 for every call.
-    payload = get_api_client().get(f"/retrieval/events/{parsed_run_id}")
+    payload = get_api_client().get(f"/retrieval/events/{parsed_search_event_id}")
     return RetrievalRunResponse.model_validate(payload)
 
 

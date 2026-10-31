@@ -50,29 +50,58 @@ def test_every_contract_declares_a_capability(tmp_path, monkeypatch):
         load_contracts()
 
 
-def test_explain_is_one_capability_under_two_wire_names():
+def test_explain_is_one_contract_on_every_surface_under_one_wire_name():
     by_name = {contract["name"]: contract for contract in load_contracts()}
 
-    assert by_name["explain_retrieval"]["capability"] == "explain_retrieval"
-    assert by_name["inspect_retrieval_run"]["capability"] == "explain_retrieval"
+    explain = by_name["explain_retrieval"]
+    assert explain["capability"] == "explain_retrieval"
+    assert explain["surfaces"] == ["agent", "mcp", "skill"]
+    for surface in ("agent", "mcp"):
+        assert explain["input_schemas"][surface]["required"] == ["search_event_id"]
+    assert set(by_name) == {
+        "search_products",
+        "get_product_evidence",
+        "compare_products",
+        "explain_retrieval",
+        "synthesize_cited_answer",
+    }
     assert by_name["search_products"]["capability"] == "open_retrieval"
 
 
+def _split_explain_into_two_records(payload):
+    """The shape that needs the parity comparison: one capability, two records.
+
+    The shipped contracts declare `explain_retrieval` once on three surfaces, so no
+    capability is compared across records. This fixture splits the MCP surface
+    into a second record so the comparison loop has something to run over.
+    """
+    explain = next(c for c in payload["contracts"] if c["name"] == "explain_retrieval")
+    mcp_record = copy.deepcopy(explain)
+    mcp_record["name"] = "explain_retrieval_replay"
+    mcp_record["surfaces"] = ["mcp"]
+    mcp_record["input_schemas"] = {"mcp": explain["input_schemas"]["mcp"]}
+    mcp_record["envelope_fields"] = {"mcp": []}
+    del mcp_record["output_schema"]["properties"]["ok"]
+    mcp_record["output_schema"]["required"].remove("ok")
+    explain["surfaces"] = ["agent", "skill"]
+    del explain["input_schemas"]["mcp"]
+    del explain["envelope_fields"]["mcp"]
+    payload["contracts"].append(mcp_record)
+    return mcp_record
+
+
 def test_shared_capabilities_agree_on_their_semantic_payload():
-    """`explain_retrieval` needs the parity comparison; the others do not.
+    """No shipped capability needs the cross-record parity comparison.
 
     `shared_capabilities` and `cross_contract_capabilities` answer different
-    questions. `get_product_evidence` and `open_retrieval` are each declared
-    once but exposed on two surfaces, so they are shared across surfaces
-    without needing cross-contract comparison: their invariants are declared
-    exactly once and cannot disagree with themselves. `explain_retrieval` is
-    declared under two separate contract records (`explain_retrieval` and
-    `inspect_retrieval_run`), so it is the only capability where the parity
-    comparison in `capability_parity_receipt` actually runs.
+    questions. Every capability is declared once, on one or more surfaces, so
+    its invariants cannot disagree with themselves. The comparison in
+    `capability_parity_receipt` runs only when a capability is split across
+    records, which the next test builds on purpose.
     """
     receipt = capability_parity_receipt()
 
-    assert receipt["cross_contract_capabilities"] == ["explain_retrieval"]
+    assert receipt["cross_contract_capabilities"] == []
     assert {"get_product_evidence", "open_retrieval"} <= set(
         receipt["shared_capabilities"]
     )
@@ -202,19 +231,14 @@ def test_payload_drift_between_surfaces_is_caught(tmp_path, monkeypatch):
     test ever passes without raising, the gate has gone blind again.
     """
     payload = json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
-    for contract in payload["contracts"]:
-        if contract["name"] == "explain_retrieval":
-            properties = contract["payload_schema"]["properties"]
-            properties["search_event"] = properties.pop("run")
-            contract["output_schema"]["properties"]["search_event"] = contract[
-                "output_schema"
-            ]["properties"].pop("run")
-            contract["payload_schema"]["required"] = ["search_event", "candidates"]
-            contract["output_schema"]["required"] = [
-                "ok",
-                "search_event",
-                "candidates",
-            ]
+    contract = _split_explain_into_two_records(payload)
+    properties = contract["payload_schema"]["properties"]
+    properties["search_event"] = properties.pop("run")
+    contract["output_schema"]["properties"]["search_event"] = contract["output_schema"][
+        "properties"
+    ].pop("run")
+    contract["payload_schema"]["required"] = ["search_event", "candidates"]
+    contract["output_schema"]["required"] = ["ok", "search_event", "candidates"]
 
     drifted = tmp_path / "drifted.json"
     drifted.write_text(json.dumps(payload), encoding="utf-8")
@@ -224,7 +248,7 @@ def test_payload_drift_between_surfaces_is_caught(tmp_path, monkeypatch):
         capability_parity_receipt()
 
 
-def test_explain_retrieval_envelope_change_is_independent_across_its_two_contracts(
+def test_explain_retrieval_envelope_change_is_independent_across_split_records(
     tmp_path, monkeypatch
 ):
     """Formalizes the manual envelope-independence probe from the Task 7 review.
@@ -233,17 +257,16 @@ def test_explain_retrieval_envelope_change_is_independent_across_its_two_contrac
     single-contract capability, so the cross-contract comparison loop in
     `capability_parity_receipt` never executed. "Stayed green after an envelope
     change" therefore proved nothing about envelope independence.
-    `explain_retrieval` is the only capability with two contract records
-    (`explain_retrieval` and `inspect_retrieval_run`), so it is the only one
-    that can exercise that loop.
+    The shipped contracts declare each capability once, so this test splits
+    `explain_retrieval` into two records to exercise that loop.
 
     The paired negative -- that a `payload_schema` change between these same
     two contracts *does* raise -- is already covered by
-    `test_payload_drift_between_surfaces_is_caught` above, which mutates
-    `explain_retrieval`'s `payload_schema`; it is intentionally not duplicated
-    here.
+    `test_payload_drift_between_surfaces_is_caught` above, which mutates the
+    split record's `payload_schema`; it is intentionally not duplicated here.
     """
     payload = json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
+    _split_explain_into_two_records(payload)
 
     # Non-vacuity witness: without >= 2 contracts for this capability, the
     # cross-contract loop never runs and the PASS below proves nothing.
@@ -258,7 +281,7 @@ def test_explain_retrieval_envelope_change_is_independent_across_its_two_contrac
     )
 
     for contract in payload["contracts"]:
-        if contract["name"] == "inspect_retrieval_run":
+        if contract["name"] == "explain_retrieval_replay":
             contract["envelope_fields"]["mcp"].append("replay_trace")
             contract["output_schema"]["properties"]["replay_trace"] = {
                 "type": ["string", "null"]
@@ -361,8 +384,7 @@ def test_synthesis_is_not_part_of_the_retrieval_skill():
     """Synthesis is orchestration. The skill stops at authorized evidence.
 
     Paired with a positive assertion on purpose: an absence-only check on
-    `synthesize_cited_answer` and `inspect_retrieval_run` would pass
-    identically on an empty or broken skill surface, proving nothing about
+    `synthesize_cited_answer` would pass identically on an empty or broken skill surface, proving nothing about
     what the surface actually contains.
     """
     names = {contract["name"] for contract in contracts_for_surface("skill")}
@@ -374,7 +396,6 @@ def test_synthesis_is_not_part_of_the_retrieval_skill():
         "explain_retrieval",
     }
     assert "synthesize_cited_answer" not in names
-    assert "inspect_retrieval_run" not in names
 
 
 def test_scoped_skill_operations_require_the_retrieval_scope():
@@ -640,15 +661,12 @@ def test_returned_payload_matches_the_declared_contract():
     # re-derived from the same predicate this loop filters on.
     #
     # 12 = search_products 3 (agent, mcp, skill) + get_product_evidence 3
-    #    + compare_products 3 (agent, mcp, skill) + explain_retrieval 2 (agent, skill)
-    #    + inspect_retrieval_run 1 (mcp). That last one is easy to miss: its
-    #    capability is `explain_retrieval`, so it IS gated even though its wire
-    #    name differs. Recount from the JSON if a surface is added or removed.
+    #    + compare_products 3 (agent, mcp, skill) + explain_retrieval 3 (agent, mcp, skill).
+    #    Recount from the JSON if a surface is added or removed.
     assert checked == 12, (
         f"expected 12 gated capability/surface pairs, checked {checked}; "
         "fix: recount agent/mcp/skill declarations across the four gated "
-        "capabilities, remembering inspect_retrieval_run carries the "
-        "explain_retrieval capability, then update this literal"
+        "capabilities, then update this literal"
     )
 
 
@@ -785,8 +803,9 @@ def test_composition_doc_reports_adapter_wire_mapping():
     assert re.search(r"http\s+skill surface (?:exposes|has) four operations", text)
     assert re.search(r"mcp\s+has four", text)
     assert "`compare_products`" in text
-    assert "`inspect_retrieval_run`" in text
-    assert "`run_id`" in text
+    assert "`explain_retrieval`" in text
+    assert "`search_event_id`" in text
+    assert "`run_id`" not in text
     assert "regardless of which transport" not in text
     assert "same four capabilities" not in text
 

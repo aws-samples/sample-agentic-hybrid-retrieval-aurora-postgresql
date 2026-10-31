@@ -29,8 +29,8 @@ configuration, read [`references/http-api.md`](references/http-api.md), and
 inspect `GET /api/tools?surface=skill`. Do not embed credentials in this folder.
 
 Both adapters expose search, evidence, comparison and ranking inspection. The
-workflow below uses logical operation names; MCP maps `explain_retrieval` to
-`inspect_retrieval_run` with `run_id`. Use only the operations actually listed by
+workflow below uses operation names; MCP and the agent take `search_event_id`,
+the HTTP skill takes `retrieval_scope_id`. Use only the operations actually listed by
 the connected server. Transport details are in
 [`references/composition.md`](references/composition.md).
 

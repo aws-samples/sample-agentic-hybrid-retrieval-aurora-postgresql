@@ -573,8 +573,8 @@ def _managed_agent_checks(rows: AgentTurnRows | None, root: Path) -> list[LabChe
         status = agentcore_transport.deployed_status()
         if rows and rows.searches:
             gateway_tools.call_tool(
-                "inspect_retrieval_run",
-                {"run_id": str(rows.searches[0]["search_event_id"])},
+                "explain_retrieval",
+                {"search_event_id": str(rows.searches[0]["search_event_id"])},
             )
             workspace_sql = participant_sql_digest()
             with connect() as connection:

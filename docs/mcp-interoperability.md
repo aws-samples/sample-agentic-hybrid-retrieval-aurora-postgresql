@@ -50,7 +50,7 @@ contracts while preserving their compatible dependency sets.
 | `search_products` | `POST /api/search` | Run filtered hybrid retrieval and return source-attributed products |
 | `get_product_evidence` | `POST /api/products/{product_id}/evidence` | Rank specifications and reviews for one product the supplied `retrieval_scope_id` granted |
 | `compare_products` | `POST /api/retrieval/events/{search_event_id}/compare` | Compare two to five distinct products granted by the supplied `retrieval_scope_id` |
-| `inspect_retrieval_run` | `GET /api/retrieval/events/{search_event_id}` | Replay arm ranks, raw scores, RRF, rerank, filter, and timing signals. Unscoped by design: any valid ID resolves, on the single-attendee disposable-instance assumption. |
+| `explain_retrieval` | `GET /api/retrieval/events/{search_event_id}` | Replay arm ranks, raw scores, RRF, rerank, filter, and timing signals. Unscoped by design: any valid ID resolves, on the single-attendee disposable-instance assumption. |
 
 All four tools advertise `readOnlyHint=true` and
 `destructiveHint=false`. Search is not marked idempotent because every search
@@ -91,7 +91,7 @@ make mcp-test
 5. Call `get_product_evidence` with that ID as `retrieval_scope_id` and one
    returned product. Then call it again with a product ID it did not return and
    confirm HTTP 404.
-6. Call `compare_products` with that scope and two returned IDs. Confirm a product outside the granted window is refused, then pass the returned run ID to `inspect_retrieval_run`.
+6. Call `compare_products` with that scope and two returned IDs. Confirm a product outside the granted window is refused, then pass the returned `search_event_id` to `explain_retrieval`.
 7. Compare the MCP result with the Playground UI and confirm both show the
    same persisted PostgreSQL ranking signals.
 

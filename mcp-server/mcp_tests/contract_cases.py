@@ -83,7 +83,7 @@ async def test_mcp_negotiates_2026_protocol_and_calls_canonical_api(
             "search_products",
             "get_product_evidence",
             "compare_products",
-            "inspect_retrieval_run",
+            "explain_retrieval",
         }
         assert all(tool.annotations.read_only_hint for tool in tools.values())
         search_parameters = tools["search_products"].input_schema["properties"]

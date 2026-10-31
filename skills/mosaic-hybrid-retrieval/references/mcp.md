@@ -26,10 +26,10 @@ for continued use. This skill ZIP does not install that service or MCP adapter.
 | Search | `search_products` | `query` and supported structured filters; save `search_event_id` |
 | Read sources | `get_product_evidence` | `retrieval_scope_id` = saved search ID, a returned `product_id`, and `evidence_query` |
 | Compare | `compare_products` | `retrieval_scope_id` = saved search ID and two to five distinct returned `product_ids` |
-| Explain ranking | `inspect_retrieval_run` | `run_id` = saved search ID |
+| Explain ranking | `explain_retrieval` | `search_event_id` = saved search ID |
 
 Comparison and evidence are restricted to products granted by that search.
-Keep separate scopes for separate searches. The portable adapter's inspection
+Keep separate scopes for separate searches. The portable adapter's explain_retrieval
 is not bound to a user identity; a shared deployment must add owner checks.
 
 The tools do not expose arbitrary SQL or product writes. Search appends audit
