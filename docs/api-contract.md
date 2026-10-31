@@ -312,10 +312,18 @@ general semantic entailment.
 Controller fallback work streams partial tool receipts as they arrive and runs
 blocking dependencies in a worker. If a persisted run fails, the terminal
 `error` event includes `agent_run_id`, a `grounding_contract` or `agent_runtime`
-code, and a safe `detail`. A `grounding_contract` error also carries a `cause`:
-`draft_refused` when the answer checks refused a draft, or `step_incomplete` when a
-step an answer with sources needs did not complete and no draft was written. Each
-cause has its own `detail`. The browser can inspect that failed run without
+code, and a safe `detail`. A `grounding_contract` error, on the streaming and the non-streaming path alike, also
+carries a `cause`, decided by the type of the failure and never by its text:
+`draft_refused` (the answer checks refused the drafts, including a draft cut off by
+`max_tokens` or a lead-order refusal), `draft_stopped` (the draft stopped before it
+finished: filtered or interrupted), `review_declined` (the answerability review found
+the records do not support the request for the chosen products), `products_excluded`
+(products from the earlier answer fail this request's filters), `step_incomplete` (a
+step an answer with sources needs did not complete: `search_products`,
+`compare_products`, `get_product_evidence` or `explain_retrieval`) and `unexpected`.
+Each cause has its own plain `detail`. The streaming `error` event carries
+`agent_run_id`; the non-streaming 503 `detail` ends with `Run ID: <id>.` when the run
+is known. The browser can inspect that failed run without
 retaining a completion verdict from an earlier attempt. Failures before a run
 is persisted may have no run ID.
 

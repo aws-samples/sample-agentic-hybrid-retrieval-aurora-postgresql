@@ -1337,7 +1337,9 @@ def test_agent_surfaces_grounding_contract_failure_over_model_loop_error(
             raise RuntimeError("model loop exhausted its token budget")
 
     def fail_grounding(_question):
-        raise RuntimeError("No retrieved evidence is available for grounded synthesis")
+        raise agent_tools.StepIncomplete(
+            "No retrieved evidence is available for grounded synthesis"
+        )
 
     monkeypatch.setattr(agent_tools, "start_run", lambda *_args: state)
     monkeypatch.setattr("service.agent.build_agent", lambda: FailingAgent())
@@ -1354,7 +1356,7 @@ def test_agent_surfaces_grounding_contract_failure_over_model_loop_error(
 
     with pytest.raises(
         GroundingContractError,
-        match="did not complete",
+        match="step_incomplete",
     ):
         ProductDiscoveryAgent().answer(
             AgentRequest(question="What should I buy?", result_limit=2)
@@ -2406,7 +2408,6 @@ def test_missing_sources_reports_the_repair_without_exception_text(
         path, json={"question": "Compare these products", "filters": {}}
     )
     assert response.status_code == (200 if path.endswith("stream") else 503)
-    assert "supporting sources" in response.text
-    assert "get_product_evidence" in response.text
-    assert "Next:" in response.text
+    assert "could not finish an answer with sources" in response.text
+    assert "share the run ID" in response.text
     assert "private source details" not in response.text + caplog.text

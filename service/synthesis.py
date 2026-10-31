@@ -22,6 +22,10 @@ class SynthesisOutputError(ValueError):
     """The model response is present but fails the grounded output contract."""
 
 
+class SynthesisStopped(ValueError):
+    """The draft stopped before it finished (filtered or interrupted)."""
+
+
 SYSTEM_PROMPT = """You are a read-only product-discovery synthesis service.
 Answer only from the numbered evidence records supplied by the application.
 Every factual product claim must cite one or more evidence numbers in square
@@ -1294,7 +1298,7 @@ def _validated_output(
             "Synthesized answer hit max_tokens before completing"
         )
     if stop_reason is not None and stop_reason != "end_turn":
-        raise ValueError(
+        raise SynthesisStopped(
             f"Synthesized answer stopped with {stop_reason!r}; "
             "a filtered or interrupted answer cannot become the answer of record"
         )

@@ -23,6 +23,7 @@ from service.agent_setup import (
     AgentSetupError,
     agent_code_message,
 )
+from service.answerability import AnswerabilityError
 from service.bedrock import client_config
 from service.config import get_settings
 from service.model_runtime import (
@@ -37,7 +38,7 @@ from service.models import (
     AgentResponse,
     ToolTraceStep,
 )
-from service.synthesis import SynthesisOutputError
+from service.synthesis import SynthesisOutputError, SynthesisStopped
 from service.telemetry import agent_outcome_attributes, observe_agent_turn
 
 logger = logging.getLogger(__name__)
@@ -206,21 +207,50 @@ class AgentTurnDeadlineExceeded(RuntimeError):
 
 
 DRAFT_REFUSED = "draft_refused"
+DRAFT_STOPPED = "draft_stopped"
+REVIEW_DECLINED = "review_declined"
+PRODUCTS_EXCLUDED = "products_excluded"
 STEP_INCOMPLETE = "step_incomplete"
+UNEXPECTED = "unexpected"
 
 
 class GroundingContractError(RuntimeError):
     """The retrieved state cannot support a citation-bounded answer.
 
-    `cause` says which of two things stopped the answer: `DRAFT_REFUSED`, where a
-    draft existed and the answer checks refused it, or `STEP_INCOMPLETE`, where a step an
-    answer with sources needs (finding products, comparing them, reading their
-    sources) did not complete, so no draft was written.
+    `cause` says what stopped the answer, decided by the type of the failure and never
+    by its text: `DRAFT_REFUSED` (the answer checks refused the drafts),
+    `DRAFT_STOPPED` (the draft stopped before it finished), `REVIEW_DECLINED` (the
+    answerability review found the records do not support the request),
+    `PRODUCTS_EXCLUDED` (products from an earlier answer fail the current filters),
+    `STEP_INCOMPLETE` (a step an answer with sources needs did not complete) or
+    `UNEXPECTED`. `agent_run_id` is set when the run is known.
     """
 
-    def __init__(self, message: str, *, cause: str = STEP_INCOMPLETE) -> None:
+    def __init__(
+        self,
+        message: str,
+        *,
+        cause: str = UNEXPECTED,
+        agent_run_id: str | None = None,
+    ) -> None:
         super().__init__(message)
         self.cause = cause
+        self.agent_run_id = agent_run_id
+
+
+def grounding_cause(error: Exception) -> str:
+    """Name what stopped the answer from the failure's type; message text is never read."""
+    if isinstance(error, AnswerabilityError):
+        return REVIEW_DECLINED
+    if isinstance(error, SynthesisStopped):
+        return DRAFT_STOPPED
+    if isinstance(error, SynthesisOutputError):
+        return DRAFT_REFUSED
+    if isinstance(error, agent_tools.ProductsExcluded):
+        return PRODUCTS_EXCLUDED
+    if isinstance(error, agent_tools.StepIncomplete):
+        return STEP_INCOMPLETE
+    return UNEXPECTED
 
 
 class _ToolCallBudget:
@@ -517,16 +547,10 @@ class ProductDiscoveryAgent:
                 "Fallback cited synthesis failed: error_type=%s",
                 type(error).__name__,
             )
-            if isinstance(error, SynthesisOutputError):
-                return GroundingContractError(
-                    "The answer checks refused the draft because it did not satisfy "
-                    "the evidence and citation contract.",
-                    cause=DRAFT_REFUSED,
-                )
             return GroundingContractError(
-                "A step an answer with sources needs did not complete, so no draft "
-                "was written.",
-                cause=STEP_INCOMPLETE,
+                f"Grounded answer failed: {grounding_cause(error)}",
+                cause=grounding_cause(error),
+                agent_run_id=str(state.get("agent_run_id") or "") or None,
             )
         return None
 

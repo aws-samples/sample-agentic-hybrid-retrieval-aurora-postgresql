@@ -1719,6 +1719,14 @@ def _fallback_product_ids(state: dict[str, Any]) -> list[int]:
     return selected[:limit]
 
 
+class StepIncomplete(RuntimeError):
+    """A step an answer with sources needs did not complete, so no draft exists."""
+
+
+class ProductsExcluded(RuntimeError):
+    """Products from the earlier answer fail this request's current filters."""
+
+
 def run_controller_fallback(question: str) -> None:
     """Complete missing grounded steps and label them as controller-owned.
 
@@ -1737,22 +1745,22 @@ def _fill_missing_steps_then_finalize(question: str) -> None:
     state = _state()
     product_ids = _fallback_product_ids(state)
     if not product_ids:
-        raise RuntimeError("No retrieved products are available for synthesis")
+        raise StepIncomplete("No retrieved products are available for synthesis")
 
     if len(product_ids) > 1 and not _comparison_covers(state, product_ids):
         result = compare_products(product_ids)
         if not result.get("ok"):
-            raise RuntimeError(result["error"])
+            raise StepIncomplete(result["error"])
     for product_id in product_ids:
         if state["evidence_by_product"].get(product_id):
             continue
         result = get_product_evidence(product_id, question)
         if not result.get("ok"):
-            raise RuntimeError(result["error"])
+            raise StepIncomplete(result["error"])
     if any(
         not state["evidence_by_product"].get(product_id) for product_id in product_ids
     ):
-        raise RuntimeError(
+        raise StepIncomplete(
             "No retrieved evidence is available for every selected product"
         )
     if state["searches"] and not any(
@@ -1762,12 +1770,12 @@ def _fill_missing_steps_then_finalize(question: str) -> None:
     ):
         search_event_ids = state.get("search_event_ids") or []
         if not search_event_ids:
-            raise RuntimeError(
+            raise StepIncomplete(
                 "No retrieval event is available for ranking explanation"
             )
         result = explain_retrieval(str(search_event_ids[0]))
         if not result.get("ok"):
-            raise RuntimeError(result["error"])
+            raise StepIncomplete(result["error"])
     finalize_retrieved_answer(question, product_ids=product_ids)
 
 
@@ -1805,21 +1813,23 @@ def finalize_retrieved_answer(
         ]
     excluded = _excluded_inherited_products(state, selected_ids)
     if excluded:
-        raise RuntimeError(
+        raise ProductsExcluded(
             f"Previously recommended products fail the current filters: {excluded}; "
             "call search_products with the current filters and choose eligible products."
         )
     products = [state["products"][product_id] for product_id in selected_ids]
     if not products:
-        raise RuntimeError("No retrieved products are available for synthesis")
+        raise StepIncomplete("No retrieved products are available for synthesis")
     selected_ids = [product.product_id for product in products]
     if len(selected_ids) > 1 and not _comparison_covers(state, selected_ids):
-        raise RuntimeError(
+        raise StepIncomplete(
             "Retrieved products were not compared before grounded synthesis"
         )
     evidence = _evidence_for_products(state, selected_ids)
     if not evidence:
-        raise RuntimeError("No retrieved evidence is available for grounded synthesis")
+        raise StepIncomplete(
+            "No retrieved evidence is available for grounded synthesis"
+        )
 
     products, left_out = without_repeated_listings(products)
     agent_lead = products[0]

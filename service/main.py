@@ -33,6 +33,11 @@ from service.access_control import (
 )
 from service.agent import (
     DRAFT_REFUSED,
+    DRAFT_STOPPED,
+    PRODUCTS_EXCLUDED,
+    REVIEW_DECLINED,
+    STEP_INCOMPLETE,
+    UNEXPECTED,
     AgentTurnDeadlineExceeded,
     GroundingContractError,
     get_product_discovery_agent,
@@ -116,37 +121,50 @@ from service.telemetry_contract import (
 ROOT = Path(__file__).resolve().parents[1]
 settings = get_settings()
 logger = logging.getLogger(__name__)
-# One message per cause and path (see GroundingContractError.cause). The streaming
-# path is read next to the run ID the terminal or the panel prints; the non-streaming
-# path returns only this text, so it asks the participant to share the run ID.
-_GROUNDING_ERROR_DETAIL = (
-    "A step this answer needs did not complete: Mosaic could not find products, compare "
-    "them or attach their supporting sources, so no draft was written. "
-    "Next: open the Retrieval agent's tool activity and check whether get_product_evidence "
-    "returned records. If it did not, try a more specific product request. "
-    "If it did, share the run ID with your facilitator."
-)
-_GROUNDING_STEP_INCOMPLETE = (
-    "A step this answer needs, such as finding products, comparing them or attaching their "
-    "supporting sources, did not complete, so no draft was written and there is no "
-    "answer to show. Next: open the Retrieval agent's tool activity, find the step that "
-    "stopped (search_products, compare_products or get_product_evidence) and ask again "
-    "with a more specific request. If it stops at the same step, share the run ID with "
-    "your facilitator."
-)
-_GROUNDING_REFUSED = (
-    "The answer checks refused every draft of this answer: each claim must be stated by a "
-    "record it cites, so there is no answer to show. Ask again; the Retrieval agent words "
-    "its searches and its answer afresh each time."
-)
-_GROUNDING_REFUSED_DETAIL = f"{_GROUNDING_REFUSED} If it keeps refusing, share the run ID with your facilitator."
+# One plain message per cause (see GroundingContractError.cause). Both paths use the
+# same words; the non-streaming path adds the run ID, because its response has no other
+# place to carry it, while the streaming error event carries `agent_run_id` itself.
+_GROUNDING_MESSAGES = {
+    DRAFT_REFUSED: (
+        "The answer checks refused every draft of this answer, so there is no answer to "
+        "show. The run's synthesize_cited_answer steps in TOOL TRACE record why each "
+        "draft was refused. Ask again; the Retrieval agent words its searches and its "
+        "answer afresh each time."
+    ),
+    DRAFT_STOPPED: (
+        "The draft of this answer stopped before it was finished, so there is no answer "
+        "to show. Ask again. If it stops twice, share the run ID with your facilitator."
+    ),
+    REVIEW_DECLINED: (
+        "The review of the records found that they do not support this request for the "
+        "products chosen, so there is no answer to show. Ask for something the records "
+        "can support, or ask about different products."
+    ),
+    PRODUCTS_EXCLUDED: (
+        "Products from the earlier answer do not meet this request's filters, so there "
+        "is no answer to show. Ask again so the Retrieval agent searches with the "
+        "current filters."
+    ),
+    STEP_INCOMPLETE: (
+        "A step an answer with sources needs did not complete, so no draft was written. "
+        "TOOL TRACE shows which one stopped: search_products, compare_products, "
+        "get_product_evidence or explain_retrieval. Ask again with a more specific "
+        "request. If it stops at the same step twice, share the run ID with your "
+        "facilitator."
+    ),
+    UNEXPECTED: (
+        "Mosaic could not finish an answer with sources for this request. Ask again. "
+        "If it happens twice, share the run ID with your facilitator."
+    ),
+}
 
 
-def _grounding_detail(cause: str | None, *, streaming: bool) -> str:
-    """The plain message for one cause on one path; no cause reads as an incomplete step."""
-    if cause == DRAFT_REFUSED:
-        return _GROUNDING_REFUSED if streaming else _GROUNDING_REFUSED_DETAIL
-    return _GROUNDING_STEP_INCOMPLETE if streaming else _GROUNDING_ERROR_DETAIL
+def _grounding_detail(cause: str | None, run_id: str | None = None) -> str:
+    """The plain message for one cause; the run ID is appended when the caller has it."""
+    message = _GROUNDING_MESSAGES.get(
+        cause or UNEXPECTED, _GROUNDING_MESSAGES[UNEXPECTED]
+    )
+    return f"{message} Run ID: {run_id}." if run_id else message
 
 
 _CONVERSATION_ERROR_DETAIL = "Mosaic could not reopen the previous answer. Start a new conversation and try again."
@@ -285,7 +303,7 @@ def _agent_error(error: Exception) -> HTTPException:
     if isinstance(error, AgentSetupError):
         return _CodedHTTPException(503, "agent_setup", str(error))
     if isinstance(error, GroundingContractError):
-        return HTTPException(503, _grounding_detail(error.cause, streaming=False))
+        return HTTPException(503, _grounding_detail(error.cause, error.agent_run_id))
     if isinstance(error, AgentTurnDeadlineExceeded):
         return HTTPException(503, str(error))
     return HTTPException(
@@ -639,11 +657,11 @@ def _stream_error_payload(error: Exception) -> dict[str, Any]:
             "detail": str(error.detail),
         }
     if isinstance(error, GroundingContractError):
-        refused = error.cause == DRAFT_REFUSED
         return {
-            "code": "grounding_contract" if refused else "supporting_sources",
+            "code": "grounding_contract",
             "cause": error.cause,
-            "detail": _grounding_detail(error.cause, streaming=True),
+            "detail": _grounding_detail(error.cause),
+            **({"agent_run_id": error.agent_run_id} if error.agent_run_id else {}),
         }
     if isinstance(error, AgentTurnDeadlineExceeded):
         return {"code": "agent_turn_deadline", "detail": str(error)}
@@ -796,9 +814,7 @@ async def stream_agent_answer(
                         "error",
                         {
                             **failure,
-                            "detail": _grounding_detail(
-                                failure.get("cause"), streaming=True
-                            )
+                            "detail": _grounding_detail(failure.get("cause"))
                             if failure.get("code") == "grounding_contract"
                             else failure["detail"],
                         },
