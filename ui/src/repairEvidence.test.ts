@@ -15,15 +15,15 @@ import type {
  * The measured Lab 1 pair, exactly as pulled from the live cluster:
  *
  *   BEFORE 9f92f8cc-efc2-4d81-a94a-69638d050282  fts=1 trg=0 sem=49 pool=50
- *          product 2: fts_rank=1 trigram_rank=NULL fused_rank=1 rerank_rank=1
+ *          product 2: fts_rank=1 fuzzy_rank=NULL fused_rank=1 rerank_rank=1
  *          result_rank=1
  *   AFTER  9614ed9b-4ceb-4aad-9276-4e69af2231b9  fts=1 trg=1 sem=49 pool=50
- *          product 2: fts_rank=1 trigram_rank=1 fused_rank=1 rerank_rank=1
+ *          product 2: fts_rank=1 fuzzy_rank=1 fused_rank=1 rerank_rank=1
  *          result_rank=1
  *
  * The target ranks first both before and after, and fused/final are identical.
- * The only measured change is trigram_in_pool 0 -> 1 and the target's own
- * trigram_rank absent -> #1.
+ * The only measured change is fuzzy_in_pool 0 -> 1 and the target's own
+ * fuzzy_rank absent -> #1.
  */
 
 function runRecord(overrides: Partial<SearchEventRecord> = {}): SearchEventRecord {
@@ -43,7 +43,7 @@ function runRecord(overrides: Partial<SearchEventRecord> = {}): SearchEventRecor
     vector_extension_version: "0.8.1",
     aurora_instance_class: null,
     hnsw_settings: {},
-    candidate_counts: { fused_pool: 50, fts_in_pool: 1, trigram_in_pool: 0, semantic_in_pool: 49 },
+    candidate_counts: { fused_pool: 50, fts_in_pool: 1, fuzzy_in_pool: 0, semantic_in_pool: 49 },
     total_latency_ms: 785,
     diagnostics: {},
     ...overrides,
@@ -57,7 +57,7 @@ function candidate(
     product_id: 2,
     result_rank: 1,
     fts_rank: 1,
-    trigram_rank: null,
+    fuzzy_rank: null,
     semantic_rank: null,
     fused_rank: 1,
     rerank_rank: 1,
@@ -77,29 +77,29 @@ function run(
 const LAB1_BEFORE = run(
   {
     search_event_id: "9f92f8cc-efc2-4d81-a94a-69638d050282",
-    candidate_counts: { fused_pool: 50, fts_in_pool: 1, trigram_in_pool: 0, semantic_in_pool: 49 },
+    candidate_counts: { fused_pool: 50, fts_in_pool: 1, fuzzy_in_pool: 0, semantic_in_pool: 49 },
   },
-  [candidate({ trigram_rank: null })],
+  [candidate({ fuzzy_rank: null })],
 );
 
 const LAB1_AFTER = run(
   {
     search_event_id: "9614ed9b-4ceb-4aad-9276-4e69af2231b9",
-    candidate_counts: { fused_pool: 50, fts_in_pool: 1, trigram_in_pool: 1, semantic_in_pool: 49 },
+    candidate_counts: { fused_pool: 50, fts_in_pool: 1, fuzzy_in_pool: 1, semantic_in_pool: 49 },
   },
-  [candidate({ trigram_rank: 1 })],
+  [candidate({ fuzzy_rank: 1 })],
 );
 
 describe("buildRepairEvidence — measured Lab 1 pair", () => {
-  it("shows the trigram search method's participation moving 0 -> 1", () => {
+  it("shows the fuzzy search method's participation moving 0 -> 1", () => {
     const evidence = buildRepairEvidence(LAB1_BEFORE, LAB1_AFTER);
-    const trigram = evidence.armDeltas.find((delta) => delta.arm === "trigram");
+    const fuzzy = evidence.armDeltas.find((delta) => delta.arm === "fuzzy");
 
-    expect(trigram?.beforeInPool).toBe(0);
-    expect(trigram?.afterInPool).toBe(1);
-    expect(trigram?.beforeTargetRank).toBe("absent");
-    expect(trigram?.afterTargetRank).toBe(1);
-    // The other two arms did not move, which is what makes the trigram move legible.
+    expect(fuzzy?.beforeInPool).toBe(0);
+    expect(fuzzy?.afterInPool).toBe(1);
+    expect(fuzzy?.beforeTargetRank).toBe("absent");
+    expect(fuzzy?.afterTargetRank).toBe(1);
+    // The other two arms did not move, which is what makes the fuzzy move legible.
     const fts = evidence.armDeltas.find((delta) => delta.arm === "fts");
     const semantic = evidence.armDeltas.find((delta) => delta.arm === "semantic");
     expect(fts?.beforeInPool).toBe(1);
@@ -163,10 +163,10 @@ describe("buildRepairEvidence — measured Lab 1 pair", () => {
     );
 
     const evidence = buildRepairEvidence(before, after);
-    const trigram = evidence.armDeltas.find((delta) => delta.arm === "trigram");
+    const fuzzy = evidence.armDeltas.find((delta) => delta.arm === "fuzzy");
 
-    expect(trigram?.beforeInPool).toBe(0);
-    expect(trigram?.afterInPool).toBe(1);
+    expect(fuzzy?.beforeInPool).toBe(0);
+    expect(fuzzy?.afterInPool).toBe(1);
     expect(evidence.rankUnchanged).toBe(true);
   });
 });
@@ -174,8 +174,8 @@ describe("buildRepairEvidence — measured Lab 1 pair", () => {
 describe("buildRepairEvidence — fused-to-final gap", () => {
   it("flags the measured 675825de shape (fused 49 -> final 1) as suspicious", () => {
     const after = run(
-      { candidate_counts: { fused_pool: 50, fts_in_pool: 18, trigram_in_pool: 18, semantic_in_pool: 19 } },
-      [candidate({ product_id: 211896, result_rank: 1, fused_rank: 49, fts_rank: 73, trigram_rank: null, semantic_rank: 114 })],
+      { candidate_counts: { fused_pool: 50, fts_in_pool: 18, fuzzy_in_pool: 18, semantic_in_pool: 19 } },
+      [candidate({ product_id: 211896, result_rank: 1, fused_rank: 49, fts_rank: 73, fuzzy_rank: null, semantic_rank: 114 })],
     );
 
     const evidence = buildRepairEvidence(null, after);
@@ -229,7 +229,7 @@ describe("buildRepairEvidence — missing before and missing target", () => {
 
   it("reports the target absent from a before run that never carried it", () => {
     const before = run(
-      { candidate_counts: { fused_pool: 50, fts_in_pool: 1, trigram_in_pool: 0, semantic_in_pool: 49 } },
+      { candidate_counts: { fused_pool: 50, fts_in_pool: 1, fuzzy_in_pool: 0, semantic_in_pool: 49 } },
       [candidate({ product_id: 999999 })],
     );
     const evidence = buildRepairEvidence(before, LAB1_AFTER);

@@ -8,7 +8,7 @@ import "../method-board.css";
 const BOARD_ROWS = 5;
 
 type Column = {
-  key: "fts" | "trigram" | "semantic" | "combined" | "reranked";
+  key: "fts" | "fuzzy" | "semantic" | "combined" | "reranked";
   title: string;
   /** The SQL function the lab guides call for this stage, when one runs in Aurora. */
   fn?: string;
@@ -28,7 +28,7 @@ type Column = {
 
 /** The product's best (smallest) rank across the three searches, or null when none ranked it. */
 function bestSearchRank(product: ProductSummary): number | null {
-  const ranks = (["fts", "trigram", "semantic"] as const)
+  const ranks = (["fts", "fuzzy", "semantic"] as const)
     .map((arm) => product.signals?.[arm]?.rank ?? null)
     .filter((rank): rank is number => rank !== null);
   return ranks.length ? Math.min(...ranks) : null;
@@ -36,15 +36,15 @@ function bestSearchRank(product: ProductSummary): number | null {
 
 const ARM_ENGINE: Record<RetrievalArm, string> = {
   fts: "tsvector and ts_rank_cd",
-  trigram: "pg_trgm",
+  fuzzy: "pg_trgm",
   semantic: "pgvector HNSW index",
 };
 
 /** The functions participants call by name in psql, so a card and the terminal agree. */
 const ARM_FUNCTION: Record<RetrievalArm, string> = {
   fts: "search_fts",
-  trigram: "search_trigram",
-  semantic: "search_vector",
+  fuzzy: "search_fuzzy",
+  semantic: "search_semantic",
 };
 
 function columnsFor(response: SearchResponse): Column[] {
@@ -56,7 +56,7 @@ function columnsFor(response: SearchResponse): Column[] {
   // A search's count is how many of its matches reached the shortlist, not a position.
   const reached = (count: number | undefined) =>
     count === undefined ? "" : count === 1 ? "1 match reached the shortlist" : `${count} of its matches reached the shortlist`;
-  const arms: Column[] = (["fts", "trigram", "semantic"] as const).map((arm) => ({
+  const arms: Column[] = (["fts", "fuzzy", "semantic"] as const).map((arm) => ({
     key: arm,
     title: armLabel[arm],
     fn: ARM_FUNCTION[arm],

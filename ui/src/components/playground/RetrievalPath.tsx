@@ -2,13 +2,13 @@ import type { ScorecardStageAblation, ScorecardStageArmKey, SearchResponse } fro
 
 /** The measured arms in the words the method rows use. */
 const armTitle: Record<ScorecardStageArmKey, string> = {
-  lexical_only: "Full-text search alone",
-  trigram_only: "Fuzzy matching alone",
+  fts_only: "Full-text search alone",
+  fuzzy_only: "Fuzzy matching alone",
   semantic_only: "Semantic search alone",
   rrf_fused_no_rerank: "All three combined",
   rrf_fused_reranked: "Combined, then reranked",
 };
-const singleArms = new Set<ScorecardStageArmKey>(["lexical_only", "trigram_only", "semantic_only"]);
+const singleArms = new Set<ScorecardStageArmKey>(["fts_only", "fuzzy_only", "semantic_only"]);
 /** A measured difference with its sign, as the scorecard prints it. */
 export const signedScore = (value: number) => `${value >= 0 ? "+" : ""}${value.toFixed(2)}`;
 

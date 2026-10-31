@@ -38,7 +38,7 @@ function Bar({ row, widest }: { row: RankRow; widest: number }) {
   return (
     <span className="ask-rrf-bar" aria-hidden="true">
       <i className="is-fts" style={{ width: width(row.parts.fts) }} />
-      <i className="is-trigram" style={{ width: width(row.parts.trigram) }} />
+      <i className="is-fuzzy" style={{ width: width(row.parts.fuzzy) }} />
       <i className="is-semantic" style={{ width: width(row.parts.semantic) }} />
     </span>
   );
@@ -54,7 +54,7 @@ function RankTable({ rows }: { rows: RankRow[] }) {
             <th scope="col">Final</th>
             <th scope="col">Product</th>
             <th scope="col"><i className="is-fts" aria-hidden="true" /><abbr title="Full-text search">Full-text</abbr></th>
-            <th scope="col"><i className="is-trigram" aria-hidden="true" /><abbr title="Fuzzy matching">Fuzzy</abbr></th>
+            <th scope="col"><i className="is-fuzzy" aria-hidden="true" /><abbr title="Fuzzy matching">Fuzzy</abbr></th>
             <th scope="col"><i className="is-semantic" aria-hidden="true" /><abbr title="Semantic search">Semantic</abbr></th>
             <th scope="col"><abbr title="Position after combining the three searches, before reranking">Combined</abbr></th>
             <th scope="col">Rerank</th>
@@ -69,7 +69,7 @@ function RankTable({ rows }: { rows: RankRow[] }) {
                 <Bar row={row} widest={widest} />
               </td>
               <td>{dash(row.fts)}</td>
-              <td>{dash(row.trigram)}</td>
+              <td>{dash(row.fuzzy)}</td>
               <td>{dash(row.semantic)}</td>
               <td>{dash(row.combined)}</td>
               <td>{row.rerank != null ? row.rerank.toFixed(3) : "–"}</td>

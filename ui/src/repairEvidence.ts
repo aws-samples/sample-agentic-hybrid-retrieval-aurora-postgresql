@@ -8,7 +8,7 @@ import type { RetrievalRunResponse, SearchResultEventRecord } from "./types";
  * The measured Lab 1 pair is why this module exists in this shape rather than a
  * simpler one. Before and after the repair, product 2 ranks #1 in both the fused
  * pool and the final position — the only thing that moves is
- * `candidate_counts.trigram_in_pool`, 0 to 1, and the target's own `trigram_rank`,
+ * `candidate_counts.fuzzy_in_pool`, 0 to 1, and the target's own `fuzzy_rank`,
  * absent to #1. A surface that only compared `fused_rank` and `final_rank` would
  * report "no change" on a repair that measurably worked, which is why arm
  * participation is computed and rendered as primary evidence rather than as a
@@ -29,12 +29,12 @@ type RankField =
   | "fused_rank"
   | "result_rank"
   | "fts_rank"
-  | "trigram_rank"
+  | "fuzzy_rank"
   | "semantic_rank";
 
 const armRankField: Record<RetrievalArm, RankField> = {
   fts: "fts_rank",
-  trigram: "trigram_rank",
+  fuzzy: "fuzzy_rank",
   semantic: "semantic_rank",
 };
 

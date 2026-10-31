@@ -222,7 +222,7 @@ function rankedProduct(product: ProductSummary, finalRank: number): ProductSumma
     ...product,
     signals: {
       fts: { rank: finalRank, raw_score: 0.7, rrf_contribution: 0.01 },
-      trigram: { rank: null, raw_score: null, rrf_contribution: null },
+      fuzzy: { rank: null, raw_score: null, rrf_contribution: null },
       semantic: { rank: finalRank + 1, raw_score: 0.2, rrf_contribution: 0.01 },
       rrf_score: 0.02,
       pre_rerank_rank: finalRank + 1,
@@ -413,7 +413,7 @@ const lab1 = coreMosaicLabs[0];
 function lab1Result(
   productId: number,
   finalRank: number,
-  fromTrigram: boolean,
+  fromFuzzy: boolean,
 ): ProductSummary {
   return {
     ...rankedProduct(catalog.products[0], finalRank),
@@ -427,10 +427,10 @@ function lab1Result(
     availability: null,
     signals: {
       fts: { rank: null, raw_score: null, rrf_contribution: null },
-      trigram: fromTrigram
+      fuzzy: fromFuzzy
         ? { rank: 1, raw_score: 0.42, rrf_contribution: 0.016 }
         : { rank: null, raw_score: null, rrf_contribution: null },
-      semantic: fromTrigram
+      semantic: fromFuzzy
         ? { rank: null, raw_score: null, rrf_contribution: null }
         : { rank: finalRank, raw_score: 0.2, rrf_contribution: 0.016 },
       rrf_score: 0.016,
@@ -447,7 +447,7 @@ function lab1Result(
  * The run Lab 1's own chip produces: its query, under its own gates.
  *
  * `applied_filters` has to echo the mission's gates exactly, because the callout
- * refuses to grade a run that asked a different question. `trigram_in_pool` is
+ * refuses to grade a run that asked a different question. `fuzzy_in_pool` is
  * the diagnostic that distinguishes a disconnected arm from an arm that ran and
  * found nothing.
  */
@@ -464,7 +464,7 @@ function lab1Search(targetPresent: boolean): SearchResponse {
       ...searchResponse.diagnostics!,
       candidate_counts: {
         fused_pool: 18,
-        trigram_in_pool: targetPresent ? 4 : 0,
+        fuzzy_in_pool: targetPresent ? 4 : 0,
       },
     },
   };
@@ -899,7 +899,7 @@ describe("CatalogPage", () => {
     expect(within(panel).getByText("Found by")).toBeTruthy();
     expect(within(panel).getByText("Rank before reranking")).toBeTruthy();
     expect(within(panel).getByText("Rank shown to you")).toBeTruthy();
-    // recommendations[0] carries fts rank 1 and semantic rank 2, no trigram.
+    // recommendations[0] carries fts rank 1 and semantic rank 2, no fuzzy.
     expect(within(panel).getAllByText("full-text search, semantic search").length).toBeGreaterThan(0);
   });
 
@@ -2215,7 +2215,7 @@ describe("CatalogPage", () => {
           attributes: mission.filters.attributes ?? {},
           signals: {
             fts: { rank, raw_score: 1, rrf_contribution: contribution },
-            trigram: { rank, raw_score: 1, rrf_contribution: contribution },
+            fuzzy: { rank, raw_score: 1, rrf_contribution: contribution },
             semantic: { rank, raw_score: 1, rrf_contribution: contribution },
             rrf_score: 3 * contribution,
             pre_rerank_score: 3 * contribution,
@@ -2840,7 +2840,7 @@ describe("CatalogPage", () => {
 
   it("blames the environment, not the participant, when the trigram index is gone", async () => {
     // A missing pg_trgm index and an unrepaired CTE produce the same evidence:
-    // the target is absent and no candidate carries a trigram rank. Shop used to
+    // the target is absent and no candidate carries a fuzzy rank. Shop used to
     // grade without reading readiness at all, so it told a participant whose
     // cluster was missing the index that they were looking at Lab 1's own fault
     // and pointed them at the file. That is a lost lab, not a hint.

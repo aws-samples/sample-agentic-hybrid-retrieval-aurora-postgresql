@@ -4,7 +4,7 @@ import { formatDuration } from "./findings";
 /** What each retrieval method added to a product's combined score, as recorded. */
 export interface ChannelParts {
   fts: number;
-  trigram: number;
+  fuzzy: number;
   semantic: number;
 }
 
@@ -15,7 +15,7 @@ export interface RankRow {
   final: number | null;
   combined: number | null;
   fts: number | null;
-  trigram: number | null;
+  fuzzy: number | null;
   semantic: number | null;
   rerank: number | null;
   parts: ChannelParts;
@@ -50,13 +50,13 @@ export function rowsFromReceipt(
       final: row.result_rank,
       combined: row.fused_rank,
       fts: row.fts_rank,
-      trigram: row.trigram_rank,
+      fuzzy: row.fuzzy_rank,
       semantic: row.semantic_rank,
       rerank: asNumber(row.scores?.rerank),
       parts: {
         fts: recordedContribution(row.provenance ?? {}, "fts"),
-        trigram: recordedContribution(row.provenance ?? {}, "trigram"),
-        semantic: recordedContribution(row.provenance ?? {}, "vector"),
+        fuzzy: recordedContribution(row.provenance ?? {}, "fuzzy"),
+        semantic: recordedContribution(row.provenance ?? {}, "semantic"),
       },
     }));
 }
@@ -72,12 +72,12 @@ export function rowsFromProducts(products: ProductSummary[], name: (product: Pro
       final: signals.final_rank,
       combined: signals.pre_rerank_rank,
       fts: signals.fts.rank,
-      trigram: signals.trigram.rank,
+      fuzzy: signals.fuzzy.rank,
       semantic: signals.semantic.rank,
       rerank: signals.rerank_score,
       parts: {
         fts: signals.fts.rrf_contribution ?? 0,
-        trigram: signals.trigram.rrf_contribution ?? 0,
+        fuzzy: signals.fuzzy.rrf_contribution ?? 0,
         semantic: signals.semantic.rrf_contribution ?? 0,
       },
     }];
@@ -86,7 +86,7 @@ export function rowsFromProducts(products: ProductSummary[], name: (product: Pro
 
 /** The largest combined score among the rows, which the widest bar spans. */
 export function widestTotal(rows: RankRow[]): number {
-  return Math.max(0, ...rows.map((row) => row.parts.fts + row.parts.trigram + row.parts.semantic));
+  return Math.max(0, ...rows.map((row) => row.parts.fts + row.parts.fuzzy + row.parts.semantic));
 }
 
 /** "Search cc3a32d8 · 3.5 s in the service · combined 50 from full-text search 1, fuzzy matching 36, semantic search 38". */
@@ -98,7 +98,7 @@ export function receiptCaption(runId: string, receipt: RetrievalRunResponse): st
     `Search ${runId.slice(0, 8)}`,
     run.total_latency_ms != null ? `${formatDuration(run.total_latency_ms)} in the service` : null,
     pool != null
-      ? `combined ${pool} from full-text search ${counts.fts_in_pool ?? 0}, fuzzy matching ${counts.trigram_in_pool ?? 0}, semantic search ${counts.semantic_in_pool ?? 0}`
+      ? `combined ${pool} from full-text search ${counts.fts_in_pool ?? 0}, fuzzy matching ${counts.fuzzy_in_pool ?? 0}, semantic search ${counts.semantic_in_pool ?? 0}`
       : null,
   ].filter(Boolean).join(" · ");
 }

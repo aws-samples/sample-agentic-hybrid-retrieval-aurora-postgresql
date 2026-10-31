@@ -52,12 +52,12 @@ const candidate = (productId: number, finalRank: number) => ({
   product_id: productId,
   result_rank: finalRank,
   fts_rank: finalRank === 1 ? 1 : null,
-  trigram_rank: null,
+  fuzzy_rank: null,
   semantic_rank: finalRank,
   fused_rank: finalRank + 1,
   rerank_rank: null,
   scores: { rerank: 0.9 - finalRank / 10 },
-  provenance: { channels: { fts: { rrf_contribution: 0.016 }, vector: { rrf_contribution: 0.015 } } },
+  provenance: { channels: { fts: { rrf_contribution: 0.016 }, semantic: { rrf_contribution: 0.015 } } },
   eligible: true,
 });
 
@@ -66,7 +66,7 @@ const receipt = {
     search_event_id: RUN_ID,
     retrieval_profile: { rrf_k: RECORDED_K },
     rerank_model_id: "rerank-model",
-    candidate_counts: { fused_pool: 50, fts_in_pool: 1, trigram_in_pool: 36, semantic_in_pool: 38 },
+    candidate_counts: { fused_pool: 50, fts_in_pool: 1, fuzzy_in_pool: 36, semantic_in_pool: 38 },
     total_latency_ms: 3540,
   },
   candidates: [candidate(chair.product_id, 1), candidate(monitor.product_id, 2)],

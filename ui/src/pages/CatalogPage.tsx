@@ -175,7 +175,7 @@ function retrievalRequestKey(query: string, filters: SearchFilters): string {
 /**
  * The lab whose defect a shopper can walk into without being told.
  *
- * Lab 1's fault has no other symptom. The trigram channel is disconnected, so a
+ * Lab 1's fault has no other symptom. The fuzzy channel is disconnected, so a
  * misspelled query returns a page of plausible headphones with the one product
  * it is about missing from it, and nothing on the page says so. Every other
  * surface in the workshop teaches this by asking the participant to go and look;
@@ -199,7 +199,7 @@ interface RetrievalLabCallout {
    * Whether readiness says the environment, not the lab, is what is wrong.
    *
    * A missing trigram index and an unrepaired CTE produce the same evidence: no
-   * candidate carries a trigram rank and the target is gone. Sending a
+   * candidate carries a fuzzy rank and the target is gone. Sending a
    * participant to edit SQL that was never the problem costs them the lab.
    */
   blocked: boolean;
@@ -216,7 +216,7 @@ interface RetrievalLabCallout {
  *
  * `targetPresent` and the outcome answer different questions and both are
  * needed. A target that is absent is the fault a participant can see. A target
- * that came back without a trigram rank is a repair that has not landed yet, and
+ * that came back without a fuzzy rank is a repair that has not landed yet, and
  * calling that "verified" over the top of it would be the workshop lying about
  * its own checkpoint.
  *
@@ -483,9 +483,9 @@ export function CatalogPage() {
   // Only a verdict the lab outcome already holds can mark the strip: Lab 1's
   // broken run, whose fuzzy matching contributed nothing to the combined pool.
   const faultArm = labCallout && !labCallout.blocked && labCallout.outcome.tone === "broken"
-    && labCallout.mission.expected_target_signals?.includes("trigram")
-    && retrieval?.diagnostics?.candidate_counts.trigram_in_pool === 0
-    ? "trigram" as const : null;
+    && labCallout.mission.expected_target_signals?.includes("fuzzy")
+    && retrieval?.diagnostics?.candidate_counts.fuzzy_in_pool === 0
+    ? "fuzzy" as const : null;
   const [resultPage, setResultPage] = useState({ eventId: "", page: 0 });
   const focusFirstResult = useRef(false);
 
@@ -1476,7 +1476,7 @@ export function CatalogPage() {
             >
               {/* No file, no task, and no claim about the participant's
                   work. Readiness says an index this scenario needs is not
-                  there, and the same empty trigram channel that an
+                  there, and the same empty fuzzy channel that an
                   unrepaired CTE produces is what they would be sent to fix.
                   "Search again" stays: re-applying the schema happens in
                   another window, exactly as a repair does. */}

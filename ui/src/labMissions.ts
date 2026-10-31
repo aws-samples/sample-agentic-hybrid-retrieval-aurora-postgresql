@@ -43,8 +43,8 @@ export interface MosaicLabMission {
   dataset_id?: string;
   expected_final_rank?: number;
   expected_final_top_k?: number;
-  expected_target_signals?: Array<"fts" | "trigram" | "semantic">;
-  absent_target_signals?: Array<"fts" | "trigram" | "semantic">;
+  expected_target_signals?: Array<"fts" | "fuzzy" | "semantic">;
+  absent_target_signals?: Array<"fts" | "fuzzy" | "semantic">;
   expected_techniques: string[];
   checkpoint: MosaicLabCheckpoint;
   participant_edit?: MosaicParticipantEdit;

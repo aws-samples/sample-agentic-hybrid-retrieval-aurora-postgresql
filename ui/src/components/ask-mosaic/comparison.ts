@@ -158,7 +158,7 @@ export function comparisonRows(
 export function retrievalPath(product: ProductSummary): string[] {
   const signals = product.signals;
   if (!signals) return [];
-  const found = (["fts", "trigram", "semantic"] as const)
+  const found = (["fts", "fuzzy", "semantic"] as const)
     .filter((arm) => signals[arm]?.rank != null)
     .map((arm) => `${armShortLabel[arm]} #${signals[arm].rank}`);
   return [

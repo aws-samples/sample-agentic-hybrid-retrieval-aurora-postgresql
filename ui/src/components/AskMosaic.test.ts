@@ -622,7 +622,7 @@ describe("AskMosaic found-by dots", () => {
     response.recommendations = [{
       ...first,
       signals: {
-        fts: rank(1), trigram: rank(null), semantic: rank(4),
+        fts: rank(1), fuzzy: rank(null), semantic: rank(4),
         rrf_score: 0.03, pre_rerank_rank: 2, pre_rerank_score: 0.03, rerank_score: null,
         final_rank: 1, score_semantics: "",
       },

@@ -19,7 +19,7 @@ const repo = fileURLToPath(new URL("../..", import.meta.url));
 
 function contributionsAgree(signals: ResultSignals, rrfK: number): true | string {
   let total = 0;
-  for (const arm of ["fts", "trigram", "semantic"] as const) {
+  for (const arm of ["fts", "fuzzy", "semantic"] as const) {
     const { rank, rrf_contribution: contribution } = signals[arm];
     if (rank === null) {
       if (contribution !== null) {
@@ -78,7 +78,7 @@ describe("committed retrieval seed run", () => {
   });
 
   it("exercises more than one retrieval arm, or it teaches nothing", () => {
-    const armsUsed = (["fts", "trigram", "semantic"] as const).filter((arm) =>
+    const armsUsed = (["fts", "fuzzy", "semantic"] as const).filter((arm) =>
       seedRun.results.some((product) => product.signals![arm].rank !== null),
     );
     expect(armsUsed.length).toBeGreaterThanOrEqual(2);

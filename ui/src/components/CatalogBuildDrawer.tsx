@@ -24,7 +24,7 @@ const steps = [
   },
   {
     title: "Index",
-    description: "Build full-text, spelling and vector-search indexes. Then check real queries and filters: a finished index alone does not establish useful results.",
+    description: "Build full-text, spelling and semantic-search indexes. Then check real queries and filters: a finished index alone does not establish useful results.",
     scripts: [
       { name: "prepare_staged_catalog_search.py", url: indexScript },
       { name: "probe_staged_catalog_search.py", url: probeScript },

@@ -13,7 +13,7 @@ afterEach(cleanup);
 /** The run's own k, from the seeded profile rather than a second copy of the setting. */
 const K = seedRun.diagnostics!.retrieval_profile.rrf_k;
 
-type Ranks = { fts?: number; trigram?: number; semantic?: number; combined: number; final: number };
+type Ranks = { fts?: number; fuzzy?: number; semantic?: number; combined: number; final: number };
 
 function ranked(base: ProductSummary, title: string, ranks: Ranks): ProductSummary {
   const arm = (rank?: number) => ({ rank: rank ?? null, raw_score: rank == null ? null : 1 / rank, rrf_contribution: rank == null ? null : 1 / (K + rank) });
@@ -23,7 +23,7 @@ function ranked(base: ProductSummary, title: string, ranks: Ranks): ProductSumma
     // A real-catalog listing, so its short name comes from its title.
     source_dataset: "reviews-2023-v2",
     signals: {
-      fts: arm(ranks.fts), trigram: arm(ranks.trigram), semantic: arm(ranks.semantic),
+      fts: arm(ranks.fts), fuzzy: arm(ranks.fuzzy), semantic: arm(ranks.semantic),
       rrf_score: 1 / ranks.combined, pre_rerank_rank: ranks.combined, pre_rerank_score: 1 / ranks.combined,
       rerank_score: 1 / ranks.final, rerank_rank: ranks.final, final_rank: ranks.final, score_semantics: "",
     },
@@ -42,7 +42,7 @@ const response = {
   diagnostics: {
     rerank_status: "applied", retrieval_profile: { rrf_k: K },
     // Fuzzy matching put one candidate on the shortlist, below the ten returned.
-    candidate_counts: { fused_pool: 50, fts_in_pool: 31, trigram_in_pool: 1, semantic_in_pool: 30 },
+    candidate_counts: { fused_pool: 50, fts_in_pool: 31, fuzzy_in_pool: 1, semantic_in_pool: 30 },
   },
 } as unknown as SearchResponse;
 const step = (key: string) => RACE_STEPS.find((item) => item.key === key)!;
@@ -84,7 +84,7 @@ describe("raceCaption", () => {
 
   it("counts each search's shortlist as the chips do, and how many of those were returned", () => {
     expect(raceCaption(step("fts"), products, response, undefined)).toContain("It found 31 on the shortlist, 9 of them among the 10 shown.");
-    expect(raceCaption(step("trigram"), products, response, undefined)).toContain("It found 1 on the shortlist, none of them among the 10 shown.");
+    expect(raceCaption(step("fuzzy"), products, response, undefined)).toContain("It found 1 on the shortlist, none of them among the 10 shown.");
   });
 });
 
@@ -142,7 +142,7 @@ describe("RankRace", () => {
   });
 
   it("races each step's own first products on the shortlist, faded when not returned", () => {
-    const below = ranked(bases[10], "Portable Monitor 15.6", { trigram: 1, combined: 30, final: 31 });
+    const below = ranked(bases[10], "Portable Monitor 15.6", { fuzzy: 1, combined: 30, final: 31 });
     render(<RankRace response={response} pool={[below]} followId={null} wanted={false} onFollow={() => {}} />);
     expect(screen.getByText(/Each step’s first 8 on the shortlist of 50\. Faded rows are not among the 10 shown\./)).toBeTruthy();
     fireEvent.click(screen.getByRole("radio", { name: "Fuzzy matching" }));

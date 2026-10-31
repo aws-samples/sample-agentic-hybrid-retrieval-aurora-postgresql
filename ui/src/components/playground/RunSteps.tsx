@@ -29,7 +29,7 @@ export function searchChips(response: SearchResponse): Chip[] {
   const diagnostics = response.diagnostics;
   const counts = diagnostics?.candidate_counts ?? {};
   const timings = diagnostics?.stage_timings_ms ?? {};
-  const arms = (["fts", "trigram", "semantic"] as const).map((arm): Chip => {
+  const arms = (["fts", "fuzzy", "semantic"] as const).map((arm): Chip => {
     const count = counts[armPoolKey[arm]];
     return {
       key: arm,

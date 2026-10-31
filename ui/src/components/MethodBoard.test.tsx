@@ -11,7 +11,7 @@ afterEach(cleanup);
 const none = { rank: null, raw_score: null, rrf_contribution: null };
 
 function row(id: number, title: string, ranks: {
-  fts?: number | null; trigram?: number | null; semantic?: number | null; combined: number; final: number;
+  fts?: number | null; fuzzy?: number | null; semantic?: number | null; combined: number; final: number;
 }): ProductSummary {
   const base = structuredClone(seedRun.results[0]);
   const arm = (rank: number | null | undefined) => (rank == null ? none : { rank, raw_score: 1, rrf_contribution: 0.01 });
@@ -22,7 +22,7 @@ function row(id: number, title: string, ranks: {
     signals: {
       ...base.signals!,
       fts: arm(ranks.fts),
-      trigram: arm(ranks.trigram),
+      fuzzy: arm(ranks.fuzzy),
       semantic: arm(ranks.semantic),
       pre_rerank_rank: ranks.combined,
       final_rank: ranks.final,
@@ -47,7 +47,7 @@ const images = new Map<number, string>();
 const products = [
   row(1, "Alpha monitor", { fts: 3, semantic: 2, combined: 1, final: 2 }),
   row(2, "Wanted monitor", { semantic: 10, combined: 21, final: 5 }),
-  row(3, "Gamma monitor", { fts: 1, trigram: 4, semantic: 7, combined: 2, final: 1 }),
+  row(3, "Gamma monitor", { fts: 1, fuzzy: 4, semantic: 7, combined: 2, final: 1 }),
 ];
 
 describe("MethodBoard", () => {
@@ -66,7 +66,7 @@ describe("MethodBoard", () => {
     render(<MethodBoard response={run(products)} images={images} />);
     const fn = (name: string) => column(name).querySelector(".method-engine code")?.textContent ?? null;
     expect(["Full-text search", "Fuzzy matching", "Semantic search", "Combined (RRF)", "Reranked"].map(fn))
-      .toEqual(["search_fts", "search_trigram", "search_vector", "search_hybrid_rrf", null]);
+      .toEqual(["search_fts", "search_fuzzy", "search_semantic", "search_hybrid_rrf", null]);
     const counts = seedRun.diagnostics!.candidate_counts;
     expect(within(column("Combined (RRF)")).getByText(`Shortlist of ${counts.fused_pool}`)).toBeTruthy();
   });
@@ -85,7 +85,7 @@ describe("MethodBoard", () => {
     const response = run(shown);
     response.diagnostics = {
       ...response.diagnostics!,
-      candidate_counts: { ...response.diagnostics!.candidate_counts, trigram_in_pool: 3, fts_in_pool: 0 },
+      candidate_counts: { ...response.diagnostics!.candidate_counts, fuzzy_in_pool: 3, fts_in_pool: 0 },
     };
     render(<MethodBoard response={response} images={images} />);
     expect(within(column("Fuzzy matching")).getByText("Its 3 on the shortlist ranked below the 1 shown")).toBeTruthy();
@@ -151,7 +151,7 @@ describe("MethodBoard", () => {
 
   it("lists a method's shortlist matches below the page, faded and not clickable", () => {
     const onPage = row(1, "On the page", { semantic: 1, combined: 1, final: 1 });
-    const below = row(40, "Below the page", { trigram: 1, combined: 30, final: 17 });
+    const below = row(40, "Below the page", { fuzzy: 1, combined: 30, final: 17 });
     const onSelect = vi.fn();
     render(<MethodBoard response={run([onPage])} pool={[onPage, below]} images={images} onSelect={onSelect} />);
     const fuzzy = within(column("Fuzzy matching"));

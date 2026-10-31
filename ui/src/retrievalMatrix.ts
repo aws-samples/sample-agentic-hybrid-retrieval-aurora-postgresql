@@ -11,7 +11,7 @@ import type { ProductSummary, SearchResponse } from "./types";
  * The scores on screen are the ones in `signals`.
  */
 
-export type ArmKey = "fts" | "trigram" | "semantic";
+export type ArmKey = "fts" | "fuzzy" | "semantic";
 export type ColumnKey = ArmKey | "fusion" | "rerank";
 
 export interface MatrixColumn {
@@ -66,7 +66,7 @@ export interface MatrixRow {
 }
 
 export interface MatchReason {
-  kind: "lexical" | "fuzzy" | "semantic" | "fusion" | "rerank" | "identity";
+  kind: "fts" | "fuzzy" | "semantic" | "fusion" | "rerank" | "identity";
   label: string;
 }
 
@@ -239,13 +239,13 @@ function reasonsFor(
   }
   if (signals.fts.rank !== null) {
     reasons.push({
-      kind: "lexical",
+      kind: "fts",
       label: shared.length
         ? `Words in this record: ${shared.slice(0, 3).join(", ")}`
         : "Matched indexed text not shown on this card",
     });
   }
-  if (signals.trigram.rank !== null) {
+  if (signals.fuzzy.rank !== null) {
     const pairs = nearMissPairs(query, product);
     reasons.push({
       kind: "fuzzy",
@@ -256,7 +256,7 @@ function reasonsFor(
         : "Fuzzy matching somewhere in the record",
     });
   }
-  if (signals.semantic.rank !== null && signals.fts.rank === null && signals.trigram.rank === null) {
+  if (signals.semantic.rank !== null && signals.fts.rank === null && signals.fuzzy.rank === null) {
     reasons.push({
       kind: "semantic",
       label: shared.length
@@ -275,7 +275,7 @@ function verdictFor(product: ProductSummary, query: string): string {
   if (!signals) return "This row came back without retrieval signals.";
   const arms: string[] = [];
   if (signals.fts.rank !== null) arms.push("full-text search");
-  if (signals.trigram.rank !== null) arms.push("fuzzy matching");
+  if (signals.fuzzy.rank !== null) arms.push("fuzzy matching");
   if (signals.semantic.rank !== null) arms.push("semantic search");
   if (arms.length === 0) {
     return "No candidate search method reported this row, so it needs investigation.";
@@ -295,18 +295,18 @@ function verdictFor(product: ProductSummary, query: string): string {
 const COLUMN_SQL: Record<ColumnKey, string> = {
   fts: `SELECT product_id, fts_rank, fts_score
 FROM mosaic_search.search_fts(:query, :filters::jsonb, :fts_limit);`,
-  trigram: `SELECT product_id, trigram_rank, trigram_score
-FROM mosaic_search.search_trigram(
-  :query, :filters::jsonb, :trigram_limit, :trigram_threshold
+  fuzzy: `SELECT product_id, fuzzy_rank, fuzzy_score
+FROM mosaic_search.search_fuzzy(
+  :query, :filters::jsonb, :fuzzy_limit, :fuzzy_threshold
 );`,
   semantic: `SELECT product_id, semantic_rank, semantic_score
-FROM mosaic_search.search_vector(
+FROM mosaic_search.search_semantic(
   :query_embedding::vector(1024), :filters::jsonb, :semantic_limit
 );`,
   fusion: `SELECT product_id, rrf_score, pre_rerank_rank,
        mosaic_search.reciprocal_rank_contribution(fts_rank, :rrf_k) AS fts_part,
-       mosaic_search.reciprocal_rank_contribution(trigram_rank, :rrf_k) AS trigram_part,
-       mosaic_search.reciprocal_rank_contribution(semantic_rank, :rrf_k) AS vector_part
+       mosaic_search.reciprocal_rank_contribution(fuzzy_rank, :rrf_k) AS fuzzy_part,
+       mosaic_search.reciprocal_rank_contribution(semantic_rank, :rrf_k) AS semantic_part
 FROM mosaic_search.search_hybrid_rrf(
   :query, :query_embedding::vector(1024), :filters::jsonb
 )
@@ -385,7 +385,7 @@ export function buildRetrievalMatrix(
         fusedPool,
         cells: [
           armCell("fts", signals.fts.rank, signals.fts.raw_score, 5),
-          armCell("trigram", signals.trigram.rank, signals.trigram.raw_score, 3),
+          armCell("fuzzy", signals.fuzzy.rank, signals.fuzzy.raw_score, 3),
           armCell("semantic", signals.semantic.rank, signals.semantic.raw_score, 4),
           // The position in the fused pool, which runs wider than the rows shown.
           // Showing the position among the shown rows here instead would repeat
@@ -427,12 +427,12 @@ export function buildRetrievalMatrix(
       sql: COLUMN_SQL.fts,
     },
     {
-      key: "trigram",
+      key: "fuzzy",
       label: armLanguage[1].label,
       mechanism: "pg_trgm word_similarity",
-      measure: `${found("trigram")} of ${total}`,
+      measure: `${found("fuzzy")} of ${total}`,
       measureDetail: "rows found",
-      sql: COLUMN_SQL.trigram,
+      sql: COLUMN_SQL.fuzzy,
     },
     {
       key: "semantic",

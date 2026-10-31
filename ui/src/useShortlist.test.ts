@@ -14,7 +14,7 @@ afterEach(() => {
 
 function receipt(productId: number, ranks: Partial<SearchResultEventRecord>): SearchResultEventRecord {
   return {
-    product_id: productId, result_rank: 50, fts_rank: null, trigram_rank: null, semantic_rank: null,
+    product_id: productId, result_rank: 50, fts_rank: null, fuzzy_rank: null, semantic_rank: null,
     fused_rank: null, rerank_rank: null, scores: {}, provenance: {}, ...ranks,
   };
 }
@@ -23,7 +23,7 @@ describe("boardProductIds", () => {
   it("takes each order's first five and the wanted product the shortlist holds", () => {
     const receipts = Array.from({ length: 20 }, (_, index) =>
       receipt(index + 1, { semantic_rank: index + 1, fused_rank: index + 1, result_rank: index + 1 }));
-    receipts.push(receipt(90, { trigram_rank: 1, fused_rank: 30, result_rank: 30 }));
+    receipts.push(receipt(90, { fuzzy_rank: 1, fused_rank: 30, result_rank: 30 }));
     expect(boardProductIds(receipts, 18).sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 5, 18, 90]);
     expect(boardProductIds(receipts, 999)).not.toContain(999);
   });
@@ -39,7 +39,7 @@ describe("useShortlist", () => {
       candidates: [
         receipt(shown[0].product_id, { semantic_rank: 1, fused_rank: 1, result_rank: 1 }),
         receipt(shown[1].product_id, { semantic_rank: 2, fused_rank: 2, result_rank: 2 }),
-        receipt(777, { trigram_rank: 1, fused_rank: 9, rerank_rank: 14, result_rank: 14, scores: { trigram: 0.4 } }),
+        receipt(777, { fuzzy_rank: 1, fused_rank: 9, rerank_rank: 14, result_rank: 14, scores: { fuzzy: 0.4 } }),
       ],
     });
     const product = vi.spyOn(api, "product").mockResolvedValue(below);
@@ -51,7 +51,7 @@ describe("useShortlist", () => {
     expect(result.current!.filter((item) => shown.includes(item))).toHaveLength(2);
     const loaded = result.current!.find((item) => item.product_id === 777)!;
     expect(loaded.signals).toMatchObject({
-      trigram: { rank: 1, raw_score: 0.4 }, fts: { rank: null }, pre_rerank_rank: 9, final_rank: 14,
+      fuzzy: { rank: 1, raw_score: 0.4 }, fts: { rank: null }, pre_rerank_rank: 9, final_rank: 14,
     });
   });
 

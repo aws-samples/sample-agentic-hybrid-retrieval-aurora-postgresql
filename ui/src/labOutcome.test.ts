@@ -84,7 +84,7 @@ function product(
     sources: [],
     signals: {
       fts: { rank: 1, raw_score: 0.5, rrf_contribution: contribution(1) },
-      trigram: { rank: 2, raw_score: 0.4, rrf_contribution: contribution(2) },
+      fuzzy: { rank: 2, raw_score: 0.4, rrf_contribution: contribution(2) },
       semantic: { rank: 3, raw_score: 0.3, rrf_contribution: contribution(3) },
       rrf_score: contribution(1) + contribution(2) + contribution(3),
       pre_rerank_rank: 1,
@@ -112,7 +112,7 @@ function response(result: ProductSummary, rrfK = testFusionK): SearchResponse {
       retrieval_profile: {
         rrf_k: rrfK,
       } as RetrievalDiagnostics["retrieval_profile"],
-      candidate_counts: { trigram_in_pool: 1 },
+      candidate_counts: { fuzzy_in_pool: 1 },
       stage_timings_ms: {},
       total_latency_ms: 1,
     },
@@ -530,12 +530,12 @@ describe("Lab 1's broken verdict names its cause", () => {
   const other = (id: number) => {
     const row = product(id, (rank) => 1 / (testFusionK + rank));
     Object.assign(row, mission.filters);
-    row.signals!.trigram = { rank: null, raw_score: null, rrf_contribution: null };
+    row.signals!.fuzzy = { rank: null, raw_score: null, rrf_contribution: null };
     return row;
   };
-  const withPool = (result: ProductSummary, trigramPool: number) => {
+  const withPool = (result: ProductSummary, fuzzyPool: number) => {
     const run = response(result);
-    run.diagnostics!.candidate_counts = { trigram_in_pool: trigramPool } as RetrievalDiagnostics["candidate_counts"];
+    run.diagnostics!.candidate_counts = { fuzzy_in_pool: fuzzyPool } as RetrievalDiagnostics["candidate_counts"];
     return run;
   };
 

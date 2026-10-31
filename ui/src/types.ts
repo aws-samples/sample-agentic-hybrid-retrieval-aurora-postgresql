@@ -42,7 +42,7 @@ export interface RankSignal {
 
 export interface ResultSignals {
   fts: RankSignal;
-  trigram: RankSignal;
+  fuzzy: RankSignal;
   semantic: RankSignal;
   rrf_score: number;
   pre_rerank_rank: number;
@@ -207,18 +207,18 @@ export interface RetrievalDiagnostics {
   retrieval_profile: {
     rrf_k: number;
     fts_limit: number;
-    trigram_limit: number;
+    fuzzy_limit: number;
     semantic_limit: number;
     fused_limit: number;
     result_limit: number;
-    trigram_threshold: number;
+    fuzzy_threshold: number;
     ef_search: number;
     iterative_scan: "off" | "strict_order" | "relaxed_order";
     max_scan_tuples: number;
     scan_mem_multiplier: number;
-    weight_lexical: number;
+    weight_fts: number;
     weight_semantic: number;
-    weight_trigram: number;
+    weight_fuzzy: number;
   };
   candidate_counts: Record<string, number>;
   stage_timings_ms: Record<string, number>;
@@ -318,7 +318,7 @@ export interface SearchResultEventRecord {
   product_id: number;
   result_rank: number;
   fts_rank: number | null;
-  trigram_rank: number | null;
+  fuzzy_rank: number | null;
   semantic_rank: number | null;
   fused_rank: number | null;
   rerank_rank: number | null;
@@ -1137,8 +1137,8 @@ export interface ScorecardAgentContracts {
  * `ScorecardStageAblation.spread_note`.
  */
 export type ScorecardStageArmKey =
-  | "lexical_only"
-  | "trigram_only"
+  | "fts_only"
+  | "fuzzy_only"
   | "semantic_only"
   | "rrf_fused_no_rerank"
   | "rrf_fused_reranked";

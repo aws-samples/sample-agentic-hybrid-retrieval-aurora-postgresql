@@ -29,7 +29,7 @@ export function armReads(response: SearchResponse): Record<RetrievalArm, ReactNo
         ? <code key={term.ordinal}>{term.lexeme}</code>
         : <s key={term.ordinal} title={term.verdict === "recoverable" ? `No listing holds it; closest is ${term.closest_lexeme}` : "No listing holds it"}><code>{term.lexeme}</code></s>))
       : <span>words not in the saved record</span>,
-    trigram: <>
+    fuzzy: <>
       {grams.slice(0, SHOWN_TRIGRAMS).map((gram) => <code key={gram}>{gram.replace(/ /g, "␣")}</code>)}
       {grams.length > SHOWN_TRIGRAMS ? <span>+{grams.length - SHOWN_TRIGRAMS}</span> : null}
     </>,

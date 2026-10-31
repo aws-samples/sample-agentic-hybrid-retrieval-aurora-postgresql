@@ -13,7 +13,7 @@ const K = seedRun.diagnostics!.retrieval_profile.rrf_k;
 
 function ranked(base: ProductSummary, title: string, combined: number, ranks: { fts?: number; semantic?: number }, reported?: number): ProductSummary {
   const arm = (rank?: number) => ({ rank: rank ?? null, raw_score: null, rrf_contribution: rank == null ? null : 1 / (K + rank) });
-  const signals = { fts: arm(ranks.fts), trigram: arm(), semantic: arm(ranks.semantic) };
+  const signals = { fts: arm(ranks.fts), fuzzy: arm(), semantic: arm(ranks.semantic) };
   const sum = (signals.fts.rrf_contribution ?? 0) + (signals.semantic.rrf_contribution ?? 0);
   return {
     ...base,

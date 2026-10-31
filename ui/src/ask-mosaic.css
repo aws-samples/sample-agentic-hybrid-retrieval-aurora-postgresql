@@ -1257,7 +1257,7 @@
 }
 
 .ask-rank .is-fts { background: var(--ink); }
-.ask-rank .is-trigram { background: var(--line-strong); }
+.ask-rank .is-fuzzy { background: var(--line-strong); }
 .ask-rank .is-semantic { background: var(--retrieve); }
 
 .ask-rank-note {

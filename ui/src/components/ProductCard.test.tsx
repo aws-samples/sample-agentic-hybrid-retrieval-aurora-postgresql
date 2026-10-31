@@ -58,7 +58,7 @@ describe("ProductCard ranking chips and wanted marking", () => {
   it("prints the product's path: the searches that found it, then combined and final", () => {
     const product = structuredClone(seedRun.results[0]);
     product.signals!.fts = { rank: 3, raw_score: 1, rrf_contribution: 0.01 };
-    product.signals!.trigram = { rank: null, raw_score: null, rrf_contribution: null };
+    product.signals!.fuzzy = { rank: null, raw_score: null, rrf_contribution: null };
     product.signals!.semantic = { rank: 10, raw_score: 1, rrf_contribution: 0.01 };
     product.signals!.pre_rerank_rank = 21;
     product.signals!.final_rank = 5;
@@ -73,7 +73,7 @@ describe("ProductCard ranking chips and wanted marking", () => {
   it("leaves the path out for a product no search ranked", () => {
     const product = structuredClone(seedRun.results[0]);
     const missed = { rank: null, raw_score: null, rrf_contribution: null };
-    product.signals = { ...product.signals!, fts: missed, trigram: missed, semantic: missed };
+    product.signals = { ...product.signals!, fts: missed, fuzzy: missed, semantic: missed };
     ranked(product);
     expect(screen.queryByLabelText("Found by")).toBeNull();
   });

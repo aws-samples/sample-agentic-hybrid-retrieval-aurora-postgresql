@@ -16,7 +16,7 @@ const dell27 = {
     resolution: { value: "3840x2160", source: "details.Display Resolution Maximum", quote: "3840 x 2160 Pixels" },
     usb_c_power_w: { value: 90, source: "description[6]", quote: "get up to 90W of power delivery" },
   },
-  signals: { fts: rank(null), trigram: rank(null), semantic: rank(7), pre_rerank_rank: 10, final_rank: 1 },
+  signals: { fts: rank(null), fuzzy: rank(null), semantic: rank(7), pre_rerank_rank: 10, final_rank: 1 },
 } as unknown as ProductSummary;
 const dellU2720q = {
   ...dell27,
@@ -27,7 +27,7 @@ const dellU2720q = {
     resolution: { value: "3840x2160", source: "details.Display Resolution Maximum", quote: "3840 x 2160 pixels" },
     usb_c_power_w: { value: 90, source: "features[1]", quote: "Get up to 90W of power delivery" },
   },
-  signals: { fts: rank(null), trigram: rank(null), semantic: rank(2), pre_rerank_rank: 5, final_rank: 2 },
+  signals: { fts: rank(null), fuzzy: rank(null), semantic: rank(2), pre_rerank_rank: 5, final_rank: 2 },
 } as unknown as ProductSummary;
 const listingText = (product: ProductSummary) =>
   `Title: ${product.title}\n\nListing details:\n${Object.values(product.specs ?? {}).map((spec) => spec.quote).join("\n")}`;

@@ -74,14 +74,14 @@
         "approximate_lines": 5,
         "task": "Find the search whose candidates never reach fusion, then add its channels branch in search_hybrid_rrf.",
         "broken_state": "Alex transposes CF to FC in listing ID B0C2WWCFQB. Full-text search and the bounded semantic search list miss that listing. Fuzzy matching finds it, but search_hybrid_rrf never reads its CTE, so it never reaches fusion.",
-        "fixed_state": "The restored fuzzy matching channel admits Logitech Zone 900, product 1492978, with trigram rank 1. It was final rank 1 in repeated verification.",
+        "fixed_state": "The restored fuzzy matching channel admits Logitech Zone 900, product 1492978, with fuzzy rank 1. It was final rank 1 in repeated verification.",
         "observe_before": [
           "HTTP 200 with other headphones; the intended Logitech listing 1492978 is absent from the first 10 results.",
-          "The saved combined pool omits 1492978 and reports trigram_in_pool = 0."
+          "The saved combined pool omits 1492978 and reports fuzzy_in_pool = 0."
         ],
         "observe_after": [
           "The identical B0C2WWFCQB request returns listing B0C2WWCFQB (1492978).",
-          "The target has a trigram rank and contribution; its FTS and semantic ranks remain null.",
+          "The target has a fuzzy rank and contribution; its FTS and semantic ranks remain null.",
           "All products satisfy the headphones category and electronics domain filters."
         ],
         "checkpoint_question": "Why can related headphones be wrong for an exact-product request, and why could reranking not recover the missing listing?"
@@ -89,7 +89,7 @@
       "expected_outcome": "Recover the exact Logitech listing B0C2WWCFQB from a transposed identifier, with a fuzzy matching rank and contribution. Other headphones are wrong identities for this request; no claim is made that they lack noise cancellation.",
       "assertions": [
         "target_in_top_k",
-        "trigram_signal_present",
+        "fuzzy_signal_present",
         "hard_filters_hold"
       ],
       "top_k": 10,
@@ -99,7 +99,7 @@
       ],
       "dataset_id": "reviews-2023-v2",
       "expected_target_signals": [
-        "trigram"
+        "fuzzy"
       ],
       "absent_target_signals": [
         "fts",
@@ -151,7 +151,7 @@
       "assertions": [
         "target_in_top_k",
         "fts_signal_present",
-        "trigram_signal_present",
+        "fuzzy_signal_present",
         "semantic_signal_present",
         "rank_provenance_present",
         "rerank_score_present",
@@ -348,15 +348,15 @@
         "cohere_rerank"
       ],
       "checkpoint": "repair",
-      "expected_outcome": "Alex recalls a feature from the listing he saved, quick access to ANC and Bluetooth, and misspells two words. Full-text search and semantic search miss it; the restored fuzzy matching channel finds it at trigram rank 1 and reranking puts it first.",
+      "expected_outcome": "Alex recalls a feature from the listing he saved, quick access to ANC and Bluetooth, and misspells two words. Full-text search and semantic search miss it; the restored fuzzy matching channel finds it at fuzzy rank 1 and reranking puts it first.",
       "assertions": [
         "target_in_top_k",
-        "trigram_signal_present",
+        "fuzzy_signal_present",
         "hard_filters_hold"
       ],
       "top_k": 10,
       "expected_target_signals": [
-        "trigram"
+        "fuzzy"
       ],
       "absent_target_signals": [
         "fts",

@@ -14,7 +14,7 @@
  * third form.
  */
 
-export type RetrievalArm = "fts" | "trigram" | "semantic";
+export type RetrievalArm = "fts" | "fuzzy" | "semantic";
 
 export interface ArmLanguage {
   key: RetrievalArm;
@@ -31,7 +31,7 @@ export const armLanguage: ArmLanguage[] = [
     mechanism: "PostgreSQL Full-Text Search",
   },
   {
-    key: "trigram",
+    key: "fuzzy",
     label: "Fuzzy matching",
     mechanism: "pg_trgm",
   },
@@ -45,13 +45,13 @@ export const armLanguage: ArmLanguage[] = [
 /** The shortest form that stays clear, for chips with little room. Titles and aria carry `armLabel`. */
 export const armShortLabel: Record<RetrievalArm, string> = {
   fts: "Full-text",
-  trigram: "Fuzzy",
+  fuzzy: "Fuzzy",
   semantic: "Semantic",
 };
 
 export const armLabel: Record<RetrievalArm, string> = {
   fts: "Full-text search",
-  trigram: "Fuzzy matching",
+  fuzzy: "Fuzzy matching",
   semantic: "Semantic search",
 };
 
@@ -80,7 +80,7 @@ export const toolPurpose: Record<string, string> = {
  */
 export const armPoolKey: Record<RetrievalArm, string> = {
   fts: "fts_in_pool",
-  trigram: "trigram_in_pool",
+  fuzzy: "fuzzy_in_pool",
   semantic: "semantic_in_pool",
 };
 
@@ -94,7 +94,7 @@ export const armPoolKey: Record<RetrievalArm, string> = {
  */
 export const armIndexName: Record<RetrievalArm, string> = {
   fts: "product_search_fts_idx",
-  trigram: "product_search_trigram_idx",
+  fuzzy: "product_search_trigram_idx",
   semantic: "product_search_vector_idx",
 };
 
@@ -108,8 +108,8 @@ export const armIndexName: Record<RetrievalArm, string> = {
  * that contributed nothing to their pool read as an arm with nothing to say.
  */
 export const armTechniques: Record<RetrievalArm, string[]> = {
-  fts: ["fts", "lexical"],
-  trigram: ["pg_trgm", "trigram"],
+  fts: ["fts"],
+  fuzzy: ["pg_trgm", "fuzzy"],
   semantic: ["vector", "semantic", "hnsw"],
 };
 

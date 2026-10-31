@@ -57,7 +57,7 @@ function rrfIsCorrect(product: ProductSummary, rrfK: number) {
   if (!product.signals) return false;
   let expected = 0;
   let contributed = false;
-  for (const arm of ["fts", "trigram", "semantic"] as const) {
+  for (const arm of ["fts", "fuzzy", "semantic"] as const) {
     const signal = product.signals[arm];
     if (signal.rank === null) continue;
     const contribution = 1 / (rrfK + signal.rank);
@@ -180,7 +180,7 @@ function readyOutcome(mission: MosaicLabMission): LabOutcome {
 export interface RetrieveFacts {
   targetsPresent: boolean;
   targetRecovered: boolean;
-  trigramPool: number;
+  fuzzyPool: number;
   eligible: boolean;
 }
 
@@ -249,7 +249,7 @@ function retrieveFaultCopy(
       detail: "At least one returned product is outside the request's filters, so this run cannot show that the repair works.",
     };
   }
-  if (facts.trigramPool === 0) {
+  if (facts.fuzzyPool === 0) {
     return {
       title: `The ${target} is missing`,
       detail: `Alex typed ${mission.query}. Fuzzy matching is the only method that can match a mistyped ID, and it returned no candidates, so the ${target} never reached the results. Reranking cannot bring back a product that was never retrieved.`,
@@ -296,7 +296,7 @@ function participantCopy(
             ? retrieveFaultCopy(mission, facts)
             : {
                 title: "Fuzzy matching is still disconnected",
-                detail: "The request completed, but the target has no trigram contribution in the fused pool.",
+                detail: "The request completed, but the target has no fuzzy contribution in the fused pool.",
               }),
           next: labRepairStep(mission, "run this request again"),
         };
@@ -357,18 +357,18 @@ export function retrievalLabOutcome(
   if (mission.participant_edit && mission.stage === "retrieve") {
     const targetRecovered = targets.some(
       (product) =>
-        product.signals?.trigram.rank != null
-        && product.signals?.trigram.rrf_contribution != null
+        product.signals?.fuzzy.rank != null
+        && product.signals?.fuzzy.rrf_contribution != null
         && (mission.absent_target_signals ?? []).every((arm) =>
           product.signals?.[arm].rank == null
           && (product.signals?.[arm].rrf_contribution ?? 0) === 0),
     );
-    const trigramPool =
-      response.diagnostics?.candidate_counts.trigram_in_pool ?? 0;
+    const fuzzyPool =
+      response.diagnostics?.candidate_counts.fuzzy_in_pool ?? 0;
     return participantOutcome(
       mission,
-      targetsPresent && targetRecovered && trigramPool > 0 && eligible,
-      { targetsPresent, targetRecovered, trigramPool, eligible },
+      targetsPresent && targetRecovered && fuzzyPool > 0 && eligible,
+      { targetsPresent, targetRecovered, fuzzyPool, eligible },
     );
   }
 

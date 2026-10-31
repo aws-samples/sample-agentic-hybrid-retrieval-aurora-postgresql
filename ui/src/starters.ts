@@ -18,7 +18,7 @@ import type { Domain, RetrievalExample } from "./types";
  */
 
 /**
- * Display order for the cards that run on click, and the reason the trigram lane
+ * Display order for the cards that run on click, and the reason the fuzzy lane
  * is not among them.
  *
  * The eval set's misspelled queries are misspelled on purpose — "noice canceling
@@ -54,7 +54,7 @@ export type StarterPath = (typeof starterPaths)[number] | "misspelled";
  */
 export const starterPathLabels: Record<StarterPath, string> = {
   exact: armLabel.fts,
-  misspelled: armLabel.trigram,
+  misspelled: armLabel.fuzzy,
   semantic: armLabel.semantic,
 };
 
@@ -65,7 +65,7 @@ export const starterPathLabels: Record<StarterPath, string> = {
  * row carries, so the label is read from the eval set rather than guessed from
  * the wording. Precedence matters because a query can name more than one arm:
  * `pg_trgm` outranks everything else because a misspelled query names the
- * trigram arm alongside others and the trigram arm is the one under test;
+ * fuzzy arm alongside others and the fuzzy arm is the one under test;
  * `fts` outranks `semantic` for the same reason among the queries that name
  * both. `semantic` and `vector` both name the semantic arm, matching the
  * `vector`/`semantic` pair `TECHNIQUE_ARMS` below already carries.
@@ -104,14 +104,13 @@ export function starterPath(example: RetrievalExample): StarterPath {
  */
 const TECHNIQUE_ARMS: Record<string, RetrievalArm> = {
   fts: "fts",
-  lexical: "fts",
-  pg_trgm: "trigram",
-  trigram: "trigram",
+  pg_trgm: "fuzzy",
+  fuzzy: "fuzzy",
   vector: "semantic",
   semantic: "semantic",
 };
 
-const ARM_ORDER: RetrievalArm[] = ["fts", "trigram", "semantic"];
+const ARM_ORDER: RetrievalArm[] = ["fts", "fuzzy", "semantic"];
 
 export function starterArmLabels(example: RetrievalExample): string[] {
   const arms = new Set(

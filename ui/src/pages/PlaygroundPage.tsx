@@ -105,7 +105,7 @@ function RankDetails({ response, images, highlightedId }: { response?: SearchRes
     {products.length ? <div role="region" aria-label="Product ranking details">
       <ul className="inspector-product-ranks">{products.map((product) => <li key={product.product_id} id={`ranked-product-${product.product_id}`} tabIndex={-1} className={highlightedId === product.product_id ? "inspector-highlighted-product" : undefined}>
         <Link href={`/products/${product.product_id}`} className="inspector-product"><img src={images.get(product.product_id)} alt="" width={56} height={48} /><span>{product.title}<small>{formatPriceCompact(product.price_cents, product.currency)}</small></span></Link>
-        <dl>{[[armLabel.fts, product.signals?.fts.rank], [armLabel.trigram, product.signals?.trigram.rank], [armLabel.semantic, product.signals?.semantic.rank], ["Combined", product.signals?.pre_rerank_rank], ["Reranked", product.signals?.rerank_rank], ["Final", product.signals?.final_rank]].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{rank(value as number | null | undefined)}</dd></div>)}</dl>
+        <dl>{[[armLabel.fts, product.signals?.fts.rank], [armLabel.fuzzy, product.signals?.fuzzy.rank], [armLabel.semantic, product.signals?.semantic.rank], ["Combined", product.signals?.pre_rerank_rank], ["Reranked", product.signals?.rerank_rank], ["Final", product.signals?.final_rank]].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{rank(value as number | null | undefined)}</dd></div>)}</dl>
       </li>)}</ul>
     </div> : <p className="inspector-waiting">This search returned no products. No ranking is available.</p>}
     <InspectorDetail title="Ranking rules and time taken"><SearchTimingDetails response={response} /><CodeBlock label="Ranking details" code={JSON.stringify({ ranking_policy: response.diagnostics?.ranking_policy, stage_timings_ms: response.diagnostics?.stage_timings_ms, total_latency_ms: response.diagnostics?.total_latency_ms }, null, 2)} /></InspectorDetail>
@@ -250,7 +250,7 @@ function RetrieveGlance({ response, follow, missing, stopped, wanted, images, on
   </>;
 }
 
-const SEARCH_COLUMNS = ["fts", "trigram", "semantic"] as const;
+const SEARCH_COLUMNS = ["fts", "fuzzy", "semantic"] as const;
 
 /** Rank at a glance: the followed product's shares, their sum, and the combined position it earned. */
 function RankGlance({ response, follow, missing }: { response?: SearchResponse; follow?: ProductSummary; missing?: string }) {

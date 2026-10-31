@@ -10,7 +10,7 @@ const response = (rerank: "applied" | "disabled") => ({
   results: new Array(12).fill(null),
   diagnostics: {
     rerank_status: rerank,
-    candidate_counts: { fts_in_pool: 3, trigram_in_pool: 0, semantic_in_pool: 42, fused_pool: 50 },
+    candidate_counts: { fts_in_pool: 3, fuzzy_in_pool: 0, semantic_in_pool: 42, fused_pool: 50 },
     stage_timings_ms: { postgresql_retrieval: 161.4, rerank: 1827 },
   },
 }) as unknown as SearchResponse;

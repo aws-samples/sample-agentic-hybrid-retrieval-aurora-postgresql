@@ -13,7 +13,7 @@ import type { ProductSummary, ResultSignals, SearchResponse } from "./types";
 function signals(overrides: Partial<ResultSignals> = {}): ResultSignals {
   return {
     fts: { rank: null, raw_score: null, rrf_contribution: null },
-    trigram: { rank: null, raw_score: null, rrf_contribution: null },
+    fuzzy: { rank: null, raw_score: null, rrf_contribution: null },
     semantic: { rank: null, raw_score: null, rrf_contribution: null },
     rrf_score: 0,
     pre_rerank_rank: 1,
@@ -89,7 +89,7 @@ function response(results: ProductSummary[]): SearchResponse {
   };
 }
 
-describe("trigram arithmetic", () => {
+describe("fuzzy arithmetic", () => {
   it("pads words the way pg_trgm does", () => {
     // show_trgm('cat') is {"  c"," ca","cat","at "}: two leading spaces, one
     // trailing. Any other padding produces a different similarity for every pair.
@@ -233,7 +233,7 @@ describe("column measures", () => {
       response([
         product(1, {}, signals({
           fts: { rank: 1, raw_score: 0.03, rrf_contribution: 0.0164 },
-          trigram: { rank: 1, raw_score: 0.8, rrf_contribution: 0.0164 },
+          fuzzy: { rank: 1, raw_score: 0.8, rrf_contribution: 0.0164 },
           pre_rerank_rank: 1,
           final_rank: 1,
           rerank_score: 0.9,
@@ -325,7 +325,7 @@ describe("row verdicts", () => {
       response([
         product(1, {}, signals({
           fts: { rank: 1, raw_score: 0.03, rrf_contribution: 0.0164 },
-          trigram: { rank: 1, raw_score: 0.8, rrf_contribution: 0.0164 },
+          fuzzy: { rank: 1, raw_score: 0.8, rrf_contribution: 0.0164 },
           semantic: { rank: 1, raw_score: 0.9, rrf_contribution: 0.0164 },
           final_rank: 1,
           rerank_score: 0.9,
@@ -343,7 +343,7 @@ describe("the committed capture through the matrix", () => {
     const matrix = buildRetrievalMatrix(seedRun, [1492978]);
     expect(matrix.rows).toHaveLength(seedRun.results.length);
 
-    const arms = ["fts", "trigram", "semantic"] as const;
+    const arms = ["fts", "fuzzy", "semantic"] as const;
     arms.forEach((arm, index) => {
       const counted = seedRun.results.filter(
         (candidate) => candidate.signals![arm].rank !== null,

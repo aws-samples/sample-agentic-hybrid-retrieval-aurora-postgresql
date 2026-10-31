@@ -352,12 +352,12 @@ export function ProductCard({
           ))}
         </dl>
         {/* The same five words the catalog card uses. This strip printed "FTS 3 /
-            Trigram 7 / Vector 2 / Rerank 0.841", which is the mechanism, not the
+            Fuzzy 7 / Semantic 2 / Rerank 0.841", which is the mechanism, not the
             match, on a card a shopper is reading to choose a product. */}
         {showSignals && signals ? (
           <div className="signal-strip">
             <span>{armLabel.fts} #{signals.fts.rank ?? "-"}</span>
-            <span>{armLabel.trigram} #{signals.trigram.rank ?? "-"}</span>
+            <span>{armLabel.fuzzy} #{signals.fuzzy.rank ?? "-"}</span>
             <span>{armLabel.semantic} #{signals.semantic.rank ?? "-"}</span>
             <span>{FINAL_LABEL} #{signals.final_rank}</span>
           </div>

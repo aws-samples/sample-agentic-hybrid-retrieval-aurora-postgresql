@@ -20,7 +20,7 @@ describe("PipelineStrip", () => {
     const text = chips().map((chip) => chip.textContent);
     expect(text).toEqual([
       `Full-text search${counts.fts_in_pool}`,
-      `Fuzzy matching${counts.trigram_in_pool}`,
+      `Fuzzy matching${counts.fuzzy_in_pool}`,
       `Semantic search${counts.semantic_in_pool}`,
       `Combined (RRF) · shortlist${counts.fused_pool}`,
       `Reranked · Cohere Rerank${counts.fused_pool}`,
@@ -45,13 +45,13 @@ describe("PipelineStrip", () => {
       ...seedRun,
       diagnostics: {
         ...seedRun.diagnostics!,
-        candidate_counts: { ...seedRun.diagnostics!.candidate_counts, trigram_in_pool: 0 },
+        candidate_counts: { ...seedRun.diagnostics!.candidate_counts, fuzzy_in_pool: 0 },
       },
     };
     const { rerender } = render(<PipelineStrip response={empty} />);
     expect(within(chips()[1]).getByText("0")).toBeTruthy();
     expect(chips()[1].dataset.dot).toBe("none");
-    rerender(<PipelineStrip response={empty} faultArm="trigram" />);
+    rerender(<PipelineStrip response={empty} faultArm="fuzzy" />);
     expect(chips()[1].dataset.dot).toBe("fault");
     expect(chips()[0].dataset.dot).not.toBe("fault");
   });

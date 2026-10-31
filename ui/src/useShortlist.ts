@@ -7,7 +7,7 @@ const TOP = 5;
 
 const ARM_RANK = {
   fts: "fts_rank",
-  trigram: "trigram_rank",
+  fuzzy: "fuzzy_rank",
   semantic: "semantic_rank",
 } as const;
 
@@ -28,7 +28,7 @@ function firstBy(receipts: SearchResultEventRecord[], rank: (row: SearchResultEv
 export function boardProductIds(receipts: SearchResultEventRecord[], wantedId: number | null, top = TOP): number[] {
   const ids = new Set<number>([
     ...firstBy(receipts, (row) => row.fts_rank, top),
-    ...firstBy(receipts, (row) => row.trigram_rank, top),
+    ...firstBy(receipts, (row) => row.fuzzy_rank, top),
     ...firstBy(receipts, (row) => row.semantic_rank, top),
     ...firstBy(receipts, (row) => row.fused_rank, top),
     ...firstBy(receipts, (row) => row.result_rank, top),
@@ -53,7 +53,7 @@ export function fromReceipt(product: ProductSummary, receipt: SearchResultEventR
     ...product,
     signals: {
       fts: arm("fts"),
-      trigram: arm("trigram"),
+      fuzzy: arm("fuzzy"),
       semantic: arm("semantic"),
       rrf_score: score(receipt, "rrf") ?? 0,
       pre_rerank_rank: receipt.fused_rank ?? receipt.result_rank,

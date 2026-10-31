@@ -16,9 +16,9 @@ function rerankRelevanceLabel(modelId: string | null | undefined): string {
     : "relevance score";
 }
 
-const ARM_WEIGHT: Record<RetrievalArm, "weight_lexical" | "weight_trigram" | "weight_semantic"> = {
-  fts: "weight_lexical",
-  trigram: "weight_trigram",
+const ARM_WEIGHT: Record<RetrievalArm, "weight_fts" | "weight_fuzzy" | "weight_semantic"> = {
+  fts: "weight_fts",
+  fuzzy: "weight_fuzzy",
   semantic: "weight_semantic",
 };
 

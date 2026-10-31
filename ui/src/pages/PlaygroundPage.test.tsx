@@ -32,7 +32,7 @@ const secondSearchId = "22222222-2222-4222-8222-222222222222";
 const agentId = "33333333-3333-4333-8333-333333333333";
 function ranked(product: ProductSummary, before: number, final: number): ProductSummary {
   const absent = { rank: null, raw_score: null, rrf_contribution: null };
-  return { ...product, signals: { fts: absent, trigram: absent, semantic: absent, rrf_score: 0.02, pre_rerank_rank: before, pre_rerank_score: 0.02, rerank_score: 0.9, rerank_rank: final, final_rank: final, score_semantics: "fixture" } };
+  return { ...product, signals: { fts: absent, fuzzy: absent, semantic: absent, rrf_score: 0.02, pre_rerank_rank: before, pre_rerank_score: 0.02, rerank_score: 0.9, rerank_rank: final, final_rank: final, score_semantics: "fixture" } };
 }
 const savedSearch = (id: string, products: ProductSummary[]): SearchResponse => ({ search_event_id: id, query: `Saved query ${id}`, normalized_query: "saved", applied_filters: { category_key: "over-ear-headphones", max_price_cents: 20000 }, results: products, diagnostics: null });
 const searchStep = (id: string, sequence: number): ToolTraceStep => ({ sequence, tool: "search_products", detail: "Saved search", retrieval_run_id: id, result_count: 2, arguments: {}, outcome: "success", latency_ms: 10 });
@@ -356,7 +356,7 @@ it("opens on Clearer calls, offers one Play action, and keeps guide links workin
 it("shows the actual rank movement from the agent receipt, then clears it when requests change", async () => {
   const id = "11111111-1111-4111-8111-111111111111";
   const absent = { rank: null, raw_score: null, rrf_contribution: null };
-  const product = { ...fixtureCatalogPage({}, 0, 1).products[0], signals: { fts: absent, trigram: absent, semantic: { ...absent, rank: 27 }, rrf_score: 0.02, pre_rerank_rank: 27, pre_rerank_score: 0.02, rerank_score: 0.9, rerank_rank: 1, final_rank: 1, score_semantics: "fixture" } };
+  const product = { ...fixtureCatalogPage({}, 0, 1).products[0], signals: { fts: absent, fuzzy: absent, semantic: { ...absent, rank: 27 }, rrf_score: 0.02, pre_rerank_rank: 27, pre_rerank_score: 0.02, rerank_score: 0.9, rerank_rank: 1, final_rank: 1, score_semantics: "fixture" } };
   const response: SearchResponse = { search_event_id: id, query: "agent-selected query", normalized_query: "agent-selected query", applied_filters: {}, results: [product], diagnostics: null };
   const answer: AgentResponse = { agent_run_id: "22222222-2222-4222-8222-222222222222", question: defaultRequest.query, answer: "The recorded answer.", plan: [], recommendations: [product], citations: [], trace: [{ sequence: 1, tool: "search_products", detail: "Actual search", retrieval_run_id: id, result_count: 1, arguments: {}, outcome: "success", latency_ms: 10 }] };
   vi.spyOn(api, "retrievalEventResponse").mockResolvedValue(response);
@@ -400,7 +400,7 @@ it("keeps the first search counts when a later search supplies the leading recom
   const products = fixtureCatalogPage({}, 0, 2).products;
   const withCounts = (id: string, product: ProductSummary, counts: number[]) => ({
     ...savedSearch(id, [product]),
-    diagnostics: { candidate_counts: { fts_in_pool: counts[0], trigram_in_pool: counts[1], semantic_in_pool: counts[2] } } as unknown as SearchResponse["diagnostics"],
+    diagnostics: { candidate_counts: { fts_in_pool: counts[0], fuzzy_in_pool: counts[1], semantic_in_pool: counts[2] } } as unknown as SearchResponse["diagnostics"],
   });
   const first = withCounts(firstSearchId, products[0], [4, 4, 46]);
   const second = withCounts(secondSearchId, products[1], [0, 0, 50]);
@@ -470,7 +470,7 @@ it("separates recorded model requests, application steps and missing origins wit
 const measuredArm = (key: ScorecardStageArm["key"], ndcg: number, recall: number, mrr: number): ScorecardStageArm => ({ key, label: key, description: "fixture", recall_at_10: recall, mrr, ndcg_at_10: ndcg, ndcg_at_10_min: 0, ndcg_at_10_max: 1, ndcg_at_10_stdev: 0.2, ndcg_at_10_query_wins: 1 });
 const measuredAblation = {
   attributed: true, attribution_note: "", measured_at: "2026-09-10T00:00:00+00:00", spread_note: "", scored_query_count: 20,
-  arms: [measuredArm("lexical_only", 0.61, 0.6, 0.65), measuredArm("trigram_only", 0.31, 0.3, 0.35), measuredArm("semantic_only", 0.66, 0.7, 0.71), measuredArm("rrf_fused_no_rerank", 0.83, 0.88, 0.87), measuredArm("rrf_fused_reranked", 0.87, 0.87, 0.93)],
+  arms: [measuredArm("fts_only", 0.61, 0.6, 0.65), measuredArm("fuzzy_only", 0.31, 0.3, 0.35), measuredArm("semantic_only", 0.66, 0.7, 0.71), measuredArm("rrf_fused_no_rerank", 0.83, 0.88, 0.87), measuredArm("rrf_fused_reranked", 0.87, 0.87, 0.93)],
   paired_comparisons: [
     { from_key: "semantic_only", to_key: "rrf_fused_no_rerank", label: "Combining, against semantic search alone", mean_difference: 0.17, difference_stdev: 0.4, wins: 8, losses: 2, ties: 10, separable: false, verdict: "fixture" },
     { from_key: "rrf_fused_no_rerank", to_key: "rrf_fused_reranked", label: "Reranking the combined list", mean_difference: 0.04, difference_stdev: 0.1, wins: 4, losses: 3, ties: 13, separable: false, verdict: "fixture" },
@@ -478,15 +478,15 @@ const measuredAblation = {
   candidate_recall_ceiling: { pool_recall_ceiling: 0.95, judged_relevant_never_fetched: 2, description: "fixture" },
   per_query: [],
 };
-function foundBy(product: ProductSummary, ranks: { fts?: number; trigram?: number; semantic?: number }, final: number): ProductSummary {
+function foundBy(product: ProductSummary, ranks: { fts?: number; fuzzy?: number; semantic?: number }, final: number): ProductSummary {
   const signal = (value?: number) => ({ rank: value ?? null, raw_score: null, rrf_contribution: null });
-  return { ...product, signals: { fts: signal(ranks.fts), trigram: signal(ranks.trigram), semantic: signal(ranks.semantic), rrf_score: 0.02, pre_rerank_rank: final, pre_rerank_score: 0.02, rerank_score: 0.9, rerank_rank: final, final_rank: final, score_semantics: "fixture" } };
+  return { ...product, signals: { fts: signal(ranks.fts), fuzzy: signal(ranks.fuzzy), semantic: signal(ranks.semantic), rrf_score: 0.02, pre_rerank_rank: final, pre_rerank_score: 0.02, rerank_score: 0.9, rerank_rank: final, final_rank: final, score_semantics: "fixture" } };
 }
 
 it("prints what each arm alone scores from the measured artifact and counts this run's one-arm products", async () => {
   vi.spyOn(api, "scorecard").mockResolvedValue({ stage_ablation: measuredAblation } as unknown as RetrievalScorecardResponse);
   const base = fixtureCatalogPage({}, 0, 4).products;
-  const products = [foundBy(base[0], { fts: 1 }, 1), foundBy(base[1], { fts: 2, trigram: 1, semantic: 3 }, 2), foundBy(base[2], { semantic: 1 }, 3), foundBy(base[3], { trigram: 2, semantic: 5 }, 4)];
+  const products = [foundBy(base[0], { fts: 1 }, 1), foundBy(base[1], { fts: 2, fuzzy: 1, semantic: 3 }, 2), foundBy(base[2], { semantic: 1 }, 3), foundBy(base[3], { fuzzy: 2, semantic: 5 }, 4)];
   window.history.replaceState({}, "", `/labs/retrieval?event=${firstSearchId}`);
   vi.spyOn(api, "retrievalEventResponse").mockResolvedValue(savedSearch(firstSearchId, products));
   render(<PlaygroundPage />);
@@ -543,12 +543,12 @@ it("names Lab 1's missing target, its cause and the next step on a saved broken 
   const other = {
     ...fixtureCatalogPage({}, 0, 1).products[0],
     ...mission.filters,
-    signals: { fts: absent, trigram: absent, semantic: { rank: 8, raw_score: 0.3, rrf_contribution: 0.0147 }, rrf_score: 0.0147, pre_rerank_rank: 8, pre_rerank_score: 0.0147, rerank_score: 0.4, rerank_rank: 1, final_rank: 1, score_semantics: "fixture" },
+    signals: { fts: absent, fuzzy: absent, semantic: { rank: 8, raw_score: 0.3, rrf_contribution: 0.0147 }, rrf_score: 0.0147, pre_rerank_rank: 8, pre_rerank_score: 0.0147, rerank_score: 0.4, rerank_rank: 1, final_rank: 1, score_semantics: "fixture" },
   } as ProductSummary;
   const broken: SearchResponse = {
     search_event_id: firstSearchId, query: mission.query, normalized_query: mission.query,
     applied_filters: { ...mission.filters }, results: [other],
-    diagnostics: { retrieval_profile: {}, candidate_counts: { fused_pool: 50, fts_in_pool: 0, trigram_in_pool: 0, semantic_in_pool: 50 } } as unknown as SearchResponse["diagnostics"],
+    diagnostics: { retrieval_profile: {}, candidate_counts: { fused_pool: 50, fts_in_pool: 0, fuzzy_in_pool: 0, semantic_in_pool: 50 } } as unknown as SearchResponse["diagnostics"],
   };
   vi.spyOn(api, "retrievalEventResponse").mockResolvedValue(broken);
   window.history.replaceState({}, "", `/labs/retrieval?q=${mission.query}&event=${firstSearchId}&example=typo-recovery`);

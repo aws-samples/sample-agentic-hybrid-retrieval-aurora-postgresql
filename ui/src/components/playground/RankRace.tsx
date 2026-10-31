@@ -4,7 +4,7 @@ import { armLabel, armPoolKey } from "../../retrievalLanguage";
 import type { ProductSummary, SearchResponse } from "../../types";
 import { pickName } from "../ask-mosaic/comparison";
 
-export type RaceStepKey = "fts" | "trigram" | "semantic" | "combined" | "final";
+export type RaceStepKey = "fts" | "fuzzy" | "semantic" | "combined" | "final";
 
 interface RaceStep {
   key: RaceStepKey;
@@ -16,7 +16,7 @@ interface RaceStep {
 /** Each search on its own, then the order Aurora combined, then the reranked order. */
 export const RACE_STEPS: RaceStep[] = [
   { key: "fts", label: armLabel.fts, rank: (p) => p.signals?.fts.rank ?? null, score: (p) => p.signals?.fts.raw_score ?? null },
-  { key: "trigram", label: armLabel.trigram, rank: (p) => p.signals?.trigram.rank ?? null, score: (p) => p.signals?.trigram.raw_score ?? null },
+  { key: "fuzzy", label: armLabel.fuzzy, rank: (p) => p.signals?.fuzzy.rank ?? null, score: (p) => p.signals?.fuzzy.raw_score ?? null },
   { key: "semantic", label: armLabel.semantic, rank: (p) => p.signals?.semantic.rank ?? null, score: (p) => p.signals?.semantic.raw_score ?? null },
   { key: "combined", label: "Combined (RRF)", rank: (p) => p.signals?.pre_rerank_rank ?? null, score: (p) => p.signals?.pre_rerank_score ?? null },
   { key: "final", label: "Reranked", rank: (p) => p.signals?.final_rank ?? null, score: (p) => p.signals?.rerank_score ?? null },
@@ -143,7 +143,7 @@ export function raceCaption(step: RaceStep, products: ProductSummary[], response
   const pool = response.diagnostics?.candidate_counts?.fused_pool;
   const what: Record<RaceStepKey, string> = {
     fts: "Full-text search ranks listings that contain the request’s words.",
-    trigram: "Fuzzy matching ranks listings whose names and IDs share letter sequences with the request, so a typo still matches.",
+    fuzzy: "Fuzzy matching ranks listings whose names and IDs share letter sequences with the request, so a typo still matches.",
     semantic: "Semantic search ranks listings by how close their meaning is to the request’s.",
     combined: `Aurora combines the three lists: each search adds 1 / (${k ?? "k"} + its rank), and a search that missed a product adds nothing.`,
     final: response.diagnostics?.rerank_status === "applied"
@@ -167,7 +167,7 @@ export function raceCaption(step: RaceStep, products: ProductSummary[], response
  * and how many of those the search returned: the two numbers a reader compares.
  */
 export function foundLine(step: RaceStep, response: SearchResponse): string | null {
-  if (step.key !== "fts" && step.key !== "trigram" && step.key !== "semantic") return null;
+  if (step.key !== "fts" && step.key !== "fuzzy" && step.key !== "semantic") return null;
   const count = response.diagnostics?.candidate_counts?.[armPoolKey[step.key]];
   if (count == null) return null;
   if (count === 0) return "It found no candidates for this request.";

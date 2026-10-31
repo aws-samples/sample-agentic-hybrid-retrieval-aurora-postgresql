@@ -26,7 +26,7 @@ import type { ProductSummary, RankSignal } from "../types";
 /** Which arms found a product, in the order the workshop teaches them. */
 const ARMS = [
   ["fts", armLabel.fts],
-  ["trigram", armLabel.trigram],
+  ["fuzzy", armLabel.fuzzy],
   ["semantic", armLabel.semantic],
 ] as const;
 

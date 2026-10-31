@@ -19,7 +19,7 @@ function product(signals: ResultSignals | null, specs: ProductSummary["specs"] =
 
 const signals: ResultSignals = {
   fts: found(3, 0.0159),
-  trigram: missed,
+  fuzzy: missed,
   semantic: found(1, 0.0164),
   rrf_score: 0.0323,
   pre_rerank_rank: 2,

@@ -98,7 +98,7 @@ function FactLine({ fact, answerId, review = false }: { fact: PickFact; answerId
 function FoundBy({ product }: { product: ProductSummary }) {
   const signals = product.signals;
   if (!signals) return null;
-  const arms = (["fts", "trigram", "semantic"] as const).filter((arm) => signals[arm]?.rank != null);
+  const arms = (["fts", "fuzzy", "semantic"] as const).filter((arm) => signals[arm]?.rank != null);
   if (!arms.length) return null;
   return (
     <div className="ask-found-by" role="group" aria-label="Found by">
