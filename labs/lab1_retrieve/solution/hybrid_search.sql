@@ -8,7 +8,7 @@
 -- recover. The marked block in `channels` is Lab 1's edit; README.md beside this
 -- file has the task, the commands and the reference answer.
 
--- Unit D added the `trigram_threshold` parameter. `CREATE OR REPLACE` cannot
+-- Unit D added the `fuzzy_threshold` parameter. `CREATE OR REPLACE` cannot
 -- change a signature, so on an already-deployed cluster it creates an OVERLOAD
 -- and leaves the 9-argument version live. A caller passing 9 positional
 -- arguments then silently binds the old body. Dropping the previous signature
@@ -26,15 +26,15 @@ CREATE OR REPLACE FUNCTION mosaic_search.search_hybrid_rrf(
     f jsonb DEFAULT '{}'::jsonb,
     rrf_k integer DEFAULT 60,
     fts_limit integer DEFAULT 120,
-    trigram_limit integer DEFAULT 80,
+    fuzzy_limit integer DEFAULT 80,
     semantic_limit integer DEFAULT 150,
     result_limit integer DEFAULT 50,
     -- Threaded through rather than hardcoded at the call site below. A
     -- positional literal there was invisible to scripts/checks/config_tripwire.py,
     -- whose rule 1 only sees assignment-shaped declarations; as a named
     -- parameter it is an exempted default that the tripwire pins to
-    -- candidate_generation.trigram_threshold and asserts equal.
-    trigram_threshold real DEFAULT 0.20
+    -- candidate_generation.fuzzy_threshold and asserts equal.
+    fuzzy_threshold real DEFAULT 0.20
 )
 RETURNS TABLE (
     product_id bigint,
@@ -47,10 +47,10 @@ RETURNS TABLE (
     catalog_asset_key text,
     canonical_group_id text,
     fts_score real,
-    trigram_score real,
+    fuzzy_score real,
     semantic_score real,
     fts_rank bigint,
-    trigram_rank bigint,
+    fuzzy_rank bigint,
     semantic_rank bigint,
     rrf_score double precision,
     pre_rerank_score double precision,
@@ -63,14 +63,14 @@ AS $$
 WITH fts AS (
     SELECT * FROM mosaic_search.search_fts(q, f, fts_limit)
 )
-, typo AS (
-    SELECT * FROM mosaic_search.search_trigram(
-        q, f, trigram_limit, trigram_threshold
+, fuzzy AS (
+    SELECT * FROM mosaic_search.search_fuzzy(
+        q, f, fuzzy_limit, fuzzy_threshold
     )
 )
 , semantic AS (
     SELECT product_id, semantic_score, semantic_rank
-    FROM mosaic_search.search_vector(query_embedding, f, semantic_limit)
+    FROM mosaic_search.search_semantic(query_embedding, f, semantic_limit)
 ), channels AS (
     SELECT product_id, 'fts'::text AS channel, fts_rank AS source_rank,
            fts_score AS raw_score,
@@ -81,13 +81,13 @@ WITH fts AS (
 -- Lab 1 edit. See README.md beside this file.
 -- LAB1_EDIT_START
     UNION ALL
-    SELECT product_id, 'trigram', trigram_rank,
-           trigram_score,
-           mosaic_search.reciprocal_rank_contribution(trigram_rank, rrf_k)
-    FROM typo
+    SELECT product_id, 'fuzzy', fuzzy_rank,
+           fuzzy_score,
+           mosaic_search.reciprocal_rank_contribution(fuzzy_rank, rrf_k)
+    FROM fuzzy
 -- LAB1_EDIT_END
     UNION ALL
-    SELECT product_id, 'vector', semantic_rank,
+    SELECT product_id, 'semantic', semantic_rank,
            semantic_score,
            mosaic_search.reciprocal_rank_contribution(semantic_rank, rrf_k)
     FROM semantic
@@ -95,11 +95,11 @@ WITH fts AS (
     SELECT product_id,
            sum(contribution)::double precision AS rrf_score,
            max(raw_score) FILTER (WHERE channel = 'fts')::real AS fts_score,
-           max(raw_score) FILTER (WHERE channel = 'trigram')::real AS trigram_score,
-           max(raw_score) FILTER (WHERE channel = 'vector')::real AS semantic_score,
+           max(raw_score) FILTER (WHERE channel = 'fuzzy')::real AS fuzzy_score,
+           max(raw_score) FILTER (WHERE channel = 'semantic')::real AS semantic_score,
            min(source_rank) FILTER (WHERE channel = 'fts') AS fts_rank,
-           min(source_rank) FILTER (WHERE channel = 'trigram') AS trigram_rank,
-           min(source_rank) FILTER (WHERE channel = 'vector') AS semantic_rank,
+           min(source_rank) FILTER (WHERE channel = 'fuzzy') AS fuzzy_rank,
+           min(source_rank) FILTER (WHERE channel = 'semantic') AS semantic_rank,
            jsonb_object_agg(channel, jsonb_build_object(
                'rank', source_rank,
                'raw_score', raw_score,
@@ -121,10 +121,10 @@ WITH fts AS (
            d.is_retrieval_anchor,
            fused.rrf_score,
            fused.fts_score,
-           fused.trigram_score,
+           fused.fuzzy_score,
            fused.semantic_score,
            fused.fts_rank,
-           fused.trigram_rank,
+           fused.fuzzy_rank,
            fused.semantic_rank,
            fused.channel_provenance
     FROM fused
@@ -141,10 +141,10 @@ SELECT
     e.catalog_asset_key,
     e.canonical_group_id,
     e.fts_score,
-    e.trigram_score,
+    e.fuzzy_score,
     e.semantic_score,
     e.fts_rank,
-    e.trigram_rank,
+    e.fuzzy_rank,
     e.semantic_rank,
     e.rrf_score,
     e.rrf_score AS pre_rerank_score,

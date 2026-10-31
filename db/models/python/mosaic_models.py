@@ -185,7 +185,7 @@ class SearchFilters(BaseModel):
 
 class RetrievalProfile(BaseModel):
     fts_limit: int = Field(default=120, ge=1, le=1000)
-    trigram_limit: int = Field(default=80, ge=1, le=1000)
+    fuzzy_limit: int = Field(default=80, ge=1, le=1000)
     semantic_limit: int = Field(default=150, ge=1, le=1000)
     fused_limit: int = Field(default=50, ge=1, le=250)
     result_limit: int = Field(default=12, ge=1, le=100)
@@ -221,7 +221,7 @@ class SearchCandidate(BaseModel):
     catalog_asset_key: str | None = None
     canonical_group_id: str
     fts_score: float | None = None
-    trigram_score: float | None = None
+    fuzzy_score: float | None = None
     semantic_score: float | None = None
     rrf_score: float
     pre_rerank_score: float

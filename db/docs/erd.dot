@@ -11,7 +11,7 @@ digraph MosaicERD {
   media [label="mosaic.media_asset\nphysical image metadata"];
   product_media [label="mosaic.product_media\nroles + crop + mark zone"];
   evidence [label="mosaic.product_evidence\nspecs + reviews + evidence vector"];
-  document [label="mosaic_search.product_listing_view\nover product_listing: FTS + trigram + HNSW + filters", fillcolor="#efe2dc"];
+  document [label="mosaic_search.product_listing_view\nover product_listing: FTS + fuzzy + HNSW + filters", fillcolor="#efe2dc"];
   search_event [label="mosaic.search_event\nquery telemetry + plan"];
   tool_event [label="mosaic.agent_tool_event\ntool audit + provenance"];
   eval_query [label="mosaic_eval.query\neval prompts + filters"];

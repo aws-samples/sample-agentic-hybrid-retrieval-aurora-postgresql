@@ -62,7 +62,7 @@ File numbers follow install order. `sql/install.sql` runs:
 | Files | What they create |
 |---|---|
 | `00`–`07` | Extensions, schemas and types, reference data, catalog, media, evidence, the retrieval projection and its indexes |
-| `08_search_channels.sql` | Shared filters, HNSW settings, and full-text, fuzzy matching and vector search |
+| `08_search_channels.sql` | Shared filters, HNSW settings, and full-text, fuzzy matching and semantic search |
 | `../../labs/lab2_rank/rrf_contribution.sql` | Lab 2's exercise: each channel's reciprocal rank fusion contribution |
 | `../../labs/lab1_retrieve/hybrid_search.sql` | Lab 1's exercise: hybrid search over the three channels |
 | `09_weighted_fusion.sql`, `10_evidence_search.sql` | Weighted fusion for comparison, and evidence search for citations |
@@ -114,7 +114,7 @@ verify the real-only population. See [ARTIFACTS.md](../ARTIFACTS.md).
 | `mosaic.product_media` | Product-to-image roles such as catalog/detail/lifestyle |
 | `mosaic.merchandising_assignment` | Premium tier, Shop pagination, flagship, and retrieval-anchor flags |
 | `mosaic.product_evidence` | Specs, reviews, Q&A, expert summaries, and evidence embeddings |
-| `mosaic_search.product_listing` | The listings and their full-text, trigram and HNSW indexes |
+| `mosaic_search.product_listing` | The listings and their full-text, fuzzy and HNSW indexes |
 | `mosaic_search.product_listing_view` | What every search reads: shop product IDs and recorded source prices |
 | `mosaic.search_event` | End-to-end query telemetry |
 | `mosaic.agent_tool_event` | Agent tool-call audit/provenance |

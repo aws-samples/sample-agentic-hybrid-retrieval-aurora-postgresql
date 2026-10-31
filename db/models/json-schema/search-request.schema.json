@@ -29,11 +29,11 @@
           "title": "Fts Limit",
           "type": "integer"
         },
-        "trigram_limit": {
+        "fuzzy_limit": {
           "default": 80,
           "maximum": 1000,
           "minimum": 1,
-          "title": "Trigram Limit",
+          "title": "Fuzzy Limit",
           "type": "integer"
         },
         "semantic_limit": {

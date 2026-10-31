@@ -63,8 +63,8 @@ ALTER TYPE mosaic.evidence_type
 DO $$ BEGIN
     CREATE TYPE mosaic.retrieval_channel AS ENUM (
         'fts',
-        'trigram',
-        'vector',
+        'fuzzy',
+        'semantic',
         'rrf',
         'rerank',
         'agent'

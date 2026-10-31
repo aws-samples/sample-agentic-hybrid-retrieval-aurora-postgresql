@@ -17,32 +17,32 @@ embedding:
   evidence_field: product specifications reuse product_listing.embedding; source-specific evidence uses FTS
 candidate_generation:
   fts_limit: 120
-  trigram_limit: 80
+  fuzzy_limit: 80
   semantic_limit: 150
-  # Score floor passed to mosaic_search.search_trigram as `minimum_similarity`
+  # Score floor passed to mosaic_search.search_fuzzy as `minimum_similarity`
   # and asserted equal to the SQL literal in mosaic_search.search_hybrid_rrf by
-  # scripts/checks/config_tripwire.py. It is NOT the only gate. search_trigram
+  # scripts/checks/config_tripwire.py. It is NOT the only gate. search_fuzzy
   # runs two arms: the first (word similarity) admits a row only if
   # `lower(q) <% trigram_text`, which pg_trgm decides at
-  # trigram_index_gate.word_similarity_threshold below (0.5), so by the time
+  # fuzzy_index_gate.word_similarity_threshold below (0.5), so by the time
   # this floor is checked every row already scores at least 0.5 and 0.20 never
   # binds there. The second arm runs only when the first returns no rows; it
   # admits a row on `trigram_text % lower(q)` at
-  # trigram_index_gate.similarity_threshold (0.18) and then applies this 0.20
+  # fuzzy_index_gate.similarity_threshold (0.18) and then applies this 0.20
   # floor, so 0.20 is binding only on that whole-string fallback.
   # config/workshop.json recorded 0.24; that value was stale and is not ported.
-  trigram_threshold: 0.20
+  fuzzy_threshold: 0.20
   # Index gates used by pg_trgm's `%` and `<%` operators. They are database
   # defaults rather than function-local SET clauses because a fresh Aurora
   # session has not loaded pg_trgm yet and rejects those clauses at function
   # creation time. scripts/configure_retrieval_database.py applies and verifies
   # these values on the target Aurora database. similarity_threshold gates `%`
   # (the fallback arm); word_similarity_threshold gates `<%` (the first arm).
-  trigram_index_gate:
+  fuzzy_index_gate:
     similarity_threshold: 0.18
     word_similarity_threshold: 0.5
 coverage:
-  # Trigram floor separating a misspelling from an absence, for word-shaped
+  # Fuzzy floor separating a misspelling from an absence, for word-shaped
   # tokens only. mosaic_search.query_term_coverage compares the token as
   # written against mosaic_search.corpus_surface_lexeme; a token at or above
   # this floor is `recoverable`, below it `unmatched_anchor`. Identifier-shaped
@@ -54,7 +54,7 @@ coverage:
   # margin. Binding on both sides by one token: 'enough' -> 'through' at 0.250
   # must stay rescued, 'zylthorne' -> 'corne' at 0.231 must stay refused.
   #
-  # Must stay at or above candidate_generation.trigram_index_gate.
+  # Must stay at or above candidate_generation.fuzzy_index_gate.
   # similarity_threshold above: the neighbour lookup is gated by the `%`
   # operator, so a floor below that gate would let the index prune candidates
   # the floor would have accepted.
@@ -91,9 +91,9 @@ fusion:
   # hard business eligibility expressed as SQL predicates rather than a hidden
   # score adjustment.
   weights:
-    lexical: 0.30
+    fts: 0.30
     semantic: 0.45
-    trigram: 0.10
+    fuzzy: 0.10
 rerank:
   # Rows shown to a participant after reranking. The pool it selects from is
   # fusion.fused_limit above.
@@ -104,7 +104,7 @@ hnsw:
   ef_search: 100
   iterative_scan: relaxed_order
   max_scan_tuples: 20000
-  # Raised from 1 to 2 on 2026-08-17. At 1, mosaic_search.search_vector under a
+  # Raised from 1 to 2 on 2026-08-17. At 1, mosaic_search.search_semantic under a
   # filter anti-correlated with the query neighbourhood returned 42-150 of 150
   # candidates (mean 109.1) across eight retrieval anchors with
   # domain='home_office' — up to 72% of the pool lost silently, then fused by RRF

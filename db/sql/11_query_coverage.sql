@@ -13,7 +13,7 @@
 -- The distinction that matters is between a misspelling and an absence:
 --
 --   'hedfones' matches zero documents, but sits close to 'headphones' in the
---   corpus vocabulary. It is recoverable, and the trigram arm recovers it.
+--   corpus vocabulary. It is recoverable, and the fuzzy arm recovers it.
 --
 --   'a2342' matches zero documents and sits close to nothing. No arm can
 --   recover it, because there is nothing to recover.
@@ -28,7 +28,7 @@
 --
 --   corpus_lexeme          stemmed, from the same tsvector the FTS arm searches.
 --                          Answers "does this term match a document" exactly.
---   corpus_surface_lexeme  unstemmed, from every text column a lexical or fuzzy
+--   corpus_surface_lexeme  unstemmed, from every text column a full-text or fuzzy
 --                          arm reads. Answers "is there a close catalog term".
 --
 -- Measured on the live 500,000-product cluster on 2026-09-04: proximity against
@@ -70,8 +70,8 @@ DROP INDEX IF EXISTS mosaic_search.corpus_lexeme_trgm_idx;
 --
 -- Built with the 'simple' configuration over every text column a retrieval arm
 -- reads -- the four that compose search_document (prepare_staged_catalog_search.py)
--- plus trigram_text, which is what mosaic_search.search_trigram actually
--- matches against. The claim a `recoverable` verdict makes is "the trigram arm
+-- plus trigram_text, which is what mosaic_search.search_fuzzy actually
+-- matches against. The claim a `recoverable` verdict makes is "the fuzzy arm
 -- can reach this term", so the vocabulary behind that claim has to be the text
 -- that arm searches, not a stemmed projection of a different column.
 --
@@ -172,7 +172,7 @@ DROP FUNCTION IF EXISTS mosaic_search.query_term_coverage(text, real);
 -- verdict values:
 --   'matched'          the term appears in at least one product document
 --   'recoverable'      no exact match, but a close catalog term exists and the
---                      trigram arm can reach it (the Lab 1 misspelling case)
+--                      fuzzy arm can reach it (the Lab 1 misspelling case)
 --   'unmatched_anchor' no exact match and nothing close enough to recover; the
 --                      request names something the catalog does not carry
 --   'ignored'          punctuation, whitespace, or a stop word, which carry no
@@ -291,7 +291,7 @@ AS $$
     --
     -- `%` is index-backed by corpus_surface_lexeme_trgm_idx and gated by
     -- pg_trgm.similarity_threshold, which is 0.18 on this cluster
-    -- (candidate_generation.trigram_index_gate.similarity_threshold). The floor
+    -- (candidate_generation.fuzzy_index_gate.similarity_threshold). The floor
     -- must stay at or above that gate: below it the index would prune
     -- neighbours the floor would have accepted, and the floor would silently
     -- stop being the thing that decides.
@@ -312,7 +312,7 @@ $$;
 
 COMMENT ON FUNCTION mosaic_search.query_term_coverage(text, real) IS
     'Per-token catalog coverage for a request. Distinguishes a misspelling '
-    '(recoverable by the trigram arm) from an absence (recoverable by nothing). '
+    '(recoverable by the fuzzy arm) from an absence (recoverable by nothing). '
     'Reads mosaic_search.corpus_lexeme for exact matches and '
     'mosaic_search.corpus_surface_lexeme for neighbours; '
     'mosaic_search.refresh_corpus_lexeme() must have populated both.';

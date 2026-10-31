@@ -59,7 +59,7 @@ CREATE TABLE IF NOT EXISTS mosaic.search_result_event (
     product_id            bigint NOT NULL REFERENCES mosaic.product(product_id) ON DELETE CASCADE,
     result_rank           integer NOT NULL CHECK (result_rank > 0),
     fts_rank              integer,
-    trigram_rank          integer,
+    fuzzy_rank            integer,
     semantic_rank         integer,
     fused_rank            integer,
     rerank_rank           integer,
@@ -120,7 +120,7 @@ CREATE TABLE IF NOT EXISTS mosaic.fusion_comparison_candidate (
     -- Arm ranks. NULL means the arm did not return this candidate, which is a
     -- fact about the arm and not a missing value.
     fts_rank              integer,
-    trigram_rank          integer,
+    fuzzy_rank            integer,
     semantic_rank         integer,
     unweighted_rrf_score  double precision NOT NULL,
     weighted_rrf_score    double precision NOT NULL,

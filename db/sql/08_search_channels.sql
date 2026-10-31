@@ -130,7 +130,7 @@ DECLARE
     term_count integer;
     returned_rows integer;
 BEGIN
-    -- Exact identity and well-formed lexical queries should take the most
+    -- Exact identity and well-formed full-text queries should take the most
     -- selective GIN path. The previous implementation always widened the query
     -- to OR, then scored 130K rows for a common five-term Shop query.
     RETURN QUERY
@@ -226,7 +226,7 @@ BEGIN
 END
 $$;
 
-CREATE OR REPLACE FUNCTION mosaic_search.search_trigram(
+CREATE OR REPLACE FUNCTION mosaic_search.search_fuzzy(
     q text,
     f jsonb DEFAULT '{}'::jsonb,
     candidate_limit integer DEFAULT 80,
@@ -234,8 +234,8 @@ CREATE OR REPLACE FUNCTION mosaic_search.search_trigram(
 )
 RETURNS TABLE (
     product_id bigint,
-    trigram_score real,
-    trigram_rank bigint
+    fuzzy_score real,
+    fuzzy_rank bigint
 )
 LANGUAGE plpgsql
 STABLE
@@ -319,7 +319,7 @@ BEGIN
 END
 $$;
 
-CREATE OR REPLACE FUNCTION mosaic_search.search_vector(
+CREATE OR REPLACE FUNCTION mosaic_search.search_semantic(
     query_embedding vector(1024),
     f jsonb DEFAULT '{}'::jsonb,
     candidate_limit integer DEFAULT 150

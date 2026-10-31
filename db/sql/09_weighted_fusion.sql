@@ -36,13 +36,13 @@ CREATE OR REPLACE FUNCTION mosaic_search.search_hybrid_rrf_weighted(
     f jsonb DEFAULT '{}'::jsonb,
     rrf_k integer DEFAULT 60,
     fts_limit integer DEFAULT 120,
-    trigram_limit integer DEFAULT 80,
+    fuzzy_limit integer DEFAULT 80,
     semantic_limit integer DEFAULT 150,
     result_limit integer DEFAULT 50,
-    trigram_threshold real DEFAULT 0.20,
-    weight_lexical real DEFAULT 0.30,
+    fuzzy_threshold real DEFAULT 0.20,
+    weight_fts real DEFAULT 0.30,
     weight_semantic real DEFAULT 0.45,
-    weight_trigram real DEFAULT 0.10
+    weight_fuzzy real DEFAULT 0.10
 )
 RETURNS TABLE (
     product_id bigint,
@@ -55,10 +55,10 @@ RETURNS TABLE (
     catalog_asset_key text,
     canonical_group_id text,
     fts_score real,
-    trigram_score real,
+    fuzzy_score real,
     semantic_score real,
     fts_rank bigint,
-    trigram_rank bigint,
+    fuzzy_rank bigint,
     semantic_rank bigint,
     rrf_score double precision,
     pre_rerank_score double precision,
@@ -70,13 +70,13 @@ PARALLEL SAFE
 AS $$
 WITH fts AS (
     SELECT * FROM mosaic_search.search_fts(q, f, fts_limit)
-), typo AS (
-    SELECT * FROM mosaic_search.search_trigram(
-        q, f, trigram_limit, trigram_threshold
+), fuzzy AS (
+    SELECT * FROM mosaic_search.search_fuzzy(
+        q, f, fuzzy_limit, fuzzy_threshold
     )
 ), semantic AS (
     SELECT product_id, semantic_score, semantic_rank
-    FROM mosaic_search.search_vector(query_embedding, f, semantic_limit)
+    FROM mosaic_search.search_semantic(query_embedding, f, semantic_limit)
 ), channels AS (
     -- `contribution` carries the weighted value so the fused sum and the
     -- per-channel provenance agree. `unweighted_contribution` is kept beside it
@@ -84,25 +84,25 @@ WITH fts AS (
     -- entire point of the comparison.
     SELECT product_id, 'fts'::text AS channel, fts_rank AS source_rank,
            fts_score AS raw_score,
-           weight_lexical * mosaic_search.reciprocal_rank_contribution(
+           weight_fts * mosaic_search.reciprocal_rank_contribution(
                fts_rank, rrf_k
            ) AS contribution,
            mosaic_search.reciprocal_rank_contribution(
                fts_rank, rrf_k
            ) AS unweighted_contribution,
-           weight_lexical AS weight
+           weight_fts AS weight
     FROM fts
     UNION ALL
-    SELECT product_id, 'trigram', trigram_rank,
-           trigram_score,
-           weight_trigram * mosaic_search.reciprocal_rank_contribution(
-               trigram_rank, rrf_k
+    SELECT product_id, 'fuzzy', fuzzy_rank,
+           fuzzy_score,
+           weight_fuzzy * mosaic_search.reciprocal_rank_contribution(
+               fuzzy_rank, rrf_k
            ),
-           mosaic_search.reciprocal_rank_contribution(trigram_rank, rrf_k),
-           weight_trigram
-    FROM typo
+           mosaic_search.reciprocal_rank_contribution(fuzzy_rank, rrf_k),
+           weight_fuzzy
+    FROM fuzzy
     UNION ALL
-    SELECT product_id, 'vector', semantic_rank,
+    SELECT product_id, 'semantic', semantic_rank,
            semantic_score,
            weight_semantic * mosaic_search.reciprocal_rank_contribution(
                semantic_rank, rrf_k
@@ -115,11 +115,11 @@ WITH fts AS (
            sum(contribution)::double precision AS rrf_score,
            sum(unweighted_contribution)::double precision AS unweighted_rrf_score,
            max(raw_score) FILTER (WHERE channel = 'fts')::real AS fts_score,
-           max(raw_score) FILTER (WHERE channel = 'trigram')::real AS trigram_score,
-           max(raw_score) FILTER (WHERE channel = 'vector')::real AS semantic_score,
+           max(raw_score) FILTER (WHERE channel = 'fuzzy')::real AS fuzzy_score,
+           max(raw_score) FILTER (WHERE channel = 'semantic')::real AS semantic_score,
            min(source_rank) FILTER (WHERE channel = 'fts') AS fts_rank,
-           min(source_rank) FILTER (WHERE channel = 'trigram') AS trigram_rank,
-           min(source_rank) FILTER (WHERE channel = 'vector') AS semantic_rank,
+           min(source_rank) FILTER (WHERE channel = 'fuzzy') AS fuzzy_rank,
+           min(source_rank) FILTER (WHERE channel = 'semantic') AS semantic_rank,
            jsonb_object_agg(channel, jsonb_build_object(
                'rank', source_rank,
                'raw_score', raw_score,
@@ -144,10 +144,10 @@ WITH fts AS (
            fused.rrf_score,
            fused.unweighted_rrf_score,
            fused.fts_score,
-           fused.trigram_score,
+           fused.fuzzy_score,
            fused.semantic_score,
            fused.fts_rank,
-           fused.trigram_rank,
+           fused.fuzzy_rank,
            fused.semantic_rank,
            fused.channel_provenance
     FROM fused
@@ -164,10 +164,10 @@ SELECT
     e.catalog_asset_key,
     e.canonical_group_id,
     e.fts_score,
-    e.trigram_score,
+    e.fuzzy_score,
     e.semantic_score,
     e.fts_rank,
-    e.trigram_rank,
+    e.fuzzy_rank,
     e.semantic_rank,
     e.rrf_score,
     e.rrf_score AS pre_rerank_score,
@@ -181,9 +181,9 @@ SELECT
             'method', 'weighted_reciprocal_rank_fusion',
             'rrf_k', rrf_k,
             'weights', jsonb_build_object(
-                'lexical', weight_lexical,
+                'fts', weight_fts,
                 'semantic', weight_semantic,
-                'trigram', weight_trigram
+                'fuzzy', weight_fuzzy
             ),
             'unweighted_rrf_score', e.unweighted_rrf_score
         )

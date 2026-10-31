@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS mosaic_eval.result (
     product_id           bigint NOT NULL REFERENCES mosaic.product(product_id) ON DELETE CASCADE,
     result_rank          integer NOT NULL CHECK (result_rank > 0),
     fts_score            real,
-    trigram_score        real,
+    fuzzy_score          real,
     semantic_score       real,
     rrf_score            double precision,
     rerank_score         real,

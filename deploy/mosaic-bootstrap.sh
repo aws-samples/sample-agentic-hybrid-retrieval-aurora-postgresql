@@ -1238,8 +1238,8 @@ SEARCH_SCHEMA=$(cd "$REPO" && uv run python -c \
   'from service.catalog_runtime import search_schema; print(search_schema())')
 FUNCTION_DEFINITION=$(psql "$DATABASE_URL" -X -Atc \
   "SELECT pg_get_functiondef('${SEARCH_SCHEMA}.search_hybrid_rrf(text,vector,jsonb,integer,integer,integer,integer,integer,real)'::regprocedure)")
-if grep -q "FROM typo" <<<"$FUNCTION_DEFINITION"; then
-  echo "GAP-1 failed: trigram is still wired into unweighted fusion"
+if grep -q "FROM fuzzy" <<<"$FUNCTION_DEFINITION"; then
+  echo "GAP-1 failed: fuzzy is still wired into unweighted fusion"
   # A bare exit skips the ERR trap, so CloudFormation would roll back with
   # no reason and the log line above would vanish with the instance.
   signal_failure 1
@@ -1437,12 +1437,12 @@ mosaic_curl -fsS -X POST http://127.0.0.1:8000/api/search \
 # products must still be returned so an empty search cannot pass this gate.
 # `all` over an empty stream is true, so a deploy that returned no results at
 # all (an unbuilt index, an over-filtering predicate) would pass this gate
-# while breaking Lab 1 in a way the trigram repair cannot fix. Require the
+# while breaking Lab 1 in a way the fuzzy repair cannot fix. Require the
 # plausible-but-wrong page the lesson depends on: a full pool, no target.
 jq -e '
   (.results | length) > 0 and
   (.diagnostics.candidate_counts.fused_pool // 0) > 0 and
-  .diagnostics.candidate_counts.trigram_in_pool == 0 and
+  .diagnostics.candidate_counts.fuzzy_in_pool == 0 and
   all(.results[]; .product_id != 1492978)
 ' /tmp/lab1-broken-proof.json
 
@@ -1464,7 +1464,7 @@ jq -r '"  agent model         \(.models.agent)
   rerank model        \(.models.rerank)"' /tmp/health.json
 jq -r '"  rerank             \(.diagnostics.rerank_status), \(.results | length) result(s)"' \
   /tmp/model-access-search.json
-jq -r '"  lab 1 broken       trigram_in_pool=\(.diagnostics.candidate_counts.trigram_in_pool), target_absent=\(all(.results[]; .product_id != 1492978))"' \
+jq -r '"  lab 1 broken       fuzzy_in_pool=\(.diagnostics.candidate_counts.fuzzy_in_pool), target_absent=\(all(.results[]; .product_id != 1492978))"' \
   /tmp/lab1-broken-proof.json
 printf '  timings             see build/bootstrap-timings.tsv\n'
 printf '=== every acceptance check passed; signalling CloudFormation ===\n\n'

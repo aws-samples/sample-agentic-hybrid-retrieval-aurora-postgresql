@@ -4,7 +4,7 @@
     {
       "name": "search_products",
       "tool_version": "1.0",
-      "description": "Run filtered lexical, fuzzy, semantic, reciprocal-rank fusion, and bounded reranking over Aurora PostgreSQL.",
+      "description": "Run filtered full-text, fuzzy, semantic, reciprocal-rank fusion, and bounded reranking over Aurora PostgreSQL.",
       "read_only": true,
       "surfaces": ["agent", "mcp", "skill"],
       "input_schemas": {

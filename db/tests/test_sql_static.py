@@ -24,7 +24,7 @@ class SQLStaticTests(unittest.TestCase):
         channels = (ROOT / "sql" / "08_search_channels.sql").read_text()
         hybrid = (ROOT.parent / "labs/lab1_retrieve/hybrid_search.sql").read_text()
         text = channels + hybrid
-        self.assertIn("search_trigram", text)
+        self.assertIn("search_fuzzy", text)
         self.assertIn("search_hybrid_rrf", hybrid)
         self.assertIn("strict_word_similarity", text)
 

@@ -20,11 +20,11 @@
           "title": "Fts Limit",
           "type": "integer"
         },
-        "trigram_limit": {
+        "fuzzy_limit": {
           "default": 80,
           "maximum": 1000,
           "minimum": 1,
-          "title": "Trigram Limit",
+          "title": "Fuzzy Limit",
           "type": "integer"
         },
         "semantic_limit": {
@@ -152,7 +152,7 @@
           "default": null,
           "title": "Fts Score"
         },
-        "trigram_score": {
+        "fuzzy_score": {
           "anyOf": [
             {
               "type": "number"
@@ -162,7 +162,7 @@
             }
           ],
           "default": null,
-          "title": "Trigram Score"
+          "title": "Fuzzy Score"
         },
         "semantic_score": {
           "anyOf": [
