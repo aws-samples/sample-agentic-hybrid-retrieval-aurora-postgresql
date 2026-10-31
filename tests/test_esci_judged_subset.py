@@ -47,7 +47,7 @@ def test_sweep_covers_the_subset_it_claims():
 
 
 def test_fusion_breaks_ties_by_product_id():
-    arms = {"fts": {9: 1, 4: 2}, "vector": {4: 1, 7: 2}}
+    arms = {"fts": {9: 1, 4: 2}, "semantic": {4: 1, 7: 2}}
 
     assert evaluate_esci_k.fuse(arms, 60) == [4, 9, 7]
 

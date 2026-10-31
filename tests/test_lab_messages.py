@@ -53,7 +53,7 @@ INTERNAL_NAMES = (
     "signals.",
     "diagnostics.",
     "rrf_contribution=",
-    "trigram_in_pool",
+    "fuzzy_in_pool",
     "restore the",
 )
 
@@ -74,7 +74,7 @@ def _failing_checks() -> list[lab_checks.LabCheck]:
             _row(
                 rank_target,
                 fts={"rank": 1, "rrf_contribution": 0.5},
-                trigram={},
+                fuzzy={},
                 semantic={},
                 rrf_score=0.5,
                 pre_rerank_rank=3,
@@ -295,8 +295,8 @@ def _score_as_position(repo: Path) -> str:
     path = repo / LABS[1][0]
     start, end, fixed, _ = LABS[1][1][0]
     broken = fixed.replace(
-        "reciprocal_rank_contribution(trigram_rank",
-        ("reciprocal_rank_contribution(trigram_score"),
+        "reciprocal_rank_contribution(fuzzy_rank",
+        ("reciprocal_rank_contribution(fuzzy_score"),
     )
     path.write_text(_replace_block(path.read_text(), start, end, broken))
     return search_sql(repo)
@@ -313,12 +313,12 @@ def test_an_apply_error_names_the_participants_own_line(repo, monkeypatch, datas
         (repo / relative).parent.mkdir(parents=True, exist_ok=True)
         copy2(REPO / relative, repo / relative)
     statement = rendered_sql(_score_as_position(repo))
-    position = statement.index("reciprocal_rank_contribution(trigram_score") + 1
+    position = statement.index("reciprocal_rank_contribution(fuzzy_score") + 1
 
     path, line, text = locate_error(statement, position, repo)
 
     assert path == LAB1_SQL
-    assert "reciprocal_rank_contribution(trigram_score, rrf_k)" in text
+    assert "reciprocal_rank_contribution(fuzzy_score, rrf_k)" in text
     assert (repo / LAB1_SQL).read_text().splitlines()[line - 1].strip() == text
 
 

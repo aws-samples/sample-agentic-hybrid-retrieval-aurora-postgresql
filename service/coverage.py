@@ -38,7 +38,7 @@ from service.models import ProductSummary, QueryCoverage, TermCoverage
 UNMATCHED_ANCHOR = "unmatched_anchor"
 
 #: A term matching nothing exactly, but close enough to a catalog term for the
-#: trigram arm to reach it. Lab 1's `noice cancelng hedfones` is entirely this.
+#: fuzzy arm to reach it. Lab 1's `noice cancelng hedfones` is entirely this.
 RECOVERABLE = "recoverable"
 
 MATCHED = "matched"
@@ -249,7 +249,7 @@ def assess(
             substitutes a connection does not fall through to the real pool.
             The caller must not already hold a checkout from the same pool;
             `service.db.connect` documents why nesting is unsafe.
-        similarity_floor: Override the trigram floor separating a misspelling
+        similarity_floor: Override the fuzzy floor separating a misspelling
             from an absence for word-shaped tokens. Defaults to
             `coverage.similarity_floor` in `db/config/retrieval.yaml`, which is
             always passed explicitly rather than left to the SQL default: the

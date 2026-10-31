@@ -2,7 +2,7 @@
 """Fail the build if any file other than the yaml declares a retrieval number.
 
 `db/config/retrieval.yaml` is the single source for candidate limits, fusion `k`,
-per-arm weights, and the trigram threshold. Unit C removed the three live copies
+per-arm weights, and the fuzzy threshold. Unit C removed the three live copies
 that agreed by luck and the dead fourth that disagreed (LOSS-3). This check
 prevents the fifth.
 
@@ -76,15 +76,15 @@ SCAN_ROOTS: tuple[tuple[str, tuple[str, ...]], ...] = (
 # `weight_g` and `page_limit` do not trip the check.
 NUMBER_NAMES = (
     r"fts_limit",
-    r"lexical_(?:candidate_)?limit",
-    r"trigram_(?:candidate_)?limit",
+    r"fts_(?:candidate_)?limit",
+    r"fuzzy_(?:candidate_)?limit",
     r"semantic_(?:candidate_)?limit",
     r"fused_limit",
     r"rerank_(?:candidate_)?limit",
     r"candidate_limit",
     r"rrf_k",
-    r"weight_(?:lexical|semantic|trigram)",
-    r"trigram_(?:similarity_)?threshold",
+    r"weight_(?:fts|semantic|fuzzy)",
+    r"fuzzy_(?:similarity_)?threshold",
     r"minimum_similarity",
     r"similarity_floor",
     r"ef_search",
@@ -206,19 +206,19 @@ SQL_DEFAULTS: tuple[SqlDefault, ...] = (
     ),
     SqlDefault(
         "db/sql/08_search_channels.sql",
-        "search_trigram",
+        "search_fuzzy",
         "candidate_limit",
-        "trigram_limit",
+        "fuzzy_limit",
     ),
     SqlDefault(
         "db/sql/08_search_channels.sql",
-        "search_trigram",
+        "search_fuzzy",
         "minimum_similarity",
-        "trigram_threshold",
+        "fuzzy_threshold",
     ),
     SqlDefault(
         "db/sql/08_search_channels.sql",
-        "search_vector",
+        "search_semantic",
         "candidate_limit",
         "semantic_limit",
     ),
@@ -234,8 +234,8 @@ SQL_DEFAULTS: tuple[SqlDefault, ...] = (
     SqlDefault(
         "labs/lab1_retrieve/hybrid_search.sql",
         "search_hybrid_rrf",
-        "trigram_limit",
-        "trigram_limit",
+        "fuzzy_limit",
+        "fuzzy_limit",
     ),
     SqlDefault(
         "labs/lab1_retrieve/hybrid_search.sql",
@@ -252,8 +252,8 @@ SQL_DEFAULTS: tuple[SqlDefault, ...] = (
     SqlDefault(
         "labs/lab1_retrieve/hybrid_search.sql",
         "search_hybrid_rrf",
-        "trigram_threshold",
-        "trigram_threshold",
+        "fuzzy_threshold",
+        "fuzzy_threshold",
     ),
     # Unit D's weighted comparison function. Every arm cap and fusion input is
     # pinned to the same yaml field as its unweighted twin, which is what makes
@@ -280,8 +280,8 @@ SQL_DEFAULTS: tuple[SqlDefault, ...] = (
     SqlDefault(
         "db/sql/09_weighted_fusion.sql",
         "search_hybrid_rrf_weighted",
-        "trigram_limit",
-        "trigram_limit",
+        "fuzzy_limit",
+        "fuzzy_limit",
     ),
     SqlDefault(
         "db/sql/09_weighted_fusion.sql",
@@ -292,14 +292,14 @@ SQL_DEFAULTS: tuple[SqlDefault, ...] = (
     SqlDefault(
         "db/sql/09_weighted_fusion.sql",
         "search_hybrid_rrf_weighted",
-        "trigram_threshold",
-        "trigram_threshold",
+        "fuzzy_threshold",
+        "fuzzy_threshold",
     ),
     SqlDefault(
         "db/sql/09_weighted_fusion.sql",
         "search_hybrid_rrf_weighted",
-        "weight_lexical",
-        "weight_lexical",
+        "weight_fts",
+        "weight_fts",
     ),
     SqlDefault(
         "db/sql/09_weighted_fusion.sql",
@@ -310,8 +310,8 @@ SQL_DEFAULTS: tuple[SqlDefault, ...] = (
     SqlDefault(
         "db/sql/09_weighted_fusion.sql",
         "search_hybrid_rrf_weighted",
-        "weight_trigram",
-        "weight_trigram",
+        "weight_fuzzy",
+        "weight_fuzzy",
     ),
     SqlDefault(
         "db/sql/08_search_channels.sql",
@@ -331,7 +331,7 @@ SQL_DEFAULTS: tuple[SqlDefault, ...] = (
         "p_scan_mem_multiplier",
         "hnsw_scan_mem_multiplier",
     ),
-    # Query coverage's trigram rescue floor. Pinned for the same reason as every
+    # Query coverage's fuzzy rescue floor. Pinned for the same reason as every
     # other entry here, and with a sharper consequence: a caller that omits the
     # argument gets the SQL default, and `service.coverage` passes the yaml
     # value, so a disagreement would mean the Lab 1 anchor is classified by one
@@ -373,7 +373,7 @@ MODEL_DEFAULTS: tuple[ModelDefault, ...] = (
         "python/mosaic_models.py", "RetrievalProfile", "fts_limit", "fts_limit"
     ),
     ModelDefault(
-        "python/mosaic_models.py", "RetrievalProfile", "trigram_limit", "trigram_limit"
+        "python/mosaic_models.py", "RetrievalProfile", "fuzzy_limit", "fuzzy_limit"
     ),
     ModelDefault(
         "python/mosaic_models.py",
@@ -440,7 +440,7 @@ def _sql_sources(repo: Path) -> list[Path]:
 def check_exemptions_complete(report: Report, *, repo: Path = REPO) -> None:
     """Rule 3 — every SQL parameter default with a retrieval name is enumerated.
 
-    Rule 1 cannot see these. `weight_lexical real DEFAULT 0.30` has no `=` or `:`,
+    Rule 1 cannot see these. `weight_fts real DEFAULT 0.30` has no `=` or `:`,
     so the assignment-shaped pattern skips it, and rule 2 only checks defaults
     that are already in `SQL_DEFAULTS`. Together those leave a hole: adding a new
     default is silently unmonitored, and a "monitored seam" that only monitors

@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""Measure what hybrid retrieval adds over vector search on held-out ESCI queries.
+"""Measure what hybrid retrieval adds over semantic search on held-out ESCI queries.
 
 For each held-out query with at least one Exact or Substitute label, this reads
 the production full-text, close-spelling and vector lists from Aurora with the
 served limits and HNSW settings, plus the served fusion order, and scores:
 
 - `keyword`: full-text search alone;
-- `vector_embed_v4` and `hybrid_embed_v4`: the served Cohere Embed v4 vector
+- `semantic_embed_v4` and `hybrid_embed_v4`: the served Cohere Embed v4 vector
   search, and the served reciprocal rank fusion of all three lists;
-- `vector_small` and `hybrid_small`, when `--small-vectors` names the output of
+- `semantic_small` and `hybrid_small`, when `--small-vectors` names the output of
   `scripts/evals/embed_small_model.py`: exact cosine search over the small
   model's vectors, fused with the same full-text and close-spelling lists;
 - `*_rerank`, unless `--no-rerank`: the top `fused_limit` of each Embed v4 list
@@ -46,16 +46,16 @@ DRAWS = 10_000
 SEED = 7
 
 COMPARISONS = (
-    ("hybrid_embed_v4", "vector_embed_v4"),
-    ("hybrid_small", "vector_small"),
-    ("keyword", "vector_embed_v4"),
+    ("hybrid_embed_v4", "semantic_embed_v4"),
+    ("hybrid_small", "semantic_small"),
+    ("keyword", "semantic_embed_v4"),
     ("hybrid_embed_v4", "keyword"),
-    ("vector_small", "vector_embed_v4"),
+    ("semantic_small", "semantic_embed_v4"),
     ("hybrid_small", "hybrid_embed_v4"),
     ("hybrid_embed_v4_rerank", "hybrid_embed_v4"),
-    ("vector_embed_v4_rerank", "vector_embed_v4"),
-    ("hybrid_embed_v4_rerank", "vector_embed_v4_rerank"),
-    ("hybrid_embed_v4_rerank", "vector_embed_v4"),
+    ("semantic_embed_v4_rerank", "semantic_embed_v4"),
+    ("hybrid_embed_v4_rerank", "semantic_embed_v4_rerank"),
+    ("hybrid_embed_v4_rerank", "semantic_embed_v4"),
 )
 
 
@@ -100,16 +100,16 @@ def read_lists(conn, service, profile, filters: dict, normalized: str, vector):
             ),
             (normalized, encoded, profile.fts_limit),
         ),
-        "trigram": (
+        "fuzzy": (
             (
-                f"SELECT product_id FROM {schema}.search_trigram("
-                "%s, %s::jsonb, %s, %s::real) ORDER BY trigram_rank"
+                f"SELECT product_id FROM {schema}.search_fuzzy("
+                "%s, %s::jsonb, %s, %s::real) ORDER BY fuzzy_rank"
             ),
-            (normalized, encoded, profile.trigram_limit, profile.trigram_threshold),
+            (normalized, encoded, profile.fuzzy_limit, profile.fuzzy_threshold),
         ),
-        "vector": (
+        "semantic": (
             (
-                f"SELECT product_id FROM {schema}.search_vector("
+                f"SELECT product_id FROM {schema}.search_semantic("
                 "%s::vector, %s::jsonb, %s) ORDER BY semantic_rank"
             ),
             (str(list(vector)), encoded, profile.semantic_limit),
@@ -127,7 +127,7 @@ def read_lists(conn, service, profile, filters: dict, normalized: str, vector):
             service._fusion_parameters(normalized, tuple(vector), filters, profile),
         )
         lists["served"] = [row["product_id"] for row in cursor.fetchall()]
-        pool = set(lists["served"]) | set(lists["vector"][: profile.fused_limit])
+        pool = set(lists["served"]) | set(lists["semantic"][: profile.fused_limit])
         cursor.execute(
             f"SELECT product_id, rerank_text, title, short_description, category_path, "
             f"brand_name, model_name FROM {schema}.product_listing_view "
@@ -189,8 +189,8 @@ def measure_query(context: dict, query: dict) -> dict[str, list[int]]:
     lists, documents = read_lists(
         context["conn"], service, profile, filters, normalized, vector
     )
-    channels = [lists["fts"], lists["trigram"]]
-    fused = rrf([*channels, lists["vector"]], profile.rrf_k, profile.fused_limit)
+    channels = [lists["fts"], lists["fuzzy"]]
+    fused = rrf([*channels, lists["semantic"]], profile.rrf_k, profile.fused_limit)
     if fused != lists["served"][: profile.fused_limit]:
         raise RuntimeError(
             f"found Python RRF differing from the production fusion SQL for "
@@ -198,7 +198,7 @@ def measure_query(context: dict, query: dict) -> dict[str, list[int]]:
         )
     arms = {
         "keyword": lists["fts"],
-        "vector_embed_v4": lists["vector"],
+        "semantic_embed_v4": lists["semantic"],
         "hybrid_embed_v4": lists["served"],
     }
     if context["small"]:
@@ -209,12 +209,12 @@ def measure_query(context: dict, query: dict) -> dict[str, list[int]]:
             query_vectors[query["query_id"]],
             profile.semantic_limit,
         )
-        arms["vector_small"] = small
+        arms["semantic_small"] = small
         arms["hybrid_small"] = rrf(
             [*channels, small], profile.rrf_k, profile.fused_limit
         )
     if context["rerank"]:
-        for arm in ("vector_embed_v4", "hybrid_embed_v4"):
+        for arm in ("semantic_embed_v4", "hybrid_embed_v4"):
             pool = arms[arm][: profile.fused_limit]
             arms[f"{arm}_rerank"] = rerank(service, normalized, pool, documents)
     return {arm: ids[:DEPTH] for arm, ids in arms.items()}
@@ -270,8 +270,8 @@ def score(queries: list[dict], rankings: dict[str, dict[str, list[int]]]) -> dic
     }
     if "hybrid_small" in per_query:
         small, frontier = (
-            diffs("hybrid_small", "vector_small"),
-            diffs("hybrid_embed_v4", "vector_embed_v4"),
+            diffs("hybrid_small", "semantic_small"),
+            diffs("hybrid_embed_v4", "semantic_embed_v4"),
         )
         comparisons["payoff difference (small - embed_v4)"] = bootstrap(
             [s - f for s, f in zip(small, frontier, strict=True)]
@@ -283,8 +283,8 @@ def score(queries: list[dict], rankings: dict[str, dict[str, list[int]]]) -> dic
         ]
         by_category[category] = {
             "queries": len(subset),
-            "hybrid_embed_v4 - vector_embed_v4": bootstrap(
-                diffs("hybrid_embed_v4", "vector_embed_v4", subset)
+            "hybrid_embed_v4 - semantic_embed_v4": bootstrap(
+                diffs("hybrid_embed_v4", "semantic_embed_v4", subset)
             ),
         }
     labels = [len(truth[i]) for i in ids]
@@ -340,7 +340,7 @@ def provenance(
         "rrf_k": profile.rrf_k,
         "limits": {
             "fts": profile.fts_limit,
-            "trigram": profile.trigram_limit,
+            "fuzzy": profile.fuzzy_limit,
             "semantic": profile.semantic_limit,
             "fused": profile.fused_limit,
         },

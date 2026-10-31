@@ -129,10 +129,10 @@ def test_absent_model_number_is_unanchored():
 
 
 def test_unanchored_note_names_the_term_not_the_mechanism():
-    """A shopper reads this. It must not say 'lexeme' or 'trigram'."""
+    """A shopper reads this. It must not say 'lexeme' or 'fuzzy'."""
     result = summarize(CHARGING_BRICK_TERMS)
     assert "A2342" in result.note
-    for mechanism in ("lexeme", "trigram", "tsvector", "ndoc"):
+    for mechanism in ("lexeme", "fuzzy", "tsvector", "ndoc"):
         assert mechanism not in result.note.lower()
 
 

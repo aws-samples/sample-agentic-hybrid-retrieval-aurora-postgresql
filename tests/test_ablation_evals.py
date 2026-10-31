@@ -23,24 +23,24 @@ from typing import Any, Self
 import pytest
 
 from scripts.evals.ablation_evals import (
-    ARM_LEXICAL_ONLY,
+    ARM_FTS_ONLY,
+    ARM_FUZZY_ONLY,
     ARM_RRF_FUSED,
     ARM_RRF_RERANKED,
     ARM_SEMANTIC_ONLY,
-    ARM_TRIGRAM_ONLY,
     CEILING_BOUNDED_ARMS,
     AblationMeasurementError,
     assert_ceiling_bounds_fusion_arms,
     assert_reproduces_committed_metrics,
     candidate_recall_ceiling,
-    lexical_only_arm,
+    fts_only_arm,
+    fuzzy_only_arm,
     load_served_arm,
     measured_ablation,
     relevant_ids,
     rrf_fused_arm,
     semantic_only_arm,
     spread_note,
-    trigram_only_arm,
 )
 from scripts.evals.evaluate import evaluate
 from scripts.evals.score_evals import (
@@ -249,7 +249,7 @@ def test_ceiling_equal_to_an_arm_is_not_a_violation():
 
 def test_ceiling_refuses_the_semantic_only_arm_it_does_not_bound():
     """The fused-pool ceiling does not bound an arm that retrieves
-    independently of fusion. search_vector returns semantic_limit (150)
+    independently of fusion. search_semantic returns semantic_limit (150)
     candidates and arm 1 takes its own top-K from those, while the fused pool
     is capped at fused_limit (50), so semantic recall above the ceiling is a
     legitimate measurement. Passing arm 1 in must be refused rather than
@@ -289,16 +289,16 @@ class ScriptedConnection:
         semantic_rows: dict[str, list[dict[str, Any]]],
         fusion_rows: dict[str, list[dict[str, Any]]],
         fts_rows: dict[str, list[dict[str, Any]]] | None = None,
-        trigram_rows: dict[str, list[dict[str, Any]]] | None = None,
+        fuzzy_rows: dict[str, list[dict[str, Any]]] | None = None,
     ) -> None:
         self.semantic_rows = semantic_rows
         self.fusion_rows = fusion_rows
         self.fts_rows = fts_rows or {}
-        self.trigram_rows = trigram_rows or {}
+        self.fuzzy_rows = fuzzy_rows or {}
         self.semantic_calls: list[str] = []
         self.fusion_calls: list[str] = []
         self.fts_calls: list[str] = []
-        self.trigram_calls: list[str] = []
+        self.fuzzy_calls: list[str] = []
         self.schemas: set[str] = set()
         self._pending: list[dict[str, Any]] = []
 
@@ -306,18 +306,18 @@ class ScriptedConnection:
         # `configure_hnsw` binds a positional tuple, not the named dict every
         # arm query uses; it never matches any branch below.
         marker = params.get("filters", "") if isinstance(params, dict) else ""
-        channel = re.search(r"(\w+)\.search_(?:vector|fts|trigram)\(", sql)
+        channel = re.search(r"(\w+)\.search_(?:vector|fts|fuzzy)\(", sql)
         if channel:
             self.schemas.add(channel.group(1))
-        if ".search_vector(" in sql:
+        if ".search_semantic(" in sql:
             self.semantic_calls.append(marker)
             self._pending = self.semantic_rows[marker]
         elif ".search_fts(" in sql:
             self.fts_calls.append(marker)
             self._pending = self.fts_rows.get(marker, [])
-        elif ".search_trigram(" in sql:
-            self.trigram_calls.append(marker)
-            self._pending = self.trigram_rows.get(marker, [])
+        elif ".search_fuzzy(" in sql:
+            self.fuzzy_calls.append(marker)
+            self._pending = self.fuzzy_rows.get(marker, [])
         elif "search_hybrid_rrf(" in sql:
             self.fusion_calls.append(marker)
             self._pending = self.fusion_rows[marker]
@@ -398,7 +398,7 @@ def test_semantic_only_arm_ranks_by_search_vector_and_embeds_each_query_once():
         "G-Q1": [(1, 999), (2, 998)],
         "G-Q2": [(1, 201)],
     }
-    # Witness: the SQL that ran was actually search_vector, once per query,
+    # Witness: the SQL that ran was actually search_semantic, once per query,
     # not a fixture the loop never visited.
     assert sorted(connection.semantic_calls) == sorted([_Q1_MARKER, _Q2_MARKER])
     # Each distinct query text is embedded exactly once.
@@ -406,7 +406,7 @@ def test_semantic_only_arm_ranks_by_search_vector_and_embeds_each_query_once():
 
 
 def test_text_arms_rank_by_their_own_channel_and_never_embed():
-    """The lexical and trigram arms read the query text: no embedding is made,
+    """The full-text and fuzzy arms read the query text: no embedding is made,
     each channel's SQL runs once per query, and each returns its own rank."""
     embedder = CountingEmbedder()
     connection = ScriptedConnection(
@@ -419,24 +419,24 @@ def test_text_arms_rank_by_their_own_channel_and_never_embed():
             ],
             _Q2_MARKER: [],
         },
-        trigram_rows={
+        fuzzy_rows={
             _Q1_MARKER: [],
-            _Q2_MARKER: [{"product_id": 201, "trigram_rank": 1}],
+            _Q2_MARKER: [{"product_id": 201, "fuzzy_rank": 1}],
         },
     )
     retrieval = RetrievalService(
         embedding_provider=embedder, connection_factory=lambda: connection
     )
 
-    lexical = lexical_only_arm(retrieval, _QUERIES)
-    trigram = trigram_only_arm(retrieval, _QUERIES)
+    fts = fts_only_arm(retrieval, _QUERIES)
+    fuzzy = fuzzy_only_arm(retrieval, _QUERIES)
 
-    assert lexical == {"G-Q1": [(1, 101), (2, 555)], "G-Q2": []}
-    assert trigram == {"G-Q1": [], "G-Q2": [(1, 201)]}
+    assert fts == {"G-Q1": [(1, 101), (2, 555)], "G-Q2": []}
+    assert fuzzy == {"G-Q1": [], "G-Q2": [(1, 201)]}
     # Witness: each channel's own function ran, once per query, and the
     # semantic channel and the embedder were never touched.
     assert sorted(connection.fts_calls) == sorted([_Q1_MARKER, _Q2_MARKER])
-    assert sorted(connection.trigram_calls) == sorted([_Q1_MARKER, _Q2_MARKER])
+    assert sorted(connection.fuzzy_calls) == sorted([_Q1_MARKER, _Q2_MARKER])
     assert connection.semantic_calls == []
     assert embedder.calls == []
 
@@ -575,9 +575,9 @@ def ablation_environment(tmp_path, monkeypatch):
             _Q1_MARKER: [{"product_id": 101, "fts_rank": 1}],
             _Q2_MARKER: [],
         },
-        trigram_rows={
+        fuzzy_rows={
             # Fuzzy matching finds nothing relevant on either query.
-            _Q1_MARKER: [{"product_id": 777, "trigram_rank": 1}],
+            _Q1_MARKER: [{"product_id": 777, "fuzzy_rank": 1}],
             _Q2_MARKER: [],
         },
     )
@@ -614,21 +614,21 @@ def test_measured_ablation_assembles_all_five_arms_and_the_ceiling(
     result = measured_ablation()
 
     assert list(result["arms"]) == [
-        ARM_LEXICAL_ONLY,
-        ARM_TRIGRAM_ONLY,
+        ARM_FTS_ONLY,
+        ARM_FUZZY_ONLY,
         ARM_SEMANTIC_ONLY,
         ARM_RRF_FUSED,
         ARM_RRF_RERANKED,
     ]
     # Hand-verifiable: full-text search find G-Q1's product at rank 1 and nothing
     # for G-Q2 -> recall 0.5, nDCG 0.5; fuzzy matching finds nothing relevant.
-    assert result["arms"][ARM_LEXICAL_ONLY]["recall@10"] == pytest.approx(0.5)
-    assert result["arms"][ARM_LEXICAL_ONLY]["ndcg@10"] == pytest.approx(0.5)
-    assert result["arms"][ARM_TRIGRAM_ONLY]["recall@10"] == pytest.approx(0.0)
+    assert result["arms"][ARM_FTS_ONLY]["recall@10"] == pytest.approx(0.5)
+    assert result["arms"][ARM_FTS_ONLY]["ndcg@10"] == pytest.approx(0.5)
+    assert result["arms"][ARM_FUZZY_ONLY]["recall@10"] == pytest.approx(0.0)
     # Every single arm is recorded against the ceiling, none asserted against it.
     assert set(result["candidate_recall_ceiling"]["unbounded_arms"]) == {
-        ARM_LEXICAL_ONLY,
-        ARM_TRIGRAM_ONLY,
+        ARM_FTS_ONLY,
+        ARM_FUZZY_ONLY,
         ARM_SEMANTIC_ONLY,
     }
     # Hand-verifiable: semantic misses G-Q1 entirely (recall 0) but finds
@@ -788,8 +788,8 @@ def test_single_arms_read_the_served_search_schema(monkeypatch):
         embedding_provider=CountingEmbedder(), connection_factory=lambda: connection
     )
 
-    lexical_only_arm(retrieval, _QUERIES)
-    trigram_only_arm(retrieval, _QUERIES)
+    fts_only_arm(retrieval, _QUERIES)
+    fuzzy_only_arm(retrieval, _QUERIES)
     semantic_only_arm(retrieval, _QUERIES)
 
     assert connection.schemas == {"mosaic_search"}

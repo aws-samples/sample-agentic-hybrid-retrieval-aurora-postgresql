@@ -417,13 +417,13 @@ def _receipt_row(product_id=101, result_rank=1, fused_rank=7):
         "product_id": product_id,
         "result_rank": result_rank,
         "fts_rank": 2,
-        "trigram_rank": None,
+        "fuzzy_rank": None,
         "semantic_rank": 1,
         "fused_rank": fused_rank,
         "rerank_rank": 1,
         "scores": {
             "fts": 0.4,
-            "trigram": None,
+            "fuzzy": None,
             "semantic": 0.8,
             "rrf": 0.03,
             "pre_rerank": 0.03,
@@ -433,7 +433,7 @@ def _receipt_row(product_id=101, result_rank=1, fused_rank=7):
         "provenance": {
             "channels": {
                 "fts": {"rrf_contribution": 0.01},
-                "vector": {"rrf_contribution": 0.02},
+                "semantic": {"rrf_contribution": 0.02},
             }
         },
     }

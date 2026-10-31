@@ -883,14 +883,14 @@ def test_adaptation_guide_separates_invariants_from_mosaic_choices():
 #: references/composition.md Section 3's post-reframing claim. Section 3 no
 #: longer asserts that any specific mechanic is "genuinely unobservable" --
 #: the fix that first tried that framing (this file's previous revision)
-#: shipped a false claim of its own (the vector arm's HNSW identity is a
+#: shipped a false claim of its own (the semantic arm's HNSW identity is a
 #: literal field name, `hnsw_settings`), and a second, structurally different
 #: hole surfaced after that: `plan_json` is typed `dict[str, Any]`, so no walk
 #: over field *names* could ever see what its runtime *content* names once a
 #: plan is captured. Measured against the live cluster, a captured plan
 #: resolves `product_document_embedding_hnsw_cosine_idx` as an `Index Scan`,
-#: while the lexical and trigram arms stay opaque `Function Scan` nodes over
-#: `search_fts` and `search_trigram`, naming no index at all. Both halves of
+#: while the full-text and fuzzy arms stay opaque `Function Scan` nodes over
+#: `search_fts` and `search_fuzzy`, naming no index at all. Both halves of
 #: that are invisible to a name walk. Section 3 now claims the other
 #: direction:
 #: encapsulation is not a promise that any mechanic can never be inspected.
@@ -902,7 +902,7 @@ def test_adaptation_guide_separates_invariants_from_mosaic_choices():
 _ACKNOWLEDGED_INSPECTABLE_TERMS = {
     "plan_json": "explain_retrieval, once a plan has been captured",
     "diagnostics": "search_products by default, and explain_retrieval always",
-    "hnsw_settings": "explain_retrieval, naming the vector arm's HNSW tuning",
+    "hnsw_settings": "explain_retrieval, naming the semantic arm's HNSW tuning",
 }
 
 #: Phrasing this document must not reintroduce. Section 3's retired framing
@@ -1039,8 +1039,8 @@ def test_section_3_acknowledges_inspectable_fields_and_drops_absolute_claims():
     `plan_json` is a real, intentional field typed `dict[str, Any]`, so no
     field-name walk could ever see what its runtime *content* names once a
     plan is captured -- measured, a captured plan resolves the HNSW index
-    behind the vector arm as an `Index Scan` and names no index for the
-    lexical or trigram arms, which stay opaque `Function Scan` nodes. A name
+    behind the semantic arm as an `Index Scan` and names no index for the
+    full-text or fuzzy arms, which stay opaque `Function Scan` nodes. A name
     walk only ever sees the key `plan_json` itself, never what a captured
     plan happens to contain.
 
@@ -1085,7 +1085,7 @@ def test_section_3_acknowledges_inspectable_fields_and_drops_absolute_claims():
     assert candidate_count_keys == {
         "fused_pool",
         "fts_in_pool",
-        "trigram_in_pool",
+        "fuzzy_in_pool",
         "semantic_in_pool",
     }, (
         f"candidate_counts now has keys {sorted(candidate_count_keys)}; if a "

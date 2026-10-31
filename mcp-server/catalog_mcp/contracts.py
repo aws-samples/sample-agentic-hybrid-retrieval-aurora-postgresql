@@ -113,7 +113,7 @@ class RankSignal(WireModel):
 
 class ResultSignals(WireModel):
     fts: RankSignal
-    trigram: RankSignal
+    fuzzy: RankSignal
     semantic: RankSignal
     rrf_score: float
     pre_rerank_rank: int
@@ -183,16 +183,16 @@ class ProductSummary(WireModel):
 
 class RetrievalProfile(WireModel):
     fts_limit: int
-    trigram_limit: int
+    fuzzy_limit: int
     semantic_limit: int
     fused_limit: int
     result_limit: int
     authorized_limit: int | None = None
     rrf_k: int
-    trigram_threshold: float
-    weight_lexical: float
+    fuzzy_threshold: float
+    weight_fts: float
     weight_semantic: float
-    weight_trigram: float
+    weight_fuzzy: float
     ef_search: int
     iterative_scan: Literal["off", "strict_order", "relaxed_order"]
     max_scan_tuples: int
@@ -299,7 +299,7 @@ class SearchResultEventRecord(WireModel):
     product_id: int
     result_rank: int
     fts_rank: int | None = None
-    trigram_rank: int | None = None
+    fuzzy_rank: int | None = None
     semantic_rank: int | None = None
     fused_rank: int | None = None
     rerank_rank: int | None = None

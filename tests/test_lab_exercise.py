@@ -48,7 +48,7 @@ def test_interpolation_rejects_what_the_grader_cannot_run(sql, message):
 
 
 def test_reference_fusion_decays_with_rank_and_breaks_ties_by_product_id():
-    arms = {"fts": {5: 1, 3: 2}, "vector": {3: 1, 9: 2}}
+    arms = {"fts": {5: 1, 3: 2}, "semantic": {3: 1, 9: 2}}
 
     fused = lab_exercise._fuse(arms, 60)
 

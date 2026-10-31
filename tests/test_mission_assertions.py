@@ -1,10 +1,10 @@
-"""The lexical arm can fail completely; an assertion has to notice.
+"""The full-text arm can fail completely; an assertion has to notice.
 
 `mosaic_search.search_fts` runs a strict AND query with a conjunctive backoff
 over salient terms; it never OR-combines. Before the backoff existed, an
 AND-only tsquery lost the arm entirely on the missions that then declared
 `fts`, and every gate stayed green because no assertion in the vocabulary
-named the lexical arm. These checks exercise `fts_signal_present` and keep the
+named the full-text arm. These checks exercise `fts_signal_present` and keep the
 contract and the vocabulary from drifting apart.
 """
 
@@ -39,7 +39,7 @@ MISSIONS = _CONTRACT["missions"] + _CONTRACT["supporting_checks"]
 HEALTHY_COUNTS = {
     "fused_pool": 50,
     "fts_in_pool": 24,
-    "trigram_in_pool": 18,
+    "fuzzy_in_pool": 18,
     "semantic_in_pool": 40,
 }
 
@@ -56,7 +56,7 @@ def test_fts_signal_fails_when_the_arm_returns_no_rows():
     assert arm_signal_present(stubbed, "fts") is False
 
 
-def test_every_fts_declaring_mission_asserts_the_lexical_arm():
+def test_every_fts_declaring_mission_asserts_the_fts_arm():
     declaring = [m for m in MISSIONS if "fts" in m["expected_techniques"]]
     assert declaring, "the contract must still declare fts somewhere"
     for mission in declaring:
@@ -75,12 +75,12 @@ def test_missions_that_do_not_declare_fts_are_not_asserted_on_it():
 
 def test_signal_assertions_are_scoped_to_declared_arms():
     assert signal_assertions_for(["fts"]) == ["fts_signal_present"]
-    assert "trigram_signal_present" in signal_assertions_for(["fts", "pg_trgm"])
+    assert "fuzzy_signal_present" in signal_assertions_for(["fts", "pg_trgm"])
     assert signal_assertions_for(["hnsw"]) == ["semantic_signal_present"]
     assert signal_assertions_for([]) == []
 
 
-def test_dead_lexical_arm_fails_the_missions_that_declare_it():
+def test_dead_fts_arm_fails_the_missions_that_declare_it():
     stubbed = dict(HEALTHY_COUNTS, fts_in_pool=0)
     for mission in MISSIONS:
         if "fts" not in mission["expected_techniques"]:

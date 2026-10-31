@@ -62,10 +62,10 @@ SYNTHETIC_DATASET_ID = "synthetic-legacy"
 #: attendee listing them in psql can tell which belongs to which search.
 LIVE_INDEXES = {
     "fts": "product_search_fts_idx",
-    "trigram": "product_search_trigram_idx",
-    "vector": "product_search_vector_idx",
-    "vector_halfvec": "product_search_vector_halfvec_idx",
-    "vector_binary": "product_search_vector_binary_idx",
+    "fuzzy": "product_search_trigram_idx",
+    "semantic": "product_search_vector_idx",
+    "semantic_halfvec": "product_search_vector_halfvec_idx",
+    "semantic_binary": "product_search_vector_binary_idx",
     "kind": "product_search_kind_idx",
     "public_id": "product_search_public_id_idx",
 }
@@ -106,9 +106,9 @@ def catalog_indexes() -> CatalogIndexes:
     return CatalogIndexes(
         schema=SEARCH_SCHEMA,
         table=LISTING_TABLE,
-        fp32=LIVE_INDEXES["vector"],
-        halfvec=LIVE_INDEXES["vector_halfvec"],
-        binary=LIVE_INDEXES["vector_binary"],
+        fp32=LIVE_INDEXES["semantic"],
+        halfvec=LIVE_INDEXES["semantic_halfvec"],
+        binary=LIVE_INDEXES["semantic_binary"],
     )
 
 

@@ -191,17 +191,17 @@ def inspect_arms(receipt: dict, mission: dict) -> dict:
             f"SELECT * FROM {schema}.search_fts(%s, %s::jsonb, %s)",
             (event["normalized_query"], filters, profile.fts_limit),
         ),
-        "trigram": (
-            f"SELECT * FROM {schema}.search_trigram(%s, %s::jsonb, %s, %s::real)",
+        "fuzzy": (
+            f"SELECT * FROM {schema}.search_fuzzy(%s, %s::jsonb, %s, %s::real)",
             (
                 event["normalized_query"],
                 filters,
-                profile.trigram_limit,
-                profile.trigram_threshold,
+                profile.fuzzy_limit,
+                profile.fuzzy_threshold,
             ),
         ),
         "semantic": (
-            f"SELECT * FROM {schema}.search_vector(%s::vector, %s::jsonb, %s)",
+            f"SELECT * FROM {schema}.search_semantic(%s::vector, %s::jsonb, %s)",
             (vector, filters, profile.semantic_limit),
         ),
     }
@@ -291,7 +291,7 @@ def inspect_ranking(before: dict, after: dict, mission: dict) -> dict:
     positions = [
         row[key]
         for row in after["candidates"]
-        for key in ("fts_rank", "trigram_rank", "semantic_rank")
+        for key in ("fts_rank", "fuzzy_rank", "semantic_rank")
         if row.get(key)
     ]
     _require(

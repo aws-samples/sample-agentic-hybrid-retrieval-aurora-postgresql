@@ -2,7 +2,7 @@
 
 Weighted fusion ships as a runnable comparison, not a behavior change. Per-arm
 weights tuned on three missions would be overfitting presented as improvement,
-and the existing eval already shows lexical beating hybrid on a judged query. So
+and the existing eval already shows full-text beating hybrid on a judged query. So
 `mosaic_search.search_hybrid_rrf` stays the served path and this module answers
 one question: given the *same* candidates, what does weighting change?
 
@@ -46,24 +46,24 @@ from service.retrieval import get_retrieval_service, normalize_query
 FULL_POOL_LIMIT = 10_000
 
 _UNWEIGHTED_SQL = """
-SELECT product_id, fts_rank, trigram_rank, semantic_rank, rrf_score, provenance
+SELECT product_id, fts_rank, fuzzy_rank, semantic_rank, rrf_score, provenance
 FROM {schema}.search_hybrid_rrf(
     %(query)s, %(embedding)s::vector, %(filters)s::jsonb, %(rrf_k)s::integer,
-    %(fts_limit)s::integer, %(trigram_limit)s::integer,
+    %(fts_limit)s::integer, %(fuzzy_limit)s::integer,
     %(semantic_limit)s::integer, %(result_limit)s::integer,
-    %(trigram_threshold)s::real
+    %(fuzzy_threshold)s::real
 )
 """
 
 _WEIGHTED_SQL = """
-SELECT product_id, fts_rank, trigram_rank, semantic_rank, rrf_score, provenance
+SELECT product_id, fts_rank, fuzzy_rank, semantic_rank, rrf_score, provenance
 FROM {schema}.search_hybrid_rrf_weighted(
     %(query)s, %(embedding)s::vector, %(filters)s::jsonb, %(rrf_k)s::integer,
-    %(fts_limit)s::integer, %(trigram_limit)s::integer,
+    %(fts_limit)s::integer, %(fuzzy_limit)s::integer,
     %(semantic_limit)s::integer, %(result_limit)s::integer,
-    %(trigram_threshold)s::real,
-    %(weight_lexical)s::real, %(weight_semantic)s::real,
-    %(weight_trigram)s::real
+    %(fuzzy_threshold)s::real,
+    %(weight_fts)s::real, %(weight_semantic)s::real,
+    %(weight_fuzzy)s::real
 )
 """
 
@@ -88,7 +88,7 @@ def _arm_substrate(row: dict[str, Any]) -> dict[str, Any]:
     provenance.pop("fusion", None)
     return {
         "fts_rank": row["fts_rank"],
-        "trigram_rank": row["trigram_rank"],
+        "fuzzy_rank": row["fuzzy_rank"],
         "semantic_rank": row["semantic_rank"],
         "provenance": provenance,
     }
@@ -97,10 +97,10 @@ def _arm_substrate(row: dict[str, Any]) -> dict[str, Any]:
 class LabStateError(RuntimeError):
     """The two fusion functions cannot be compared while a lab seam is open.
 
-    `scripts/lab_state.py reset --lab 1` removes the trigram channel from
+    `scripts/lab_state.py reset --lab 1` removes the fuzzy channel from
     `search_hybrid_rrf` only; the weighted twin has no marked seam and keeps
     its arm. In that state the substrate assertion below would fire on every
-    request whose trigram arm found anything, and it would blame a deployment
+    request whose fuzzy arm found anything, and it would blame a deployment
     drift that is really the participant's unfinished exercise.
     """
 
@@ -177,15 +177,15 @@ class FusionComparisonService:
             "filters": filter_json,
             "rrf_k": profile_config.rrf_k,
             "fts_limit": profile_config.fts_limit,
-            "trigram_limit": profile_config.trigram_limit,
+            "fuzzy_limit": profile_config.fuzzy_limit,
             "semantic_limit": profile_config.semantic_limit,
             # The whole pool, so the substrate check compares fusion inputs
             # rather than two truncations of different orderings.
             "result_limit": FULL_POOL_LIMIT,
-            "trigram_threshold": profile_config.trigram_threshold,
-            "weight_lexical": profile_config.weight_lexical,
+            "fuzzy_threshold": profile_config.fuzzy_threshold,
+            "weight_fts": profile_config.weight_fts,
             "weight_semantic": profile_config.weight_semantic,
-            "weight_trigram": profile_config.weight_trigram,
+            "weight_fuzzy": profile_config.weight_fuzzy,
         }
 
         with self.connection_factory() as connection:
@@ -213,9 +213,9 @@ class FusionComparisonService:
             unweighted_definition = (
                 str(definition_rows[0]["definition"]) if definition_rows else ""
             )
-            if "FROM typo" not in unweighted_definition:
+            if "FROM fuzzy" not in unweighted_definition:
                 raise LabStateError(
-                    f"found {search_schema()}.search_hybrid_rrf without its trigram "
+                    f"found {search_schema()}.search_hybrid_rrf without its fuzzy "
                     "channel, which is Lab 1's deliberate broken state; fix: "
                     "complete the Lab 1 repair in "
                     "labs/lab1_retrieve/hybrid_search.sql and apply it before "
@@ -249,7 +249,7 @@ class FusionComparisonService:
                 f"{only_weighted}; duplicate IDs unweighted="
                 f"{duplicate_unweighted}, weighted={duplicate_weighted}); fix: "
                 f"both must call the same three arm "
-                f"functions with the same caps and the same trigram threshold, "
+                f"functions with the same caps and the same fuzzy threshold, "
                 f"and differ only in fusion arithmetic — a comparison over "
                 f"different pools credits the weights with a difference in inputs"
             )
@@ -280,7 +280,7 @@ class FusionComparisonService:
             FusionCandidateComparison(
                 product_id=row["product_id"],
                 fts_rank=row["fts_rank"],
-                trigram_rank=row["trigram_rank"],
+                fuzzy_rank=row["fuzzy_rank"],
                 semantic_rank=row["semantic_rank"],
                 unweighted_rrf_score=row["rrf_score"],
                 weighted_rrf_score=weighted_rows[row["product_id"]]["rrf_score"],
@@ -301,9 +301,9 @@ class FusionComparisonService:
             applied_filters=json.loads(filter_json),
             rrf_k=profile_config.rrf_k,
             weights={
-                "lexical": profile_config.weight_lexical,
+                "fts": profile_config.weight_fts,
                 "semantic": profile_config.weight_semantic,
-                "trigram": profile_config.weight_trigram,
+                "fuzzy": profile_config.weight_fuzzy,
             },
             candidate_sets_identical=identical,
             candidate_count=len(unweighted_ids),
@@ -383,7 +383,7 @@ class FusionComparisonService:
                 cursor.executemany(
                     """
                     INSERT INTO mosaic.fusion_comparison_candidate (
-                        fusion_comparison_id, product_id, fts_rank, trigram_rank,
+                        fusion_comparison_id, product_id, fts_rank, fuzzy_rank,
                         semantic_rank, unweighted_rrf_score, weighted_rrf_score,
                         unweighted_rank, weighted_rank, rank_delta, provenance
                     ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb)
@@ -393,7 +393,7 @@ class FusionComparisonService:
                             response.fusion_comparison_id,
                             c.product_id,
                             c.fts_rank,
-                            c.trigram_rank,
+                            c.fuzzy_rank,
                             c.semantic_rank,
                             c.unweighted_rrf_score,
                             c.weighted_rrf_score,

@@ -5,11 +5,11 @@ satisfy. Before this module the names were strings nobody resolved, so a typo in
 the contract was undetectable and — worse — a retrieval arm could fail
 completely with every gate green.
 
-`fts_signal_present` exists because the lexical arm can fail completely:
+`fts_signal_present` exists because the full-text arm can fail completely:
 `search_fts` runs a strict AND query with a conjunctive backoff; it never
 OR-combines. Under the AND-only tsquery that shipped before the backoff
-existed, the missions that then declared `fts` lost the lexical arm entirely,
-and no assertion named the lexical arm at all.
+existed, the missions that then declared `fts` lost the full-text arm entirely,
+and no assertion named the full-text arm at all.
 
 Every assertion carries a `falsifier`: the concrete condition under which it
 fails. The field is required rather than optional because an assertion whose
@@ -69,14 +69,14 @@ _ASSERTIONS: tuple[Assertion, ...] = (
         name="fts_signal_present",
         arm="fts",
         falsifier=(
-            "the lexical arm contributes no candidates: an AND-only tsquery on "
+            "the full-text arm contributes no candidates: an AND-only tsquery on "
             "terms that do not co-occur, an unpopulated search_document, or a "
             "dropped GIN index. Measured before Phase 1 on four of six missions."
         ),
         label="full-text search contributed candidates",
     ),
     Assertion(
-        name="trigram_signal_present",
+        name="fuzzy_signal_present",
         arm="pg_trgm",
         falsifier=(
             "the fuzzy arm contributes no candidates: every eligible product "
@@ -90,7 +90,7 @@ _ASSERTIONS: tuple[Assertion, ...] = (
         name="semantic_signal_present",
         arm="hnsw",
         falsifier=(
-            "the vector arm contributes no candidates: a partially loaded "
+            "the semantic arm contributes no candidates: a partially loaded "
             "embedding column (measured at 50.2% coverage), a failed Bedrock "
             "embed call, a missing HNSW index, or iterative-scan limits that "
             "truncate the pool to nothing. Measured at 0 for hnsw-performance "
@@ -293,7 +293,7 @@ KNOWN_ASSERTIONS: frozenset[str] = frozenset(ASSERTIONS)
 # missing key and silently passes.
 _ARM_COUNT_KEY: dict[str, str] = {
     "fts": "fts_in_pool",
-    "pg_trgm": "trigram_in_pool",
+    "pg_trgm": "fuzzy_in_pool",
     "hnsw": "semantic_in_pool",
 }
 
@@ -335,7 +335,7 @@ def falsifier_for(name: str) -> str:
 def signal_assertions_for(expected_techniques: Sequence[str]) -> list[str]:
     """Signal assertions a mission is entitled to, given the arms it declares.
 
-    A mission that does not declare `fts` is not asserted on the lexical arm:
+    A mission that does not declare `fts` is not asserted on the full-text arm:
     its recovery is a side effect of the fix, not a requirement.
     """
     declared = set(expected_techniques)

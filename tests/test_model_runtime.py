@@ -1041,13 +1041,13 @@ def test_followup_context_is_loaded_from_the_grounded_aurora_turn(
                         "product_id": 101,
                         "result_rank": 1,
                         "fts_rank": 2,
-                        "trigram_rank": None,
+                        "fuzzy_rank": None,
                         "semantic_rank": 1,
                         "fused_rank": 1,
                         "rerank_rank": 1,
                         "scores": {
                             "fts": 0.4,
-                            "trigram": None,
+                            "fuzzy": None,
                             "semantic": 0.8,
                             "rrf": 0.03,
                             "pre_rerank": 0.03,
@@ -1057,7 +1057,7 @@ def test_followup_context_is_loaded_from_the_grounded_aurora_turn(
                         "provenance": {
                             "channels": {
                                 "fts": {"rrf_contribution": 0.01},
-                                "vector": {"rrf_contribution": 0.02},
+                                "semantic": {"rrf_contribution": 0.02},
                             }
                         },
                     }

@@ -257,7 +257,7 @@ def test_before_and_after_name_the_target_once_and_fit_a_laptop_terminal(name):
         "fused_rank": 21,
         "result_rank": 5,
         "fts_rank": None,
-        "trigram_rank": None,
+        "fuzzy_rank": None,
         "semantic_rank": 10,
     }
 
@@ -281,7 +281,7 @@ def test_target_summary_names_positions_and_only_the_methods_that_found_it():
         "fused_rank": 2,
         "result_rank": 1,
         "fts_rank": None,
-        "trigram_rank": 1,
+        "fuzzy_rank": 1,
         "semantic_rank": None,
     }
 

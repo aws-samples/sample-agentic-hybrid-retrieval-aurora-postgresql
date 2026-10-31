@@ -201,7 +201,7 @@ def compare_products(
 @mcp.tool(
     title="Inspect a retrieval run",
     description=(
-        "Replay persisted lexical, trigram, semantic, RRF, rerank, "
+        "Replay persisted full-text, fuzzy, semantic, RRF, rerank, "
         "filter, timing, and final-order signals for one search run. Unscoped "
         "by design: unlike explain_retrieval, any valid run ID resolves here, "
         "on the single-attendee disposable-instance assumption."

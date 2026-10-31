@@ -149,8 +149,8 @@ def _ranking_receipt(
         "rrf_score": _number(_as_dict(row.get("scores")).get("rrf")),
         "rrf_contributions": {
             "fts": contribution("fts"),
-            "trigram": contribution("trigram"),
-            "semantic": contribution("vector"),
+            "fuzzy": contribution("fuzzy"),
+            "semantic": contribution("semantic"),
         },
         "disposition": disposition,
         "drop_reason": drop_reason,
@@ -429,7 +429,7 @@ def load_agent_turn_rows(connection: Any, agent_turn_id: Any) -> AgentTurnRows |
         connection.execute(
             """
             SELECT search_event_id, product_id, result_rank, fts_rank,
-                   trigram_rank, semantic_rank, fused_rank, rerank_rank,
+                   fuzzy_rank, semantic_rank, fused_rank, rerank_rank,
                    scores, provenance
             FROM mosaic.search_result_event
             WHERE search_event_id = ANY (%s::uuid[])

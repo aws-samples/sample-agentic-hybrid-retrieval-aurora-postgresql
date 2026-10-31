@@ -33,12 +33,12 @@ def yaml_copy(tmp_path: Path) -> Path:
 def test_the_shipped_yaml_loads_and_validates():
     profile = load_profile()
     assert profile.fts_limit == 120
-    assert profile.trigram_limit == 80
+    assert profile.fuzzy_limit == 80
     assert profile.semantic_limit == 150
     assert profile.rrf_k == 60
-    assert profile.trigram_threshold == 0.20
-    assert profile.trigram_similarity_gate == 0.18
-    assert profile.trigram_word_similarity_gate == 0.5
+    assert profile.fuzzy_threshold == 0.20
+    assert profile.fuzzy_similarity_gate == 0.18
+    assert profile.fuzzy_word_similarity_gate == 0.5
     assert profile.coverage_similarity_floor == 0.24
 
 
@@ -53,19 +53,19 @@ def test_the_coverage_floor_stays_at_or_above_the_index_gate():
     meaningful.
     """
     profile = load_profile()
-    assert profile.coverage_similarity_floor >= profile.trigram_similarity_gate, (
+    assert profile.coverage_similarity_floor >= profile.fuzzy_similarity_gate, (
         f"coverage floor {profile.coverage_similarity_floor} is below the "
-        f"pg_trgm index gate {profile.trigram_similarity_gate}; raise the floor "
-        f"or lower candidate_generation.trigram_index_gate.similarity_threshold"
+        f"pg_trgm index gate {profile.fuzzy_similarity_gate}; raise the floor "
+        f"or lower candidate_generation.fuzzy_index_gate.similarity_threshold"
     )
 
 
 def test_the_ported_weights_round_trip_by_key_name():
     """LOSS-3's values must arrive under the names they left workshop.json with."""
     profile = load_profile()
-    assert profile.weight_lexical == 0.30
+    assert profile.weight_fts == 0.30
     assert profile.weight_semantic == 0.45
-    assert profile.weight_trigram == 0.10
+    assert profile.weight_fuzzy == 0.10
 
 
 def test_business_signals_do_not_enter_the_required_ranking_path():
@@ -79,16 +79,16 @@ def test_business_signals_do_not_enter_the_required_ranking_path():
     ("env", "field", "value"),
     [
         ("FTS_CANDIDATE_LIMIT", "fts_limit", "77"),
-        ("TRIGRAM_CANDIDATE_LIMIT", "trigram_limit", "41"),
+        ("FUZZY_CANDIDATE_LIMIT", "fuzzy_limit", "41"),
         ("SEMANTIC_CANDIDATE_LIMIT", "semantic_limit", "99"),
         ("RRF_K", "rrf_k", "13"),
         ("RERANK_CANDIDATE_LIMIT", "fused_limit", "25"),
         ("HNSW_EF_SEARCH", "hnsw_ef_search", "64"),
         ("VECTOR_DIM", "vector_dimension", "512"),
-        ("PG_TRGM_SIMILARITY_THRESHOLD", "trigram_similarity_gate", "0.21"),
+        ("PG_TRGM_SIMILARITY_THRESHOLD", "fuzzy_similarity_gate", "0.21"),
         (
             "PG_TRGM_WORD_SIMILARITY_THRESHOLD",
-            "trigram_word_similarity_gate",
+            "fuzzy_word_similarity_gate",
             "0.55",
         ),
     ],
@@ -190,7 +190,7 @@ def test_settings_reads_the_profile_rather_than_restating_it(monkeypatch):
     get_settings.cache_clear()
     monkeypatch.setenv("FTS_CANDIDATE_LIMIT", "88")
     try:
-        assert get_settings().lexical_candidate_limit == 88
+        assert get_settings().fts_candidate_limit == 88
     finally:
         get_settings.cache_clear()
 

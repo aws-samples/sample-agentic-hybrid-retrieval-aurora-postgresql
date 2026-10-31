@@ -5,7 +5,7 @@ Every check compares the participant's work with an answer this script computes
 independently, in read-only transactions. It never repairs a lab, never
 changes catalog data, and never shows the reference answer.
 
-- Lab 1: a recall query for the filtered vector search, graded with the planner's
+- Lab 1: a recall query for the filtered semantic search, graded with the planner's
   own plan and again with the HNSW index forced.
 - Lab 2: the applied reciprocal-rank contribution, graded against 1 / (k + rank)
   at the configured ``k`` and at four other values. ``compare --lab 2`` prints what
@@ -262,13 +262,13 @@ def _lab1_truth(cur: Any, values: dict[str, str], exact: set[int]) -> dict[str, 
         int(values["lab_semantic_limit"]),
     )
     cur.execute(
-        f"SELECT product_id FROM {schema}.search_vector(%s::vector, %s::jsonb, %s)",
+        f"SELECT product_id FROM {schema}.search_semantic(%s::vector, %s::jsonb, %s)",
         args,
     )
     approximate = {row["product_id"] for row in cur.fetchall()}
     cur.execute(
         "EXPLAIN (ANALYZE, COSTS OFF) SELECT * FROM "
-        f"{schema}.search_vector(%s::vector, %s::jsonb, %s)",
+        f"{schema}.search_semantic(%s::vector, %s::jsonb, %s)",
         args,
     )
     plan = [row["QUERY PLAN"] for row in cur.fetchall()]
@@ -309,7 +309,7 @@ def _lab1_verdict(condition: str, mine: dict, truth: dict) -> str | None:
         return (
             f"{condition}: your recall is {float(mine['recall']):.6f}; the true recall "
             f"is {truth['recall']:.6f}. Run EXPLAIN on your ground-truth CTE: if it "
-            f"scans {LIVE_INDEXES['vector']}, it is approximate, not exact. A filter "
+            f"scans {LIVE_INDEXES['semantic']}, it is approximate, not exact. A filter "
             "hidden inside a function call can also change the plan the planner picks."
         )
     return (
@@ -366,21 +366,21 @@ def _lab2_arms(cur: Any, values: dict[str, str]) -> dict[str, dict[int, int]]:
             f"SELECT product_id, fts_rank AS r FROM {schema}.search_fts(%s, %s::jsonb, %s)",
             (query, filters, int(values["lab_fts_limit"])),
         ),
-        "trigram": (
+        "fuzzy": (
             (
-                f"SELECT product_id, trigram_rank AS r FROM {schema}.search_trigram("
+                f"SELECT product_id, fuzzy_rank AS r FROM {schema}.search_fuzzy("
                 "%s, %s::jsonb, %s, %s::real)"
             ),
             (
                 query,
                 filters,
-                int(values["lab_trigram_limit"]),
-                float(values["lab_trigram_threshold"]),
+                int(values["lab_fuzzy_limit"]),
+                float(values["lab_fuzzy_threshold"]),
             ),
         ),
-        "vector": (
+        "semantic": (
             (
-                f"SELECT product_id, semantic_rank AS r FROM {schema}.search_vector("
+                f"SELECT product_id, semantic_rank AS r FROM {schema}.search_semantic("
                 "%s::vector, %s::jsonb, %s)"
             ),
             (values["lab_vector"], filters, int(values["lab_semantic_limit"])),
@@ -674,7 +674,7 @@ def compare(lab: int) -> dict[str, Any]:
             "rrf_k",
             "fused_limit",
             "fts_limit",
-            "trigram_limit",
+            "fuzzy_limit",
             "semantic_limit",
         )
     }

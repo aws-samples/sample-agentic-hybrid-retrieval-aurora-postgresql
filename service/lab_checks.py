@@ -54,7 +54,7 @@ CONTRIBUTION_TOLERANCE = 1e-9
 #: The names Shop and the guides give each search method, for failure details.
 ARM_LABELS: dict[str, str] = {
     "fts": "Full-text search",
-    "trigram": "Fuzzy matching",
+    "fuzzy": "Fuzzy matching",
     "semantic": "Semantic search",
 }
 LAB_FILES = {1: LAB1_SQL, 2: LAB2_SQL}
@@ -478,7 +478,7 @@ def _lab_1_anchor(
         falsifier=(
             "the mission's target product reaches no candidate arm. With the "
             "pg_trgm channel disconnected, an all-misspelled query produces no "
-            "lexical match and ranks the target outside the vector arm's "
+            "full-text match and ranks the target outside the semantic arm's "
             "budget, so it is absent from the window entirely."
         ),
         detail=(
@@ -498,9 +498,9 @@ def _lab_1_provenance(
     results: Sequence[Mapping[str, Any]],
 ) -> LabCheck:
     signals = _signals(_target(mission, results))
-    trigram = _arm(signals, "trigram")
-    rank = trigram.get("rank")
-    contribution = trigram.get("rrf_contribution")
+    fuzzy = _arm(signals, "fuzzy")
+    rank = fuzzy.get("rank")
+    contribution = fuzzy.get("rrf_contribution")
     unexpected = {
         arm: dict(_arm(signals, arm))
         for arm in mission.get("absent_target_signals", [])
@@ -514,11 +514,11 @@ def _lab_1_provenance(
         falsifier=(
             "the target is returned without a pg_trgm rank or without its RRF "
             "contribution, which means it arrived through another arm and the "
-            "trigram repair is unproven by this result; or an arm declared absent "
-            "also found it, contradicting the exercise's only-trigram claim."
+            "fuzzy repair is unproven by this result; or an arm declared absent "
+            "also found it, contradicting the exercise's only-fuzzy claim."
         ),
         detail=(
-            f"trigram rank {rank} contributing {contribution}"
+            f"fuzzy rank {rank} contributing {contribution}"
             if passed
             else _lab_1_provenance_failure(mission, signals, unexpected)
         ),
@@ -578,17 +578,17 @@ def _lab_1_filters(
 
 def _lab_1_pool(response: Mapping[str, Any]) -> LabCheck:
     counts = (response.get("diagnostics") or {}).get("candidate_counts") or {}
-    in_pool = counts.get("trigram_in_pool", 0)
+    in_pool = counts.get("fuzzy_in_pool", 0)
     return LabCheck(
         name="fuzzy matching candidates reach fusion",
         passed=in_pool > 0,
         falsifier=(
-            "diagnostics.candidate_counts.trigram_in_pool is 0, the broken "
+            "diagnostics.candidate_counts.fuzzy_in_pool is 0, the broken "
             "state's signature: the fuzzy arm contributed no candidate to "
             "fusion, whatever the result window happens to contain."
         ),
         detail=(
-            f"trigram_in_pool={in_pool}"
+            f"fuzzy_in_pool={in_pool}"
             if in_pool > 0
             else explain(
                 "no Fuzzy matching candidates among those combined and sent to "
@@ -628,7 +628,7 @@ def _contributions_consistent(result: Mapping[str, Any], rrf_k: int) -> bool:
     signals = _signals(result)
     expected = 0.0
     found = False
-    for arm in ("fts", "trigram", "semantic"):
+    for arm in ("fts", "fuzzy", "semantic"):
         signal = _arm(signals, arm)
         rank = signal.get("rank")
         contribution = signal.get("rrf_contribution")
@@ -750,9 +750,7 @@ def _lab_2_provenance(
     signals = _signals(target)
     missing = [
         arm
-        for arm in mission.get(
-            "expected_target_signals", ("fts", "trigram", "semantic")
-        )
+        for arm in mission.get("expected_target_signals", ("fts", "fuzzy", "semantic"))
         if _arm(signals, arm).get("rank") is None
     ]
     rerank_score = signals.get("rerank_score")

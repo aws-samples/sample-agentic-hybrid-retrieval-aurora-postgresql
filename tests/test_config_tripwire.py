@@ -110,7 +110,7 @@ def test_the_real_repository_is_clean():
     [
         ("service/second_copy.py", "fts_limit = 200\n"),
         ("service/second_copy.py", "rrf_k = 42\n"),
-        ("service/second_copy.py", "trigram_limit=99\n"),
+        ("service/second_copy.py", "fuzzy_limit=99\n"),
         ("service/second_copy.py", "SERVED_EF_SEARCH = 100\n"),
         ("service/second_copy.py", "DEFAULT_HNSW_EF_SEARCH = 100\n"),
     ],
@@ -181,7 +181,7 @@ def test_a_resurrected_workshop_json_is_caught(fake_repo):
     """Unit C deleted this file; recreating it must fail rather than be ignored."""
     (fake_repo / "config").mkdir()
     (fake_repo / "config" / "workshop.json").write_text(
-        json.dumps({"retrieval": {"lexical_candidate_limit": 100, "rrf_k": 60}}),
+        json.dumps({"retrieval": {"fts_candidate_limit": 100, "rrf_k": 60}}),
         encoding="utf-8",
     )
     report = Report()
@@ -304,7 +304,7 @@ def test_an_unpinned_sql_default_is_caught(fake_repo):
     (fake_repo / "labs" / "lab1_retrieve" / "hybrid_search.sql").write_text(
         "CREATE OR REPLACE FUNCTION mosaic_search.invented(\n"
         "    q text,\n"
-        "    weight_lexical real DEFAULT 0.30\n"
+        "    weight_fts real DEFAULT 0.30\n"
         ")\nRETURNS TABLE (product_id bigint) LANGUAGE sql AS $$ SELECT 1 $$;\n",
         encoding="utf-8",
     )
@@ -364,7 +364,7 @@ from pydantic import BaseModel, Field
 
 class RetrievalProfile(BaseModel):
     fts_limit: int = Field(default={fts_limit}, ge=1, le=1000)
-    trigram_limit: int = Field(default=80, ge=1, le=1000)
+    fuzzy_limit: int = Field(default=80, ge=1, le=1000)
     semantic_limit: int = Field(default=150, ge=1, le=1000)
     fused_limit: int = Field(default=50, ge=1, le=250)
     result_limit: int = Field(default=12, ge=1, le=100)

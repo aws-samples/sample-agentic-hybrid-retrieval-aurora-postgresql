@@ -50,8 +50,8 @@ def explain_rejected_names(message: str) -> list[str]:
     if call and call.group(1) not in POSITION_TYPES:
         notes.append(
             "Rule: reciprocal_rank_contribution takes a channel's position (bigint), "
-            f"got {call.group(1)}. Pass the position column, such as trigram_rank, "
-            "not the raw score, such as trigram_score."
+            f"got {call.group(1)}. Pass the position column, such as fuzzy_rank, "
+            "not the raw score, such as fuzzy_score."
         )
     return notes
 

@@ -460,7 +460,7 @@ def similar_products(product_id: int) -> list[ProductSummary]:
 
     This is a bounded merchandising read over installed photography, not the
     workshop's full-catalog HNSW search. Reusing the stored product vector avoids
-    embedding a brand name and treating its lexical neighbors as alternatives.
+    embedding a brand name and treating its full-text neighbors as alternatives.
     """
     if active_dataset():
         from service import live_catalog
@@ -628,7 +628,7 @@ def _most_relevant_reviews(
 ) -> list[int]:
     """Choose the reviews that answer the question, not the ones that repeat its words.
 
-    Imported reviews have no vectors, so the relaxed lexical match is their only
+    Imported reviews have no vectors, so the relaxed full-text match is their only
     candidate source, and `ts_rank_cd` scores each OR term on its own: a review
     that "called support" tied one that says "call quality is ok", and the
     evidence ID broke the tie. The reranker reads every candidate against the
@@ -696,7 +696,7 @@ def get_product_evidence_records(
         ):
             # Imported reviews have no vectors. A multi-topic question should
             # not require every topic to occur in the same review; relax only
-            # that lexical match, retaining the exact product and source type.
+            # that full-text match, retaining the exact product and source type.
             terms = list(dict.fromkeys(re.findall(r"\w+", query, flags=re.UNICODE)))
             relaxed_query = " OR ".join(f'"{term}"' for term in terms)
             if relaxed_query:

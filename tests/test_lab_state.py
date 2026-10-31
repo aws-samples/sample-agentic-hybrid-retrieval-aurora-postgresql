@@ -16,11 +16,11 @@ from service.lab_files import solution_path
 from service.participant_commands import DIFF_ANSWER, solution
 
 PARTICIPANT_CHANNEL = """    UNION ALL
-    SELECT product_id, 'trigram'::text AS channel, trigram_rank AS source_rank,
-           trigram_score AS raw_score,
-           mosaic_search.reciprocal_rank_contribution(trigram_rank, rrf_k)
+    SELECT product_id, 'fuzzy'::text AS channel, fuzzy_rank AS source_rank,
+           fuzzy_score AS raw_score,
+           mosaic_search.reciprocal_rank_contribution(fuzzy_rank, rrf_k)
                AS contribution
-    FROM typo"""
+    FROM fuzzy"""
 
 
 @pytest.fixture
@@ -81,7 +81,7 @@ def test_applied_lab1_does_not_accept_disconnected_name_mentions():
 
     connection = MagicMock()
     connection.execute.return_value.fetchone.return_value = {
-        "definition": "-- search_trigram is missing\nSELECT product_id FROM typo"
+        "definition": "-- search_fuzzy is missing\nSELECT product_id FROM fuzzy"
     }
     assert validate_database(1, connection).state == "stale"
 
@@ -89,14 +89,14 @@ def test_applied_lab1_does_not_accept_disconnected_name_mentions():
 @pytest.mark.parametrize(
     ("old", "new"),
     [
-        ("q, f, trigram_limit", "q, '{}'::jsonb, trigram_limit"),
-        ("trigram_limit, trigram_threshold\n", "trigram_limit, 0.0\n"),
+        ("q, f, fuzzy_limit", "q, '{}'::jsonb, fuzzy_limit"),
+        ("fuzzy_limit, fuzzy_threshold\n", "fuzzy_limit, 0.0\n"),
         ("UNION ALL", "UNION"),
-        ("'trigram'::text", "'vector'::text"),
-        ("trigram_rank AS source_rank", "1 AS source_rank"),
-        ("trigram_score AS raw_score", "trigram_rank AS raw_score"),
-        ("(trigram_rank, rrf_k)", "(1, rrf_k)"),
-        ("FROM typo", "FROM semantic"),
+        ("'fuzzy'::text", "'semantic'::text"),
+        ("fuzzy_rank AS source_rank", "1 AS source_rank"),
+        ("fuzzy_score AS raw_score", "fuzzy_rank AS raw_score"),
+        ("(fuzzy_rank, rrf_k)", "(1, rrf_k)"),
+        ("FROM fuzzy", "FROM semantic"),
     ],
 )
 def test_lab1_contract_rejects_changed_data_flow_and_restores(lab_repo, old, new):
@@ -113,8 +113,8 @@ def test_lab1_contract_rejects_changed_data_flow_and_restores(lab_repo, old, new
 
 def test_lab1_contract_ignores_local_names_comments_and_projection_order(lab_repo):
     source = participant_lab1(lab_repo)
-    source = source.replace("typo AS (", "recovered /* still named */ AS (")
-    source = source.replace("FROM typo", "FROM recovered")
+    source = source.replace("fuzzy AS (", "recovered /* still named */ AS (")
+    source = source.replace("FROM fuzzy", "FROM recovered")
     source = source.replace("AS raw_score", "AS ignored_union_alias -- output name\n")
     (lab_repo / LABS[1][0]).write_text(source)
     assert lab_is_solved(1, repo=lab_repo)
@@ -148,7 +148,7 @@ def test_source_gate_ignores_layout_but_preserves_the_repair(lab_repo, lab):
 def test_source_gate_preserves_string_contents(lab_repo):
     set_lab_state(1, solved=True, repo=lab_repo)
     path = lab_repo / LABS[1][0]
-    path.write_text(path.read_text().replace("'trigram'", "'tri gram'"))
+    path.write_text(path.read_text().replace("'fuzzy'", "'tri gram'"))
     assert not lab_is_solved(1, repo=lab_repo)
 
 
@@ -683,19 +683,19 @@ def test_diff_names_one_changed_line_in_plain_words(lab_repo: Path) -> None:
     set_lab_state(1, solved=True, repo=lab_repo)
     path = lab_repo / LABS[1][0]
     source = path.read_text()
-    assert source.count("    FROM typo\n") == 1
-    path.write_text(source.replace("    FROM typo\n", "    FROM semantic\n"))
-    line = source.split("    FROM typo\n", 1)[0].count("\n") + 1
+    assert source.count("    FROM fuzzy\n") == 1
+    path.write_text(source.replace("    FROM fuzzy\n", "    FROM semantic\n"))
+    line = source.split("    FROM fuzzy\n", 1)[0].count("\n") + 1
 
     hint, differs = lab_diff(1, repo=lab_repo)
     report, _ = lab_diff(1, repo=lab_repo, answer=True)
 
     assert differs
     assert f"At line {line} of your file:\n  Your file:\n      FROM semantic\n" in hint
-    assert "FROM typo" not in hint
+    assert "FROM fuzzy" not in hint
     assert (
         f"At line {line} of your file:\n"
-        "  Reference answer:\n      FROM typo\n"
+        "  Reference answer:\n      FROM fuzzy\n"
         "  Your file:\n      FROM semantic\n"
     ) in report
 

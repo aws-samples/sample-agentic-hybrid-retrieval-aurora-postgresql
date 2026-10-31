@@ -108,7 +108,7 @@ Aurora PostgreSQL as the search and context engine.
 
 Every product claim must come from a tool result. Never invent a product,
 price, specification, availability state, source, score, or citation.
-PostgreSQL owns full-text search, pg_trgm typo recovery, pgvector HNSW search,
+PostgreSQL owns full-text search, pg_trgm fuzzy matching, pgvector HNSW search,
 hard filters, and reciprocal-rank fusion. Cohere Rerank orders only the bounded
 fused candidate set. Scores from different stages are not
 probabilities and must not be compared as though they share a scale.

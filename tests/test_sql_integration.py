@@ -163,7 +163,7 @@ def test_batched_counts_match_shop_with_empty_and_combined_filters():
     assert counts[3] == 0
 
 
-def test_database_level_trigram_gates_match_the_profile(connection, profile):
+def test_database_level_fuzzy_gates_match_the_profile(connection, profile):
     """Every new Aurora session must inherit deterministic pg_trgm index gates."""
     connection.execute("SELECT similarity('mosaic', 'mosaic')").fetchone()
     similarity_gate, word_similarity_gate = connection.execute(
@@ -178,14 +178,14 @@ def test_database_level_trigram_gates_match_the_profile(connection, profile):
         FROM pg_proc p
         JOIN pg_namespace n ON n.oid = p.pronamespace
         WHERE n.nspname = 'mosaic_search'
-          AND p.proname = 'search_trigram'
+          AND p.proname = 'search_fuzzy'
           AND pg_get_function_identity_arguments(p.oid) =
               'q text, f jsonb, candidate_limit integer, minimum_similarity real'
         """
     ).fetchone()[0]
 
-    assert similarity_gate == pytest.approx(profile.trigram_similarity_gate)
-    assert word_similarity_gate == pytest.approx(profile.trigram_word_similarity_gate)
+    assert similarity_gate == pytest.approx(profile.fuzzy_similarity_gate)
+    assert word_similarity_gate == pytest.approx(profile.fuzzy_word_similarity_gate)
     assert function_config is None
 
 
@@ -193,13 +193,13 @@ def test_hybrid_fusion_preserves_every_arm_signal(connection, profile, served_pr
     """Fusion must not erase provenance: the three arm ranks stay separable."""
     rows = connection.execute(
         f"""
-        SELECT product_id, fts_rank, trigram_rank, semantic_rank, rrf_score,
+        SELECT product_id, fts_rank, fuzzy_rank, semantic_rank, rrf_score,
                provenance
         FROM {served_probe["schema"]}.search_hybrid_rrf(
             %(query)s, %(embedding)s::vector, %(filters)s::jsonb,
             %(rrf_k)s::integer, %(fts_limit)s::integer,
-            %(trigram_limit)s::integer, %(semantic_limit)s::integer,
-            %(result_limit)s::integer, %(trigram_threshold)s::real
+            %(fuzzy_limit)s::integer, %(semantic_limit)s::integer,
+            %(result_limit)s::integer, %(fuzzy_threshold)s::real
         )
         LIMIT 10
         """,
@@ -209,15 +209,15 @@ def test_hybrid_fusion_preserves_every_arm_signal(connection, profile, served_pr
             "filters": served_probe["filters"],
             "rrf_k": profile.rrf_k,
             "fts_limit": profile.fts_limit,
-            "trigram_limit": profile.trigram_limit,
+            "fuzzy_limit": profile.fuzzy_limit,
             "semantic_limit": profile.semantic_limit,
             "result_limit": profile.fused_limit,
-            "trigram_threshold": profile.trigram_threshold,
+            "fuzzy_threshold": profile.fuzzy_threshold,
         },
     ).fetchall()
 
     assert rows
-    assert any(row[1] is not None for row in rows), "no lexical arm contribution"
+    assert any(row[1] is not None for row in rows), "no full-text arm contribution"
     assert any(row[3] is not None for row in rows), "no semantic arm contribution"
     for row in rows:
         assert row[4] > 0
@@ -232,18 +232,18 @@ def test_pre_rerank_order_is_repeatable(connection, profile, served_probe):
         "filters": served_probe["filters"],
         "rrf_k": profile.rrf_k,
         "fts_limit": profile.fts_limit,
-        "trigram_limit": profile.trigram_limit,
+        "fuzzy_limit": profile.fuzzy_limit,
         "semantic_limit": profile.semantic_limit,
         "result_limit": profile.fused_limit,
-        "trigram_threshold": profile.trigram_threshold,
+        "fuzzy_threshold": profile.fuzzy_threshold,
     }
     sql = f"""
         SELECT product_id, rrf_score
         FROM {served_probe["schema"]}.search_hybrid_rrf(
             %(query)s, %(embedding)s::vector, %(filters)s::jsonb,
             %(rrf_k)s::integer, %(fts_limit)s::integer,
-            %(trigram_limit)s::integer, %(semantic_limit)s::integer,
-            %(result_limit)s::integer, %(trigram_threshold)s::real
+            %(fuzzy_limit)s::integer, %(semantic_limit)s::integer,
+            %(result_limit)s::integer, %(fuzzy_threshold)s::real
         )
         ORDER BY pre_rerank_score DESC, product_id
     """
@@ -255,9 +255,9 @@ def test_pre_rerank_order_is_repeatable(connection, profile, served_probe):
 def test_common_shop_query_stays_inside_the_sql_latency_guard(
     connection, profile, served_probe
 ):
-    """A broad shopper query must not score six figures of lexical candidates.
+    """A broad shopper query must not score six figures of full-text candidates.
 
-    The former OR-combined FTS query plus unconditional whole-string trigram
+    The former OR-combined FTS query plus unconditional whole-string fuzzy
     gate took roughly ten seconds on the 500K workshop corpus. Five seconds is
     deliberately a guardrail rather than a benchmark claim: the query either
     follows the selective GIN/HNSW paths or PostgreSQL cancels it loudly.
@@ -266,12 +266,12 @@ def test_common_shop_query_stays_inside_the_sql_latency_guard(
         connection.execute("SET LOCAL statement_timeout = '5s'")
         rows = connection.execute(
             f"""
-            SELECT product_id, fts_rank, trigram_rank, semantic_rank
+            SELECT product_id, fts_rank, fuzzy_rank, semantic_rank
             FROM {served_probe["schema"]}.search_hybrid_rrf(
                 %(query)s, %(embedding)s::vector, '{{}}'::jsonb,
                 %(rrf_k)s::integer, %(fts_limit)s::integer,
-                %(trigram_limit)s::integer, %(semantic_limit)s::integer,
-                %(result_limit)s::integer, %(trigram_threshold)s::real
+                %(fuzzy_limit)s::integer, %(semantic_limit)s::integer,
+                %(result_limit)s::integer, %(fuzzy_threshold)s::real
             )
             """,
             {
@@ -279,16 +279,16 @@ def test_common_shop_query_stays_inside_the_sql_latency_guard(
                 "embedding": served_probe["embedding"],
                 "rrf_k": profile.rrf_k,
                 "fts_limit": profile.fts_limit,
-                "trigram_limit": profile.trigram_limit,
+                "fuzzy_limit": profile.fuzzy_limit,
                 "semantic_limit": profile.semantic_limit,
                 "result_limit": profile.fused_limit,
-                "trigram_threshold": profile.trigram_threshold,
+                "fuzzy_threshold": profile.fuzzy_threshold,
             },
         ).fetchall()
 
     assert rows
     assert any(row[1] is not None for row in rows), "selective FTS path is empty"
-    assert any(row[2] is not None for row in rows), "selective trigram path is empty"
+    assert any(row[2] is not None for row in rows), "selective fuzzy path is empty"
     assert any(row[3] is not None for row in rows), "HNSW path is empty"
 
 
@@ -306,9 +306,9 @@ def test_the_weighted_function_takes_weights_and_the_unweighted_one_does_not(
             """
         ).fetchall()
     )
-    assert "weight_lexical" not in signatures["search_hybrid_rrf"]
-    assert "weight_lexical" in signatures["search_hybrid_rrf_weighted"]
-    assert "trigram_threshold" in signatures["search_hybrid_rrf"]
+    assert "weight_fts" not in signatures["search_hybrid_rrf"]
+    assert "weight_fts" in signatures["search_hybrid_rrf_weighted"]
+    assert "fuzzy_threshold" in signatures["search_hybrid_rrf"]
 
 
 # --- Lab 1 determinism: the same result on every account, every deployment -----

@@ -8,7 +8,7 @@ the old implementation, which is forked truth at the function level: two
 definitions of "the search function" answering different callers, with no error
 anywhere.
 
-Measured: Unit D added `trigram_threshold` to `mosaic_search.search_hybrid_rrf`
+Measured: Unit D added `fuzzy_threshold` to `mosaic_search.search_hybrid_rrf`
 and left two nine- and ten-argument versions live on Aurora. The SQL file was
 correct; the cluster was not.
 

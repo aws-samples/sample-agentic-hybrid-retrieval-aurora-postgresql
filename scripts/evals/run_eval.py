@@ -333,8 +333,8 @@ def main() -> None:
                     FROM {search_schema()}.search_hybrid_rrf(
                         %(query)s::text, %(embedding)s::vector, %(filters)s::jsonb,
                         %(rrf_k)s::integer, %(fts_limit)s::integer,
-                        %(trigram_limit)s::integer, %(semantic_limit)s::integer,
-                        %(result_limit)s::integer, %(trigram_threshold)s::real
+                        %(fuzzy_limit)s::integer, %(semantic_limit)s::integer,
+                        %(result_limit)s::integer, %(fuzzy_threshold)s::real
                     )
                     """,
                     {
@@ -343,10 +343,10 @@ def main() -> None:
                         "filters": json.dumps(query.get("filters") or {}),
                         "rrf_k": profile.rrf_k,
                         "fts_limit": profile.fts_limit,
-                        "trigram_limit": profile.trigram_limit,
+                        "fuzzy_limit": profile.fuzzy_limit,
                         "semantic_limit": profile.semantic_limit,
                         "result_limit": max(args.k, profile.fused_limit),
-                        "trigram_threshold": profile.trigram_threshold,
+                        "fuzzy_threshold": profile.fuzzy_threshold,
                     },
                 ).fetchall()
                 elapsed = (time.perf_counter() - started) * 1_000

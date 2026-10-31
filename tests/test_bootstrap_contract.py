@@ -230,7 +230,7 @@ def test_lab1_acceptance_assertion_targets_the_mission_product(script: str) -> N
         f"expected={sorted(expected_targets)}; "
         "fix: update the jq assertion beside /tmp/lab1-broken-proof.json"
     )
-    assert ".diagnostics.candidate_counts.trigram_in_pool == 0" in assertion
+    assert ".diagnostics.candidate_counts.fuzzy_in_pool == 0" in assertion
 
 
 def test_api_unit_serves_the_makefile_api_port(script: str) -> None:

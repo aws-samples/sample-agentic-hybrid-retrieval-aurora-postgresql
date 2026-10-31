@@ -25,7 +25,7 @@ def served_baseline() -> dict[str, int]:
             "rrf_k",
             "fused_limit",
             "fts_limit",
-            "trigram_limit",
+            "fuzzy_limit",
             "semantic_limit",
         )
     }
@@ -52,10 +52,10 @@ def test_the_longer_shortlist_stays_within_one_billed_rerank_unit():
 
 
 def test_fusion_reads_only_the_prefix_a_smaller_limit_allows():
-    lists = {"fts": [[5, 1], [3, 2]], "trigram": [], "vector": [[3, 1], [9, 2]]}
+    lists = {"fts": [[5, 1], [3, 2]], "fuzzy": [], "semantic": [[3, 1], [9, 2]]}
 
-    full = lab2_tuning.fuse(lists, 60, {"fts": 2, "trigram": 1, "vector": 2})
-    trimmed = lab2_tuning.fuse(lists, 60, {"fts": 1, "trigram": 1, "vector": 1})
+    full = lab2_tuning.fuse(lists, 60, {"fts": 2, "fuzzy": 1, "semantic": 2})
+    trimmed = lab2_tuning.fuse(lists, 60, {"fts": 1, "fuzzy": 1, "semantic": 1})
 
     assert full == [3, 5, 9]
     assert trimmed == [3, 5]

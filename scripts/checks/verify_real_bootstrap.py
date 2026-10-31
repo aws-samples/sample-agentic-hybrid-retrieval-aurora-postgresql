@@ -63,7 +63,7 @@ def verify(connection, contract: dict) -> dict:
         raise ValueError(
             f"Real-only receipt rule: found {receipt!r}; restore the catalog matching db/config/real-catalog-cache.json."
         )
-    required = [LIVE_INDEXES[key] for key in ("fts", "trigram", "vector", "public_id")]
+    required = [LIVE_INDEXES[key] for key in ("fts", "fuzzy", "semantic", "public_id")]
     missing = connection.execute(
         """SELECT required.name FROM unnest(%s::text[]) AS required(name)
         WHERE NOT EXISTS (SELECT 1 FROM pg_index i

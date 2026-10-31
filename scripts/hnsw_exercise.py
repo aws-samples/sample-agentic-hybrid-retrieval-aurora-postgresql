@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Grade the optional "Shrink it" exercise: a faster, smaller filtered vector search.
+"""Grade the optional "Shrink it" exercise: a faster, smaller filtered semantic search.
 
 The participant writes two files:
 

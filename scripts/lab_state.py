@@ -532,16 +532,14 @@ def _projection(tokens: list[str]) -> list[tuple[list[str], str | None]]:
     return result
 
 
-def _trigram_cte(tokens: list[str], schema: str) -> str | None:
-    """Name of the CTE that forwards the four production parameters to search_trigram.
+def _fuzzy_cte(tokens: list[str], schema: str) -> str | None:
+    """Name of the CTE that forwards the four production parameters to search_fuzzy.
 
     The CTE is shipped code, not the participant's edit, so it is found by its call
     rather than by markers; it must still expose the three result columns.
     """
     call = [
-        *_sql_tokens(
-            f"{schema}.search_trigram(q, f, trigram_limit, trigram_threshold)"
-        ),
+        *_sql_tokens(f"{schema}.search_fuzzy(q, f, fuzzy_limit, fuzzy_threshold)"),
         ")",
     ]
     starts = [i for i in range(len(tokens)) if tokens[i : i + len(call)] == call]
@@ -560,7 +558,7 @@ def _trigram_cte(tokens: list[str], schema: str) -> str | None:
     columns = tokens[head + 3 : boundary]
     if columns != ["*"]:
         projected = _projection(columns)
-        required = {"product_id", "trigram_rank", "trigram_score"}
+        required = {"product_id", "fuzzy_rank", "fuzzy_score"}
         if len(projected) != len(required) or {
             tuple(expression) for expression, _ in projected
         } != {(column,) for column in required}:
@@ -573,9 +571,9 @@ def _trigram_cte(tokens: list[str], schema: str) -> str | None:
 #: What each column of the fuzzy matching branch carries, as a mismatch names it.
 _LAB1_COLUMN_ROLES = (
     "product_id",
-    "the channel name 'trigram', which the rest of the search uses for fuzzy matching",
-    "the fuzzy matching position, trigram_rank",
-    "the fuzzy matching score, trigram_score",
+    "the channel name 'fuzzy', which the rest of the search uses for fuzzy matching",
+    "the fuzzy matching position, fuzzy_rank",
+    "the fuzzy matching score, fuzzy_score",
     (
         "the RRF contribution of that position, computed the way the other "
         "branches compute theirs"
@@ -661,15 +659,15 @@ def _lab1_column_problem(columns: list[str], qualifiers: set[str]) -> str | None
             f"the branch returns {len(outputs)} columns; every branch returns five: "
             "product ID, channel name, position, score and RRF contribution"
         )
-    if outputs[1] == ["'trigram'", "::", "text"]:
-        outputs[1] = ["'trigram'"]
+    if outputs[1] == ["'fuzzy'", "::", "text"]:
+        outputs[1] = ["'fuzzy'"]
     expected = [
         ["product_id"],
-        ["'trigram'"],
-        ["trigram_rank"],
-        ["trigram_score"],
+        ["'fuzzy'"],
+        ["fuzzy_rank"],
+        ["fuzzy_score"],
         _sql_tokens(
-            f"{search_schema()}.reciprocal_rank_contribution(trigram_rank, rrf_k)"
+            f"{search_schema()}.reciprocal_rank_contribution(fuzzy_rank, rrf_k)"
         ),
     ]
     for number, (found, wanted, role) in enumerate(
@@ -691,7 +689,7 @@ def lab1_contract_problem(source: str, *, schema: str = "mosaic_search") -> str 
 
     Args:
         source: The lab file, or the function definition Aurora runs.
-        schema: The schema the shipped CTE calls `search_trigram` in.
+        schema: The schema the shipped CTE calls `search_fuzzy` in.
 
     Returns:
         The first difference, as a clause a participant can act on, or None.
@@ -700,7 +698,7 @@ def lab1_contract_problem(source: str, *, schema: str = "mosaic_search") -> str 
     markers = _markers_problem(source, start, end)
     if markers:
         return markers
-    name = _trigram_cte(_sql_tokens(source), schema)
+    name = _fuzzy_cte(_sql_tokens(source), schema)
     if name is None:
         return (
             "the fuzzy matching step above the marked block has changed; undo edits "

@@ -227,12 +227,12 @@ class ResultSignals(BaseModel):
     """Per-arm provenance for one candidate.
 
     `fts` is named for the PostgreSQL feature that produces it rather than the
-    generic "lexical", so a participant reading the response can find the
+    generic "full-text", so a participant reading the response can find the
     matching SQL function.
     """
 
     fts: RankSignal
-    trigram: RankSignal
+    fuzzy: RankSignal
     semantic: RankSignal
     rrf_score: float
     pre_rerank_rank: int
@@ -321,8 +321,8 @@ class RetrievalProfile(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     fts_limit: int = Field(default_factory=_yaml_default("fts_limit"), ge=1, le=1000)
-    trigram_limit: int = Field(
-        default_factory=_yaml_default("trigram_limit"), ge=1, le=1000
+    fuzzy_limit: int = Field(
+        default_factory=_yaml_default("fuzzy_limit"), ge=1, le=1000
     )
     semantic_limit: int = Field(
         default_factory=_yaml_default("semantic_limit"), ge=1, le=1000
@@ -339,20 +339,18 @@ class RetrievalProfile(BaseModel):
     # pg_trgm similarity floor for the fuzzy arm. Carried on the profile so both
     # fusion functions receive the same value; a literal at either call site would
     # let one arm's candidate set diverge from the other's.
-    trigram_threshold: float = Field(
-        default_factory=_yaml_default("trigram_threshold"), gt=0, le=1
+    fuzzy_threshold: float = Field(
+        default_factory=_yaml_default("fuzzy_threshold"), gt=0, le=1
     )
     # Per-arm fusion weights. Consumed ONLY by
     # `mosaic_search.search_hybrid_rrf_weighted`; default retrieval ignores them
     # because RRF weights by rank position. Ported historical values (LOSS-3).
-    weight_lexical: float = Field(
-        default_factory=_yaml_default("weight_lexical"), ge=0, le=1
-    )
+    weight_fts: float = Field(default_factory=_yaml_default("weight_fts"), ge=0, le=1)
     weight_semantic: float = Field(
         default_factory=_yaml_default("weight_semantic"), ge=0, le=1
     )
-    weight_trigram: float = Field(
-        default_factory=_yaml_default("weight_trigram"), ge=0, le=1
+    weight_fuzzy: float = Field(
+        default_factory=_yaml_default("weight_fuzzy"), ge=0, le=1
     )
     ef_search: int = Field(
         default_factory=_yaml_default("hnsw_ef_search"), ge=1, le=1000
@@ -665,7 +663,7 @@ class SearchResultEventRecord(BaseModel):
     product_id: int
     result_rank: int
     fts_rank: int | None = None
-    trigram_rank: int | None = None
+    fuzzy_rank: int | None = None
     semantic_rank: int | None = None
     fused_rank: int | None = None
     rerank_rank: int | None = None
@@ -696,7 +694,7 @@ class FusionCandidateComparison(BaseModel):
 
     product_id: int
     fts_rank: int | None = None
-    trigram_rank: int | None = None
+    fuzzy_rank: int | None = None
     semantic_rank: int | None = None
     unweighted_rrf_score: float
     weighted_rrf_score: float
@@ -1038,8 +1036,8 @@ class ScorecardStageArm(BaseModel):
     """
 
     key: Literal[
-        "lexical_only",
-        "trigram_only",
+        "fts_only",
+        "fuzzy_only",
         "semantic_only",
         "rrf_fused_no_rerank",
         "rrf_fused_reranked",
@@ -1076,7 +1074,7 @@ class ScorecardCandidateRecallCeiling(BaseModel):
     judged_relevant_never_fetched: int
     description: str
     unbounded_arms: dict[
-        Literal["lexical_only", "trigram_only", "semantic_only"],
+        Literal["fts_only", "fuzzy_only", "semantic_only"],
         ScorecardUnboundedCeilingArm,
     ]
 

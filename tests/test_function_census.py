@@ -31,7 +31,7 @@ DUPLICATE = [
         2,
         [
             "q text, ..., result_limit integer",
-            "q text, ..., result_limit integer, trigram_threshold real",
+            "q text, ..., result_limit integer, fuzzy_threshold real",
         ],
     ),
 ]

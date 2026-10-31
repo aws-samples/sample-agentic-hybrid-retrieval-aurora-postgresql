@@ -465,8 +465,8 @@ def _own_wording(repo: Path) -> None:
     path = _seam_file(1, repo)
     path.write_text(
         path.read_text().replace(
-            "SELECT product_id, 'trigram', trigram_rank,",
-            "SELECT product_id, 'trigram'::text AS channel, trigram_rank AS source_rank,",
+            "SELECT product_id, 'fuzzy', fuzzy_rank,",
+            "SELECT product_id, 'fuzzy'::text AS channel, fuzzy_rank AS source_rank,",
         )
     )
     assert lab_is_solved(1, repo=repo)

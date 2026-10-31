@@ -220,8 +220,8 @@ def test_a_score_passed_as_the_position_names_the_argument_to_change():
     )
 
     assert "takes a channel's position (bigint), got real" in message
-    assert "trigram_rank" in message
-    assert "trigram_score" in message
+    assert "fuzzy_rank" in message
+    assert "fuzzy_score" in message
     assert "LAB1_EDIT" in message
 
 

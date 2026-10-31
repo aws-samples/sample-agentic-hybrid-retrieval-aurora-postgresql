@@ -259,8 +259,8 @@ class RetrievalService:
     def _profile(self, request: SearchRequest) -> RetrievalProfile:
         settings = self.settings
         return RetrievalProfile(
-            fts_limit=settings.lexical_candidate_limit,
-            trigram_limit=settings.trigram_candidate_limit,
+            fts_limit=settings.fts_candidate_limit,
+            fuzzy_limit=settings.fuzzy_candidate_limit,
             semantic_limit=settings.semantic_candidate_limit,
             fused_limit=settings.rerank_candidate_limit,
             result_limit=request.limit,
@@ -301,16 +301,16 @@ class RetrievalService:
             "filters": json.dumps(filters),
             "rrf_k": profile.rrf_k,
             "fts_limit": profile.fts_limit,
-            "trigram_limit": profile.trigram_limit,
+            "fuzzy_limit": profile.fuzzy_limit,
             "semantic_limit": profile.semantic_limit,
             "fused_limit": profile.fused_limit,
-            "trigram_threshold": profile.trigram_threshold,
+            "fuzzy_threshold": profile.fuzzy_threshold,
         }
         if use_weighted:
             parameters.update(
-                weight_lexical=profile.weight_lexical,
+                weight_fts=profile.weight_fts,
                 weight_semantic=profile.weight_semantic,
-                weight_trigram=profile.weight_trigram,
+                weight_fuzzy=profile.weight_fuzzy,
             )
         return parameters
 
@@ -319,9 +319,9 @@ class RetrievalService:
         weight_args = ""
         if use_weighted:
             weight_args = (
-                ",\n                %(weight_lexical)s::real,"
+                ",\n                %(weight_fts)s::real,"
                 "\n                %(weight_semantic)s::real,"
-                "\n                %(weight_trigram)s::real"
+                "\n                %(weight_fuzzy)s::real"
             )
         return f"""
             SELECT h.*, d.sku, d.short_description, d.inventory_count,
@@ -335,10 +335,10 @@ class RetrievalService:
                 %(filters)s::jsonb,
                 %(rrf_k)s::integer,
                 %(fts_limit)s::integer,
-                %(trigram_limit)s::integer,
+                %(fuzzy_limit)s::integer,
                 %(semantic_limit)s::integer,
                 %(fused_limit)s::integer,
-                %(trigram_threshold)s::real{weight_args}
+                %(fuzzy_threshold)s::real{weight_args}
             ) AS h
             JOIN {search_schema()}.product_listing_view d USING (product_id)
             ORDER BY h.pre_rerank_score DESC, h.product_id
@@ -516,8 +516,8 @@ class RetrievalService:
             candidate_counts = {
                 "fused_pool": len(candidates),
                 "fts_in_pool": sum(row["fts_rank"] is not None for row in candidates),
-                "trigram_in_pool": sum(
-                    row["trigram_rank"] is not None for row in candidates
+                "fuzzy_in_pool": sum(
+                    row["fuzzy_rank"] is not None for row in candidates
                 ),
                 "semantic_in_pool": sum(
                     row["semantic_rank"] is not None for row in candidates
@@ -572,12 +572,12 @@ class RetrievalService:
                         """
                         INSERT INTO mosaic.search_result_event (
                             search_event_id, product_id, result_rank, fts_rank,
-                            trigram_rank, semantic_rank, fused_rank, rerank_rank,
+                            fuzzy_rank, semantic_rank, fused_rank, rerank_rank,
                             scores, provenance
                         )
                         VALUES (
                             %(search_event_id)s, %(product_id)s, %(result_rank)s,
-                            %(fts_rank)s, %(trigram_rank)s, %(semantic_rank)s,
+                            %(fts_rank)s, %(fuzzy_rank)s, %(semantic_rank)s,
                             %(fused_rank)s, %(rerank_rank)s,
                             %(scores)s::jsonb, %(provenance)s::jsonb
                         )
@@ -589,14 +589,14 @@ class RetrievalService:
                                 "product_id": row["product_id"],
                                 "result_rank": row["final_rank"],
                                 "fts_rank": row["fts_rank"],
-                                "trigram_rank": row["trigram_rank"],
+                                "fuzzy_rank": row["fuzzy_rank"],
                                 "semantic_rank": row["semantic_rank"],
                                 "fused_rank": row["pre_rerank_rank"],
                                 "rerank_rank": row["rerank_rank"],
                                 "scores": json.dumps(
                                     {
                                         "fts": _as_float(row["fts_score"]),
-                                        "trigram": _as_float(row["trigram_score"]),
+                                        "fuzzy": _as_float(row["fuzzy_score"]),
                                         "semantic": _as_float(row["semantic_score"]),
                                         "rrf": _as_float(row["rrf_score"]),
                                         "pre_rerank": _as_float(
@@ -789,15 +789,15 @@ class RetrievalService:
                     raw_score=_as_float(row["fts_score"]),
                     rrf_contribution=_contribution(row, "fts"),
                 ),
-                trigram=RankSignal(
-                    rank=row["trigram_rank"],
-                    raw_score=_as_float(row["trigram_score"]),
-                    rrf_contribution=_contribution(row, "trigram"),
+                fuzzy=RankSignal(
+                    rank=row["fuzzy_rank"],
+                    raw_score=_as_float(row["fuzzy_score"]),
+                    rrf_contribution=_contribution(row, "fuzzy"),
                 ),
                 semantic=RankSignal(
                     rank=row["semantic_rank"],
                     raw_score=_as_float(row["semantic_score"]),
-                    rrf_contribution=_contribution(row, "vector"),
+                    rrf_contribution=_contribution(row, "semantic"),
                 ),
                 rrf_score=float(row["rrf_score"]),
                 pre_rerank_rank=row["pre_rerank_rank"],
@@ -843,15 +843,15 @@ def signals_from_receipt(row: dict[str, Any]) -> ResultSignals:
             raw_score=_as_float(scores.get("fts")),
             rrf_contribution=contribution("fts"),
         ),
-        trigram=RankSignal(
-            rank=row["trigram_rank"],
-            raw_score=_as_float(scores.get("trigram")),
-            rrf_contribution=contribution("trigram"),
+        fuzzy=RankSignal(
+            rank=row["fuzzy_rank"],
+            raw_score=_as_float(scores.get("fuzzy")),
+            rrf_contribution=contribution("fuzzy"),
         ),
         semantic=RankSignal(
             rank=row["semantic_rank"],
             raw_score=_as_float(scores.get("semantic")),
-            rrf_contribution=contribution("vector"),
+            rrf_contribution=contribution("semantic"),
         ),
         rrf_score=float(scores["rrf"]),
         pre_rerank_rank=row["fused_rank"],

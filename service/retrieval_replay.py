@@ -42,7 +42,7 @@ _EVENT_SQL = """
 """
 
 _CANDIDATE_SQL = """
-    SELECT product_id, result_rank, fts_rank, trigram_rank, semantic_rank,
+    SELECT product_id, result_rank, fts_rank, fuzzy_rank, semantic_rank,
            fused_rank, rerank_rank, scores, provenance
     FROM mosaic.search_result_event
     WHERE search_event_id = %s
@@ -59,7 +59,7 @@ def load_candidate_receipts(
         for row in connection.execute(
             f"""
         SELECT receipt.product_id, receipt.result_rank, receipt.fts_rank,
-               receipt.trigram_rank, receipt.semantic_rank, receipt.fused_rank,
+               receipt.fuzzy_rank, receipt.semantic_rank, receipt.fused_rank,
                receipt.rerank_rank, receipt.scores, receipt.provenance,
                coalesce({search_schema()}.matches_filters(document, event.filters), false) AS eligible
         FROM mosaic.search_result_event AS receipt

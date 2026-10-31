@@ -9,9 +9,9 @@ came from fusing three retrievers versus from reranking the fused pool.
 Five arms, over the same scored canonical queries and the same judgments
 `scripts/evals/score_evals.py` already uses:
 
-    1. lexical_only        -- `search_fts`, no fusion, no rerank
-    2. trigram_only        -- `search_trigram`, no fusion, no rerank
-    3. semantic_only       -- `search_vector`, no fusion, no rerank
+    1. fts_only        -- `search_fts`, no fusion, no rerank
+    2. fuzzy_only        -- `search_fuzzy`, no fusion, no rerank
+    3. semantic_only       -- `search_semantic`, no fusion, no rerank
 
 Each single arm calls its function in the served search schema
 (`service.catalog_runtime.search_schema`), the one the served path fuses from.
@@ -103,41 +103,41 @@ SERVED_RESULTS_PATH = REPO / "data" / "evals" / "canonical_ranked_results.csv"
 CANONICAL_SCORECARD_PATH = REPO / "data" / "evals" / "canonical_scorecard.json"
 ABLATION_PATH = REPO / "data" / "evals" / "canonical_stage_ablation.json"
 
-ARM_LEXICAL_ONLY = "lexical_only"
-ARM_TRIGRAM_ONLY = "trigram_only"
+ARM_FTS_ONLY = "fts_only"
+ARM_FUZZY_ONLY = "fuzzy_only"
 ARM_SEMANTIC_ONLY = "semantic_only"
 ARM_RRF_FUSED = "rrf_fused_no_rerank"
 ARM_RRF_RERANKED = "rrf_fused_reranked"
 
 #: The three arms a participant could ship on their own, in the order the
 #: Playground names them. None is bounded by the fused-pool ceiling.
-SINGLE_ARMS = (ARM_LEXICAL_ONLY, ARM_TRIGRAM_ONLY, ARM_SEMANTIC_ONLY)
+SINGLE_ARMS = (ARM_FTS_ONLY, ARM_FUZZY_ONLY, ARM_SEMANTIC_ONLY)
 
 ARM_LABELS: dict[str, str] = {
-    ARM_LEXICAL_ONLY: "Lexical only",
-    ARM_TRIGRAM_ONLY: "Trigram only",
+    ARM_FTS_ONLY: "Full-text only",
+    ARM_FUZZY_ONLY: "Fuzzy only",
     ARM_SEMANTIC_ONLY: "Semantic only",
     ARM_RRF_FUSED: "RRF fused, reranking off",
     ARM_RRF_RERANKED: "RRF fused + managed reranking (served path)",
 }
 
 ARM_DESCRIPTIONS: dict[str, str] = {
-    ARM_LEXICAL_ONLY: (
+    ARM_FTS_ONLY: (
         "search_fts alone: PostgreSQL full-text search over the "
-        "weighted product document, with no trigram or semantic arm and no "
+        "weighted product document, with no fuzzy or semantic arm and no "
         "fusion."
     ),
-    ARM_TRIGRAM_ONLY: (
-        "search_trigram alone: pg_trgm similarity over the "
-        "product identity text, with no lexical or semantic arm and no fusion."
+    ARM_FUZZY_ONLY: (
+        "search_fuzzy alone: pg_trgm similarity over the "
+        "product identity text, with no full-text or semantic arm and no fusion."
     ),
     ARM_SEMANTIC_ONLY: (
-        "search_vector alone: dense cosine ranking over the "
-        "product embedding, with no lexical or trigram arm and no fusion."
+        "search_semantic alone: dense cosine ranking over the "
+        "product embedding, with no full-text or fuzzy arm and no fusion."
     ),
     ARM_RRF_FUSED: (
         "The served fusion function (unweighted reciprocal rank fusion over "
-        "FTS, trigram, and semantic candidates), with managed reranking "
+        "FTS, fuzzy, and semantic candidates), with managed reranking "
         "disabled so the fused order is returned unchanged."
     ),
     ARM_RRF_RERANKED: (
@@ -249,7 +249,7 @@ def _text_channel_arm(
 ) -> dict[str, list[tuple[int, int]]]:
     """Rank every candidate one text channel finds on its own.
 
-    No embedding is made: the lexical and trigram channels read the query
+    No embedding is made: the full-text and fuzzy channels read the query
     text, so this is the exact SQL the served fusion function calls for that
     channel, run alone and never fused. The full ranked list is kept because
     `evaluate()` trims to the top K itself.
@@ -269,7 +269,7 @@ def _text_channel_arm(
     return ranked
 
 
-def lexical_only_arm(
+def fts_only_arm(
     retrieval: RetrievalService,
     queries: list[dict[str, Any]],
 ) -> dict[str, list[tuple[int, int]]]:
@@ -290,27 +290,27 @@ def lexical_only_arm(
     )
 
 
-def trigram_only_arm(
+def fuzzy_only_arm(
     retrieval: RetrievalService,
     queries: list[dict[str, Any]],
 ) -> dict[str, list[tuple[int, int]]]:
-    """`search_trigram` alone in the served schema, at the served limit and threshold."""
+    """`search_fuzzy` alone in the served schema, at the served limit and threshold."""
     profile = retrieval._profile(SearchRequest(query="ablation profile", limit=K))
     return _text_channel_arm(
         retrieval,
         queries,
         sql=f"""
-            SELECT product_id, trigram_rank
-            FROM {search_schema()}.search_trigram(
+            SELECT product_id, fuzzy_rank
+            FROM {search_schema()}.search_fuzzy(
                 %(query)s::text, %(filters)s::jsonb, %(limit)s::integer,
                 %(threshold)s::real
             )
-            ORDER BY trigram_rank
+            ORDER BY fuzzy_rank
             """,
-        rank_column="trigram_rank",
+        rank_column="fuzzy_rank",
         parameters={
-            "limit": profile.trigram_limit,
-            "threshold": profile.trigram_threshold,
+            "limit": profile.fuzzy_limit,
+            "threshold": profile.fuzzy_threshold,
         },
     )
 
@@ -319,7 +319,7 @@ def semantic_only_arm(
     retrieval: RetrievalService,
     queries: list[dict[str, Any]],
 ) -> dict[str, list[tuple[int, int]]]:
-    """Rank every candidate `search_vector` alone can find in the served schema.
+    """Rank every candidate `search_semantic` alone can find in the served schema.
 
     Uses the same `semantic_limit` as the served semantic channel, so this is
     the identical dense ranking fusion draws from -- just never fused, never
@@ -337,7 +337,7 @@ def semantic_only_arm(
             rows = connection.execute(
                 f"""
                 SELECT product_id, semantic_rank
-                FROM {search_schema()}.search_vector(
+                FROM {search_schema()}.search_semantic(
                     %(embedding)s::vector, %(filters)s::jsonb, %(limit)s::integer
                 )
                 ORDER BY semantic_rank
@@ -622,12 +622,12 @@ def assert_ceiling_bounds_fusion_arms(
     not the retrieval quality -- is wrong.
 
     `semantic_only` is **not** bounded by this ceiling and is excluded. It
-    retrieves independently: `search_vector` returns `semantic_limit` (150)
+    retrieves independently: `search_semantic` returns `semantic_limit` (150)
     candidates and arm 1 takes its own top-K from those, while the fused pool
     is capped at `fused_limit` (50) after RRF scores three channels together.
     A judged-relevant product at semantic rank 3 can therefore sit in arm 1's
     top-10 and still be pushed out of the fused top-50 by better-scoring
-    candidates from the lexical channels, which makes
+    candidates from the full-text channels, which makes
     `semantic_only.recall@K > ceiling` a legitimate measurement rather than a
     fault. Asserting over it would raise a false failure and block a release on
     correct data. The artifact records where arm 1 sits against the ceiling
@@ -739,8 +739,8 @@ def measured_ablation() -> dict[str, Any]:
             "--write-baseline, then rerun the ablation."
         )
     pin_query_vectors(retrieval, queries, query_vectors, settings)
-    lexical_result = _arm_metrics(lexical_only_arm(retrieval, queries), truth)
-    trigram_result = _arm_metrics(trigram_only_arm(retrieval, queries), truth)
+    fts_result = _arm_metrics(fts_only_arm(retrieval, queries), truth)
+    fuzzy_result = _arm_metrics(fuzzy_only_arm(retrieval, queries), truth)
     semantic_ranked = semantic_only_arm(retrieval, queries)
     semantic_result = _arm_metrics(semantic_ranked, truth)
     fused_ranked, fused_pools = rrf_fused_arm(retrieval, queries)
@@ -748,8 +748,8 @@ def measured_ablation() -> dict[str, Any]:
     ceiling = candidate_recall_ceiling(fused_pools, truth)
 
     arm_results = {
-        ARM_LEXICAL_ONLY: lexical_result,
-        ARM_TRIGRAM_ONLY: trigram_result,
+        ARM_FTS_ONLY: fts_result,
+        ARM_FUZZY_ONLY: fuzzy_result,
         ARM_SEMANTIC_ONLY: semantic_result,
         ARM_RRF_FUSED: fused_result,
         ARM_RRF_RERANKED: served_result,

@@ -47,7 +47,7 @@ def test_the_restore_builds_every_search_index_on_the_listings_table():
     statements = index_statements()
     names = [name for name, _ in statements]
     assert names == [
-        LIVE_INDEXES[key] for key in ("fts", "trigram", "kind", "public_id", "vector")
+        LIVE_INDEXES[key] for key in ("fts", "fuzzy", "kind", "public_id", "semantic")
     ]
     assert all("ON mosaic_search.product_listing" in sql for _, sql in statements)
 

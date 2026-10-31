@@ -32,11 +32,11 @@ class DatabaseConfigurationError(RuntimeError):
 
 
 SETTING_FIELDS = (
-    ("pg_trgm.similarity_threshold", "trigram_similarity_gate"),
-    ("pg_trgm.word_similarity_threshold", "trigram_word_similarity_gate"),
+    ("pg_trgm.similarity_threshold", "fuzzy_similarity_gate"),
+    ("pg_trgm.word_similarity_threshold", "fuzzy_word_similarity_gate"),
 )
 
-TRIGRAM_IDENTITY_ARGUMENTS = (
+FUZZY_IDENTITY_ARGUMENTS = (
     "q text, f jsonb, candidate_limit integer, minimum_similarity real"
 )
 
@@ -132,10 +132,10 @@ def verify(dsn: str) -> None:
             FROM pg_proc p
             JOIN pg_namespace n ON n.oid = p.pronamespace
             WHERE n.nspname = %s
-              AND p.proname = 'search_trigram'
+              AND p.proname = 'search_fuzzy'
               AND pg_get_function_identity_arguments(p.oid) = %s
             """,
-            (search_schema(), TRIGRAM_IDENTITY_ARGUMENTS),
+            (search_schema(), FUZZY_IDENTITY_ARGUMENTS),
         ).fetchone()
 
     failures: list[str] = []
@@ -154,11 +154,11 @@ def verify(dsn: str) -> None:
             )
     if function_row is None:
         failures.append(
-            f"{search_schema()}.search_trigram(text,jsonb,integer,real) is absent"
+            f"{search_schema()}.search_fuzzy(text,jsonb,integer,real) is absent"
         )
     elif function_row[0] is not None:
         failures.append(
-            f"search_trigram proconfig={function_row[0]!r}, expected no "
+            f"search_fuzzy proconfig={function_row[0]!r}, expected no "
             "function-local settings"
         )
     if failures:

@@ -83,7 +83,7 @@ def test_retrieval_export_contains_aggregates_but_no_candidate_identity():
         candidate_counts={
             "fused_pool": 50,
             "fts_in_pool": 12,
-            "trigram_in_pool": 4,
+            "fuzzy_in_pool": 4,
             "semantic_in_pool": 48,
         },
         result_limit=12,
@@ -341,8 +341,8 @@ def test_timeline_maps_retrieve_rank_reason_without_losing_exact_rrf_receipts():
                 "provenance": {
                     "channels": {
                         "fts": {"rrf_contribution": 0.01},
-                        "trigram": {"rrf_contribution": 0.02},
-                        "vector": {"rrf_contribution": 0.01},
+                        "fuzzy": {"rrf_contribution": 0.02},
+                        "semantic": {"rrf_contribution": 0.01},
                     }
                 },
             },
@@ -391,7 +391,7 @@ def test_timeline_maps_retrieve_rank_reason_without_losing_exact_rrf_receipts():
     receipt = contract.stages[1].details["receipts"][0]
     assert receipt["rrf_contributions"] == {
         "fts": 0.01,
-        "trigram": 0.02,
+        "fuzzy": 0.02,
         "semantic": 0.01,
     }
     assert receipt["rerank_movement"] == -2

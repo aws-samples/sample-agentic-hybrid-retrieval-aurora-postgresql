@@ -485,7 +485,7 @@ def _listing(product_id, model, final_rank, *, kind="chair", brand="Steelcase"):
         rating=4.3,
         signals=ResultSignals(
             fts=RankSignal(),
-            trigram=RankSignal(),
+            fuzzy=RankSignal(),
             semantic=RankSignal(),
             rrf_score=0.0,
             pre_rerank_rank=final_rank,

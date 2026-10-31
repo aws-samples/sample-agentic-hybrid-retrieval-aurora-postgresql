@@ -84,9 +84,9 @@ def test_single_product_source_check_respects_declared_comparison_requirement(
 def _lab_1_response(
     *,
     with_target: bool = True,
-    trigram_rank: int | None = 1,
-    trigram_contribution: float | None = 0.0164,
-    trigram_in_pool: int = 7,
+    fuzzy_rank: int | None = 1,
+    fuzzy_contribution: float | None = 0.0164,
+    fuzzy_in_pool: int = 7,
     price_cents: int = 15900,
 ):
     results = []
@@ -100,9 +100,9 @@ def _lab_1_response(
                 "attributes": {},
                 "signals": {
                     "fts": {"rank": None, "rrf_contribution": None},
-                    "trigram": {
-                        "rank": trigram_rank,
-                        "rrf_contribution": trigram_contribution,
+                    "fuzzy": {
+                        "rank": fuzzy_rank,
+                        "rrf_contribution": fuzzy_contribution,
                     },
                     "semantic": {"rank": None, "rrf_contribution": None},
                 },
@@ -110,7 +110,7 @@ def _lab_1_response(
         )
     return {
         "results": results,
-        "diagnostics": {"candidate_counts": {"trigram_in_pool": trigram_in_pool}},
+        "diagnostics": {"candidate_counts": {"fuzzy_in_pool": fuzzy_in_pool}},
     }
 
 
@@ -123,7 +123,7 @@ def _lab_2_response(*, pre_rerank_rank=1, final_rank=1, rerank_status="applied")
                 "product_id": 370002,
                 "signals": {
                     arm: {"rank": 1, "rrf_contribution": contribution}
-                    for arm in ("fts", "trigram", "semantic")
+                    for arm in ("fts", "fuzzy", "semantic")
                 }
                 | {
                     "rrf_score": contribution * 3,
@@ -330,7 +330,7 @@ def test_lab_1_reports_exactly_four_checks():
 
 def test_lab_1_fails_when_the_anchor_never_arrives():
     checks = lab_checks.lab_1_checks(
-        LAB_1_MISSION, _lab_1_response(with_target=False, trigram_in_pool=0)
+        LAB_1_MISSION, _lab_1_response(with_target=False, fuzzy_in_pool=0)
     )
 
     assert not _by_name(checks, "expected retrieval anchor present").passed
@@ -338,9 +338,9 @@ def test_lab_1_fails_when_the_anchor_never_arrives():
     assert "2" in _by_name(checks, "expected retrieval anchor present").detail
 
 
-def test_lab_1_fails_when_the_anchor_carries_no_trigram_provenance():
+def test_lab_1_fails_when_the_anchor_carries_no_fuzzy_provenance():
     checks = lab_checks.lab_1_checks(
-        LAB_1_MISSION, _lab_1_response(trigram_rank=None, trigram_contribution=None)
+        LAB_1_MISSION, _lab_1_response(fuzzy_rank=None, fuzzy_contribution=None)
     )
 
     assert _by_name(checks, "expected retrieval anchor present").passed
@@ -354,7 +354,7 @@ def test_lab_1_fails_when_a_returned_product_breaks_the_filters():
 
 
 @pytest.mark.parametrize("arm", ["fts", "semantic"])
-def test_lab_1_rejects_a_claim_that_only_trigram_found_a_multi_arm_target(arm):
+def test_lab_1_rejects_a_claim_that_only_fuzzy_found_a_multi_arm_target(arm):
     response = _lab_1_response()
     response["results"][0]["signals"][arm] = {"rank": 2, "rrf_contribution": 0.01}
     mission = {**LAB_1_MISSION, "absent_target_signals": ["fts", "semantic"]}
@@ -821,7 +821,7 @@ def test_agent_response_checks_count_the_declared_lab_3_conditions():
 def test_lab_2_accepts_a_product_promoted_by_reranking():
     response = _lab_2_response(pre_rerank_rank=24)
     signals = response["results"][0]["signals"]
-    for arm in ("fts", "trigram"):
+    for arm in ("fts", "fuzzy"):
         signals[arm] = {"rank": None, "rrf_contribution": None}
     signals["rrf_score"] = signals["semantic"]["rrf_contribution"]
     checks = lab_checks.lab_2_checks(

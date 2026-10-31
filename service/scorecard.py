@@ -535,8 +535,8 @@ def _agent_contracts() -> ScorecardAgentContracts:
 #: stages built on them. The artifact is written with sorted keys, so file
 #: order is alphabetical and would put the served path second.
 _ARM_ORDER = (
-    "lexical_only",
-    "trigram_only",
+    "fts_only",
+    "fuzzy_only",
     "semantic_only",
     "rrf_fused_no_rerank",
     "rrf_fused_reranked",
@@ -547,11 +547,11 @@ _ARM_ORDER = (
 #: because that difference is the thing the step actually added.
 _ABLATION_STEPS = (
     (
-        "lexical_only",
+        "fts_only",
         "rrf_fused_no_rerank",
         "Combining, against full-text search alone",
     ),
-    ("trigram_only", "rrf_fused_no_rerank", "Combining, against fuzzy matching alone"),
+    ("fuzzy_only", "rrf_fused_no_rerank", "Combining, against fuzzy matching alone"),
     (
         "semantic_only",
         "rrf_fused_no_rerank",

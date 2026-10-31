@@ -83,28 +83,26 @@ class Bound:
 BOUNDS: tuple[Bound, ...] = (
     Bound("embedding.dimensions", "VECTOR_DIM", 1, 4096, int),
     Bound("candidate_generation.fts_limit", "FTS_CANDIDATE_LIMIT", 1, 1000, int),
-    Bound(
-        "candidate_generation.trigram_limit", "TRIGRAM_CANDIDATE_LIMIT", 1, 1000, int
-    ),
+    Bound("candidate_generation.fuzzy_limit", "FUZZY_CANDIDATE_LIMIT", 1, 1000, int),
     Bound(
         "candidate_generation.semantic_limit", "SEMANTIC_CANDIDATE_LIMIT", 1, 1000, int
     ),
-    Bound("candidate_generation.trigram_threshold", None, 0.01, 1.0, float),
+    Bound("candidate_generation.fuzzy_threshold", None, 0.01, 1.0, float),
     Bound(
-        "candidate_generation.trigram_index_gate.similarity_threshold",
+        "candidate_generation.fuzzy_index_gate.similarity_threshold",
         "PG_TRGM_SIMILARITY_THRESHOLD",
         0.01,
         1.0,
         float,
     ),
     Bound(
-        "candidate_generation.trigram_index_gate.word_similarity_threshold",
+        "candidate_generation.fuzzy_index_gate.word_similarity_threshold",
         "PG_TRGM_WORD_SIMILARITY_THRESHOLD",
         0.01,
         1.0,
         float,
     ),
-    # Coverage's trigram rescue floor. No env override: it is calibrated against
+    # Coverage's fuzzy rescue floor. No env override: it is calibrated against
     # a specific corpus (db/sql/11_query_coverage.sql records the measurement),
     # and a per-deployment override would let a room silently run an
     # uncalibrated guardrail on the workshop's headline query.
@@ -113,9 +111,9 @@ BOUNDS: tuple[Bound, ...] = (
     # The agent hands the fused pool to `SearchRequest.limit` (service/agent_tools.py),
     # which caps at 50; a larger value would pass here and fail on every agent search.
     Bound("fusion.fused_limit", "RERANK_CANDIDATE_LIMIT", 1, 50, int),
-    Bound("fusion.weights.lexical", None, 0, 1, float),
+    Bound("fusion.weights.fts", None, 0, 1, float),
     Bound("fusion.weights.semantic", None, 0, 1, float),
-    Bound("fusion.weights.trigram", None, 0, 1, float),
+    Bound("fusion.weights.fuzzy", None, 0, 1, float),
     Bound("rerank.display_limit", None, 1, 100, int),
     Bound("hnsw.m", None, 2, 100, int),
     Bound("hnsw.ef_construction", None, 4, 1000, int),
@@ -137,17 +135,17 @@ class RetrievalProfileConfig:
 
     vector_dimension: int
     fts_limit: int
-    trigram_limit: int
+    fuzzy_limit: int
     semantic_limit: int
-    trigram_threshold: float
-    trigram_similarity_gate: float
-    trigram_word_similarity_gate: float
+    fuzzy_threshold: float
+    fuzzy_similarity_gate: float
+    fuzzy_word_similarity_gate: float
     coverage_similarity_floor: float
     rrf_k: int
     fused_limit: int
-    weight_lexical: float
+    weight_fts: float
     weight_semantic: float
-    weight_trigram: float
+    weight_fuzzy: float
     display_limit: int
     hnsw_m: int
     hnsw_ef_construction: int
@@ -164,21 +162,21 @@ class RetrievalProfileConfig:
 _FIELD_FOR_PATH: dict[str, str] = {
     "embedding.dimensions": "vector_dimension",
     "candidate_generation.fts_limit": "fts_limit",
-    "candidate_generation.trigram_limit": "trigram_limit",
+    "candidate_generation.fuzzy_limit": "fuzzy_limit",
     "candidate_generation.semantic_limit": "semantic_limit",
-    "candidate_generation.trigram_threshold": "trigram_threshold",
-    "candidate_generation.trigram_index_gate.similarity_threshold": (
-        "trigram_similarity_gate"
+    "candidate_generation.fuzzy_threshold": "fuzzy_threshold",
+    "candidate_generation.fuzzy_index_gate.similarity_threshold": (
+        "fuzzy_similarity_gate"
     ),
-    "candidate_generation.trigram_index_gate.word_similarity_threshold": (
-        "trigram_word_similarity_gate"
+    "candidate_generation.fuzzy_index_gate.word_similarity_threshold": (
+        "fuzzy_word_similarity_gate"
     ),
     "coverage.similarity_floor": "coverage_similarity_floor",
     "fusion.rrf_k": "rrf_k",
     "fusion.fused_limit": "fused_limit",
-    "fusion.weights.lexical": "weight_lexical",
+    "fusion.weights.fts": "weight_fts",
     "fusion.weights.semantic": "weight_semantic",
-    "fusion.weights.trigram": "weight_trigram",
+    "fusion.weights.fuzzy": "weight_fuzzy",
     "rerank.display_limit": "display_limit",
     "hnsw.m": "hnsw_m",
     "hnsw.ef_construction": "hnsw_ef_construction",

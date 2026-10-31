@@ -123,8 +123,8 @@ def probe(conn, requests: list[dict], output: Path) -> dict:
             conn.execute(
                 "SELECT set_config('pg_trgm.similarity_threshold',%s,true),set_config('pg_trgm.word_similarity_threshold',%s,true)",
                 (
-                    str(gates.trigram_similarity_gate),
-                    str(gates.trigram_word_similarity_gate),
+                    str(gates.fuzzy_similarity_gate),
+                    str(gates.fuzzy_word_similarity_gate),
                 ),
             )
             for request, vector in inputs:
@@ -154,10 +154,10 @@ def probe(conn, requests: list[dict], output: Path) -> dict:
                         Jsonb(filters),
                         profile.rrf_k,
                         profile.fts_limit,
-                        profile.trigram_limit,
+                        profile.fuzzy_limit,
                         profile.semantic_limit,
                         profile.fused_limit,
-                        profile.trigram_threshold,
+                        profile.fuzzy_threshold,
                     ),
                 ).fetchall()
                 elapsed = round((time.monotonic() - start) * 1000, 2)
@@ -177,7 +177,7 @@ def probe(conn, requests: list[dict], output: Path) -> dict:
                 for row in rows:
                     expected = sum(
                         1 / (profile.rrf_k + row[key])
-                        for key in ("fts_rank", "trigram_rank", "semantic_rank")
+                        for key in ("fts_rank", "fuzzy_rank", "semantic_rank")
                         if row[key] is not None
                     )
                     summary.append(
@@ -189,7 +189,7 @@ def probe(conn, requests: list[dict], output: Path) -> dict:
                                 "category_key",
                                 "source_record_sha256",
                                 "fts_rank",
-                                "trigram_rank",
+                                "fuzzy_rank",
                                 "semantic_rank",
                                 "rrf_score",
                             )

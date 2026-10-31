@@ -476,7 +476,7 @@ def _lab_2_response(*, pre_rerank_rank=1, final_rank=1):
                         "rank": 1,
                         "rrf_contribution": contribution,
                     }
-                    for arm in ("fts", "trigram", "semantic")
+                    for arm in ("fts", "fuzzy", "semantic")
                 }
                 | {
                     "rrf_score": contribution * 3,
@@ -655,7 +655,7 @@ def _failing_lab_1(monkeypatch, *, masked: bool) -> None:
                 name="target",
                 passed=False,
                 falsifier="the target is absent",
-                detail="target missing; fix: restore the trigram CTE.",
+                detail="target missing; fix: restore the fuzzy CTE.",
             )
         ],
     )
@@ -681,7 +681,7 @@ def test_lab_1_under_lab_2s_fault_explains_and_keeps_old_evidence_separate(
 
     message = str(failure.value)
     assert message.startswith("Lab 1 live check failed: target missing. Lab 2's")
-    assert "restore the trigram CTE" not in message
+    assert "restore the fuzzy CTE" not in message
     assert "Lab 2's ranking fault is installed" in message
     assert "from an earlier run and not this check" in message
     assert "earlier-run" in message
@@ -697,7 +697,7 @@ def test_lab_1_failing_on_its_own_says_only_its_own_reason(
 
     with pytest.raises(
         validate_lab.LabValidationError,
-        match="^target missing; fix: restore the trigram CTE.$",
+        match="^target missing; fix: restore the fuzzy CTE.$",
     ):
         validate_lab.validate_lab_1("http://api")
 

@@ -402,7 +402,7 @@ def test_methodology_hash_refuses_a_missing_manifest_entry(tmp_path):
 #
 # The fingerprint above hashes *files*. Six of `scripts/checks/retrieval_profile`'s
 # nine env-overridable settings (`RRF_K`, `FTS_CANDIDATE_LIMIT`,
-# `TRIGRAM_CANDIDATE_LIMIT`, `SEMANTIC_CANDIDATE_LIMIT`,
+# `FUZZY_CANDIDATE_LIMIT`, `SEMANTIC_CANDIDATE_LIMIT`,
 # `RERANK_CANDIDATE_LIMIT`, `HNSW_EF_SEARCH`) beat the yaml in
 # `scripts/checks/retrieval_profile._resolve`, so they change every served result
 # without moving one byte of any manifest file. `RRF_K=1` could therefore serve
@@ -425,11 +425,11 @@ _RETRIEVAL_SETTINGS_KEYS = {
     "rrf_k",
     "scan_mem_multiplier",
     "semantic_limit",
-    "trigram_limit",
-    "trigram_threshold",
-    "weight_lexical",
+    "fuzzy_limit",
+    "fuzzy_threshold",
+    "weight_fts",
     "weight_semantic",
-    "weight_trigram",
+    "weight_fuzzy",
 }
 
 # `_FIELD_FOR_PATH` names the `RetrievalProfileConfig` field for each
@@ -470,18 +470,18 @@ def _env_overridable_retrieval_profile_fields() -> set[str]:
 _ENV_OVERRIDABLE_SETTINGS = (
     ("rrf_k", 1),
     ("fts_limit", 1),
-    ("trigram_limit", 1),
+    ("fuzzy_limit", 1),
     ("semantic_limit", 1),
     ("fused_limit", 1),
     ("ef_search", 1),
 )
 
-#: `trigram_threshold` is on `RetrievalProfile` and moves the hash, but
+#: `fuzzy_threshold` is on `RetrievalProfile` and moves the hash, but
 #: `BOUNDS` declares its `env` as `None` -- only the yaml can move it, never an
 #: environment variable. Tested alongside the six above so the "every hashed
 #: key moves the hash" property still covers it, without claiming it belongs
 #: to the env-overridable set.
-_YAML_ONLY_SETTINGS = (("trigram_threshold", 0.99),)
+_YAML_ONLY_SETTINGS = (("fuzzy_threshold", 0.99),)
 
 
 def _live_profile() -> dict:
@@ -507,10 +507,10 @@ def test_the_settings_payload_covers_every_retrieval_profile_field():
     # somebody makes rather than a digest that silently re-renders.
     assert _FLOAT_SETTINGS == {
         "scan_mem_multiplier",
-        "trigram_threshold",
-        "weight_lexical",
+        "fuzzy_threshold",
+        "weight_fts",
         "weight_semantic",
-        "weight_trigram",
+        "weight_fuzzy",
     }
 
 
@@ -540,7 +540,7 @@ def test_the_settings_hash_ignores_dict_insertion_order():
 )
 def test_every_hashed_setting_moves_the_hash(setting, value):
     """Red-at-birth for the audit finding itself, over every setting this hash
-    actually covers: the six env-overridable ones plus `trigram_threshold`,
+    actually covers: the six env-overridable ones plus `fuzzy_threshold`,
     which only the yaml can move.
 
     Each of the six env-overridable settings is settable from the environment
@@ -572,7 +572,7 @@ def test_bounds_env_overridable_settings_hashed_are_exactly_six():
     assert _env_overridable_retrieval_profile_fields() == {
         "rrf_k",
         "fts_limit",
-        "trigram_limit",
+        "fuzzy_limit",
         "semantic_limit",
         "fused_limit",
         "ef_search",
@@ -589,7 +589,7 @@ def test_bounds_env_overridable_settings_not_hashed_are_exactly_three():
     """
     covered = {
         "fts_limit",
-        "trigram_limit",
+        "fuzzy_limit",
         "semantic_limit",
         "rrf_k",
         "fused_limit",
@@ -599,8 +599,8 @@ def test_bounds_env_overridable_settings_not_hashed_are_exactly_three():
 
     assert uncovered == {
         "vector_dimension",
-        "trigram_similarity_gate",
-        "trigram_word_similarity_gate",
+        "fuzzy_similarity_gate",
+        "fuzzy_word_similarity_gate",
     }
 
 

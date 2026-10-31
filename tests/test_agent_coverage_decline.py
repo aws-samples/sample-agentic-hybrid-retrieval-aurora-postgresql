@@ -1125,7 +1125,7 @@ def listing(product_id: int, sku: str, *, fuzzy_rank: int | None) -> ProductSumm
     item = product(product_id).model_copy(update={"sku": sku, "title": LAB1_TITLE})
     item.signals = ResultSignals(
         fts=RankSignal(),
-        trigram=RankSignal(rank=fuzzy_rank),
+        fuzzy=RankSignal(rank=fuzzy_rank),
         semantic=RankSignal(rank=2),
         rrf_score=0.03,
         pre_rerank_rank=1,

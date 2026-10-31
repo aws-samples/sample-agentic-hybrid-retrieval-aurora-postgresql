@@ -241,7 +241,7 @@ def _load_conversation_context(
         receipt_rows = connection.execute(
             """
             SELECT receipt.product_id, receipt.result_rank,
-                   receipt.fts_rank, receipt.trigram_rank,
+                   receipt.fts_rank, receipt.fuzzy_rank,
                    receipt.semantic_rank, receipt.fused_rank,
                    receipt.rerank_rank, receipt.scores,
                    receipt.provenance
@@ -553,7 +553,7 @@ def _product_for_model(product: ProductSummary) -> dict[str, Any]:
                 "rerank_score": signals.rerank_score,
                 "rrf_score": signals.rrf_score,
                 "fts_rank": signals.fts.rank,
-                "trigram_rank": signals.trigram.rank,
+                "fuzzy_rank": signals.fuzzy.rank,
                 "semantic_rank": signals.semantic.rank,
             }
             if signals
@@ -727,7 +727,7 @@ def search_products(
     """Search products with PostgreSQL hybrid retrieval and managed reranking.
 
     Use one focused search per product intent, up to three per turn. PostgreSQL
-    applies hard filters inside full-text, trigram, and semantic retrieval,
+    applies hard filters inside full-text, fuzzy, and semantic retrieval,
     fuses arm positions with reciprocal rank fusion, and persists candidate
     signals before the reranker orders the bounded candidate pool.
 
@@ -881,7 +881,7 @@ def search_products(
             {
                 product.product_id: product
                 for product in response.results
-                if product.signals and product.signals.trigram.rank is not None
+                if product.signals and product.signals.fuzzy.rank is not None
             }
         )
     # Empty results still consumed a search and have a receipt. Losing them
@@ -1224,7 +1224,7 @@ def _read_ranking_event(parsed: UUID):
         ).fetchone()
         candidates = connection.execute(
             """
-            SELECT product_id, result_rank, fts_rank, trigram_rank,
+            SELECT product_id, result_rank, fts_rank, fuzzy_rank,
                    semantic_rank, fused_rank, rerank_rank, scores, provenance
             FROM mosaic.search_result_event
             WHERE search_event_id = %s

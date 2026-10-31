@@ -322,8 +322,8 @@ class Settings:
     synthesis_model_id: str | None
     rerank_required: bool
     allow_development_embeddings: bool
-    lexical_candidate_limit: int
-    trigram_candidate_limit: int
+    fts_candidate_limit: int
+    fuzzy_candidate_limit: int
     semantic_candidate_limit: int
     rerank_candidate_limit: int
     rrf_k: int
@@ -407,8 +407,8 @@ def get_settings() -> Settings:
         # Every retrieval number below comes from db/config/retrieval.yaml, with
         # environment overrides already applied by scripts.checks.retrieval_profile.
         # None is restated here; that is what made three copies possible.
-        lexical_candidate_limit=profile.fts_limit,
-        trigram_candidate_limit=profile.trigram_limit,
+        fts_candidate_limit=profile.fts_limit,
+        fuzzy_candidate_limit=profile.fuzzy_limit,
         semantic_candidate_limit=profile.semantic_limit,
         rerank_candidate_limit=profile.fused_limit,
         rrf_k=profile.rrf_k,

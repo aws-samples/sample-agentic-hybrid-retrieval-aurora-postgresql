@@ -136,7 +136,7 @@ def assert_measured(response: dict[str, Any]) -> None:
         if not signals:
             raise SystemExit(f"Product {row['product_id']} came back without signals.")
         total = 0.0
-        for arm in ("fts", "trigram", "semantic"):
+        for arm in ("fts", "fuzzy", "semantic"):
             rank = signals[arm]["rank"]
             contribution = signals[arm]["rrf_contribution"]
             if rank is None:
@@ -195,7 +195,7 @@ def main() -> int:
         arm: sum(
             1 for row in response["results"] if row["signals"][arm]["rank"] is not None
         )
-        for arm in ("fts", "trigram", "semantic")
+        for arm in ("fts", "fuzzy", "semantic")
     }
     print(f"Captured {mission['id']} run {response['search_event_id'][:8]} -> {SEED}")
     print(f"  {len(response['results'])} rows; arms contributing: {arms}")

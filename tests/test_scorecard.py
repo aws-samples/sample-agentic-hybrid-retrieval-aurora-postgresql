@@ -109,8 +109,8 @@ def _stage_ablation_artifact(**overrides) -> dict:
         "spread_note": "20 queries and 74 judgments cannot separate small differences.",
         "scored_query_count": 20,
         "arms": {
-            "lexical_only": {
-                "label": "Lexical only",
+            "fts_only": {
+                "label": "Full-text only",
                 "description": "fixture description",
                 "recall@10": 0.6,
                 "mrr": 0.65,
@@ -120,8 +120,8 @@ def _stage_ablation_artifact(**overrides) -> dict:
                 "ndcg@10_stdev": 0.41,
                 "ndcg@10_query_wins": 9,
             },
-            "trigram_only": {
-                "label": "Trigram only",
+            "fuzzy_only": {
+                "label": "Fuzzy only",
                 "description": "fixture description",
                 "recall@10": 0.3,
                 "mrr": 0.35,
@@ -174,12 +174,12 @@ def _stage_ablation_artifact(**overrides) -> dict:
             "judged_relevant_never_fetched": 2,
             "description": "fixture ceiling description",
             "unbounded_arms": {
-                "lexical_only": {
-                    "note": "Lexical-only has its own candidate pool.",
+                "fts_only": {
+                    "note": "Full-text-only has its own candidate pool.",
                     "recall@10": 0.6,
                 },
-                "trigram_only": {
-                    "note": "Trigram-only has its own candidate pool.",
+                "fuzzy_only": {
+                    "note": "Fuzzy-only has its own candidate pool.",
                     "recall@10": 0.3,
                 },
                 "semantic_only": {
@@ -193,8 +193,8 @@ def _stage_ablation_artifact(**overrides) -> dict:
                 "query_id": "G-001",
                 "query_text": "EchoBud S2",
                 "ndcg@10": {
-                    "lexical_only": 1.0,
-                    "trigram_only": 0.0,
+                    "fts_only": 1.0,
+                    "fuzzy_only": 0.0,
                     "semantic_only": 1.0,
                     "rrf_fused_no_rerank": 1.0,
                     "rrf_fused_reranked": 1.0,
@@ -674,8 +674,8 @@ def test_stage_ablation_projects_every_arm_and_the_ceiling():
 
     assert result.attributed is True
     assert [arm.key for arm in result.arms] == [
-        "lexical_only",
-        "trigram_only",
+        "fts_only",
+        "fuzzy_only",
         "semantic_only",
         "rrf_fused_no_rerank",
         "rrf_fused_reranked",
@@ -826,8 +826,8 @@ def test_api_serves_the_stage_ablation_section_alongside_the_other_four():
     }
     ablation = payload["stage_ablation"]
     assert {arm["key"] for arm in ablation["arms"]} == {
-        "lexical_only",
-        "trigram_only",
+        "fts_only",
+        "fuzzy_only",
         "semantic_only",
         "rrf_fused_no_rerank",
         "rrf_fused_reranked",
@@ -840,8 +840,8 @@ def test_api_serves_the_stage_ablation_section_alongside_the_other_four():
         "rrf_fused_reranked",
     }
     assert set(ceiling_contract["unbounded_arms"]) == {
-        "lexical_only",
-        "trigram_only",
+        "fts_only",
+        "fuzzy_only",
         "semantic_only",
     }
     ceiling = ceiling_contract["pool_recall_ceiling"]

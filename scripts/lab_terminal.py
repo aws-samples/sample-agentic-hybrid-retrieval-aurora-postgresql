@@ -152,7 +152,7 @@ def failed_turn(connection, question: str, started, ended) -> dict:
 
 TARGET_METHODS = (
     ("fts_rank", "full-text search"),
-    ("trigram_rank", "fuzzy matching"),
+    ("fuzzy_rank", "fuzzy matching"),
     ("semantic_rank", "semantic search"),
 )
 

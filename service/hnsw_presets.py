@@ -49,7 +49,7 @@ class FilterPreset:
         character: Selectivity band from `CHARACTERS`. Not a predicted outcome.
         matching_rows: Rows the predicate selected when the preset was chosen.
         served_filters: The `SearchFilters` payload producing the *same* row set
-            through the served `search_vector`, or `None` when no faithful
+            through the served `search_semantic`, or `None` when no faithful
             equivalent exists.
     """
 

@@ -1,7 +1,7 @@
 """The current spelling exercise must need pg_trgm under production filters.
 
 The exact-identity control witnesses a working FTS path. The complete semantic
-pool witnesses a working vector path. Neither may recover the misspelled target;
+pool witnesses a working semantic path. Neither may recover the misspelled target;
 otherwise disconnecting pg_trgm would no longer demonstrate the intended loss.
 These read-only checks never install a broken function on the shared cluster.
 """
@@ -59,7 +59,7 @@ def _semantic(connection):
     profile = load_profile()
     _configure_hnsw(connection, profile)
     return connection.execute(
-        f"SELECT product_id FROM {search_schema()}.search_vector(%s::vector, %s::jsonb, %s::integer)",
+        f"SELECT product_id FROM {search_schema()}.search_semantic(%s::vector, %s::jsonb, %s::integer)",
         (
             get_retrieval_service().embed_query(ANCHOR_QUERY),
             json.dumps(ANCHOR_FILTERS),
@@ -69,7 +69,7 @@ def _semantic(connection):
 
 
 @pytest.mark.aurora
-def test_repaired_target_enters_only_through_trigram():
+def test_repaired_target_enters_only_through_fuzzy():
     response = get_retrieval_service().search(
         SearchRequest(
             query=ANCHOR_QUERY,
@@ -85,8 +85,8 @@ def test_repaired_target_enters_only_through_trigram():
     assert target is not None, "Spelling repair did not recover the mission target"
     assert target.signals.fts.rank is None
     assert target.signals.semantic.rank is None
-    assert target.signals.trigram.rank is not None
-    assert target.signals.trigram.rrf_contribution > 0
+    assert target.signals.fuzzy.rank is not None
+    assert target.signals.fuzzy.rrf_contribution > 0
     for row in response.results:
         assert row.domain == ANCHOR_FILTERS["domain"]
         assert row.category_key == ANCHOR_FILTERS["category_key"]
@@ -120,24 +120,24 @@ def test_semantic_arm_does_not_make_the_fixture_trivial():
     with connect() as connection:
         rows = _semantic(connection)
     assert len(rows) == load_profile().semantic_limit, (
-        "A starved vector pool cannot prove absence"
+        "A starved semantic pool cannot prove absence"
     )
     assert not any(row["product_id"] == TARGET_PRODUCT_ID for row in rows)
 
 
 @pytest.mark.aurora
-def test_eligibility_filters_gate_the_trigram_arm_itself():
+def test_eligibility_filters_gate_the_fuzzy_arm_itself():
     profile = load_profile()
     with connect() as connection:
 
         def search(filters):
             return connection.execute(
-                f"SELECT product_id FROM {search_schema()}.search_trigram(%s, %s::jsonb, %s::integer, %s::real)",
+                f"SELECT product_id FROM {search_schema()}.search_fuzzy(%s, %s::jsonb, %s::integer, %s::real)",
                 (
                     ANCHOR_QUERY,
                     json.dumps(filters),
-                    profile.trigram_limit,
-                    profile.trigram_threshold,
+                    profile.fuzzy_limit,
+                    profile.fuzzy_threshold,
                 ),
             ).fetchall()
 

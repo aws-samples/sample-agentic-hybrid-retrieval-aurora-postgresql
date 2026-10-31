@@ -59,16 +59,16 @@ def arms_for(cursor, case: dict, vector: list[float], profile) -> dict:
             f"SELECT product_id, fts_rank AS r FROM {schema}.search_fts(%s, %s::jsonb, %s)",
             (case["query"], filters, profile.fts_limit),
         ),
-        "trigram": (
+        "fuzzy": (
             (
-                f"SELECT product_id, trigram_rank AS r FROM {schema}.search_trigram("
+                f"SELECT product_id, fuzzy_rank AS r FROM {schema}.search_fuzzy("
                 "%s, %s::jsonb, %s, %s::real)"
             ),
-            (case["query"], filters, profile.trigram_limit, profile.trigram_threshold),
+            (case["query"], filters, profile.fuzzy_limit, profile.fuzzy_threshold),
         ),
-        "vector": (
+        "semantic": (
             (
-                f"SELECT product_id, semantic_rank AS r FROM {schema}.search_vector("
+                f"SELECT product_id, semantic_rank AS r FROM {schema}.search_semantic("
                 "%s::vector, %s::jsonb, %s)"
             ),
             (str(vector), filters, profile.semantic_limit),
@@ -161,7 +161,7 @@ def main() -> None:
         "reranking_cutoff": profile.fused_limit,
         "limits": {
             "fts": profile.fts_limit,
-            "trigram": profile.trigram_limit,
+            "fuzzy": profile.fuzzy_limit,
             "semantic": profile.semantic_limit,
         },
         "queries": len(results),

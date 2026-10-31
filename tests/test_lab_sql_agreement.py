@@ -35,25 +35,25 @@ from service.participant_commands import APPLY_SQL, validate_applied
 from service.search_sql import search_sql
 
 REFERENCE = """    UNION ALL
-    SELECT product_id, 'trigram', trigram_rank,
-           trigram_score,
-           mosaic_search.reciprocal_rank_contribution(trigram_rank, rrf_k)
-    FROM typo"""
+    SELECT product_id, 'fuzzy', fuzzy_rank,
+           fuzzy_score,
+           mosaic_search.reciprocal_rank_contribution(fuzzy_rank, rrf_k)
+    FROM fuzzy"""
 ALIASED = """    UNION ALL
-    SELECT t.product_id, 'trigram', t.trigram_rank, t.trigram_score,
-           mosaic_search.reciprocal_rank_contribution(t.trigram_rank, rrf_k)
-    FROM typo t"""
+    SELECT t.product_id, 'fuzzy', t.fuzzy_rank, t.fuzzy_score,
+           mosaic_search.reciprocal_rank_contribution(t.fuzzy_rank, rrf_k)
+    FROM fuzzy t"""
 
 WORKING_BRANCHES = {
     "reference": REFERENCE,
-    "column aliases": REFERENCE.replace("'trigram',", "'trigram'::text AS channel,"),
+    "column aliases": REFERENCE.replace("'fuzzy',", "'fuzzy'::text AS channel,"),
     "table alias": ALIASED,
-    "table alias with AS": ALIASED.replace("FROM typo t", "FROM typo AS t"),
-    "columns named by step": ALIASED.replace("t.", "typo.").replace(
-        "FROM typo t", "FROM typo"
+    "table alias with AS": ALIASED.replace("FROM fuzzy t", "FROM fuzzy AS t"),
+    "columns named by step": ALIASED.replace("t.", "fuzzy.").replace(
+        "FROM fuzzy t", "FROM fuzzy"
     ),
     "upper-case schema name": REFERENCE.replace("mosaic_search.", "MOSAIC_SEARCH."),
-    "comment inside": REFERENCE.replace("FROM typo", "FROM typo  -- fuzzy matching"),
+    "comment inside": REFERENCE.replace("FROM fuzzy", "FROM fuzzy  -- fuzzy matching"),
 }
 BROKEN_BRANCHES = {
     "starter": (LAB1_STARTER, "holds only comments"),
@@ -62,26 +62,26 @@ BROKEN_BRANCHES = {
         "must start with UNION ALL SELECT",
     ),
     "another search": (
-        REFERENCE.replace("FROM typo", "FROM semantic"),
+        REFERENCE.replace("FROM fuzzy", "FROM semantic"),
         "reads FROM semantic; it must read the search results that no other",
     ),
     "score as position": (
-        REFERENCE.replace("trigram_rank,\n", "trigram_score,\n", 1),
-        "column 3 is trigram_score; it must be the fuzzy matching position",
+        REFERENCE.replace("fuzzy_rank,\n", "fuzzy_score,\n", 1),
+        "column 3 is fuzzy_score; it must be the fuzzy matching position",
     ),
     "four columns": (
-        REFERENCE.replace("           trigram_score,\n", ""),
+        REFERENCE.replace("           fuzzy_score,\n", ""),
         "returns 4 columns; every branch returns five",
     ),
     "inline contribution": (
         REFERENCE.replace(
-            "mosaic_search.reciprocal_rank_contribution(trigram_rank, rrf_k)",
-            "1.0 / (rrf_k + trigram_rank)",
+            "mosaic_search.reciprocal_rank_contribution(fuzzy_rank, rrf_k)",
+            "1.0 / (rrf_k + fuzzy_rank)",
         ),
-        "column 5 is 1.0 / (rrf_k + trigram_rank); it must be the RRF contribution",
+        "column 5 is 1.0 / (rrf_k + fuzzy_rank); it must be the RRF contribution",
     ),
     "a WHERE clause": (
-        REFERENCE + "\n    WHERE trigram_rank <= 10",
+        REFERENCE + "\n    WHERE fuzzy_rank <= 10",
         "must end with FROM and the results it reads",
     ),
 }

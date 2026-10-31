@@ -35,7 +35,7 @@ VECTORS = REPO / "data/evals/esci_query_vectors.json"
 GAINS = {"E": 1.0, "S": 0.1, "C": 0.01, "I": 0.0}
 MAX_RERANK_PRODUCTS = 100
 PRODUCTS_PER_SEARCH_UNIT = 100
-ARM_OF = {"fts_limit": "fts", "trigram_limit": "trigram", "semantic_limit": "vector"}
+ARM_OF = {"fts_limit": "fts", "fuzzy_limit": "fuzzy", "semantic_limit": "semantic"}
 SPOT_CHECKS = 3
 
 

@@ -202,8 +202,8 @@ LEFT JOIN pg_index AS index_state
 # `missing_retrieval_indexes` and gated on by `service.main`.
 REQUIRED_RETRIEVAL_INDEXES = (
     LIVE_INDEXES["fts"],
-    LIVE_INDEXES["trigram"],
-    LIVE_INDEXES["vector"],
+    LIVE_INDEXES["fuzzy"],
+    LIVE_INDEXES["semantic"],
 )
 
 

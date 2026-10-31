@@ -28,22 +28,22 @@ RANK_BY_PRODUCT = {502: 1, 501: 2, 503: 3}
 PERSISTED_CANDIDATE_COUNTS = {
     "fused_pool": 47,
     "fts_in_pool": 12,
-    "trigram_in_pool": 5,
+    "fuzzy_in_pool": 5,
     "semantic_in_pool": 47,
 }
 PERSISTED_STAGE_TIMINGS = {"embedding": 61.5, "postgresql_retrieval": 88.25}
 PERSISTED_PROFILE = {
     "fts_limit": 120,
-    "trigram_limit": 80,
+    "fuzzy_limit": 80,
     "semantic_limit": 150,
     "fused_limit": 50,
     "result_limit": 12,
     "authorized_limit": 12,
     "rrf_k": 60,
-    "trigram_threshold": 0.3,
-    "weight_lexical": 0.4,
+    "fuzzy_threshold": 0.3,
+    "weight_fts": 0.4,
     "weight_semantic": 0.4,
-    "weight_trigram": 0.2,
+    "weight_fuzzy": 0.2,
     "ef_search": 100,
     "iterative_scan": "relaxed_order",
     "max_scan_tuples": 20000,
@@ -86,13 +86,13 @@ def _candidate_row(product_id):
         "product_id": product_id,
         "result_rank": result_rank,
         "fts_rank": result_rank + 3,
-        "trigram_rank": None,
+        "fuzzy_rank": None,
         "semantic_rank": result_rank,
         "fused_rank": result_rank + 10,
         "rerank_rank": result_rank,
         "scores": {
             "fts": 0.25 + result_rank,
-            "trigram": None,
+            "fuzzy": None,
             "semantic": 0.5 + result_rank,
             "rrf": 0.031 + result_rank,
             "pre_rerank": 0.031 + result_rank,
@@ -102,7 +102,7 @@ def _candidate_row(product_id):
         "provenance": {
             "channels": {
                 "fts": {"rrf_contribution": 0.0151 + result_rank},
-                "vector": {"rrf_contribution": 0.0161 + result_rank},
+                "semantic": {"rrf_contribution": 0.0161 + result_rank},
             },
             "is_retrieval_anchor": False,
         },
@@ -409,8 +409,8 @@ def test_signals_come_from_the_receipt_not_from_recomputation(monkeypatch):
     assert leader.signals.fts.rank == 4
     assert leader.signals.fts.rrf_contribution == pytest.approx(1.0151)
     assert leader.signals.semantic.rrf_contribution == pytest.approx(1.0161)
-    assert leader.signals.trigram.rank is None
-    assert leader.signals.trigram.raw_score is None
+    assert leader.signals.fuzzy.rank is None
+    assert leader.signals.fuzzy.raw_score is None
     assert leader.signals.rerank_rank == 1
     assert leader.signals.rerank_score == pytest.approx(0.8)
 

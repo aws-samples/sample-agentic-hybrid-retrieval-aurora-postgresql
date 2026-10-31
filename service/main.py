@@ -158,7 +158,7 @@ async def _lifespan(_: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(
     title="Catalog Hybrid Retrieval API",
     description=(
-        "Inspectable lexical, fuzzy, semantic, filtered, fused, reranked, "
+        "Inspectable full-text, fuzzy, semantic, filtered, fused, reranked, "
         "and agentic product discovery on Aurora PostgreSQL."
     ),
     version="0.2.0",
@@ -1059,7 +1059,7 @@ def compare_scoped_products(
     with connect() as connection:
         receipts = connection.execute(
             """
-            SELECT product_id, result_rank, fts_rank, trigram_rank,
+            SELECT product_id, result_rank, fts_rank, fuzzy_rank,
                    semantic_rank, fused_rank, rerank_rank, scores, provenance
             FROM mosaic.search_result_event
             WHERE search_event_id = %s

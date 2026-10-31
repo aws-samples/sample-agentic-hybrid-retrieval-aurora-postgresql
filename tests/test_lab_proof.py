@@ -179,7 +179,7 @@ def _signals(*, rank: int | None, contribution: float | None) -> ResultSignals:
     empty = RankSignal()
     return ResultSignals(
         fts=empty,
-        trigram=arm,
+        fuzzy=arm,
         semantic=empty,
         rrf_score=contribution or 0.0,
         pre_rerank_rank=1,
@@ -213,7 +213,7 @@ def _product(product_id: int, signals: ResultSignals, **overrides) -> ProductSum
     return ProductSummary(**(fields | overrides))
 
 
-def _response(results: list[ProductSummary], *, trigram_in_pool: int) -> SearchResponse:
+def _response(results: list[ProductSummary], *, fuzzy_in_pool: int) -> SearchResponse:
     return SearchResponse(
         search_event_id=uuid4(),
         query="B0C2WWFCQB",
@@ -227,7 +227,7 @@ def _response(results: list[ProductSummary], *, trigram_in_pool: int) -> SearchR
             rerank_model_id="cohere.rerank-v3-5:0",
             rerank_status="applied",
             retrieval_profile=RetrievalProfile(),
-            candidate_counts={"trigram_in_pool": trigram_in_pool},
+            candidate_counts={"fuzzy_in_pool": fuzzy_in_pool},
             stage_timings_ms={},
             total_latency_ms=120,
         ),
@@ -263,7 +263,7 @@ def _with_controls(monkeypatch, primary):
                 pid,
                 ResultSignals(
                     fts=arm,
-                    trigram=arm,
+                    fuzzy=arm,
                     semantic=arm,
                     pre_rerank_rank=i + 1,
                     final_rank=i + 1,
@@ -279,7 +279,7 @@ def _with_controls(monkeypatch, primary):
             )
             for i, pid in enumerate(mission["target_product_ids"])
         ]
-        response = _response(rows, trigram_in_pool=len(rows))
+        response = _response(rows, fuzzy_in_pool=len(rows))
         response.diagnostics.candidate_counts.update(
             fts_in_pool=len(rows), semantic_in_pool=len(rows)
         )
@@ -305,7 +305,7 @@ def _lab_1_search(monkeypatch, *, solved: bool = True) -> None:
     )
     _with_controls(
         monkeypatch,
-        lambda request: _response(results, trigram_in_pool=7 if solved else 0),
+        lambda request: _response(results, fuzzy_in_pool=7 if solved else 0),
     )
 
 
@@ -321,7 +321,7 @@ def _lab_2_search(monkeypatch) -> None:
     empty = RankSignal()
     signals = ResultSignals(
         fts=empty,
-        trigram=empty,
+        fuzzy=empty,
         semantic=semantic,
         rrf_score=contribution,
         pre_rerank_rank=21,
@@ -337,7 +337,7 @@ def _lab_2_search(monkeypatch) -> None:
         category_key="monitor",
         attributes={},
     )
-    _with_controls(monkeypatch, lambda request: _response([product], trigram_in_pool=9))
+    _with_controls(monkeypatch, lambda request: _response([product], fuzzy_in_pool=9))
 
 
 def _persisted_turn() -> dict:

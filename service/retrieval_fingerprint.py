@@ -120,7 +120,7 @@ The settings hash: what no file manifest can see
 -------------------------------------------------
 Every hash above is over *files*. `scripts/checks/retrieval_profile._resolve` reads
 the environment before the yaml -- ``RRF_K``, ``FTS_CANDIDATE_LIMIT``,
-``TRIGRAM_CANDIDATE_LIMIT``, ``SEMANTIC_CANDIDATE_LIMIT``,
+``FUZZY_CANDIDATE_LIMIT``, ``SEMANTIC_CANDIDATE_LIMIT``,
 ``RERANK_CANDIDATE_LIMIT`` and ``HNSW_EF_SEARCH`` all beat
 `db/config/retrieval.yaml` -- so ``RRF_K=1`` changes every served result while
 `db/config/retrieval.yaml` sits byte-identical and the retrieval fingerprint

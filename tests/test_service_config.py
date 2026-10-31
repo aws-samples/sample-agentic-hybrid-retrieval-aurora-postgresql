@@ -39,7 +39,7 @@ def test_env_example_declares_no_retrieval_number():
         "RRF_K",
         "VECTOR_DIM",
         "FTS_CANDIDATE_LIMIT",
-        "TRIGRAM_CANDIDATE_LIMIT",
+        "FUZZY_CANDIDATE_LIMIT",
         "SEMANTIC_CANDIDATE_LIMIT",
         "RERANK_CANDIDATE_LIMIT",
         "HNSW_EF_SEARCH",
@@ -117,7 +117,7 @@ def test_split_model_overrides_are_independent(monkeypatch):
     ("name", "value"),
     [
         ("FTS_CANDIDATE_LIMIT", "0"),
-        ("TRIGRAM_CANDIDATE_LIMIT", "5000"),
+        ("FUZZY_CANDIDATE_LIMIT", "5000"),
         ("SEMANTIC_CANDIDATE_LIMIT", "-1"),
         ("RERANK_CANDIDATE_LIMIT", "900"),
         ("RRF_K", "0"),

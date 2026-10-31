@@ -28,7 +28,7 @@ sys.path.insert(0, str(REPO))
 
 REFERENCE_CACHE = Path("data/evals/lab2_search_cache.json")
 WORKSHOP_CACHE = Path("build/lab2-search-cache.json")
-MAX_LIMITS = {"fts": 240, "trigram": 160, "vector": 300}
+MAX_LIMITS = {"fts": 240, "fuzzy": 160, "semantic": 300}
 # One connection took 238 s for the judged queries on the 20 October workshop,
 # all of it on the deployment's critical path. The catalog does not change while
 # the cache is built, so splitting the queries changes no list.
@@ -46,12 +46,12 @@ LAB3_CHAIR_CONTROL = {
 }
 ARM_SQL = {
     "fts": "SELECT product_id, fts_rank AS r FROM {s}.search_fts(%s, %s::jsonb, %s)",
-    "trigram": (
-        "SELECT product_id, trigram_rank AS r FROM {s}.search_trigram("
+    "fuzzy": (
+        "SELECT product_id, fuzzy_rank AS r FROM {s}.search_fuzzy("
         "%s, %s::jsonb, %s, %s::real)"
     ),
-    "vector": (
-        "SELECT product_id, semantic_rank AS r FROM {s}.search_vector("
+    "semantic": (
+        "SELECT product_id, semantic_rank AS r FROM {s}.search_semantic("
         "%s::vector, %s::jsonb, %s)"
     ),
 }
@@ -86,7 +86,7 @@ def cache_path(repo: Path = REPO) -> Path:
 
 
 def hnsw_identity() -> str:
-    """Bind cached candidates to the settings used by production vector search."""
+    """Bind cached candidates to the settings used by production semantic search."""
     from service.models import RetrievalProfile
 
     settings = RetrievalProfile().model_dump(
@@ -112,7 +112,7 @@ def search_identity(connection) -> dict[str, str]:
         "SELECT string_agg(pg_get_functiondef(p.oid), E'\\n' ORDER BY p.proname) AS d "
         "FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace "
         "WHERE n.nspname = %s AND p.proname IN "
-        "('search_fts', 'search_trigram', 'search_vector', 'matches_filter_values')",
+        "('search_fts', 'search_fuzzy', 'search_semantic', 'matches_filter_values')",
         (schema,),
     ).fetchone()["d"]
     return {
@@ -132,11 +132,11 @@ def search_lists(connection, query: str, filters: dict, vector: str) -> dict:
     RetrievalService._configure_hnsw(connection, RetrievalProfile())
     schema = search_schema()
     encoded = json.dumps(filters)
-    threshold = load_profile().trigram_threshold
+    threshold = load_profile().fuzzy_threshold
     arguments = {
         "fts": (query, encoded, MAX_LIMITS["fts"]),
-        "trigram": (query, encoded, MAX_LIMITS["trigram"], threshold),
-        "vector": (vector, encoded, MAX_LIMITS["vector"]),
+        "fuzzy": (query, encoded, MAX_LIMITS["fuzzy"], threshold),
+        "semantic": (vector, encoded, MAX_LIMITS["semantic"]),
     }
     lists = {}
     for name, sql in ARM_SQL.items():
@@ -257,7 +257,7 @@ def main() -> None:
                 "dataset_id": subset["dataset_id"],
                 "embedding_model_id": vectors["embedding_model_id"],
                 "limits": MAX_LIMITS,
-                "trigram_threshold": load_profile().trigram_threshold,
+                "fuzzy_threshold": load_profile().fuzzy_threshold,
                 "queries": queries,
                 "chair_controls": chair,
             },

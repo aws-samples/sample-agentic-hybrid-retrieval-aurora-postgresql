@@ -207,8 +207,8 @@ def test_asserting_an_undeclared_arm_is_allowed(passing):
     mission["expected_techniques"] = [
         t for t in mission["expected_techniques"] if t != "pg_trgm"
     ]
-    if "trigram_signal_present" not in mission["assertions"]:
-        mission["assertions"].append("trigram_signal_present")
+    if "fuzzy_signal_present" not in mission["assertions"]:
+        mission["assertions"].append("fuzzy_signal_present")
     assert "A1.7" not in rules_failing(passing)
 
 

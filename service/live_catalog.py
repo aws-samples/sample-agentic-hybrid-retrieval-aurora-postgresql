@@ -570,7 +570,7 @@ def readiness() -> dict:
             {"name": name}
             for name, state in index_states_on(
                 connection,
-                (LIVE_INDEXES["fts"], LIVE_INDEXES["trigram"], LIVE_INDEXES["vector"]),
+                (LIVE_INDEXES["fts"], LIVE_INDEXES["fuzzy"], LIVE_INDEXES["semantic"]),
                 schema="mosaic_search",
             ).items()
             if state != "valid"

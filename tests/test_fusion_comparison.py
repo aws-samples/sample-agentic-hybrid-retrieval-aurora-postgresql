@@ -33,7 +33,7 @@ def row(product_id: int, score: float) -> dict[str, Any]:
     return {
         "product_id": product_id,
         "fts_rank": 1,
-        "trigram_rank": None,
+        "fuzzy_rank": None,
         "semantic_rank": 2,
         "rrf_score": score,
         "provenance": {},
@@ -76,11 +76,11 @@ class StubConnection:
         self.commits = 0
         self.cursor_obj = StubCursor()
         self.executed_sql: list[str] = []
-        # What pg_get_functiondef reports for search_hybrid_rrf: the trigram
+        # What pg_get_functiondef reports for search_hybrid_rrf: the fuzzy
         # channel is present in the repaired state and absent while Lab 1's
         # seam is open.
         self.definition = (
-            "... UNION ALL SELECT product_id, 'trigram' ... FROM typo ..."
+            "... UNION ALL SELECT product_id, 'fuzzy' ... FROM fuzzy ..."
             if lab_1_repaired
             else "... FROM fts UNION ALL SELECT ... FROM semantic ..."
         )
@@ -303,10 +303,10 @@ def test_both_functions_receive_identical_arguments():
         "filters",
         "rrf_k",
         "fts_limit",
-        "trigram_limit",
+        "fuzzy_limit",
         "semantic_limit",
         "result_limit",
-        "trigram_threshold",
+        "fuzzy_threshold",
     )
     for key in shared:
         assert captured[0][key] == captured[1][key], key
@@ -332,9 +332,9 @@ def test_weights_come_from_the_yaml_not_from_literals():
         "mesh chair", SearchFilters(), persist=False
     )
     assert result.weights == {
-        "lexical": profile.weight_lexical,
+        "fts": profile.weight_fts,
         "semantic": profile.weight_semantic,
-        "trigram": profile.weight_trigram,
+        "fuzzy": profile.weight_fuzzy,
     }
     assert result.rrf_k == profile.rrf_k
 
@@ -374,9 +374,9 @@ def test_the_weighted_sql_declares_no_literal_coefficients():
     for coefficient in ("0.30", "0.45", "0.10"):
         occurrences = body.count(f"DEFAULT {coefficient}")
         assert occurrences <= 1, f"{coefficient} appears outside the signature"
-    assert "weight_lexical *" in body
+    assert "weight_fts *" in body
     assert "weight_semantic *" in body
-    assert "weight_trigram *" in body
+    assert "weight_fuzzy *" in body
 
 
 def test_the_schema_carries_everything_phase_4_recompute_needs():
@@ -389,7 +389,7 @@ def test_the_schema_carries_everything_phase_4_recompute_needs():
     table = schema.split("mosaic.fusion_comparison_candidate", 1)[1]
     for column in (
         "fts_rank",
-        "trigram_rank",
+        "fuzzy_rank",
         "semantic_rank",
         "unweighted_rrf_score",
         "weighted_rrf_score",
@@ -457,10 +457,10 @@ def test_the_profile_carries_the_weights_and_threshold_for_both_functions():
     from service.models import RetrievalProfile
 
     profile, yaml_profile = RetrievalProfile(), load_profile()
-    assert profile.trigram_threshold == yaml_profile.trigram_threshold
-    assert profile.weight_lexical == yaml_profile.weight_lexical
+    assert profile.fuzzy_threshold == yaml_profile.fuzzy_threshold
+    assert profile.weight_fts == yaml_profile.weight_fts
     assert profile.weight_semantic == yaml_profile.weight_semantic
-    assert profile.weight_trigram == yaml_profile.weight_trigram
+    assert profile.weight_fuzzy == yaml_profile.weight_fuzzy
 
 
 def test_filters_reach_the_sql_as_json():
@@ -492,7 +492,7 @@ def test_fusion_comparison_normalizes_the_sql_and_embedding_query():
 def test_an_unrepaired_lab_1_is_named_rather_than_blamed_on_drift():
     """While Lab 1's seam is open the two pools cannot match, by design.
 
-    `scripts/lab_state.py reset --lab 1` strips the trigram channel from
+    `scripts/lab_state.py reset --lab 1` strips the fuzzy channel from
     `search_hybrid_rrf` only. Before this check the substrate assertion fired
     on every Lab 1 request and reported a deployment drift, which sent a
     participant hunting for a defect that was their unfinished exercise.

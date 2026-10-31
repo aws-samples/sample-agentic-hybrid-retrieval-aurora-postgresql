@@ -40,7 +40,7 @@ def test_every_query_is_cached_once_in_the_judged_order(monkeypatch):
 
     def lists(connection, query, filters, vector):
         threads.add(threading.get_ident())
-        return {"fts": [[filters["n"], 1]], "trigram": [], "vector": [[query, 2]]}
+        return {"fts": [[filters["n"], 1]], "fuzzy": [], "semantic": [[query, 2]]}
 
     monkeypatch.setattr(cache_lab2_arms, "search_lists", lists)
     opened: list[FakeConnection] = []

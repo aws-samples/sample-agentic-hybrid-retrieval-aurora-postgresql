@@ -42,7 +42,7 @@ def test_retired_evidence_is_excluded_from_both_search_methods():
                 ids.append(row["evidence_id"])
             for embedding in (None, vector):
                 rows = conn.execute(
-                    f"""SELECT evidence_id,lexical_score,semantic_score
+                    f"""SELECT evidence_id,fts_score,semantic_score
                     FROM {search_schema()}.search_product_evidence(
                         %s,%s,%s::vector,ARRAY['product_qa']::mosaic.evidence_type[],
                         %s,%s,%s,%s)""",
@@ -60,7 +60,7 @@ def test_retired_evidence_is_excluded_from_both_search_methods():
                 assert ids[0] in by_id, (
                     "Production search must return the current source witness"
                 )
-                assert by_id[ids[0]]["lexical_score"] is not None
+                assert by_id[ids[0]]["fts_score"] is not None
                 if embedding is not None:
                     assert by_id[ids[0]]["semantic_score"] is not None
                 assert ids[1] not in by_id, "Retired source leaked into a new result"
