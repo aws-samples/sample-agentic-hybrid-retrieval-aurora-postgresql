@@ -1486,8 +1486,9 @@ Resources:
       ServiceTimeout: 960
       LaunchTemplateId: !Ref CodeEditorLaunchTemplate
       LaunchTemplateVersion: !GetAtt CodeEditorLaunchTemplate.LatestVersionNumber
-      # Every type has 8 vCPUs, Graviton (arm64) and EBS only, each a separate
-      # capacity pool. Each is tried in every subnet before the next.
+      # InstanceType first, at the size chosen (4, 8 or 16 vCPUs), then five 8-vCPU
+      # fallbacks. All are Graviton (arm64) and EBS only, each a separate capacity
+      # pool, and each is tried in every subnet before the next.
       InstanceTypes:
         - !Ref InstanceType
         - c7g.2xlarge
