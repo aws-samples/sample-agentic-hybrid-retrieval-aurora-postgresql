@@ -25,7 +25,7 @@ import sys
 import tempfile
 import time
 from collections.abc import Callable, Iterable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -1993,8 +1993,13 @@ def plan_staging_down(ctx: Context, *, force: bool = False) -> list[Step]:
 
 def plan_delete(ctx: Context) -> list[Step]:
     delete = Step(
-        f"delete stack {ctx.stack_name}",
-        (("cloudformation", "DeleteStack", {"StackName": ctx.stack_name}),),
+        f"delete stack {ctx.stack_name}, first deleting what an earlier teardown set aside "
+        "once AgentCore's interface no longer holds it",
+        (
+            ("cloudformation", "ListStackResources", {"StackName": ctx.stack_name}),
+            ("cloudformation", "DeleteStack", {"StackName": ctx.stack_name}),
+        ),
+        run=delete_stack_root,
     )
     wait = Step(
         "wait for DELETE_COMPLETE; if only an AgentCore network interface blocks it, "
@@ -2011,6 +2016,8 @@ def plan_delete(ctx: Context) -> list[Step]:
 AGENTCORE_INTERFACE_TYPE = "agentic_ai"
 AGENTCORE_MANAGED_TAG = "AmazonBedrockAgentCoreManaged"
 AGENTCORE_RELEASE_HOURS = 8
+NESTED_STACK_TYPE = "AWS::CloudFormation::Stack"
+SECURITY_GROUP_TYPE = "AWS::EC2::SecurityGroup"
 
 
 def security_groups_by_root_resource(ctx: Context) -> dict[str, list[str]]:
@@ -2028,12 +2035,9 @@ def security_groups_by_root_resource(ctx: Context) -> dict[str, list[str]]:
                     continue
                 physical = resource.get("PhysicalResourceId", "")
                 logical = owner or resource["LogicalResourceId"]
-                if (
-                    resource["ResourceType"] == "AWS::CloudFormation::Stack"
-                    and physical
-                ):
+                if resource["ResourceType"] == NESTED_STACK_TYPE and physical:
                     walk(physical, logical)
-                elif resource["ResourceType"] == "AWS::EC2::SecurityGroup" and physical:
+                elif resource["ResourceType"] == SECURITY_GROUP_TYPE and physical:
                     groups.setdefault(logical, []).append(physical)
 
     walk(ctx.stack_name, None)
@@ -2067,6 +2071,78 @@ def held_by_agentcore(ctx: Context) -> tuple[list[str], list[str]]:
     }
     held = sorted(logical for logical, ids in groups.items() if used & set(ids))
     return held, sorted(interface["NetworkInterfaceId"] for interface in interfaces)
+
+
+def set_aside_by_earlier_teardown(ctx: Context) -> list[dict[str, Any]]:
+    """Root stacks and security groups an earlier teardown set aside.
+
+    A delete with RetainResources leaves them DELETE_SKIPPED, and a later DeleteStack
+    retries only DELETE_FAILED resources, so CloudFormation never deletes them again
+    and the VPC around them never empties.
+    """
+    paginator = ctx.client("cloudformation").get_paginator("list_stack_resources")
+    try:
+        summaries = [
+            summary
+            for page in paginator.paginate(StackName=ctx.stack_name)
+            for summary in page["StackResourceSummaries"]
+        ]
+    except Exception as error:
+        if "does not exist" in str(error):
+            return []
+        raise
+    return [
+        summary
+        for summary in summaries
+        if summary.get("ResourceStatus") == "DELETE_SKIPPED"
+        and summary["ResourceType"] in (NESTED_STACK_TYPE, SECURITY_GROUP_TYPE)
+        and summary.get("PhysicalResourceId")
+    ]
+
+
+def delete_stack_root(ctx: Context) -> None:
+    """Delete the stack, first finishing what an earlier teardown set aside.
+
+    While AgentCore's interface still uses their security groups they stay aside, and
+    `wait_for_delete` sets them aside again and says when to come back.
+    """
+    set_aside = set_aside_by_earlier_teardown(ctx)
+    if set_aside:
+        held, interfaces = held_by_agentcore(ctx)
+        if held:
+            ctx.out(
+                f"    {', '.join(held)} stay set aside: AgentCore's interface "
+                f"({', '.join(interfaces)}) still uses their security groups"
+            )
+        else:
+            delete_set_aside(ctx, set_aside)
+    ctx.client("cloudformation").delete_stack(StackName=ctx.stack_name)
+
+
+def delete_set_aside(ctx: Context, set_aside: list[dict[str, Any]]) -> None:
+    """Nested stacks first, because their groups may refer to the root's groups."""
+    for summary in set_aside:
+        if summary["ResourceType"] != NESTED_STACK_TYPE:
+            continue
+        ctx.out(
+            f"    deleting {summary['LogicalResourceId']}, set aside by an earlier teardown"
+        )
+        nested = replace(ctx, stack_name=summary["PhysicalResourceId"])
+        nested.client("cloudformation").delete_stack(StackName=nested.stack_name)
+        wait_for_stack(nested, "DELETE_COMPLETE")
+    for summary in set_aside:
+        if summary["ResourceType"] != SECURITY_GROUP_TYPE:
+            continue
+        ctx.out(
+            f"    deleting {summary['LogicalResourceId']}, set aside by an earlier teardown"
+        )
+        try:
+            ctx.client("ec2").delete_security_group(
+                GroupId=summary["PhysicalResourceId"]
+            )
+        except Exception as error:
+            if error_code(error) != "InvalidGroup.NotFound":
+                raise
 
 
 def wait_for_delete(ctx: Context) -> None:
@@ -2119,7 +2195,7 @@ def collect_resources(ctx: Context, stack: str, found: dict[str, list[str]]) -> 
         for resource in page["StackResourceSummaries"]:
             kind = resource["ResourceType"]
             physical = resource.get("PhysicalResourceId", "")
-            if kind == "AWS::CloudFormation::Stack" and physical:
+            if kind == NESTED_STACK_TYPE and physical:
                 collect_resources(ctx, physical, found)
             elif kind in ("AWS::RDS::DBCluster", "AWS::BedrockAgentCore::Runtime"):
                 found.setdefault(kind, []).append(physical.rsplit("/", 1)[-1])

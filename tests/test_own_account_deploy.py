@@ -2272,6 +2272,67 @@ def test_a_delete_that_completes_needs_no_second_pass(tmp_path, no_sleep):
     assert fake.deletes == [] and ctx.pending == []
 
 
+class FakeSetAsideTree(FakeStackTree):
+    """The account after a teardown that set resources aside: they are DELETE_SKIPPED."""
+
+    def __init__(self, interfaces, missing_groups=()):
+        super().__init__(["DELETE_COMPLETE"], SET_ASIDE_TREE, interfaces)
+        self.missing_groups = set(missing_groups)
+        self.order: list[str] = []
+
+    def delete_stack(self, **kwargs):
+        super().delete_stack(**kwargs)
+        self.order.append(kwargs["StackName"])
+
+    def delete_security_group(self, GroupId):
+        self.order.append(GroupId)
+        if GroupId in self.missing_groups:
+            raise CodedError("InvalidGroup.NotFound", f"{GroupId} does not exist")
+
+
+SET_ASIDE_TREE = {
+    **BLOCKED_TREE,
+    "mosaic-hybrid-retrieval": [
+        resource("CodeEditorStack", STACK, "arn:editor", "DELETE_SKIPPED"),
+        resource("DatabaseClientSecurityGroup", GROUP, "sg-client", "DELETE_SKIPPED"),
+        resource("DatabaseStack", STACK, "arn:database", "DELETE_COMPLETE"),
+        resource("VPCStack", STACK, "arn:vpc", "DELETE_FAILED"),
+    ],
+}
+
+
+def test_a_later_teardown_deletes_what_the_first_set_aside_once_nothing_holds_it(
+    tmp_path, no_sleep
+):
+    """Measured on 31 October: a plain second delete retried only the VPC, which the
+    set-aside security groups still kept, so the stack stayed DELETE_FAILED."""
+    fake = FakeSetAsideTree(interfaces=[])
+    lines: list[str] = []
+    deploy.delete_stack_root(live_context(tmp_path, fake, lines))
+    assert fake.order == ["arn:editor", "sg-client", "mosaic-hybrid-retrieval"]
+    assert "CodeEditorStack" in "\n".join(lines)
+
+
+def test_set_aside_resources_wait_while_agentcore_still_holds_them(tmp_path, no_sleep):
+    fake = FakeSetAsideTree(interfaces=[AGENTCORE_INTERFACE])
+    lines: list[str] = []
+    deploy.delete_stack_root(live_context(tmp_path, fake, lines))
+    assert fake.order == ["mosaic-hybrid-retrieval"]
+    assert "eni-agentcore" in "\n".join(lines)
+
+
+def test_a_set_aside_group_already_gone_does_not_stop_the_teardown(tmp_path, no_sleep):
+    fake = FakeSetAsideTree(interfaces=[], missing_groups={"sg-client"})
+    deploy.delete_stack_root(live_context(tmp_path, fake, []))
+    assert fake.order == ["arn:editor", "sg-client", "mosaic-hybrid-retrieval"]
+
+
+def test_a_first_teardown_only_deletes_the_stack(tmp_path, no_sleep):
+    fake = FakeStackTree(["DELETE_COMPLETE"], BLOCKED_TREE, [])
+    deploy.delete_stack_root(live_context(tmp_path, fake, []))
+    assert fake.deletes == [{"StackName": "mosaic-hybrid-retrieval"}]
+
+
 def test_an_unfinished_teardown_exits_non_zero_and_says_why(
     tmp_path, monkeypatch, capsys
 ):

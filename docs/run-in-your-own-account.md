@@ -474,9 +474,11 @@ AWS can remove it. Until then, the two security groups it uses and the VPC aroun
 be deleted. When that is all that blocks the delete, `teardown` deletes everything else (the
 database, host, NAT gateway, distributions and runtimes), sets those resources aside, and
 ends with `NOT FINISHED` and the interface's ID. What remains costs nothing. In the proof run
-the first pass took 25 minutes and the interface was still there more than four hours after
-its runtimes were deleted. Once the command it prints shows no interface, run the same
-`teardown` command again to delete the rest.
+the first pass took 25 minutes, and AWS removed the interface about 7 hours 45 minutes after
+the runtimes were deleted. Once the command it prints shows no interface, run the same
+`teardown` command again. CloudFormation never retries resources a delete set aside, so this
+second run deletes them itself (the Code Editor stack, then the database client security
+group) and then the rest; in the proof run it took about a minute.
 
 Some things outlive the stack and the staging environment, and you remove them yourself:
 

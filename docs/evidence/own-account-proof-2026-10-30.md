@@ -153,7 +153,13 @@ the database and the NAT gateway in both Regions (us-east-1: 27 minutes); what r
 the VPC, a private subnet, the two security groups and AWS's interface, none of which bills.
 `teardown` now does this itself and exits `NOT FINISHED` with the interface's ID
 (`5911c105`); a poller runs `teardown` again in each Region once AWS removes the interface.
-[final deletion time: to be added when the interfaces are released]
+
+In us-east-1, AWS removed the interface between 23:44 and 23:49 UTC, about 7 hours 45
+minutes after the first pass. The plain second delete then failed twice: CloudFormation
+retries only `DELETE_FAILED` resources, so the two set aside stayed `DELETE_SKIPPED` inside
+the VPC and the VPC could not go. `teardown` now deletes them first; run that way on 31
+October, the Code Editor stack, the client security group, the root stack and the VPC were
+gone in 66 seconds. The us-west-2 interface was still in use at 01:46 UTC on 31 October.
 
 Transaction Search came back through the full stack: the custom resource's delete note was
 "restored indexing, destination, policy, kept aws/spans, kept
