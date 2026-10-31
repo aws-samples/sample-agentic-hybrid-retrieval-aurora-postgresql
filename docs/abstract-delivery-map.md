@@ -18,7 +18,7 @@ build and deploy an agent), and each is graded against an answer the grader comp
   (`tsvector` lexemes, `pg_trgm` word similarity, pgvector distance) to show why
   only one search method recovers it, then find why its candidates never reach
   fusion and add the missing branch. An optional
-  Go deeper step has them write a recall query for the vector search they didn't
+  Go deeper step has them write a recall query for the semantic search they didn't
   touch. The grader runs
   it under the planner's plan and with HNSW forced: in recorded runs the forced plan was roughly 6–7×
   faster yet missed half or more of the true nearest neighbours. **Lesson: a full

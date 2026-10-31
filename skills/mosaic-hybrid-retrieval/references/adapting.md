@@ -42,7 +42,7 @@ catalog schema or measured tuning fits another workload.
    beside the searchable text and vector.
 3. Replace text construction, language configuration, embedding model, vector
    dimensions, and index operator as one versioned migration.
-4. Port the lexical, fuzzy, and semantic arms while preserving pre-limit
+4. Port the full-text, fuzzy, and semantic arms while preserving pre-limit
    eligibility.
 5. Measure candidate depths, fusion, reranking, and HNSW settings on the new
    corpus. Do not copy Mosaic's numbers as production defaults.

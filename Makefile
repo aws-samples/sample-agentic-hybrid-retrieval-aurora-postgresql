@@ -128,7 +128,7 @@ ablation-evals:
 	@$(PYTHON) scripts/evals/ablation_evals.py
 
 # db/config/retrieval.yaml is the single source for candidate limits, fusion k,
-# weights, and the trigram threshold. This fails if any other file declares one,
+# weights, and the fuzzy threshold. This fails if any other file declares one,
 # and asserts every exempted SQL default and index parameter equals its yaml
 # value. No database needed.
 validate-config:

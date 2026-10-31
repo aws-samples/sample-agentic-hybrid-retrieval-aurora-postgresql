@@ -287,7 +287,7 @@ loads the verified import into `mosaic_search.product_listing` (until 13 October
 2026, a separate `mosaic_catalog_search` projection).
 All 500,000 rows retain their original parent IDs, text hashes and vectors.
 The full comparison found zero source or vector mismatches, and every index is
-valid. The full-text, trigram and full-precision HNSW indexes occupy approximately
+valid. The full-text, fuzzy and full-precision HNSW indexes occupy approximately
 321 MiB, 190 MiB and 3.81 GiB respectively in this build. These are measured
 sizes of the replacement indexes, not a comparison with `halfvec` or binary
 representations. Those comparisons remain outstanding.

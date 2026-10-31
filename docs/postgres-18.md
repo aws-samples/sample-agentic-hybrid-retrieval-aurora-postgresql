@@ -22,8 +22,8 @@ The schema also installs `pg_trgm`, `unaccent`, and `pgcrypto`
 
 **Three retrieval arms in one database.** `mosaic_search.search_fts` reads a
 stored `tsvector` column through a GIN index.
-`mosaic_search.search_trigram` reads `pg_trgm` normalized text through a GIN
-`gin_trgm_ops` index. `mosaic_search.search_vector` reads an HNSW index built
+`mosaic_search.search_fuzzy` reads `pg_trgm` normalized text through a GIN
+`gin_trgm_ops` index. `mosaic_search.search_semantic` reads an HNSW index built
 with `vector_cosine_ops`, `m = 16`, and `ef_construction = 200`. Each arm
 applies the same eligibility predicates before its own limit, and
 `mosaic_search.search_hybrid_rrf` fuses their positions. All of them read
@@ -52,8 +52,8 @@ stores `EXPLAIN (ANALYZE, BUFFERS, SETTINGS, FORMAT JSON)` in the event's
 `plan_json` column with the capture time in its diagnostics. It is explicit and on demand
 because `ANALYZE` executes the query, so a plan exists for the events somebody
 asked about, not for every search. Read that plan carefully: the full-text and
-trigram arms are `plpgsql` functions, so they appear as opaque function scans
-with no index named inside them, while the vector arm is a `sql` function the
+fuzzy arms are `plpgsql` functions, so they appear as opaque function scans
+with no index named inside them, while the semantic arm is a `sql` function the
 planner can inline, so its HNSW index does appear, provided the outer
 `search_hybrid_rrf` stays inlinable too (SQL-language, one `SELECT`, not
 `STRICT`, not `VOLATILE`, no `SET` clause); otherwise the whole call collapses
@@ -65,7 +65,7 @@ authority, not the plan text.
 are stored generated columns, and eligibility filters run against indexed
 `jsonb` attributes and ordinary btree columns in the same statement as vector
 distance. This is the point the workshop keeps making: relational filters and
-approximate vector search sit in one transactionally consistent data plane.
+approximate semantic search sit in one transactionally consistent data plane.
 
 ## What readiness reports
 

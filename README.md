@@ -64,7 +64,7 @@ the same request. Your repairs carry forward from one lab to the next.
 Labs 1 and 2 are SQL exercises: you diagnose in `psql`, repair the marked SQL file and
 apply it to Aurora. In Lab 3 you build the Retrieval agent in Python, deploy it to
 AgentCore Runtime and check its answers from the terminal. Optional exercises cover
-AgentCore Memory, a smaller and faster HNSW index for filtered vector search, weighted
+AgentCore Memory, a smaller and faster HNSW index for filtered semantic search, weighted
 rank fusion and building your own retrieval tool.
 
 ## Architecture

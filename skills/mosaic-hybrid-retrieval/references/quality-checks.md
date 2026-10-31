@@ -40,7 +40,7 @@ synthetic scores are not measurements of the workshop's selected real catalog.
 ## Ranking: inspect the transition between stages
 
 RRF sums reciprocal contributions from each arm's rank position using the running
-configuration. Missing arms contribute nothing. Do not add full-text rank, trigram
+configuration. Missing arms contribute nothing. Do not add full-text rank, fuzzy
 similarity and vector distance together or present their values as probabilities.
 
 Use the persisted event to compare arm ranks, `rrf_contribution`, `rrf_score`,

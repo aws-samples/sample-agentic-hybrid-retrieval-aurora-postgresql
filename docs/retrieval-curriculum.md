@@ -91,7 +91,7 @@ ranking weights.
 Attendees repair the actual `1 / (k + rank)` contribution, then retain and
 compare:
 
-- lexical, trigram, and semantic rank;
+- full-text, fuzzy, and semantic rank;
 - RRF score and pre-rerank position;
 - Cohere Rerank score and final rank;
 - candidate counts and persisted retrieval-run evidence;
@@ -204,7 +204,7 @@ runtime-result parity that the workshop did not measure.
 
 The required path captures one persisted retrieval event's production
 `EXPLAIN (ANALYZE, BUFFERS, SETTINGS, FORMAT JSON)` plan on demand. Participants
-connect the FTS and trigram function scans, pgvector HNSW index scan, candidate
+connect the FTS and fuzzy function scans, pgvector HNSW index scan, candidate
 caps, joins, runtime settings, and persisted rank receipt rather than treating
 Aurora as an opaque store behind the agent.
 
@@ -213,7 +213,7 @@ system:
 
 ```text
 query understanding
-  -> lexical / typo / semantic candidate generation
+  -> full-text / fuzzy / semantic candidate generation
   -> relational eligibility filters
   -> reciprocal-rank fusion
   -> model reranking

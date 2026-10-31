@@ -100,7 +100,7 @@ Weighted: score(d) = sum(weight_method / (k + rank_method(d)))
 ```
 
 Only methods that returned the product contribute. Both formulas combine
-positions, not raw lexical, spelling or vector scores. A channel weight changes
+positions, not raw full-text, spelling or semantic scores. A channel weight changes
 that channel's relative influence; `k` controls how much positions within a
 channel differ. Neither produces a calibrated probability. Equal unit weights
 recover standard RRF; multiplying all weights by the same positive constant

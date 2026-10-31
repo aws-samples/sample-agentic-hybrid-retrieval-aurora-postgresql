@@ -9,7 +9,7 @@ and a fresh participant environment remain separate proof boundaries.
 
 The [typo readiness spot check](evidence/real-catalog-typo-readiness-2026-09-20.md)
 found that the requested misspelling works through the existing generated
-catalog's trigram path, but two reviewed public headphone records fall below
+catalog's fuzzy path, but two reviewed public headphone records fall below
 the current word-similarity gate when tested as preserved source text. The
 September 21 [paired search observations](evidence/catalog-source-audit/search-validation-2026-09-21.json)
 confirmed that the old typo request returned the same leading three products
@@ -111,8 +111,8 @@ numbers as measurements of the new product corpus.
 The diagram, SQL, app trace and spoken explanation must agree:
 
 1. Apply the request's requirements and retrieve rows through full-text,
-   spelling and vector search.
-2. If the selected vector path uses binary search, rescore its returned rows
+   spelling and semantic search.
+2. If the selected semantic path uses binary search, rescore its returned rows
    with the original vectors before treating that path as a ranked input.
 3. Combine the search-method positions using reciprocal rank fusion.
 4. Apply the model-based reranker to the bounded combined list.

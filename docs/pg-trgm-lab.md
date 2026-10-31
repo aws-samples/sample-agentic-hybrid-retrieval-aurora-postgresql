@@ -22,19 +22,19 @@ ON mosaic_search.product_listing USING gin (trigram_text gin_trgm_ops);
 
 Use `G-003` from `data/evals/mosaic_labs_missions.json` with its exact filters
 before and after the edit. The controlled defect is in
-`mosaic_search.search_hybrid_rrf`: the `typo` CTE still calls the trigram
+`mosaic_search.search_hybrid_rrf`: the `fuzzy` CTE still calls the fuzzy
 search function, but no `channels` branch reads it, and PostgreSQL never runs an
 unreferenced CTE. Creating another index or lowering a threshold does not reconnect
 that path.
 
 1. Observe the successful request with the target missing. Inspect
-   `diagnostics.candidate_counts.trigram_in_pool`; while broken it is zero.
-2. Run `search_trigram` directly with the saved query and filters: it returns the
+   `diagnostics.candidate_counts.fuzzy_in_pool`; while broken it is zero.
+2. Run `search_fuzzy` directly with the saved query and filters: it returns the
    target at rank 1. Then read `search_hybrid_rrf` in
    `labs/lab1_retrieve/hybrid_search.sql` to find where those rows are lost, and add the
    missing `channels` branch between the `LAB1_EDIT` markers.
 3. Run `uv run python scripts/apply_search_functions.py`, then repeat the same request. Inspect
-   the target's `signals.trigram.rank` and `rrf_contribution`. For this anchor,
+   the target's `signals.fuzzy.rank` and `rrf_contribution`. For this anchor,
    its FTS and semantic ranks remain null: the recovered product identifies
    which path changed.
 4. Run `uv run python scripts/validate_lab.py --lab 1`. The exact-identity and eligibility controls must
@@ -60,11 +60,11 @@ Use the current worked-example library for exact transposed identifiers and each
 
 ## Recommended fusion behavior
 
-- Exact brand/model/SKU hits receive lexical priority.
-- Trigram is a recovery candidate source, not an automatic correction oracle.
+- Exact brand/model/SKU hits receive full-text priority.
+- Fuzzy is a recovery candidate source, not an automatic correction oracle.
 - Preserve the original query when inspecting a run; a changed spelling is a
   different experiment, not evidence that the disconnected channel was fixed.
-- Trigram rank participates in RRF; it is not naively added to cosine similarity.
+- Fuzzy rank participates in RRF; it is not naively added to cosine similarity.
 - Very low-similarity candidates are excluded before reranking.
 - Attribute and eligibility filters remain authoritative.
 

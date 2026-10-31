@@ -41,7 +41,7 @@ Aurora PostgreSQL holds:
 - reviews/evidence
 - evaluation judgments and query telemetry
 
-The design intentionally demonstrates that relational filters and vector retrieval can participate in one transactionally consistent data plane.
+The design intentionally demonstrates that relational filters and semantic retrieval can participate in one transactionally consistent data plane.
 
 Engine and extension version facts for the cluster this runs on, and the
 version claims it declines to make, are in
@@ -59,7 +59,7 @@ filters, candidate generation, unweighted RRF, optional weighted comparison,
 reranking provenance and retrieval-run persistence stay in the shared
 application code and Aurora. Bedrock provides the query embedding, product
 reranking, agent and synthesis models. For imported reviews without vectors,
-the evidence tool reranks lexical matches against the evidence question before
+the evidence tool reranks full-text matches against the evidence question before
 returning a bounded selection. Citation checks still need to establish that
 each selected record supports the claim.
 
@@ -77,7 +77,7 @@ flowchart LR
     VERIFY --> RESTORE
     RESTORE --> P[553,911 real products]
     P --> V[Live search projection]
-    V --> I[FTS / trigram / HNSW indexes]
+    V --> I[FTS / fuzzy / HNSW indexes]
     VOCAB[Verified real-catalog vocabulary] --> V
     Q[Real queries and judgments] --> RUN[Production-path evaluation]
     I --> RUN

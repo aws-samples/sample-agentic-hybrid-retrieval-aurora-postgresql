@@ -45,7 +45,7 @@ exercise, not whether semantic retrieval exists.
 - real-catalog HNSW anchors, ground truth and measured performance artifact;
   the historical instrument is withheld when its catalog is incompatible;
 - behavioral assertions `rrf_recomputes` and `rerank_off_invariant`;
-- per-token trigram expansion and the measured 500K trigram latency issue;
+- per-token trigram expansion and the measured 500K fuzzy latency issue;
 - a reviewed real-catalog scorecard and measured independent relevance run.
   The real canonical, coverage-probe and held-out contracts are present;
   validating those contracts alone does not measure retrieval quality.

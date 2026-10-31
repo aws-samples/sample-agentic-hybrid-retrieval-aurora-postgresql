@@ -48,7 +48,7 @@ shows, in order: one strip of chips for how it ran (each search's count on the
 shortlist, Combined (RRF) · shortlist, Reranked with the shortlist's size, shown)
 with a link to watch the ranking change in the Playground; **Each method's top
 five**, one column per search plus Combined (RRF) and Reranked, each naming the
-SQL function the guides call (`search_fts`, `search_trigram`, `search_vector`,
+SQL function the guides call (`search_fts`, `search_fuzzy`, `search_semantic`,
 `search_hybrid_rrf`). Each column lists that method's own top five on the
 shortlist, read from the search's saved receipts: a search row gives its final
 position, Combined and Reranked rows their ▲/▼ movement, and rows below the page

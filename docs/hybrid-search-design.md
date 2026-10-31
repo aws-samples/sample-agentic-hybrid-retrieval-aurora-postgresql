@@ -90,7 +90,7 @@ the running API: broken, repaired, then repaired again with the same request and
 filters. The saved full lists contain 50 products each. The Bose, the earlier Lab 1 target, is absent before
 repair and returns in combined position 2, then final position 1. The current
 target, the Logitech Zone 900, was measured separately on the dev cluster on
-2026-10-03: absent before repair, then trigram rank 1 and final position 1. The Dell is
+2026-10-03: absent before repair, then fuzzy rank 1 and final position 1. The Dell is
 absent before repair and returns in combined position 24, then final position 1.
 Both repaired runs repeat those positions. The live function definitions were
 restored byte-identically after this controlled comparison. These observations

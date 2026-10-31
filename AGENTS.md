@@ -258,7 +258,7 @@ Do not add a second copy of any of these. Each has a check that fails the build.
 
 | Fact | Single source | Enforced by |
 |---|---|---|
-| Candidate limits, fusion `k`, weights, trigram threshold | `db/config/retrieval.yaml` | `scripts/checks/config_tripwire.py` |
+| Candidate limits, fusion `k`, weights, fuzzy threshold | `db/config/retrieval.yaml` | `scripts/checks/config_tripwire.py` |
 | Labs, checkpoints, timings, assertions | `data/evals/mosaic_labs_missions.json` | `scripts/checks/mission_contract.py` |
 | Assertion vocabulary + falsifiers | `service/assertions.py` | `A1.6`, `A1.8` |
 

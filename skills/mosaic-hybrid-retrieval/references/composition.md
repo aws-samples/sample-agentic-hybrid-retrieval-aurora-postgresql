@@ -88,19 +88,19 @@ EXPLAIN" action, so a real, participant-run event can carry a populated
 A captured `EXPLAIN (ANALYZE, BUFFERS, SETTINGS, FORMAT JSON)` plan over the
 run's own fusion SQL then names one storage structure outright:
 `product_document_embedding_hnsw_cosine_idx`, the HNSW index behind the vector
-arm, resolves to an `Index Scan`. The lexical and trigram arms do not resolve
+arm, resolves to an `Index Scan`. The full-text and fuzzy arms do not resolve
 that far — the planner records them as `Function Scan` nodes over `search_fts`
-and `search_trigram`, and it does not expand a plpgsql body, so those arms'
+and `search_fuzzy`, and it does not expand a plpgsql body, so those arms'
 indexes are named nowhere in the plan. One named index is enough to make the
 point: a caller who never asked for any of this can still end up holding it.
 
 None of that inspectability requires a caller to ask twice.
 `include_diagnostics` defaults to `True`, so a plain `search_products` call
 already returns the receipt. A caller can read that the full-text arm
-contributed `fts_in_pool` candidates and the trigram arm `trigram_in_pool`;
-that the trigram arm's similarity floor was `trigram_threshold`; that fusion
+contributed `fts_in_pool` candidates and the fuzzy arm `fuzzy_in_pool`;
+that the fuzzy arm's similarity floor was `fuzzy_threshold`; that fusion
 ran with `rrf_k`; that each arm was capped before fusion at `fts_limit`,
-`trigram_limit`, and `semantic_limit`, and the fused pool at `fused_limit`;
+`fuzzy_limit`, and `semantic_limit`, and the fused pool at `fused_limit`;
 and whether, and when, the reranker ran, as `rerank_status`,
 `rerank_model_id`, and `stage_timings_ms["rerank"]`. The semantic arm's
 identity sits in the same place: `search_products`'s own `candidate_counts`
@@ -113,7 +113,7 @@ just handed over — ordinary resource addressing, not a leak of the storage
 layout underneath it.
 
 None of that inspectability is ownership. A caller can read that `rrf_k` is
-`60`, that the vector arm ran with a particular `ef_search`, or that a
+`60`, that the semantic arm ran with a particular `ef_search`, or that a
 captured plan named a particular index, and still never have had to choose
 any of it, implement fusion, tune an index, or keep any of it consistent with
 the arm caps: the service resolved every one of those values, enforced every

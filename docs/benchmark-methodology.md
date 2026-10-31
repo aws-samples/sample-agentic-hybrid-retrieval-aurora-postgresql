@@ -2,7 +2,7 @@
 
 The latest measured run is in [Current scale benchmarks](current-scale-benchmarks.md),
 including its scope, results, samples and rerun command. That run measures warm
-vector search across the current anchors; the broader methodology below also
+semantic search across the current anchors; the broader methodology below also
 covers other benchmark types.
 
 ## Measurement boundaries
@@ -10,8 +10,8 @@ covers other benchmark types.
 Separate these timings:
 
 1. query normalization/embedding
-2. lexical candidate retrieval
-3. trigram candidate retrieval
+2. full-text candidate retrieval
+3. fuzzy candidate retrieval
 4. vector/HNSW candidate retrieval
 5. metadata filtering and fusion
 6. reranking

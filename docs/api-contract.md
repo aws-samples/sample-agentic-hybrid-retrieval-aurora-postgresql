@@ -190,7 +190,7 @@ The response contains:
 - `search_event_id`, original query, and normalized query;
 - applied hard filters;
 - source-attributed products;
-- separate lexical, trigram, semantic, RRF, and rerank signals, including the
+- separate full-text, fuzzy, semantic, RRF, and rerank signals, including the
   model's rerank rank and any exact-SKU preservation applied to final order;
 - `coverage`, the `service.coverage` result: per-term catalog presence and the
   rescue decision behind it, so a request naming something absent from the

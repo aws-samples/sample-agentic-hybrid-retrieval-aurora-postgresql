@@ -38,11 +38,11 @@ which it fails. `service/assertions.py` makes `falsifier` a required dataclass
 field and refuses to construct one without it; `A1.8` checks the whole
 vocabulary.
 
-**Why.** Phase 1 shipped a lexical arm that returned zero rows on four of six
+**Why.** Phase 1 shipped a full-text arm that returned zero rows on four of six
 missions with every gate green, because no assertion named the arm. Phase 2 found
 the same shape in `hnsw`. The rule's first real save was preventing a *new*
 instance: `typo-recovery` declared `hnsw`, and on an all-misspelled query the
-vector arm returns a full 150-row pool while never recalling the target. Adding
+semantic arm returns a full 150-row pool while never recalling the target. Adding
 `semantic_signal_present` there would have passed forever on pool size while the
 arm contributed nothing. Writing the falsifier down is what forced the question.
 

@@ -60,7 +60,7 @@ inside the production validators:
 
 | Stage | Run | Proof |
 |---|---|---|
-| Retrieve | `G-003` | In this measured request, neither FTS nor the bounded semantic pool contains the target; restoring the trigram channel recovers it |
+| Retrieve | `G-003` | In this measured request, neither FTS nor the bounded semantic pool contains the target; restoring the fuzzy channel recovers it |
 | Retrieve | `G-001` | Correct listing ID remains first with a full-text search match |
 | Retrieve | `G-012` | Every saved product satisfies the Logitech brand and headphones category |
 | Rank | `G-008` | RRF moves from rank-collapsing arithmetic to `1 / (k + source_rank)` |
@@ -135,8 +135,8 @@ qualifying rows; candidate count and eligibility are different checks.
 
 ### Lab 2: Rank and re-rank - Tune rank fusion and reranking
 
-RRF combines independent rank positions without pretending raw FTS, trigram,
-and vector scores share a scale. Cohere Rerank operates on the bounded fused
+RRF combines independent rank positions without pretending raw FTS, fuzzy,
+and semantic scores share a scale. Cohere Rerank operates on the bounded fused
 pool. It does not replace retrieval or override deterministic eligibility.
 
 Ask attendees to compare per-arm rank, contribution, fused rank, and final rank
@@ -261,7 +261,7 @@ the observed result.
 
 | Lab | Ask | Read together | Limit the conclusion |
 |---|---|---|---|
-| Lab 1: Retrieve - Debug hybrid search | The filters are correct. Why might vector search still return too few eligible products? | Applied filters, returned counts and, if recorded, the plan with scan settings, rows and buffers | Eligibility does not establish coverage. HNSW can visit rows that fail a filter, and iterative scanning explores further within its limits. An opaque function scan does not reveal its index. |
+| Lab 1: Retrieve - Debug hybrid search | The filters are correct. Why might semantic search still return too few eligible products? | Applied filters, returned counts and, if recorded, the plan with scan settings, rows and buffers | Eligibility does not establish coverage. HNSW can visit rows that fail a filter, and iterative scanning explores further within its limits. An opaque function scan does not reveal its index. |
 | Lab 2: Rank and re-rank - Tune rank fusion and reranking | The final winner looks right. What proves fusion worked, and what justifies the reranker? | Different source ranks, their contributions, combined and final positions, and the judged-query comparison | A correct winner cannot certify the formula. Count improvements and regressions on the judged queries; repairing RRF saves no model call. |
 | Lab 3: Reason - Build and deploy the Retrieval agent | The citation opens. Which words support this particular requirement? | One claim, its source type and revision, the product and its saved search | A specification and a review answer different questions. Registering evidence permits a citation; it does not establish that a sentence follows from it. Say what remains unknown. |
 
@@ -384,7 +384,7 @@ Memory answers what we remember about Alex, not which product fact is true.
 
 ## Suggested audience questions
 
-- Which query failures require lexical, fuzzy, or semantic retrieval?
+- Which query failures require full-text, fuzzy, or semantic retrieval?
 - Which constraints must never be delegated to a reranker?
 - Why did result 1 outrank result 2 before and after reranking?
 - What evidence should an agent retain for a recommendation?

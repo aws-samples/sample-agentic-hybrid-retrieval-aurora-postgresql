@@ -134,7 +134,7 @@ handoff applies the saved SQL first, as the apply command does.
 Retries preserve edits and resume any interrupted preparation. Every Lab 1 and
 Lab 2 check reads the saved block the same way, so `validate_lab.py` cannot pass
 while `advance` refuses. A refusal names the first difference (for example
-`column 3 is trigram_score`), the fix and the rerun. Equivalent SQL passes:
+`column 3 is fuzzy_score`), the fix and the rerun. Equivalent SQL passes:
 column or table aliases and qualified columns. Live-check failures in the
 terminal name the
 product and search method as Shop does and end in a command or a facilitator

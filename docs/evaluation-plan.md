@@ -348,7 +348,7 @@ lists from Aurora with the served limits and HNSW settings, plus the served
 fusion order, and checks its own reciprocal rank fusion against the production
 fusion SQL on every query. The small-model arm uses `BAAI/bge-small-en-v1.5`
 vectors from `scripts/evals/embed_small_model.py`, searched by exact cosine over
-the same filtered products, so the two vector paths differ and the pairs do not
+the same filtered products, so the two semantic paths differ and the pairs do not
 isolate embedding quality. Reranked arms reorder the top 50 by score alone.
 
 ```bash

@@ -38,7 +38,7 @@ The three repaired capabilities form the `Retrieve -> Rank -> Reason` path. The 
 
 | Lab anchor | Capability | Evidence it is live |
 |---|---|---|
-| `typo-recovery` | pg_trgm candidate arm | `labs/lab1_retrieve/hybrid_search.sql` reads the `typo AS (SELECT * FROM mosaic_search.search_trigram(...))` CTE in the `channels` branch between the `LAB1_EDIT` markers |
+| `typo-recovery` | pg_trgm candidate arm | `labs/lab1_retrieve/hybrid_search.sql` reads the `fuzzy AS (SELECT * FROM mosaic_search.search_fuzzy(...))` CTE in the `channels` branch between the `LAB1_EDIT` markers |
 | `rank-with-evidence` | reciprocal-rank contribution | `mosaic_search.reciprocal_rank_contribution` computes `1 / (k + rank)` |
 | `agentic-research` | the Retrieval agent's assembly | `labs/lab3_reason/agent.py` `create_agent` builds the agent from the supplied model, tools, instructions and hooks; `service/agent_setup.py` names it when it still raises `NotImplementedError` |
 
@@ -56,15 +56,15 @@ run by the `advance --lab 1` and `advance --lab 2` handoffs, install the later o
 - **Lab 1 anchor** `typo-recovery` (`checkpoint: repair`, stage `retrieve`)
 - **Query** `B0C2WWFCQB` (transposed from listing `B0C2WWCFQB`)
 - **Target** product 1492978, Logitech Zone 900
-- **What to disable** the `typo` CTE in `mosaic_search.search_hybrid_rrf`, so the
-  fusion receives only the FTS and vector arms. Leave
-  `mosaic_search.search_trigram` itself installed and callable: the lesson is
+- **What to disable** the `fuzzy` CTE in `mosaic_search.search_hybrid_rrf`, so the
+  fusion receives only the FTS and semantic arms. Leave
+  `mosaic_search.search_fuzzy` itself installed and callable: the lesson is
   that a working arm is not contributing, not that a function is missing.
-- **Restoring it looks like** adding the `typo` CTE back to the `channels` union
-  with its `mosaic_search.reciprocal_rank_contribution(trigram_rank, rrf_k)`
+- **Restoring it looks like** adding the `fuzzy` CTE back to the `channels` union
+  with its `mosaic_search.reciprocal_rank_contribution(fuzzy_rank, rrf_k)`
   contribution, as in `labs/lab1_retrieve/solution/hybrid_search.sql`. The
   validator checks the blocks' data flow, not their literal text.
-- **Assertion that turns green** `trigram_signal_present`
+- **Assertion that turns green** `fuzzy_signal_present`
 - **Board state before repair** `REPAIR PENDING`, never `FAIL`
 
 ### GAP-2 — reciprocal-rank contribution
@@ -146,10 +146,10 @@ recorded so nobody reclassifies a fixed bug as an exercise.
 
 All four were measured on the live 500,000-product Aurora cluster before and
 after the fix. The shipped `search_fts` left the missions that then declared
-`fts` with an empty lexical arm; the fix runs the strict `websearch_to_tsquery`
+`fts` with an empty full-text arm; the fix runs the strict `websearch_to_tsquery`
 match first, and only when that returns zero rows backs off to a conjunctive
 query over at most four corpus-present salient terms. A query whose terms exist
-in the corpus now gets a lexical pool; an all-misspelled query such as the Lab 1
+in the corpus now gets a full-text pool; an all-misspelled query such as the Lab 1
 anchor still returns nothing from this arm, and `tests/test_sql_integration.py`
 pins that. `catalog.*` does not exist on that cluster,
 which is why a lab targeting it could never teach anything.
