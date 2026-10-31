@@ -27,8 +27,14 @@ describe("PipelineStrip", () => {
       `${seedRun.results.length} shown`,
     ]);
     const [, , , combined, reranked] = chips();
-    expect(combined.title).toContain("Search in Aurora 847 ms");
-    expect(reranked.title).toBe("Rerank 929 ms");
+    // The seed is a recaptured live run, so its times change with each capture.
+    const timings = seedRun.diagnostics!.stage_timings_ms!;
+    expect(typeof timings.postgresql_retrieval).toBe("number");
+    expect(typeof timings.rerank).toBe("number");
+    expect(combined.title).toContain(
+      `Search in Aurora ${Math.round(timings.postgresql_retrieval!)} ms`,
+    );
+    expect(reranked.title).toBe(`Rerank ${Math.round(timings.rerank!)} ms`);
     // No explanatory paragraph: the chips and the link are all the strip says.
     expect(screen.getByRole("region", { name: "How this search ran" }).querySelector("p")).toBeNull();
   });
