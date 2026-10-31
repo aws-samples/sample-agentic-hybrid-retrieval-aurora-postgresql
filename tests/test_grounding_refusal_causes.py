@@ -219,13 +219,13 @@ def test_a_draft_the_answer_checks_refuse_is_a_refused_draft(monkeypatch):
     assert _classify(monkeypatch, _state()).cause == DRAFT_REFUSED
 
 
-def test_a_draft_cut_off_by_max_tokens_is_a_refused_draft(monkeypatch):
+def test_a_draft_cut_off_by_max_tokens_is_a_stopped_draft(monkeypatch):
     _synthesis_raising(
         monkeypatch,
         lambda: synthesis._validated_output({"stopReason": "max_tokens"}, [], []),
     )
 
-    assert _classify(monkeypatch, _state()).cause == DRAFT_REFUSED
+    assert _classify(monkeypatch, _state()).cause == DRAFT_STOPPED
 
 
 @pytest.mark.parametrize("stop_reason", ["content_filtered", "guardrail_intervened"])
@@ -442,3 +442,38 @@ def test_the_streamed_failure_event_carries_the_real_cause(monkeypatch):
     assert [f["code"] for f in failures] == ["grounding_contract"]
     assert failures[0]["cause"] == DRAFT_STOPPED
     assert failures[0]["agent_run_id"] == str(state["agent_run_id"])
+
+
+def test_a_draft_cut_off_by_max_tokens_is_still_retried_once():
+    """Moving max_tokens out of SynthesisOutputError must not lose its repair retry."""
+    from test_answerability import Client, decision, run
+
+    class TruncatedFirstDraft(Client):
+        def converse(self, **kwargs):
+            response = super().converse(**kwargs)
+            if len(self.calls) == 2:
+                response["stopReason"] = "max_tokens"
+            return response
+
+    client = TruncatedFirstDraft(decision())
+    answer, citations, _ = run(client)
+
+    assert answer and citations
+    assert len(client.calls) == 3
+
+
+def test_a_filtered_draft_is_not_retried():
+    from test_answerability import Client, decision, run
+
+    class FilteredDraft(Client):
+        def converse(self, **kwargs):
+            response = super().converse(**kwargs)
+            if len(self.calls) == 2:
+                response["stopReason"] = "content_filtered"
+            return response
+
+    client = FilteredDraft(decision())
+    with pytest.raises(synthesis.SynthesisStopped):
+        run(client)
+
+    assert len(client.calls) == 2

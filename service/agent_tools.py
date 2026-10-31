@@ -44,6 +44,7 @@ from service.synthesis import (
     LEAD_STAR_GAP,
     ReportedLimits,
     SynthesisOutputError,
+    SynthesisTruncated,
     lead_with_better_rated,
     recommendations_in_answer_order,
     reference_name,
@@ -1642,7 +1643,9 @@ def synthesize_cited_answer(
         )
         # The application's own check errors name the rule and the offending IDs
         # or sentence, so the trace says which check failed, not just its type.
-        named = isinstance(error, (AnswerabilityError, SynthesisOutputError))
+        named = isinstance(
+            error, (AnswerabilityError, SynthesisOutputError, SynthesisTruncated)
+        )
         _append_trace_step(
             "synthesize_cited_answer",
             {"question": question, "product_ids": unique_ids},
@@ -1654,7 +1657,7 @@ def synthesize_cited_answer(
             ),
             outcome="error",
         )
-        if isinstance(error, SynthesisOutputError):
+        if isinstance(error, (SynthesisOutputError, SynthesisTruncated)):
             state["synthesis_retry_product_ids"] = unique_ids
             return _failure(
                 f"The draft failed evidence checks: {error}",

@@ -26,6 +26,14 @@ class SynthesisStopped(ValueError):
     """The draft stopped before it finished (filtered or interrupted)."""
 
 
+class SynthesisTruncated(SynthesisStopped):
+    """The draft hit max_tokens before it finished.
+
+    Unlike a filtered or interrupted draft, a truncated one is repaired by a retry, so
+    the places that retry on `SynthesisOutputError` retry on this too.
+    """
+
+
 SYSTEM_PROMPT = """You are a read-only product-discovery synthesis service.
 Answer only from the numbered evidence records supplied by the application.
 Every factual product claim must cite one or more evidence numbers in square
@@ -1294,9 +1302,7 @@ def _validated_output(
     """Validate one model draft and resolve only citations in the supplied set."""
     stop_reason = response.get("stopReason")
     if stop_reason == "max_tokens":
-        raise SynthesisOutputError(
-            "Synthesized answer hit max_tokens before completing"
-        )
+        raise SynthesisTruncated("Synthesized answer hit max_tokens before completing")
     if stop_reason is not None and stop_reason != "end_turn":
         raise SynthesisStopped(
             f"Synthesized answer stopped with {stop_reason!r}; "
@@ -1755,7 +1761,7 @@ def synthesize_cited_answer(
     ]
     try:
         answer, citations = validated(responses[-1])
-    except SynthesisOutputError as error:
+    except (SynthesisOutputError, SynthesisTruncated) as error:
         draft = _text(responses[-1])
         responses.append(
             runtime.converse(
