@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Check the SQL exercises and the deployed participant agent.
+"""Grade the SQL exercises and the deployed participant agent, and record the attempt.
 
-Every check compares the participant's work with an answer this script computes
+Each grade (a row in `mosaic.lab_decision` and a receipt) compares the participant's work with an answer this script computes
 independently, in read-only transactions. It never repairs a lab, never
 changes catalog data, and never shows the reference answer.
 

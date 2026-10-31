@@ -1092,7 +1092,7 @@ def _parser() -> argparse.ArgumentParser:
             "advance --lab 1 validates Lab 1 and prepares Lab 2, and advance "
             "--lab 2 validates Lab 2 and prepares Lab 3; "
             "start enters a lab once and keeps your edits on a rerun; reset "
-            "discards one lab's edits and restores its starting code; solution "
+            "discards one lab's edits and restores its starting code; apply-solution "
             "overwrites one lab with the reference repair; finish completes a lab "
             "with its reference answer, checks and hand-off; skip-to starts a later "
             "lab after finishing the earlier ones. To see where your lab "

@@ -92,17 +92,17 @@ The Makefile wraps them for maintainers only.
 | Check the saved source and the SQL Aurora last applied (Labs 1 and 2); `DATABASE_URL` comes from the prepared terminal, and the command reads it itself when the flag is left off; its `Next:` is the lab's proof, for Lab 1 the repeat-request command, then `advance --lab 1` | `uv run python scripts/lab_state.py validate --lab N --database-url "$DATABASE_URL"` |
 | Repeat the saved request against the repaired state; prints Before and After | `uv run python scripts/lab_request.py send --lab N --phase after` |
 | Prove the Lab 1 or Lab 2 repair after repeating the request (Lab 3 is rejected: it is graded on the saved run) | `uv run python scripts/prove_lab.py --lab N` |
-| Grade the participant's own exercise or saved run without generating a new answer | `uv run python scripts/lab_exercise.py grade --lab N` |
+| Grade the participant's own exercise or saved run and record the attempt, without generating a new answer | `uv run python scripts/lab_exercise.py grade --lab N` |
 | Run Lab 2's request with reranking off, then on, and print both pages (changes no served setting) | `uv run python labs/lab2_rank/rerank_off_on.py` |
 | Judge three retrieval settings in Lab 2 | `uv run python scripts/lab_exercise.py compare --lab 2` |
-| Check the optional HNSW index exercise | `uv run python scripts/hnsw_exercise.py grade` |
+| Grade the optional HNSW index exercise and save its receipt | `uv run python scripts/hnsw_exercise.py grade` |
 | List managed SQL tools | `uv run python scripts/deploy_agentcore.py tools` |
 | Deploy edited Lab 3 code and check managed connectivity; shows each of its five steps against its usual time (about 1:11 in all), says how long is left and names the failing step on error | `uv run python scripts/deploy_agentcore.py deploy` |
 | Recheck deployed code, Gateway tools and Aurora evidence | `uv run python scripts/deploy_agentcore.py verify` |
 | See the agent and tools runtimes, Gateway and Memory a deploy updates (read-only Get calls) | `uv run python scripts/deploy_agentcore.py resources` |
 | Ask the deployed agent from the terminal: answer, tool trace, citations, outcome, decline reason and Run ID. Lab 3's setup request and 100W follow-up use it; Ask Mosaic is the optional browser view | `uv run python scripts/ask_agent.py "QUESTION"` |
 | Run one sentence through the agent's answer checks, citing a product's listing as [1] (generates and saves nothing) | `uv run python scripts/check_claim.py PRODUCT_ID "SENTENCE [1]"` |
-| Check the participant's newest setup run since Lab 3 started (or one named with `--run-id <run-id>`) | `uv run python scripts/grade_setup_run.py` |
+| Grade the participant's newest setup run since Lab 3 started (or one named with `--run-id <run-id>`) | `uv run python scripts/grade_setup_run.py` |
 | Inspect the diff for whitespace errors | `git diff --check` |
 
 A SQL file edit alone does not update Aurora; an agent edit alone does not

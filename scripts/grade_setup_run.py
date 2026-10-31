@@ -1,9 +1,9 @@
-"""Check the participant's Lab 3 setup run and the deployed Retrieval agent.
+"""Grade the participant's Lab 3 setup run and the deployed Retrieval agent.
 
     uv run python scripts/grade_setup_run.py
     uv run python scripts/grade_setup_run.py --run-id RUN_ID
 
-Without --run-id it checks a run of Alex's setup request since Lab 3 started that
+Without --run-id it grades a run of Alex's setup request since Lab 3 started that
 opened its own conversation, from the terminal, Playground or Ask Mosaic: the newest
 grounded one, else the newest that answered. It says which run it chose and how many
 newer runs it passed over, such as a retry that stopped on HTTP 503.

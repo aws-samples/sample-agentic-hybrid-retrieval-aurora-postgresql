@@ -208,8 +208,8 @@ def capability_parity_receipt() -> dict[str, Any]:
     """Prove one capability means the same thing on every surface it appears on.
 
     Grouped by `capability`, not by wire name. The previous receipt keyed on name
-    and therefore reported `explain_retrieval` and `explain_retrieval` as
-    unrelated, which let their output schemas drift unobserved. A transport may
+    and therefore reported `inspect_retrieval_run` (the MCP tool's former name) and
+    `explain_retrieval` as unrelated, which let their output schemas drift unobserved. A transport may
     wrap the payload in its own envelope, but only in the fields it declared.
     """
     by_capability: dict[str, list[dict[str, Any]]] = {}
