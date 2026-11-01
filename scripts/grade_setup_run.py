@@ -151,8 +151,7 @@ def main() -> int:
     values = {"lab_agent_id": str(run_id)}
     (output / "context.json").write_text(json.dumps(values) + "\n")
     (output / "context.psql").write_text(f"\\set lab_agent_id '{run_id}'\n")
-    sys.argv = [sys.argv[0], "check", "--lab", "3"]
-    return lab_exercise.main()
+    return lab_exercise.main(["grade", "--lab", "3"])
 
 
 if __name__ == "__main__":

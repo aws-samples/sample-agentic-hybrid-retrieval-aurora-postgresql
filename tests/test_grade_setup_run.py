@@ -95,9 +95,12 @@ def workspace(monkeypatch, tmp_path):
         "service.agent_deploys.lab_3_started_at", lambda _root=None: STARTED
     )
     graded = []
-    monkeypatch.setattr(
-        grade_setup_run.lab_exercise, "main", lambda: graded.append(1) or 0
-    )
+
+    def grade(argv: list[str]) -> int:
+        graded.append(argv)
+        return 0
+
+    monkeypatch.setattr(grade_setup_run.lab_exercise, "main", grade)
     return graded
 
 
@@ -147,7 +150,23 @@ def test_the_picked_run_is_saved_for_the_check(monkeypatch, capsys, workspace) -
     saved = json.loads((grade_setup_run.ROOT / ".local/lab-3/context.json").read_text())
     assert saved == {"lab_agent_id": str(grounded["agent_turn_id"])}
     assert "1 newer run ended without a grounded answer" in capsys.readouterr().out
-    assert workspace == [1]
+    assert len(workspace) == 1
+
+
+def test_the_saved_run_is_graded_with_a_command_lab_exercise_accepts(
+    monkeypatch, workspace
+) -> None:
+    """The stub above skips lab_exercise's parser; this runs its arguments through it.
+
+    A renamed action (check became grade on 31 October 2026) once crashed Lab 3's last
+    step on a fresh event while every test here passed.
+    """
+    monkeypatch.setattr(sys, "argv", ["grade_setup_run.py", "--run-id", str(uuid4())])
+
+    assert grade_setup_run.main() == 0
+
+    args = grade_setup_run.lab_exercise.argument_parser().parse_args(workspace[0])
+    assert (args.action, args.lab) == ("grade", 3)
 
 
 def test_a_named_run_is_checked_without_a_pick(monkeypatch, workspace) -> None:

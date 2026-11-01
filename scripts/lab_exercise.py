@@ -688,15 +688,20 @@ def compare(lab: int) -> dict[str, Any]:
     return table
 
 
-def main() -> int:
-    from dotenv import load_dotenv
-
-    load_dotenv(REPO / ".env")
+def argument_parser() -> argparse.ArgumentParser:
+    """The command line every caller goes through, so a renamed action fails in tests."""
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("action", choices=("grade", "compare"))
     parser.add_argument("--lab", type=int, choices=(1, 2, 3), required=True)
     parser.add_argument("--work", type=Path)
-    args = parser.parse_args()
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    from dotenv import load_dotenv
+
+    load_dotenv(REPO / ".env")
+    args = argument_parser().parse_args(argv)
     if args.action == "compare":
         try:
             print_comparison(compare(args.lab))
