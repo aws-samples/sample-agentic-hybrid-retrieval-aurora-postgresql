@@ -176,7 +176,7 @@ actually supports them.
 
 ## Optional Part 4: remember Alex's preferences across visits
 
-Keep this outside the required Retrieve, Rank and Reason sequence. It can reuse
+Keep this outside the required Retrieve, Rank, Rerank and Reason sequence. It can reuse
 Alex and Mosaic while teaching a separate question: **what should an assistant
 remember when a person starts a new conversation?** It does not demonstrate
 vector-index scale, and completing the retrieval labs does not certify a

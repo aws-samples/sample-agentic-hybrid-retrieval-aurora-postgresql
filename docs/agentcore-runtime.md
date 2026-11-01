@@ -171,7 +171,7 @@ connection. These settings also apply to the HTTP service and container path:
 | `MOSAIC_MAX_CONCURRENT_MODEL_RUNS`, `MOSAIC_MODEL_RATE_LIMIT_PER_MINUTE` | API admission limits; Runtime also has managed scaling controls |
 | `CORS_ORIGINS`, `MOSAIC_CODE_EDITOR_URL` | Browser API origin and editor link; not agent tool credentials |
 | `MOSAIC_REQUIRE_ORIGIN_VERIFICATION`, `MOSAIC_ORIGIN_VERIFY_SECRET` | CloudFront/API ingress protection; the Runtime invocation is protected by IAM and does not receive this secret |
-| `MOSAIC_AGENTCORE_OBSERVABILITY`, `MOSAIC_AGENTCORE_CAPTURE_CONTENT` | Disabled unless the operator configures an exporter and explicitly opts into content capture |
+| `MOSAIC_AGENTCORE_OBSERVABILITY`, `MOSAIC_AGENTCORE_CAPTURE_CONTENT` | Service-side flags, separate from the launcher switch `MOSAIC_OBSERVABILITY` above. Disabled unless the operator configures an exporter and explicitly opts into content capture |
 
 ## Release acceptance
 

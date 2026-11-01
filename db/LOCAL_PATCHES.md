@@ -33,9 +33,9 @@ ERROR:  operator does not exist: boolean -> unknown
 This aborted `install.sql` at file 09 of 20, so **the schema could not be
 installed at all**. Severity: blocking.
 
-## 2. The typo-recovery arm could not recover typos
+## 2. The fuzzy matching search could not recover typos
 
-**File:** `sql/08_search_channels.sql`, `mosaic_search.search_trigram`
+**File:** `sql/08_search_channels.sql`, `mosaic_search.search_fuzzy`
 
 ```sql
 -- was: whole-string gate only

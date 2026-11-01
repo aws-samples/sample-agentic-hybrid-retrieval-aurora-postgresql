@@ -2,7 +2,7 @@
 
 `data/evals/mosaic_labs_missions.json` names the assertions each mission must
 satisfy. Before this module the names were strings nobody resolved, so a typo in
-the contract was undetectable and — worse — a retrieval search could fail
+the contract was undetectable and, worse, a retrieval search could fail
 completely with every gate green.
 
 `fts_signal_present` exists because the full-text search can fail completely:
@@ -13,7 +13,7 @@ and no assertion named the full-text search at all.
 
 Every assertion carries a `falsifier`: the concrete condition under which it
 fails. The field is required rather than optional because an assertion whose
-failure condition cannot occur is decoration — it reads as evidence while
+failure condition cannot occur is decoration: it reads as evidence while
 proving nothing, which is the defect shape this module was created to remove.
 Writing the falsifier down is what forces the question to be asked.
 
@@ -111,9 +111,9 @@ _ASSERTIONS: tuple[Assertion, ...] = (
         name="hard_filters_hold",
         arm=None,
         falsifier=(
-            "a returned product violates a declared filter — price, stock, "
+            "a returned product violates a declared filter (price, stock, "
             "domain, a JSONB attribute, or the refurbished and sponsored "
-            "exclusions that apply by default"
+            "exclusions that apply by default)"
         ),
         label="every result inside the filters",
     ),
@@ -253,7 +253,7 @@ _ASSERTIONS: tuple[Assertion, ...] = (
         arm=None,
         falsifier=(
             "a measurement is reported without the configuration that produced "
-            "it — ef_search, index type, filter selectivity — making the number "
+            "it (ef_search, index type, filter selectivity), making the number "
             "unreproducible"
         ),
         label="the measurement saved its settings",

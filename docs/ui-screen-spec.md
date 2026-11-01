@@ -93,25 +93,6 @@ API: `GET /api/catalog/products`, `GET /api/retrieval/examples`, `POST
 /api/search`, `POST /api/retrieval/events/{search_event_id}/compare`, and
 `POST /api/agent/answer/stream`.
 
-## `/mosaic-labs` - Playground
-
-Purpose: make the three-lab `Retrieve -> Rank -> Reason` progression and its
-evidence requirements visible.
-
-Components:
-
-- stage switcher for Retrieve, Rank, Reason, and optional Advanced work;
-- an observational Retrieve -> Rank -> Reason stage switcher; the separate
-  Workshop Studio Code Editor owns each Broken -> Diagnose -> Fix exercise and
-  Shop is the proof surface;
-- three participant requests and five validator-owned proof anchors, grouped
-  inside the three labs;
-- candidate-source, ranking-movement, and agent-tool signature visuals;
-- optional HNSW performance lab.
-
-API: the lab manifest is source-controlled; linked retrieval runs use
-`POST /api/search` and `GET /api/retrieval/events/{search_event_id}`.
-
 ## `/products/:productId` - Product evidence
 
 Purpose: inspect the source row behind a catalog or retrieval result.
@@ -173,7 +154,7 @@ Each search column shows how that search read the request (lexemes, trigrams,
 the vector) above what it found. The details hold the fusion arithmetic and
 receipts, the saved candidate pool, and the activity log.
 
-The older guided lab workbench is retired: `?view=lab`, `?run=` and bare
+The older guided lab workbench is retired, and the browser grades nothing: `?view=lab`, `?run=` and bare
 `?example=` links open this page. Labs are proved in the terminal; after Lab 3's
 request, Shop shows `grade_setup_run.py --run-id` with that run's ID filled in; without
 `--run-id` the command checks the newest setup run.
@@ -215,7 +196,7 @@ types (Facts, Preferences, Summaries, Past outcomes) are a picker whose chosen
 type is filled with the action blue; example messages and questions are pills,
 and the memory switch uses the same blue.
 
-The former `/mosaic-labs/studio` route redirects to Hybrid retrieval. The footer
+The former `/mosaic-labs` and `/mosaic-labs/studio` routes redirect to Hybrid retrieval. The footer
 and tab strip expose the same three current destinations in the same order.
 
 ## Ownership boundary

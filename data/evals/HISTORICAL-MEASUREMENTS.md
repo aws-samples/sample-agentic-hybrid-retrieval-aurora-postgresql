@@ -25,12 +25,12 @@ judgments describe those current cases. Reusing an earlier measurement against
 the changed cases would misattribute its scores.
 
 The API compares the measurement's retrieval, query, model and methodology
-identity with the running application. The UI withholds stale quality metrics
-under **Historical test results**. The participant's **Complete the workshop**
-checks run independently against their actual repairs and current Aurora
-records. A historical PASS count cannot complete a lab.
+identity with the running application and withholds stale quality metrics. The
+participant's lab checks (`prove_lab.py` and `grade_setup_run.py`) run
+independently against their actual repairs and current Aurora records. A
+historical PASS count cannot complete a lab.
 
 For release, review the query set against the chosen catalog and make fresh
-measurements with `scripts/score_evals.py --write-baseline` and
-`scripts/ablation_evals.py`. Preserve the old records in Git history; do not
-change their hashes or labels to make them appear current.
+measurements with `scripts/evals/score_evals.py --write-baseline` and
+`scripts/evals/ablation_evals.py`. Preserve the old records in Git history; do
+not change their hashes or labels to make them appear current.

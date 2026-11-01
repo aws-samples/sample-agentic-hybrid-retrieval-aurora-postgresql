@@ -7,7 +7,7 @@ and the existing eval already shows full-text beating hybrid on a judged query. 
 one question: given the *same* candidates, what does weighting change?
 
 **The substrate assertion.** Both functions must consume identical arm candidate
-lists — same caps, same per-arm ranks and non-fusion provenance — and differ only
+lists (same caps, same per-arm ranks and non-fusion provenance) and differ only
 in fusion arithmetic. Every call checks the full arm substrate before comparing
 the two output orders. A mismatch fails rather than rendering a comparison of
 different inputs, because that comparison would attribute to the weights what was
@@ -15,7 +15,7 @@ actually a difference in candidate generation.
 
 The check reads the **untruncated** fused pool, not the served window. Both
 functions apply `LIMIT result_limit` *after* fusion, so two different orderings
-truncated at the same depth necessarily disagree about the tail — measured at 36
+truncated at the same depth necessarily disagree about the tail, measured at 36
 of 50 in common while the full pools were byte-identical at 250. Comparing the
 truncated windows would have failed a healthy substrate on every call.
 """
@@ -250,7 +250,7 @@ class FusionComparisonService:
                 f"{duplicate_unweighted}, weighted={duplicate_weighted}); fix: "
                 f"both must call the same three search "
                 f"functions with the same caps and the same fuzzy threshold, "
-                f"and differ only in fusion arithmetic — a comparison over "
+                f"and differ only in fusion arithmetic: a comparison over "
                 f"different pools credits the weights with a difference in inputs"
             )
 

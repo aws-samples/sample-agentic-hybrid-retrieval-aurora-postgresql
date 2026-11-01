@@ -1,6 +1,6 @@
 # Premium cohort selection
 
-The included 120-product assignment is grounded in the physical 500K Mosaic catalog.
+The included 120-product assignment is grounded in the physical Mosaic catalog.
 
 ## Selection constraints
 

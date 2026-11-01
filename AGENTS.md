@@ -79,7 +79,7 @@ The Makefile wraps them for maintainers only.
 
 | Purpose | Command |
 |---|---|
-| Inspect the current source/applied lab state; Lab 3 reads SOLVED only after your deployed agent passed completion (otherwise BROKEN, REPAIRED NOT DEPLOYED, or DEPLOYED NOT YET PROVED) | `uv run python scripts/lab_state.py status` |
+| Inspect the current source/applied lab state; Lab 3 reads SOLVED only after your deployed agent passed completion (otherwise "BROKEN", "REPAIRED, NOT DEPLOYED" or "DEPLOYED, NOT YET PROVED") | `uv run python scripts/lab_state.py status` |
 | Enter a lab: save its failing request; Labs 2 and 3 also install their fault once | `uv run python scripts/lab_state.py start --lab N` |
 | Hand off Lab 1: validate its repair, save passing evidence and prepare Lab 2 without discarding edits; a repaired saved file that Aurora does not run yet is applied first | `uv run python scripts/lab_state.py advance --lab 1` |
 | Hand off Lab 2: validate its repair, save passing evidence and install the Retrieval agent's starting code for Lab 3 without discarding edits; a repaired saved file that Aurora does not run yet is applied first | `uv run python scripts/lab_state.py advance --lab 2` |
@@ -117,7 +117,7 @@ before their start command; a rerun of a start keeps the participant's edits. Pr
 before/after records in `.local/lab-N/`. Never invent a run ID or a passing result.
 The deploy `verify` action proves deployment connectivity, not participant completion.
 The guide's final Lab 3 command evaluates the saved run without generating a
-replacement answer. Optional memory and HNSW exercises follow required completion.
+replacement answer. Optional exercises follow required completion, in the guide's order: Scale & HNSW, Session & Memory, Retrieval tool, Review examples.
 
 ## Evidence and policy boundary
 
@@ -272,11 +272,11 @@ including a TypeScript `?? 60` fallback.
 
 1. Errors name the rule, show the offending value, and suggest the nearest fix.
 2. Every assertion declares a falsifier; one that cannot fail is deleted.
-3. Probes run the production path — `matches_filters` and `configure_hnsw` are
+3. Probes run the production path: `matches_filters` and `configure_hnsw` are
    the exemplars, both learned from measured wrong answers.
 4. A green check is not evidence: prove every new gate red at birth, restore
    byte-identical, and keep the violation as a permanent test.
-5. An exemption is a monitored seam — exempt from declaring, never from agreeing.
+5. An exemption is a monitored seam: exempt from declaring, never from agreeing.
 6. Aurora only.
 
 ## Validation
@@ -295,7 +295,7 @@ failure rather than a silent skip. `make validate-evals` always requires Aurora.
 
 ## Coding conventions
 
-Match the surrounding code. Comments explain *why*, never *what* — if a comment
+Match the surrounding code. Comments explain *why*, never *what*: if a comment
 is needed to say what the code does, the code needs changing. Google-style
 docstrings on non-trivial public APIs. No commented-out code.
 
@@ -340,7 +340,7 @@ pass.
 
 `README.md` and `workshop.md` are the two files a reader meets first, and they
 are the two that rot silently. **Any session that makes a significant change
-must update both before it ends** — a new participant-facing affordance, a
+must update both before it ends**: a new participant-facing affordance, a
 removed surface or route, a changed lab flow, a new required step, a renamed
 concept. Not a changelog: edit the prose so it describes what ships now.
 
@@ -350,7 +350,7 @@ different because of it. Bug fixes with no visible behaviour change are not.
 When a surface is deleted, grep `docs/` for it in the same session. `docs/` is
 where a removed route survives longest, and a spec describing a page that no
 longer exists is worse than no spec. Historical records (`rewrite-losses.md`
-and similar) keep their past-tense references — they document what happened.
+and similar) keep their past-tense references; they document what happened.
 
 ## Review behavior
 - Prefer evidence from actual source files over assumptions.

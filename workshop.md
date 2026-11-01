@@ -1,4 +1,4 @@
-# DAT410-R Mosaic — Presenter brief
+# DAT410-R Mosaic - Presenter brief
 
 Help Alex choose headphones, a monitor and a chair for his home office.
 Participants repair SQL retrieval and ranking, then build the Retrieval agent, a Strands agent that
@@ -20,11 +20,11 @@ self-service page, and facilitators do not support it.
 | 15–25 | Lab 1: Retrieve - Debug hybrid search | The missing listing returns through fuzzy matching; filters hold |
 | 25–35 | Lab 2: Rank and rerank - Tune rank fusion and reranking | Contributions vary with position; judged comparisons support a tuning decision |
 | 35–55 | Lab 3: Reason - Build and deploy the Retrieval agent, including completion | Three focused searches, comparison, sources, changed requirement and original-run proof |
-| 55–60 | Wrap-up and Q&A | Questions; Session & Memory, retrieval-tool and HNSW exercises are untimed options |
+| 55–60 | Wrap-up and Q&A | Questions; Scale & HNSW, Session & Memory, retrieval-tool and review-example exercises are untimed options |
 
 The [mission manifest](data/evals/mosaic_labs_missions.json) owns the timing,
 exact requests, filters, targets and assertions. Protect its **40-minute
-hands-on budget**. Completion is inside Lab 3; Memory leads the untimed optional exercises.
+hands-on budget**. Completion is inside Lab 3; Scale & HNSW leads the untimed optional exercises, then Session & Memory, Retrieval tool and Review examples.
 These are planned allocations, not measured human completion times.
 
 During setup, use **Getting started** to open Code Editor, run one readiness
@@ -125,7 +125,9 @@ shows exactly what Aurora runs.
 After applying SQL, inspect the intended listing's fuzzy matching rank and
 contribution. The correct-ID and brand/category controls must still pass.
 Another listing of the same model is not the requested identity. Reranking
-cannot recover a product it never receives. The HNSW recall query is optional.
+cannot recover a product it never receives. The HNSW recall query is optional; its
+grade (`uv run python scripts/lab_exercise.py grade --lab 1`) prints two lines per
+plan: the measurement, then the scan Aurora ran.
 
 At the end of Lab 1, `uv run python scripts/lab_state.py advance --lab 1`
 validates the applied repair and live retrieval controls, saves the passing
@@ -151,13 +153,13 @@ full candidate pool.
 
 ### Lab 2: contributions and admission to reranking
 
-In **2a — Rank**, load `.local/lab-2/context.psql` in its own paste. Compare
+In **2a - Rank**, load `.local/lab-2/context.psql` in its own paste. Compare
 the intended monitor's semantic and fused positions, then compare actual
 contributions with the formula. Participants repair only `LAB2_EDIT` in
 `labs/lab2_rank/rrf_contribution.sql`, apply, repeat and grade the saved request.
 Read their actual ranks; do not demand a recorded example's exact positions.
 
-In **2b — Rerank**, distinguish reaching the shortlist from reaching the page.
+In **2b - Rerank**, distinguish reaching the shortlist from reaching the page.
 `uv run python labs/lab2_rank/rerank_off_on.py` runs the request with reranking
 off, then on; it shows a gain on size and resolution, not proof
 of charging compatibility. The request filters Electronics and Monitor; its
@@ -190,7 +192,10 @@ After the deploy, participants ask Alex's setup request from the terminal with
 the request completion checks word for word. It prints the answer, the plan, the
 tool trace with the search SQL Aurora ran, the products, each citation with its
 quote, the outcome and the **Run ID**. They ask the 100W follow-up the same way;
-each call is its own run. `uv run python scripts/grade_setup_run.py` then checks the
+each call is its own run. When the answer check refuses a draft, an errored
+`synthesize_cited_answer` step prints `draft refused: <reason>` on the next line;
+the agent then drafts again. A step the model or the service failed prints
+`draft step failed (<error>), not refused by a check` instead. `uv run python scripts/grade_setup_run.py` then checks the
 newest run of the setup request since Lab 3 started that opened its own conversation,
 and says which run it chose; `--run-id` checks a particular one. A follow-up question
 is not graded against the lab.

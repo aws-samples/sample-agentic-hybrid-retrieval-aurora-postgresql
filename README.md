@@ -116,8 +116,8 @@ Mosaic application, Code Editor and model access for each participant.
 
 Claude Code in the prepared terminal acts as a coding coach. [AGENTS.md](AGENTS.md),
 loaded through [CLAUDE.md](CLAUDE.md), gives it the lab map, validation commands and
-exercise boundaries, so it offers hints before answers and asks before it edits a file
-or runs a command.
+exercise boundaries, so it offers hints before answers. The workshop's managed Claude Code settings run
+it in manual mode, so it asks before it edits a file or runs a command.
 
 The commands you use most:
 

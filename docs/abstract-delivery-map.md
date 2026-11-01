@@ -74,7 +74,7 @@ they are not a like-for-like replacement for these figures.
 The completion gate remains inside Lab 3. Its saved-run option repeats the checks against current Aurora records without issuing two additional model calls. It rejects changed code or settings, missing runs, a rebroken seam and changed citation records.
 
 The customer story is **find options → establish their order → support a
-decision**. Keep the stage names Retrieve, Rank and Reason. Lab 1 recovers the
+decision**. Keep the stage names Retrieve, Rank, Rerank and Reason (three labs, four stages). Lab 1 recovers the
 Logitech Zone 900 Alex saved; Lab 2 keeps the ViewSonic VG2756-4K, a
 27-inch 4K monitor documenting USB-C charging up to 90W over one cable, in
 reach of the reranker; Lab 3 asks the Retrieval agent to check those headphones, that monitor and the

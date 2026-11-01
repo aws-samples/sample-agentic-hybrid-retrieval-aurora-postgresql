@@ -5,7 +5,7 @@
 Attendees repair one retrieval system across four phases in three labs:
 
 ```text
-RETRIEVE -> RANK -> RERANK -> REASON
+Retrieve -> Rank -> Rerank -> Reason
 ```
 
 The thesis is **retrieval correctness is a pipeline property, not a top-1
@@ -54,7 +54,7 @@ Goal: construct the right candidate universe before deciding the winner.
 2. Compare the three installed searches with the recorded filters and
    limits in `psql`.
 3. Repair the connection the evidence identifies, then repeat the identical
-   request. Prove that only the declared method recovered this target.
+   request. Prove that only the declared search recovered this target.
 4. Run the exact-ID and description controls through the handoff. The vector
    scan plan at two settings and recall against a known correct set are the
    optional Scale & HNSW exercise; never promise that changing scan memory must

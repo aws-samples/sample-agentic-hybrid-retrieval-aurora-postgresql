@@ -7,7 +7,7 @@ The runnable contracts are in `db/config/agent_tool_contracts.json`. The agent i
 | `search_products` | Query and structured filters | Ranked products, a saved search ID and diagnostics |
 | `get_product_evidence` | Authorized product ID and a focused evidence question | Question-ranked source records with IDs and revisions |
 | `compare_products` | Authorized product IDs | Catalog attributes, constraints, source revisions and ranking signals |
-| `explain_retrieval` | Authorized saved search ID | Recorded per-method ranks, fusion contributions, reranker scores and timings |
+| `explain_retrieval` | Authorized saved search ID | Recorded per-search ranks, fusion contributions, reranker scores and timings |
 | `synthesize_cited_answer` | Question and selected product IDs | Answer checked against the allowed evidence records |
 
 All five read catalog data. The application records their activity in `mosaic.agent_tool_event`. Comparison of catalog fields is distinct from weighing source claims: the agent reads specification and review evidence, then synthesis checks its citations and supported claims.

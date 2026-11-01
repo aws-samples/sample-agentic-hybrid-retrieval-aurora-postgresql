@@ -19,7 +19,7 @@ The remaining guides are grouped by the work they support.
 | [Architecture](architecture.md) | Runtime and catalog restore pipeline |
 | [Database facts](postgres-18.md) | Engine, extensions and the retrieval path |
 | [Build a retrieval tool](build-retrieval-tool.md) | Filters, typed tools and saved searches |
-| [Typo-tolerance lab](pg-trgm-lab.md) | Real identifier recovery and production SQL inspection |
+| [Fuzzy matching lab](pg-trgm-lab.md) | Real identifier recovery and production SQL inspection |
 | [HNSW experiment design](hnsw-lab.md) | Optional performance exercise on the served catalog; anchors, ground truth and measurement path |
 | [Fusion and reranking](fusion-rerank.md) | Candidate fusion, deterministic filters and reranking |
 | [API contract](api-contract.md) | Search request and response contracts |

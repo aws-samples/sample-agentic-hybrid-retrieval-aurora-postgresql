@@ -55,7 +55,7 @@ function Turn({ turn }: { turn: Omit<ShopperSession["turns"][number], "created_a
     <details className="memory-sources"><summary>Memories, searches and sources used</summary>
       {turn.memory.records?.length ? <Records records={turn.memory.records} /> : <p>No long-term memory was added to this request.</p>}
       <div className="memory-search-links">{turn.search_ids.map((id, i) => <Link key={id} href={playgroundQueryHref(turn.question, {}, id)}>Search {i + 1}</Link>)}</div>
-      {turn.citations.map((citation) => <p key={`${citation.number}-${citation.evidence_id}`}>[{citation.number}] {citation.title} — {citation.quote}</p>)}
+      {turn.citations.map((citation) => <p key={`${citation.number}-${citation.evidence_id}`}>[{citation.number}] {citation.title}: {citation.quote}</p>)}
     </details>
   </article>;
 }

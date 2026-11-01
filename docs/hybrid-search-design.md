@@ -22,8 +22,8 @@ bounded model reranking. There is no new search engine or embedding generation.
 | Reorder | Cohere Rerank on the combined list | Whether product text addresses the complete request |
 | Support the answer | Product-scoped specifications and reviews | What each cited record actually establishes |
 
-Filters apply within every retrieval method. RRF uses positions because the
-methods' raw scores have different meanings. It is not parameter-free and does
+Filters apply within every search. RRF uses positions because the
+searches' raw scores have different meanings. It is not parameter-free and does
 not guarantee an improvement. A reranker cannot recover a row excluded from its
 input. A high score or a resolving citation does not prove every claim.
 
@@ -139,7 +139,7 @@ Keep the required mission requests and timing in
 `data/evals/mosaic_labs_missions.json`. The guides and Playground use the same
 stage order and place deeper explanation in expandable sections. No additional
 mandatory defect is introduced. The optional comparison asks builders to hold
-query, filters, text and per-method limits fixed, then compare full-text search,
+query, filters, text and per-search limits fixed, then compare full-text search,
 semantic search, combined results and reranking. Retain unchanged winners and
 regressions, and measure extra latency/model usage alongside relevance.
 

@@ -379,7 +379,7 @@ def _row(product_id: int, rank: int) -> dict[str, Any]:
     return {"product_id": product_id, "semantic_rank": rank}
 
 
-def test_semantic_only_arm_ranks_by_search_vector_and_embeds_each_query_once():
+def test_semantic_only_arm_ranks_by_search_semantic_and_embeds_each_query_once():
     embedder = CountingEmbedder()
     connection = ScriptedConnection(
         semantic_rows={

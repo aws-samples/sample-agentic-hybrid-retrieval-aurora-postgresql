@@ -32,7 +32,7 @@ Capture at minimum:
 
 | Scale | Expected treatment |
 |---:|---|
-| 500K | attendee-measured physical catalog |
+| more than 500,000 | attendee-measured physical catalog |
 | 1M | optional physical expansion |
 | 5M | instructor benchmark or physical lab |
 | 10M | instructor benchmark |

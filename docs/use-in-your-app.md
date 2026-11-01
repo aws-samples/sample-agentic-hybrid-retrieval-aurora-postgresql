@@ -65,9 +65,9 @@ The example wraps `POST /api/search`, so it retains the production pipeline and 
 
 Each candidate has a position in each retrieval list. The SQL template adds reciprocal rank contributions and then passes a bounded pool to the reranker. Read the configured fusion constant and bounds from `db/config/retrieval.yaml`; do not copy another set of defaults into a client.
 
-Higher RRF scores rank better within fusion. The reranker has its own score scale. Rank 1 is first in either list. Compare positions and candidate membership, not raw scores across methods or independent searches.
+Higher RRF scores rank better within fusion. The reranker has its own score scale. Rank 1 is first in either list. Compare positions and candidate membership, not raw scores across searches or across separate runs.
 
-A reranker cannot recover an omitted candidate. Keep a test where each retrieval method contributes something the others miss, alongside exact-model and hard-filter controls.
+A reranker cannot recover an omitted candidate. Keep a test where each search contributes something the others miss, alongside exact-model and hard-filter controls.
 
 ## Give the agent an evidence boundary
 
@@ -85,7 +85,7 @@ Specifications and reviews can answer different questions. Retain their source t
 
 ## Verify your adaptation
 
-Use the same request before and after a change. Keep the applied filters, candidates by method, fused and final ranks, model identities, timings, evidence records and citations. Add a counterexample that must fail, such as an over-budget product or an unsupported measurement.
+Use the same request before and after a change. Keep the applied filters, candidates by search, fused and final ranks, model identities, timings, evidence records and citations. Add a counterexample that must fail, such as an over-budget product or an unsupported measurement.
 
 The existing three lab validators exercise the production path. Use `scripts/prove_lab.py` and the mission manifest for the commands and required controls. For broader quality, adapt `data/evals/canonical_queries.jsonl` and `scripts/evals/evaluate.py` to your own query population.
 

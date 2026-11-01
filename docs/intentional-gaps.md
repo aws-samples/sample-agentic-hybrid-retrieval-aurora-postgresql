@@ -34,7 +34,7 @@ reaches when every repair succeeds. Disabling code here would make the reference
 unable to demonstrate its own contract, and would make a genuine regression
 indistinguishable from a planted exercise.
 
-The three repaired capabilities form the `Retrieve -> Rank -> Reason` path. The current examples and live checks target `reviews-2023-v2`.
+The three repaired capabilities form the `Retrieve -> Rank -> Rerank -> Reason` path. The current examples and live checks target `reviews-2023-v2`.
 
 | Lab anchor | Capability | Evidence it is live |
 |---|---|---|
