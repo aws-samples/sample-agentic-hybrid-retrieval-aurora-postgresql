@@ -556,6 +556,19 @@ def test_a_deleted_lab_sql_file_does_not_stop_the_run_id_printing(monkeypatch):
     assert "could not be read" in text and STATUS in text
 
 
+def test_the_answer_wraps_between_words_never_inside_a_hyphenated_one():
+    run = grounded()
+    run["answer"] = "x" * 80 + " noise-cancelling headphones " + "y" * 40
+
+    lines = ask_agent.render(run).splitlines()
+
+    answer = [line for line in lines if line.startswith("  x") or "noise" in line]
+    assert len(answer) >= 2
+    assert all(len(line) <= ask_agent.LINE_CHARS for line in answer)
+    assert all(not line.endswith("-") for line in answer)
+    assert any("noise-cancelling" in line for line in answer)
+
+
 def refused_then_grounded(detail):
     run = grounded()
     run["trace"] = [
@@ -609,6 +622,41 @@ def refused_then_grounded(detail):
         (
             "Synthesis failed with SynthesisOutputError: a rule this script does not know.",
             "draft refused by the answer check",
+        ),
+        (
+            (
+                "Synthesis failed with SynthesisOutputError: Synthesized sentence contains "
+                "unsupported numeric claim or availability claim ['1,000 mAh', '$129.99'] "
+                "for product 5: It holds 1,000 mAh and costs $129.99 [1]."
+            ),
+            "draft refused: it stated 1,000 mAh, $129.99, which no cited record supports",
+        ),
+        (
+            (
+                "Synthesis failed with SynthesisStopped: Synthesized answer stopped with "
+                "'content_filtered'; a filtered or interrupted answer cannot become the "
+                "answer of record"
+            ),
+            "draft refused: it stopped before it finished (content_filtered)",
+        ),
+        (
+            (
+                "Synthesis failed with SynthesisOutputError: Synthesized answer did not "
+                "cite every selected product: missing [1551237]."
+            ),
+            "draft refused: it left a selected product without a citation",
+        ),
+        (
+            (
+                "Synthesis failed with SynthesisOutputError: Synthesized answer contains a "
+                "link 'https://example.invalid/x' that is not the source address of a "
+                "cited record. Remove it; the citations already link the sources."
+            ),
+            "draft refused: it contained a link that is not a cited source",
+        ),
+        (
+            "Synthesis failed with ThrottlingException.",
+            "draft step failed (ThrottlingException), not refused by a check",
         ),
     ],
 )

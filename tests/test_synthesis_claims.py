@@ -1590,3 +1590,80 @@ def test_the_cited_sources_own_link_is_allowed():
         "AuriLogic Flight ANC lasts 20 hours [1] (https://example.invalid/spec).",
         [evidence(TWENTY_HOURS)],
     )
+
+
+# On the 31 October event, three correct drafts of Go deeper Lab 3's rule question were
+# refused: a product label written with an inch mark, a sentence that states working
+# with and charging one device, and a hedge whose "works with" has no device after it.
+SAMSUNG_TITLE = (
+    "SAMSUNG 34-Inch Odyssey G85SB Series QD-OLED Ultra WQHD Curved Gaming Monitor"
+)
+
+
+def test_an_inch_mark_label_for_a_dash_inch_title_is_not_a_figure():
+    monitor = product(title=SAMSUNG_TITLE, brand="SAMSUNG", model="LS34BG850SNXZA")
+    review = evidence("Great screen, sharp text, hubs charge my laptop at 90W.")
+    validate('The SAMSUNG 34" [1] has sharp text.', [review], [monitor])
+    with pytest.raises(SynthesisOutputError, match="'40'"):
+        validate('The SAMSUNG 40" [1] has sharp text.', [review], [monitor])
+    with pytest.raises(SynthesisOutputError, match="'32'"):
+        validate('The SAMSUNG 34" [1] has a 32" panel.', [review], [monitor])
+
+
+def test_works_with_and_charges_a_device_is_supported_by_a_review_that_says_both():
+    validate(
+        "The AuriLogic Flight ANC works with and charges a MacBook Pro 16' M1 [1].",
+        [evidence(MACBOOK_REVIEW)],
+    )
+    with pytest.raises(SynthesisOutputError, match="unsupported compatibility claim"):
+        validate(
+            "The AuriLogic Flight ANC works with and charges any laptop [1].",
+            [evidence(MACBOOK_REVIEW)],
+        )
+
+
+@pytest.mark.parametrize(
+    "hedge",
+    [
+        "Which laptops it works with is not something you should assume [1].",
+        "Which laptops the AuriLogic Flight ANC works with is unknown [1].",
+    ],
+)
+def test_a_stranded_works_with_hedge_is_not_a_compatibility_claim(hedge):
+    validate(hedge, [evidence("Connections: USB-C.")])
+
+
+def test_a_stranded_works_with_still_rejects_a_device_in_the_next_clause():
+    with pytest.raises(SynthesisOutputError, match="unsupported compatibility claim"):
+        validate(
+            "Which laptops it works with is unknown, but it works with your laptop [1].",
+            [evidence("Connections: USB-C.")],
+        )
+
+
+def test_an_unsupported_price_is_named_in_dollars_not_cents():
+    with pytest.raises(SynthesisOutputError, match=r"\['\$129\.99'\]") as refused:
+        validate(
+            "AuriLogic Flight ANC costs $129.99 [1].", [evidence(BATTERY_EVIDENCE)]
+        )
+    assert "12999" not in str(refused.value)
+
+
+@pytest.mark.parametrize(
+    "claim",
+    [
+        "The one laptop it works with is the MacBook Pro [1].",
+        "What the AuriLogic Flight ANC works with is any laptop [1].",
+        "What it works with is anything you like [1].",
+        "What it works with is something like a MacBook Pro [1].",
+    ],
+)
+def test_a_device_after_the_stranded_verb_is_still_a_compatibility_claim(claim):
+    with pytest.raises(SynthesisOutputError, match="unsupported compatibility claim"):
+        validate(claim, [evidence("Connections: USB-C.")])
+
+
+def test_a_plural_inch_name_matches_a_dash_inch_title():
+    monitor = product(title=SAMSUNG_TITLE, brand="SAMSUNG", model="LS34BG850SNXZA")
+    review = evidence("Great screen, sharp text.")
+    validate("The SAMSUNG 34 inches [1] has sharp text.", [review], [monitor])

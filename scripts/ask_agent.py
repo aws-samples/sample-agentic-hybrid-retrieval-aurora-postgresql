@@ -17,11 +17,11 @@ calls in mosaic.agent_tool_event.
 from __future__ import annotations
 
 import argparse
+import ast
 import http.client
 import json
 import re
 import sys
-import textwrap
 import time
 from collections.abc import Iterable, Iterator
 from pathlib import Path
@@ -33,6 +33,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scripts.progress import bar
 from scripts.prove_lab import LabValidationError
+from scripts.terminal_text import fill_words, wrap_words
 from service.config import get_settings
 from service.lab_validation_receipt import participant_sql_digest
 from service.participant_commands import APPLY_SQL, STATUS, ask_agent_command
@@ -121,20 +122,33 @@ def _trace(response: dict[str, Any], workspace: str | None) -> list[str]:
 
 REFUSED = "draft refused"
 UNSUPPORTED = "which no cited record supports"
+# The application's own answer checks; any other failure of the draft step is the
+# model or the service, not a refusal.
+ANSWER_CHECKS = (
+    "AnswerabilityError",
+    "PartlySupportedSelection",
+    "SynthesisOutputError",
+    "SynthesisStopped",
+    "SynthesisTruncated",
+)
 
 
 def _refusal(detail: str) -> str:
-    """Say in plain words why the answer check refused a draft.
+    """Say in plain words why the draft step failed.
 
     The trace detail names the Python exception and quotes the whole sentence; a
     participant needs only the rule the draft broke. A refused draft is not a failed
     run: the agent drafts again, and the next synthesize step shows the result.
     """
+    failed = re.match(r"Synthesis failed with (\w+)", detail)
+    if failed and failed.group(1) not in ANSWER_CHECKS:
+        return f"draft step failed ({failed.group(1)}), not refused by a check"
     if match := re.search(
-        r"unsupported numeric claim or availability claim \[(.*?)\]", detail
+        r"unsupported numeric claim or availability claim (\[.*?\])", detail
     ):
-        stated = ", ".join(value.strip(" '\"") for value in match.group(1).split(","))
-        reason = f"it stated {stated}, {UNSUPPORTED}"
+        stated = ", ".join(str(value) for value in ast.literal_eval(match.group(1)))
+        frame = f"     {REFUSED}: it stated , {UNSUPPORTED}"
+        reason = f"it stated {_clip(stated, LINE_CHARS - len(frame))}, {UNSUPPORTED}"
     elif match := re.search(r"naming product (\d+) does not cite evidence", detail):
         reason = f"it named product {match.group(1)} without citing its records"
     elif match := re.search(
@@ -145,6 +159,12 @@ def _refusal(detail: str) -> str:
         reason = f"it claimed '{claim}', {UNSUPPORTED}"
     elif "SynthesisTruncated" in detail:
         reason = "it was cut off before it finished"
+    elif match := re.search(r"stopped with '(\w+)'", detail):
+        reason = f"it stopped before it finished ({match.group(1)})"
+    elif "did not cite every selected product" in detail:
+        reason = "it left a selected product without a citation"
+    elif "contains a link" in detail:
+        reason = "it contained a link that is not a cited source"
     else:
         return f"{REFUSED} by the answer check"
     return f"{REFUSED}: {reason}"
@@ -190,7 +210,7 @@ def render(response: dict[str, Any]) -> str:
     answer = [
         "  " + line
         for paragraph in response["answer"].splitlines()
-        for line in (textwrap.wrap(paragraph, 86) or [""])
+        for line in (wrap_words(paragraph, 86) or [""])
     ]
     products = []
     for item in response["recommendations"]:
@@ -257,7 +277,7 @@ def ask(base_url: str, question: str, *, timeout: float) -> dict[str, Any]:
                 elif event == "tool":
                     print(f"      tool call  {data['name']}, {elapsed} s", flush=True)
                 elif event == "notice":
-                    note = textwrap.fill(
+                    note = fill_words(
                         f"NOTE  {data.get('detail', '')}",
                         LINE_CHARS,
                         subsequent_indent="      ",

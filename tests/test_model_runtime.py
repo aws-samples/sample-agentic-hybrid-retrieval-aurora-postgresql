@@ -561,7 +561,7 @@ def test_synthesis_rejects_a_budget_ceiling_the_catalog_price_breaks():
         "AuriLogic Flight ANC has 48-hour battery life and comes in under $100 [1]."
     )
 
-    with pytest.raises(ValueError, match="unsupported numeric claim.*10000"):
+    with pytest.raises(ValueError, match=r"unsupported numeric claim.*\$100\.00"):
         synthesize_cited_answer(
             "Find over-ear headphones under $100.",
             [product()],
@@ -577,7 +577,7 @@ def test_synthesis_rejects_a_wrong_price_stated_without_a_comparison():
         "AuriLogic Flight ANC costs $149.99 and has 48-hour battery life [1]."
     )
 
-    with pytest.raises(ValueError, match="unsupported numeric claim.*14999"):
+    with pytest.raises(ValueError, match=r"unsupported numeric claim.*\$149\.99"):
         synthesize_cited_answer(
             "What does it cost?",
             [product()],

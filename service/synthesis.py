@@ -244,6 +244,13 @@ def _cents(dollars: str, fractional: str | None) -> str:
     return str(int(dollars.replace(",", "")) * 100 + int(fraction))
 
 
+def _claim_display(claim: MeasurableClaim) -> str:
+    """The figure as the draft wrote it: a price in dollars, not the cents it is compared in."""
+    if claim.currency:
+        return f"${int(claim.value) / 100:,.2f}"
+    return claim.value
+
+
 def _currency_bounds(sentence: str) -> dict[str, str]:
     """Currency amounts the sentence compares against, by direction.
 
@@ -428,6 +435,10 @@ def _category_word_model(product: ProductSummary) -> bool:
     return model.rstrip("s") in {word.rstrip("s") for word in words if word}
 
 
+_INCH_WORD = re.compile(r"(\d+(?:\.\d+)?)[- ]?inch(?:es)?\b")
+_INCH_MARK = re.compile(r'(\d+(?:\.\d+)?)"')
+
+
 def _product_names(product: ProductSummary) -> set[str]:
     """The names that identify a product in prose: its title, short name and model.
 
@@ -441,6 +452,13 @@ def _product_names(product: ProductSummary) -> set[str]:
         for value in (product.title, model, reference_name(product))
         if len(value.strip()) >= 3
     }
+    # A listing titled "34-Inch" is written SAMSUNG 34" in prose, and the reverse;
+    # unless both forms count as the name, the size is checked as a figure the
+    # cited record never states.
+    names |= {_INCH_WORD.sub(r'\1"', name) for name in names}
+    names |= {_INCH_MARK.sub(r"\1-inch", name) for name in names}
+    names |= {_INCH_MARK.sub(r"\1 inch", name) for name in names}
+    names |= {_INCH_MARK.sub(r"\1 inches", name) for name in names}
     # Letters and digits together are never an ordinary word, so even a
     # two-character code such as "E7" names the listing it leads.
     if code := _leading_code(product):
@@ -1278,7 +1296,7 @@ def _validate_measurable_claim_support(
                         )
                         raise SynthesisOutputError(
                             "Synthesized sentence contains unsupported numeric claim or "
-                            f"availability claim {[claim.value]} for {subject_label}: "
+                            f"availability claim {[_claim_display(claim)]} for {subject_label}: "
                             f"{sentence.rstrip('.')}. "
                             + (
                                 ""
@@ -1394,7 +1412,15 @@ _COMPATIBILITY_CLAIM = re.compile(
     r"\b(?P<relationship>compatible\s+(?:with|for)|"
     r"works?\s+(?:\w+ly\s+|well\s+|great\s+)?with|pairs?\s+with|"
     rf"{_CHARGES_A_DEVICE})\s+"
-    r"(?:model\s+)?(?!at\b|with\b|without\b|using\b|via\b|over\b|through\b|when\b|if\b)"
+    # A stranded preposition ("which laptops it works with is unknown") states nothing
+    # when a hedge follows its verb; when a device follows ("the laptop it works with
+    # is the MacBook Pro") the claim is read past the verb. "Works with and charges"
+    # names the device after the second verb.
+    r"(?:model\s+)?(?!at\b|with\b|without\b|using\b|via\b|over\b|through\b|when\b|if\b|"
+    r"(?:is|are|was|were|has|have)\s+(?:not|never|unknown|unclear|unstated|uncertain|"
+    r"undocumented)\b)"
+    r"(?:(?:is|are|was|were)\s+)?"
+    r"(?:(?:and|or)\s+charg(?:es|e)\s+)?"
     r"(?P<target>[a-z0-9][a-z0-9'’/-]*"
     r"(?:\s+(?!(?:and|or|but|with|without|using|via|over|through|when|if|because|"
     r"so|which|that|is|are|was|were|has|have|at|on|for|to|from|as|in)\b)"

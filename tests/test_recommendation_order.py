@@ -150,12 +150,13 @@ def test_failed_draft_cannot_drop_a_product_intent_on_retry(monkeypatch, picks):
     [
         ("answerability", True),
         ("output", True),
+        ("stopped", True),
         ("other", False),
     ],
 )
 def test_trace_names_the_check_that_failed_synthesis(monkeypatch, picks, error, named):
     from service.answerability import AnswerabilityError
-    from service.synthesis import SynthesisOutputError
+    from service.synthesis import SynthesisOutputError, SynthesisStopped
 
     message = (
         "answerability: inconsistent support verdict; agree with every product decision"
@@ -163,6 +164,7 @@ def test_trace_names_the_check_that_failed_synthesis(monkeypatch, picks, error, 
     raised = {
         "answerability": AnswerabilityError(message),
         "output": SynthesisOutputError(message),
+        "stopped": SynthesisStopped(message),
         "other": RuntimeError(message),
     }[error]
     state = run_state(coverage=[], products={pick.product_id: pick for pick in picks})

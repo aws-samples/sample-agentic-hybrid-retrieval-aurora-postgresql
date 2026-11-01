@@ -44,6 +44,7 @@ from service.synthesis import (
     LEAD_STAR_GAP,
     ReportedLimits,
     SynthesisOutputError,
+    SynthesisStopped,
     SynthesisTruncated,
     lead_with_better_rated,
     recommendations_in_answer_order,
@@ -1645,7 +1646,7 @@ def synthesize_cited_answer(
         # The application's own check errors name the rule and the offending IDs
         # or sentence, so the trace says which check failed, not just its type.
         named = isinstance(
-            error, (AnswerabilityError, SynthesisOutputError, SynthesisTruncated)
+            error, (AnswerabilityError, SynthesisOutputError, SynthesisStopped)
         )
         _append_trace_step(
             "synthesize_cited_answer",
