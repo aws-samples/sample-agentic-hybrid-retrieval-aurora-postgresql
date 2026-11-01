@@ -1,14 +1,14 @@
 {
  "provenance": {
-  "captured_at": "2026-10-31",
+  "captured_at": "2026-11-01",
   "mission_id": "typo-recovery",
   "dataset_id": "reviews-2023-v2",
   "producer": "scripts/evals/capture_retrieval_seed.py",
-  "search_event_id": "3f6f9a05-1fbe-4668-8ab7-c11955236144",
+  "search_event_id": "5545a77a-1496-491b-881c-fb016c41b055",
   "note": "One real Aurora retrieval run, captured through /api/search so the Observatory opens on measured ranks. Run pipeline replaces it."
  },
  "response": {
-  "search_event_id": "3f6f9a05-1fbe-4668-8ab7-c11955236144",
+  "search_event_id": "5545a77a-1496-491b-881c-fb016c41b055",
   "query": "B0C2WWFCQB",
   "normalized_query": "B0C2WWFCQB",
   "applied_filters": {
@@ -121,7 +121,7 @@
      "rerank_rank": 1,
      "exact_sku_match": false,
      "final_rank": 1,
-     "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+     "score_semantics": "Raw search, reciprocal rank fusion and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
     },
     "sources": [
      {
@@ -230,7 +230,7 @@
      "rerank_rank": 2,
      "exact_sku_match": false,
      "final_rank": 2,
-     "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+     "score_semantics": "Raw search, reciprocal rank fusion and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
     },
     "sources": [
      {
@@ -338,7 +338,7 @@
      "rerank_rank": 3,
      "exact_sku_match": false,
      "final_rank": 3,
-     "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+     "score_semantics": "Raw search, reciprocal rank fusion and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
     },
     "sources": [
      {
@@ -449,7 +449,7 @@
      "rerank_rank": 4,
      "exact_sku_match": false,
      "final_rank": 4,
-     "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+     "score_semantics": "Raw search, reciprocal rank fusion and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
     },
     "sources": [
      {
@@ -556,7 +556,7 @@
      "rerank_rank": 5,
      "exact_sku_match": false,
      "final_rank": 5,
-     "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+     "score_semantics": "Raw search, reciprocal rank fusion and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
     },
     "sources": [
      {
@@ -650,7 +650,7 @@
      "rerank_rank": 6,
      "exact_sku_match": false,
      "final_rank": 6,
-     "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+     "score_semantics": "Raw search, reciprocal rank fusion and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
     },
     "sources": [
      {
@@ -761,7 +761,7 @@
      "rerank_rank": 7,
      "exact_sku_match": false,
      "final_rank": 7,
-     "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+     "score_semantics": "Raw search, reciprocal rank fusion and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
     },
     "sources": [
      {
@@ -881,7 +881,7 @@
      "rerank_rank": 8,
      "exact_sku_match": false,
      "final_rank": 8,
-     "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+     "score_semantics": "Raw search, reciprocal rank fusion and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
     },
     "sources": [
      {
@@ -994,7 +994,7 @@
      "rerank_rank": 9,
      "exact_sku_match": false,
      "final_rank": 9,
-     "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+     "score_semantics": "Raw search, reciprocal rank fusion and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
     },
     "sources": [
      {
@@ -1100,7 +1100,7 @@
      "rerank_rank": 10,
      "exact_sku_match": false,
      "final_rank": 10,
-     "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+     "score_semantics": "Raw search, reciprocal rank fusion and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
     },
     "sources": [
      {
@@ -1147,15 +1147,15 @@
     "semantic_in_pool": 49
    },
    "stage_timings_ms": {
-    "embedding": 367.058,
-    "postgresql_retrieval": 886.327,
-    "rerank": 992.682,
-    "coverage": 273.548,
-    "result_persistence": 234.241
+    "embedding": 394.846,
+    "postgresql_retrieval": 810.015,
+    "rerank": 917.809,
+    "coverage": 259.309,
+    "result_persistence": 278.125
    },
-   "total_latency_ms": 4186,
+   "total_latency_ms": 3063,
    "warnings": [],
-   "search_sql_sha256": "7483e408eb9626ebdf9af4a680399dbb8358768e1f29d561a3b0b0f0686ed439"
+   "search_sql_sha256": "4ba1763901c5ff171998d086f7d0aa9c3eaa98e6114ed7544f1eb52f19fa8f15"
   },
   "coverage": {
    "confidence": "unanchored",
