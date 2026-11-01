@@ -503,10 +503,13 @@ chmod 644 /etc/profile.d/mosaic-claude.sh
 # files and runs classifier-approved commands without asking. The coach must ask
 # before it changes anything, so managed settings, which a participant cannot
 # override, start every session in the default mode and remove auto mode.
+# disableAutoMode is accepted both at the top level and under permissions; each
+# placement alone turned a session asked for auto mode into default on 2.1.312
+# and 2.1.316 (1 November 2026), so both are written and either reading holds.
 install -d -m 755 /etc/claude-code
 cat >/etc/claude-code/managed-settings.json <<'EOF'
 {
-  "permissions": { "defaultMode": "default" },
+  "permissions": { "defaultMode": "default", "disableAutoMode": "disable" },
   "disableAutoMode": "disable"
 }
 EOF
