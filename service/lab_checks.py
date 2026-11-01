@@ -52,11 +52,11 @@ MISSION_CONTRACT = REPO / "data" / "evals" / "mosaic_labs_missions.json"
 #: participants; the contract is keyed by the Retrieve -> Rank -> Reason stage.
 LAB_STAGES: dict[int, str] = {1: "retrieve", 2: "rank", 3: "reason"}
 
-#: Floating-point slack for one reciprocal-rank contribution. Not a retrieval
+#: Floating-point slack for one reciprocal rank contribution. Not a retrieval
 #: tunable: it is the comparison tolerance for a value the SQL already computed.
 CONTRIBUTION_TOLERANCE = 1e-9
 
-#: The names Shop and the guides give each search method, for failure details.
+#: The names Shop and the guides give each search, for failure details.
 ARM_LABELS: dict[str, str] = {
     "fts": "Full-text search",
     "fuzzy": "Fuzzy matching",
@@ -481,9 +481,9 @@ def _lab_1_anchor(
         name="expected retrieval anchor present",
         passed=target is not None,
         falsifier=(
-            "the mission's target product reaches no candidate arm. With the "
-            "pg_trgm channel disconnected, an all-misspelled query produces no "
-            "full-text match and ranks the target outside the semantic arm's "
+            "the mission's target product reaches no search's candidates. With the "
+            "pg_trgm fuzzy matching disconnected, an all-misspelled query produces no "
+            "full-text match and ranks the target outside the semantic search's "
             "budget, so it is absent from the window entirely."
         ),
         detail=(
@@ -491,7 +491,7 @@ def _lab_1_anchor(
             if target is not None
             else explain(
                 f"no result for product {wanted} among the {len(results)} returned: "
-                "the Fuzzy matching candidates are not reaching the combined results",
+                "the fuzzy matching candidates are not reaching the combined results",
                 repair_next_step(1),
             )
         ),
@@ -518,8 +518,8 @@ def _lab_1_provenance(
         passed=passed,
         falsifier=(
             "the target is returned without a pg_trgm rank or without its RRF "
-            "contribution, which means it arrived through another arm and the "
-            "fuzzy repair is unproven by this result; or an arm declared absent "
+            "contribution, which means it arrived through another search and the "
+            "fuzzy repair is unproven by this result; or a search declared absent "
             "also found it, contradicting the exercise's only-fuzzy claim."
         ),
         detail=(
@@ -538,7 +538,7 @@ def _lab_1_provenance_failure(
     wanted = sorted(mission.get("target_product_ids") or [])
     if not signals:
         return explain(
-            f"no result for product {wanted}, so it has no Fuzzy matching position",
+            f"no result for product {wanted}, so it has no fuzzy matching position",
             repair_next_step(1),
         )
     if unexpected:
@@ -548,7 +548,7 @@ def _lab_1_provenance_failure(
             FACILITATOR,
         )
     return explain(
-        f"product {wanted} returned without a Fuzzy matching position or "
+        f"product {wanted} returned without a fuzzy matching position or "
         "contribution, so the search this lab repairs did not find it",
         repair_next_step(1),
     )
@@ -589,14 +589,14 @@ def _lab_1_pool(response: Mapping[str, Any]) -> LabCheck:
         passed=in_pool > 0,
         falsifier=(
             "diagnostics.candidate_counts.fuzzy_in_pool is 0, the broken "
-            "state's signature: the fuzzy arm contributed no candidate to "
+            "state's signature: fuzzy matching contributed no candidate to "
             "fusion, whatever the result window happens to contain."
         ),
         detail=(
             f"fuzzy_in_pool={in_pool}"
             if in_pool > 0
             else explain(
-                "no Fuzzy matching candidates among those combined and sent to "
+                "no fuzzy matching candidates among those combined and sent to "
                 "reranking",
                 repair_next_step(1),
             )
@@ -710,7 +710,7 @@ def _lab_2_repeatable(
         falsifier=(
             "two identical requests fuse to different pre-rerank orders, which "
             "means the order depends on something other than the candidate "
-            "ranks -- an unstable tie-break or a non-deterministic arm."
+            "ranks -- an unstable tie-break or a non-deterministic search."
         ),
         detail=(
             f"{len(first_order)} row(s) fused identically across two runs"
@@ -766,9 +766,7 @@ def _lab_2_provenance(
             repair_next_step(2),
         )
     elif passed:
-        detail = (
-            f"product {target['product_id']} retains every arm rank and a rerank score"
-        )
+        detail = f"product {target['product_id']} retains every search rank and a rerank score"
     else:
         lost = [f"{_arms(missing)} position"] if missing else []
         if rerank_score is None:
@@ -783,7 +781,7 @@ def _lab_2_provenance(
         falsifier=(
             "the canonical winner is returned without one of its source ranks "
             "or without its reranker score, so the fused order cannot be "
-            "attributed to the arms that produced it."
+            "attributed to the searches that produced it."
         ),
         detail=detail,
     )

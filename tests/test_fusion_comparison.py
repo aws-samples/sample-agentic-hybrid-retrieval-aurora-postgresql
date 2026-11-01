@@ -202,7 +202,7 @@ def test_same_ids_with_different_arm_ranks_fail_the_substrate_check():
     weighted = [dict(candidate) for candidate in IDENTICAL_WEIGHTED]
     weighted[0]["fts_rank"] = 99
 
-    with pytest.raises(SubstrateError, match="arm substrate"):
+    with pytest.raises(SubstrateError, match="search substrate"):
         service(IDENTICAL_UNWEIGHTED, weighted).compare(
             "mesh chair", SearchFilters(), persist=False
         )
@@ -231,7 +231,7 @@ def test_same_ranks_with_different_arm_provenance_fail_the_substrate_check():
         "fusion": {"method": "weighted_reciprocal_rank_fusion"},
     }
 
-    with pytest.raises(SubstrateError, match="arm substrate"):
+    with pytest.raises(SubstrateError, match="search substrate"):
         service(unweighted, weighted).compare(
             "mesh chair", SearchFilters(), persist=False
         )

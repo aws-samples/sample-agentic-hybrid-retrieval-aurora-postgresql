@@ -732,9 +732,10 @@ def search_products(
     """Search products with PostgreSQL hybrid retrieval and managed reranking.
 
     Use one focused search per product intent, up to three per turn. PostgreSQL
-    applies hard filters inside full-text, fuzzy, and semantic retrieval,
-    fuses arm positions with reciprocal rank fusion, and persists candidate
-    signals before the reranker orders the bounded candidate pool.
+    applies hard filters inside full-text search, pg_trgm fuzzy matching, and
+    pgvector semantic search, fuses search positions with reciprocal rank
+    fusion, and persists candidate signals before the reranker orders the
+    bounded candidate pool.
 
     Args:
         query: Targeted product intent or exact model/SKU text.
@@ -1146,7 +1147,7 @@ def explain_retrieval(search_event_id: str) -> dict[str, Any]:
         search_event_id: A UUID returned by search_products.
 
     Returns:
-        Persisted arm ranks, raw scores, RRF contributions, reranker scores,
+        Persisted search ranks, raw scores, RRF contributions, reranker scores,
         final order, and stage timings.
     """
     started = perf_counter()

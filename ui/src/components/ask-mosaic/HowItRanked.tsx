@@ -82,7 +82,7 @@ function RankTable({ rows }: { rows: RankRow[] }) {
 }
 
 /**
- * How each search ranked its products: the position every retrieval method gave
+ * How each search ranked its products: the position every search gave
  * it, what each added to the combined score, and where reranking put it. Rows
  * come from the saved search; if that cannot be read, the recommended products'
  * own signals stand in and the heading says so.

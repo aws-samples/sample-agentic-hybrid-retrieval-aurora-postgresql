@@ -160,7 +160,7 @@ describe("MethodBoard", () => {
     expect(within(listed).queryByRole("button")).toBeNull();
     expect(listed.textContent).toContain("not on this page");
     expect(movedFrom("Fuzzy matching")).toEqual(["Final #17"]);
-    expect(screen.getByText(/Each method’s own top five on the shortlist of \d+\. Faded rows are not among the 1 shown\./)).toBeTruthy();
+    expect(screen.getByText(/Each search’s own top five on the shortlist of \d+\. Faded rows are not among the 1 shown\./)).toBeTruthy();
     expect(within(column("Full-text search")).getByText("None on the shortlist")).toBeTruthy();
     fireEvent.click(within(column("Semantic search")).getByRole("button", { name: /On the page/ }));
     expect(onSelect).toHaveBeenCalledWith(1);

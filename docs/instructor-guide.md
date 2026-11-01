@@ -48,7 +48,7 @@ The historical synthetic scorecard and 720 filter cases are not its quality gate
 | Clock | Stage | Required outcome |
 |---|---|---|
 | 00:00-00:15 | Presentation, then Getting started | Meet Alex, frame the three lessons and explain the architecture; the guide's Overview page is optional |
-| 00:15-00:25 | Retrieve | Reconnect fuzzy matching; `advance --lab 1` proves the typo, exact-ID and description requests |
+| 00:15-00:25 | Retrieve | Reconnect fuzzy matching; `advance --lab 1` proves the mistyped-ID, exact-ID and description requests |
 | 00:25-00:35 | Rank | Repair RRF so the monitor reaches reranking; `advance --lab 2` proves it and prepares Lab 3 |
 | 00:35-00:55 | Reason | Build and deploy the Retrieval agent, ask the setup and 100W requests with `ask_agent.py`, prove the setup run |
 | 00:55-01:00 | Wrap-up and Q&A | Questions, then untimed optional exercises: Session & Memory first, with a retrieval tool or HNSW as alternatives |
@@ -60,7 +60,7 @@ inside the production validators:
 
 | Stage | Run | Proof |
 |---|---|---|
-| Retrieve | `G-003` | In this measured request, neither FTS nor the bounded semantic pool contains the target; restoring the fuzzy channel recovers it |
+| Retrieve | `G-003` | In this measured request, neither full-text search nor the bounded semantic search pool contains the target; restoring fuzzy matching recovers it |
 | Retrieve | `G-001` | Correct listing ID remains first with a full-text search match |
 | Retrieve | `G-012` | Every saved product satisfies the Logitech brand and headphones category |
 | Rank | `G-008` | RRF moves from rank-collapsing arithmetic to `1 / (k + source_rank)` |
@@ -117,9 +117,10 @@ exact disconnected branch and its repair for Lab 1's diagnosis.
 
 ### Lab 1: Retrieve - Debug hybrid search
 
-FTS is strong when words and identifiers exist. `pg_trgm` recovers nearby
-strings. HNSW expands semantic intent. SQL predicates and JSONB filters decide
-eligibility inside every candidate arm.
+Full-text search is strong when words and identifiers exist. `pg_trgm` fuzzy
+matching recovers nearby strings. `pgvector` semantic search (HNSW) expands
+intent. SQL predicates and JSONB filters decide eligibility inside every
+search.
 
 The request transposes two adjacent characters in a real listing ID. The
 bounded semantic search returns plausible headphones without that listing.
@@ -128,15 +129,15 @@ name but not the listing identity, so they are wrong too. Show both identifiers 
 ask why other listings are wrong for an identity request; do not imply
 that other headphones lack noise cancellation.
 
-The exact-ID control proves FTS still works. G-012 uses a full-word Logitech need
+The exact-ID control proves full-text search still works. G-012 uses a full-word Logitech need
 with brand/category filters. Inspect both served rows and the complete saved
 pool. An approximate vector scan can obey every SQL filter and still miss
 qualifying rows; candidate count and eligibility are different checks.
 
-### Lab 2: Rank and re-rank - Tune rank fusion and reranking
+### Lab 2: Rank and rerank - Tune rank fusion and reranking
 
-RRF combines independent rank positions without pretending raw FTS, fuzzy,
-and semantic scores share a scale. Cohere Rerank operates on the bounded fused
+RRF combines independent rank positions without pretending raw full-text
+search, fuzzy matching and semantic search scores share a scale. Cohere Rerank operates on the bounded fused
 pool. It does not replace retrieval or override deterministic eligibility.
 
 Ask attendees to compare per-arm rank, contribution, fused rank, and final rank
@@ -210,7 +211,7 @@ outside the repository.
 
 > Alex works from home. He needs headphones for clearer calls, a chair for long
 > days, and a monitor that charges his laptop and has room to run code and read
-> docs. We have over half a million products in Aurora PostgreSQL. Can we find
+> docs. We have more than 500,000 product listings in Aurora PostgreSQL. Can we find
 > suitable options, put them in a defensible order, and explain a choice using
 > the sources? You will repair one failure in each step and prove what changed.
 
@@ -234,7 +235,7 @@ plans and measured comparisons beside the lab that uses them.
 |---|---|---|---|
 | 00:00-01:00 | Meet Alex | Show the home-office brief. Ask what would make a recommendation worth following. | Lead |
 | 01:00-02:30 | A search that misses | Run the correct and transposed listing-ID requests with identical filters. Save the broken search. | Lead |
-| 02:30-04:00 | Retrieve | Show the three search methods and ask which record would locate the missing product. A reranker cannot add a product it never receives. | Technical |
+| 02:30-04:00 | Retrieve | Show the three searches and ask which record would locate the missing product. A reranker cannot add a product it never receives. | Technical |
 | 04:00-05:30 | Rank | Ask how we know fusion worked if a monitor finishes well. Participants will restore `1 / (k + rank)` and defend a setting on judged queries. | Technical |
 | 05:30-07:00 | Reason | Preview the final request below. Do not start a long Retrieval agent run in the opening. | Lead |
 | 07:00-08:30 | Who owns each decision | Aurora retrieves, filters and saves records. Bedrock supplies embeddings, reranking and the Retrieval agent's model. The application validates tool calls and citations. Show one saved search ID. | Aurora presenter |
@@ -262,7 +263,7 @@ the observed result.
 | Lab | Ask | Read together | Limit the conclusion |
 |---|---|---|---|
 | Lab 1: Retrieve - Debug hybrid search | The filters are correct. Why might semantic search still return too few eligible products? | Applied filters, returned counts and, if recorded, the plan with scan settings, rows and buffers | Eligibility does not establish coverage. HNSW can visit rows that fail a filter, and iterative scanning explores further within its limits. An opaque function scan does not reveal its index. |
-| Lab 2: Rank and re-rank - Tune rank fusion and reranking | The final winner looks right. What proves fusion worked, and what justifies the reranker? | Different source ranks, their contributions, combined and final positions, and the judged-query comparison | A correct winner cannot certify the formula. Count improvements and regressions on the judged queries; repairing RRF saves no model call. |
+| Lab 2: Rank and rerank - Tune rank fusion and reranking | The final winner looks right. What proves fusion worked, and what justifies the reranker? | Different source ranks, their contributions, combined and final positions, and the judged-query comparison | A correct winner cannot certify the formula. Count improvements and regressions on the judged queries; repairing RRF saves no model call. |
 | Lab 3: Reason - Build and deploy the Retrieval agent | The citation opens. Which words support this particular requirement? | One claim, its source type and revision, the product and its saved search | A specification and a review answer different questions. Registering evidence permits a citation; it does not establish that a sentence follows from it. Say what remains unknown. |
 
 In Lab 3, also point to the separate searches for the headphones, monitor and
@@ -275,7 +276,7 @@ open the HNSW exercise to fill a speaking cue.
 
 ### Reading the proof
 
-Playground follows Retrieve, Rank, Re-rank and Reason down the page. Read one
+Playground follows Retrieve, Rank, Rerank and Reason down the page. Read one
 selected search across Retrieve and Rank, then follow a recommendation's search
 link from Reason. A multi-part question can call Retrieve and Rank several
 times, so the sections describe responsibilities, not one execution order.
@@ -326,7 +327,7 @@ talk slots; one person can cover several roles.
 
 The lead keeps asking what the shopper saw, why seeing a product is not enough
 to call retrieval healthy, and which of the three lab questions the proof
-answers. The technical presenter keeps asking which search method contributed
+answers. The technical presenter keeps asking which search contributed
 and which stayed silent, where the product sat before reranking, and whether the
 application registered the evidence or only the model saw it. Room support gets
 participants to the proof without weakening a rule, creating a local database
@@ -349,7 +350,7 @@ support in the cited record.
 
 The method:
 
-> Find the search method that stayed silent, repair the smallest seam, run the
+> Find the search that stayed silent, repair the smallest seam, run the
 > same request again, and prove it from what Aurora recorded.
 
 After the completion check, use the participants' own saved runs: ask one

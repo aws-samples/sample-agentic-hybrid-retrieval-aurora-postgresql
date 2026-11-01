@@ -21,7 +21,7 @@ Each exercise follows the same flow:
 | Explorer group | Lab | File to edit |
 |---|---|---|
 | **01 - Retrieve** | Debug hybrid search | [hybrid_search.sql](labs/lab1_retrieve/hybrid_search.sql) |
-| **02 - Rank and re-rank** | Tune rank fusion and reranking | [rrf_contribution.sql](labs/lab2_rank/rrf_contribution.sql) |
+| **02 - Rank and rerank** | Tune rank fusion and reranking | [rrf_contribution.sql](labs/lab2_rank/rrf_contribution.sql) |
 | **03 - Reason** | Build and deploy the Retrieval agent | [agent.py](labs/lab3_reason/agent.py) |
 
 **04 - Explore Mosaic source** is the whole repository; the three groups above
@@ -47,7 +47,7 @@ setup request with `scripts/ask_agent.py`, then run
 `uv run python scripts/grade_setup_run.py`: it checks your newest setup run.
 
 After the labs, open **Playground → Use it in your own agent** and choose
-**Download the agent skill** to keep the Hybrid Agentic Search skill, or
+**Download the agent skill** to keep the agentic hybrid retrieval skill, or
 **Download the SQL and guide** to adapt the search to your own data. For
 the source layout, see [the repository map](docs/index.md) and
 [the agent guidance](AGENTS.md).

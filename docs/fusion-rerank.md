@@ -4,15 +4,15 @@
 
 Run independent retrieval paths because each has different failure modes:
 
-- **FTS:** full-text search, product language, models, and high-value fields
-- **`pg_trgm`:** misspellings and compressed/nearby strings
-- **HNSW semantic:** intent, paraphrase, use case, and benefit language
+- **Full-text search (`tsvector`):** product language, models, and high-value fields
+- **`pg_trgm` fuzzy matching:** misspellings and compressed/nearby strings
+- **`pgvector` semantic search (HNSW):** intent, paraphrase, use case, and benefit language
 
 Keep source ranks and source scores. Do not throw away provenance after unioning IDs.
 
 ## Why RRF
 
-Raw FTS rank, trigram similarity, and cosine similarity do not share a calibrated numerical scale. Reciprocal-rank fusion combines their ordinal evidence:
+Raw full-text search rank, fuzzy matching similarity, and semantic search cosine similarity do not share a calibrated numerical scale. Reciprocal rank fusion (RRF) combines their ordinal evidence:
 
 ```text
 RRF(document) = Σ 1 / (k + rank_source(document))
@@ -29,8 +29,8 @@ Use the canonical `G-008` request and filters from
 
 1. Inspect `signals` on results with different source ranks. The injected
    defect replaces each source rank with the first position, so every present
-   arm contributes `1 / (k + 1)`. A candidate's broken score depends on its
-   number of contributing arms, with product ID breaking equal-score ties.
+   search contributes `1 / (k + 1)`. A candidate's broken score depends on its
+   number of contributing searches, with product ID breaking equal-score ties.
 2. Restore `source_rank` in `mosaic_search.reciprocal_rank_contribution` at the
    `LAB2_EDIT` seam in `labs/lab2_rank/rrf_contribution.sql` and run
    `uv run python scripts/apply_search_functions.py`.
@@ -40,11 +40,11 @@ Use the canonical `G-008` request and filters from
 4. Run `uv run python scripts/prove_lab.py --lab 2`. It checks arithmetic, repeatable fused order,
    applied reranking and provenance, then the display-specification and brand-filter controls.
 
-The required real-catalog example also changes the visible result. The suitable ViewSonic VG2756-4K (product 1551237) is absent from the combined 50 before the repair. After it, the monitor has meaning rank 10, combined position 21 and final position 5, so it is neither first in its input list nor first in the final order. RRF admits it to the bounded rerank pool; model reranking orders it within that pool. Preserve this distinction in the guide and validators. The mission manifest owns these figures. Other worked examples retain their winner and serve as controls; the secondary examples in [the example library](real-catalog-exercise-library.md) are a historical record measured on the retired `reviews-2023-500k-v1` catalog.
+The required real-catalog example also changes the visible result. The suitable ViewSonic VG2756-4K (product 1551237) is absent from the combined 50 before the repair. After it, the monitor has semantic search rank 10, combined position 21 and final position 5, so it is neither first in its input list nor first in the final order. RRF admits it to the bounded rerank pool; model reranking orders it within that pool. Preserve this distinction in the guide and validators. The mission manifest owns these figures. Other worked examples retain their winner and serve as controls; the secondary examples in [the example library](real-catalog-exercise-library.md) are a historical record measured on the retired `reviews-2023-500k-v1` catalog.
 
 ## Filters
 
-Hard eligibility rules belong in SQL and apply inside every candidate arm.
+Hard eligibility rules belong in SQL and apply inside every candidate search.
 The SQL supports the filters below. Required real-catalog exercises use source-backed domain, category and brand fields; they do not invent current prices, stock or normalized attributes:
 
 - domain/category/subcategory
@@ -79,7 +79,7 @@ profile. `service/rerank.py` accepts indexed relevance scores and checks their
 count, unique candidate indices and finite values before applying them.
 
 The reranker does not return a per-product rationale, a requirements checklist,
-or source citations. Per-arm provenance explains how a product entered fusion;
+or source citations. Per-search provenance explains how a product entered fusion;
 agent evidence and citation validation support claims about that product. Keep
 these distinct when narrating the UI.
 
@@ -99,10 +99,10 @@ Standard: score(d) = sum(1 / (k + rank_method(d)))
 Weighted: score(d) = sum(weight_method / (k + rank_method(d)))
 ```
 
-Only methods that returned the product contribute. Both formulas combine
-positions, not raw full-text, spelling or semantic scores. A channel weight changes
-that channel's relative influence; `k` controls how much positions within a
-channel differ. Neither produces a calibrated probability. Equal unit weights
+Only searches that returned the product contribute. Both formulas combine
+positions, not raw full-text, spelling or semantic scores. A search weight changes
+that search's relative influence; `k` controls how much positions within a
+search differ. Neither produces a calibrated probability. Equal unit weights
 recover standard RRF; multiplying all weights by the same positive constant
 rescales totals without changing their order.
 
@@ -126,7 +126,7 @@ rows cover the weighted top list, with each product's position in both full orde
 Aurora comparison record; it does not call the reranker or modify the catalog,
 functions, configuration or participant repairs.
 
-Read the result in three layers: which channel explains a move, whether that move
+Read the result in three layers: which search explains a move, whether that move
 changes admission to the reranker, and whether judged relevance improves across
 multiple queries. The comparison itself proves only the first layer. Its SQL
 timings are sequential observations, not a controlled latency benchmark. Use

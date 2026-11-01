@@ -1245,7 +1245,7 @@
   gap: 6px;
 }
 
-/* Each method's colour sits on its column header and on its share of the bar under
+/* Each search's colour sits on its column header and on its share of the bar under
    the product, so the table is its own key. */
 .ask-rank-table thead i {
   display: inline-block;

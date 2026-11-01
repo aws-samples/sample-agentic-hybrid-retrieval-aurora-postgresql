@@ -7,7 +7,7 @@ changes catalog data, and never shows the reference answer.
 
 - Lab 1: a recall query for the filtered semantic search, graded with the planner's
   own plan and again with the HNSW index forced.
-- Lab 2: the applied reciprocal-rank contribution, graded against 1 / (k + rank)
+- Lab 2: the applied reciprocal rank contribution, graded against 1 / (k + rank)
   at the configured ``k`` and at four other values. ``compare --lab 2`` prints what
   three retrieval changes would do on the judged shopper queries.
 - Lab 3: the deployed Strands agent and its saved, source-backed recommendation.

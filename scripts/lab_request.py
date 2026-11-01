@@ -181,7 +181,7 @@ def target_position(event: dict, mission: dict) -> str:
     )
     return (
         f"combined position {row['fused_rank']}, final position "
-        f"{row['result_rank']}; found by {methods or 'no method'}."
+        f"{row['result_rank']}; found by {methods or 'no search'}."
     )
 
 

@@ -1,4 +1,4 @@
-# Lab 2: Rank and re-rank - Tune rank fusion and reranking
+# Lab 2: Rank and rerank - Tune rank fusion and reranking
 
 Follow **Workshop Studio → Lab 2** for the exact requests, the checks and each
 section's **Stuck?** hints. This is the reminder beside your code.

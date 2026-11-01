@@ -875,7 +875,7 @@ p.pg-rank-move {
   from { opacity: 0; transform: translateY(14px); }
 }
 
-/* Re-rank: the returned products racing from each search to the final order. */
+/* Rerank: the returned products racing from each search to the final order. */
 .pg-race {
   margin: 0 0 40px;
   padding: 24px 24px 18px;

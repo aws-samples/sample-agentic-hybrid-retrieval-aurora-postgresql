@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
  * The Playground's four numbered stages, and the one disclosure primitive
  * everything deep hides behind.
  *
- * `Retrieve -> Rank -> Re-rank -> Reason` is the workshop's model, so the numbers carry
+ * `Retrieve -> Rank -> Rerank -> Reason` is the workshop's model, so the numbers carry
  * information rather than decorating a list: a participant reads them as the
  * order the pipeline runs in and as the four phases distributed across three labs. That is the
  * only place on any surface where numbered sections are used.

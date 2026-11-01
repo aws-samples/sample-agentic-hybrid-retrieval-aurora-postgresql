@@ -53,7 +53,7 @@ from service.participant_commands import (
     validate_applied_command,
 )
 
-#: Slack for one reciprocal-rank contribution read back out of PostgreSQL by
+#: Slack for one reciprocal rank contribution read back out of PostgreSQL by
 #: calling `mosaic_search.reciprocal_rank_contribution` directly. Not a
 #: retrieval tunable: it is the float comparison tolerance for a value the SQL
 #: function already computed, and it is tighter than the tolerance
@@ -487,7 +487,7 @@ def lab2_contract_problem(source: str) -> str | None:
             )
         return (
             "the marked block is not in the form the check recognizes: one position's "
-            "reciprocal-rank contribution, 1 / (rrf_k + source_rank), in decimal arithmetic"
+            "reciprocal rank contribution, 1 / (rrf_k + source_rank), in decimal arithmetic"
         )
     # Without enclosing parentheses a trailing cast binds to the parenthesized
     # sum, so it makes the division itself decimal.
@@ -571,7 +571,7 @@ def _fuzzy_cte(tokens: list[str], schema: str) -> str | None:
 #: What each column of the fuzzy matching branch carries, as a mismatch names it.
 _LAB1_COLUMN_ROLES = (
     "product_id",
-    "the channel name 'fuzzy', which the rest of the search uses for fuzzy matching",
+    "the search name 'fuzzy', which the rest of the SQL uses for fuzzy matching",
     "the fuzzy matching position, fuzzy_rank",
     "the fuzzy matching score, fuzzy_score",
     (
@@ -657,7 +657,7 @@ def _lab1_column_problem(columns: list[str], qualifiers: set[str]) -> str | None
     if len(outputs) != len(_LAB1_COLUMN_ROLES):
         return (
             f"the branch returns {len(outputs)} columns; every branch returns five: "
-            "product ID, channel name, position, score and RRF contribution"
+            "product ID, search name, position, score and RRF contribution"
         )
     if outputs[1] == ["'fuzzy'", "::", "text"]:
         outputs[1] = ["'fuzzy'"]
@@ -706,7 +706,10 @@ def lab1_contract_problem(source: str, *, schema: str = "mosaic_search") -> str 
         )
     channel = _sql_tokens(source.split(start, 1)[1].split(end, 1)[0])
     if not channel:
-        return "the marked block holds only comments, so no branch reaches channels yet"
+        return (
+            "the marked block holds only comments, "
+            "so the fuzzy matching branch is not added yet"
+        )
     if channel[:3] != ["union", "all", "select"]:
         return "the branch must start with UNION ALL SELECT, like the other branches"
     parts = _branch_source(channel[3:])

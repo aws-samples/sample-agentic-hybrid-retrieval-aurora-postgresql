@@ -21,7 +21,7 @@ recover a product it never receives.
 
 In [hybrid_search.sql](hybrid_search.sql), edit only between
 `LAB1_EDIT_START` and `LAB1_EDIT_END`. Add the missing `channels` branch
-with the same five columns as the others: product ID, channel name `'fuzzy'`,
+with the same five columns as the others: product ID, search name `'fuzzy'`,
 position, raw score and the contribution from
 `mosaic_search.reciprocal_rank_contribution`. Saving changes nothing in Aurora
 until you apply it:
@@ -44,7 +44,7 @@ uv run python scripts/lab_request.py send --lab 1 --phase after
 uv run python scripts/lab_state.py advance --lab 1
 ```
 
-It replays the typo request and two of Mosaic's fixed test requests, `G-001`
+It replays the mistyped-ID request and two of Mosaic's fixed test requests, `G-001`
 (the exact ID, through full-text search) and `G-012` (a Logitech description,
 through semantic search), saves your passing evidence and prepares Lab 2.
 

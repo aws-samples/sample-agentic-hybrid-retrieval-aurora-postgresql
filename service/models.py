@@ -242,7 +242,7 @@ class ResultSignals(BaseModel):
     exact_sku_match: bool = False
     final_rank: int
     score_semantics: str = (
-        "Raw arm, reciprocal-rank fusion, and reranker scores use different "
+        "Raw search, reciprocal rank fusion and reranker scores use different "
         "scales and are not probabilities. An exact catalog SKU remains ahead "
         "of model reranking."
     )

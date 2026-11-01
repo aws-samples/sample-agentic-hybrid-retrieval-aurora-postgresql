@@ -142,7 +142,7 @@ uv run python scripts/checks/rehearsal.py record-stage \
   --manifest build/rehearsal-evidence.json \
   --stage catalog_restore_verification --status passed \
   --detail "553911 real products, 553911 saved vectors, no synthetic rows, \
-FTS/fuzzy/HNSW indexes valid" \
+full-text search, fuzzy matching and semantic search indexes valid" \
   --started-at <restore-start-iso> --ended-at <restore-end-iso>
 ```
 

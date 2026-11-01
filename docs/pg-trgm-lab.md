@@ -1,4 +1,4 @@
-# `pg_trgm` typo-tolerance lab
+# `pg_trgm` fuzzy matching lab
 
 ## Why it exists
 
@@ -18,7 +18,7 @@ CREATE INDEX product_search_trigram_idx
 ON mosaic_search.product_listing USING gin (trigram_text gin_trgm_ops);
 ```
 
-## Required repair: reconnect a working arm
+## Required repair: reconnect a working search
 
 Use `G-003` from `data/evals/mosaic_labs_missions.json` with its exact filters
 before and after the edit. The controlled defect is in
@@ -35,7 +35,7 @@ that path.
    missing `channels` branch between the `LAB1_EDIT` markers.
 3. Run `uv run python scripts/apply_search_functions.py`, then repeat the same request. Inspect
    the target's `signals.fuzzy.rank` and `rrf_contribution`. For this anchor,
-   its FTS and semantic ranks remain null: the recovered product identifies
+   its full-text search and semantic search ranks remain null: the recovered product identifies
    which path changed.
 4. Run `uv run python scripts/prove_lab.py --lab 1`. The exact-identity and eligibility controls must
    also pass. Finding the target alone does not establish that filters survived.
@@ -45,7 +45,7 @@ function before altering the query. See [reset and recovery](lab-golden-queries.
 
 ## How the fuzzy matching gates work
 
-The served arm runs the `<%` word-similarity gate first, governed by
+The served search runs the `<%` word-similarity gate first, governed by
 `pg_trgm.word_similarity_threshold`; the whole-string `%` gate, governed by
 `pg_trgm.similarity_threshold`, runs only as a fallback when the first branch
 returns no rows. The function's `minimum_similarity` argument is a separate
@@ -56,14 +56,14 @@ scan.
 
 ## Query families
 
-Use the current worked-example library for exact transposed identifiers and each query's domain/category filters. Do not substitute an unmeasured brand typo and promise that semantic search will miss it. Correctly spelled product IDs are the required FTS control. Full model-name queries with a brand filter are the meaning/eligibility control.
+Use the current worked-example library for exact transposed identifiers and each query's domain/category filters. Do not substitute an unmeasured brand typo and promise that semantic search will miss it. Correctly spelled product IDs are the required full-text search control. Full model-name queries with a brand filter are the semantic search and eligibility control.
 
 ## Recommended fusion behavior
 
 - Exact brand/model/SKU hits receive full-text priority.
 - Fuzzy is a recovery candidate source, not an automatic correction oracle.
 - Preserve the original query when inspecting a run; a changed spelling is a
-  different experiment, not evidence that the disconnected channel was fixed.
+  different experiment, not evidence that the disconnected search was fixed.
 - Fuzzy rank participates in RRF; it is not naively added to cosine similarity.
 - Very low-similarity candidates are excluded before reranking.
 - Attribute and eligibility filters remain authoritative.

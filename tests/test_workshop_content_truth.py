@@ -53,10 +53,7 @@ def test_repo_abstract_retains_the_submitted_level_400_building_promise():
     assert "compare retrieval settings against judged queries" in abstract
     assert "deploy it to agentcore runtime" in abstract
     assert "trace its searches to cited specifications and reviews" in abstract
-    assert (
-        "reusable retrieval sql, working agent code, and a portable retrieval skill"
-        in abstract
-    )
+    assert "leave with reusable retrieval sql and working agent code" in abstract
 
 
 def test_evaluation_docs_separate_real_cases_from_historical_measurements():

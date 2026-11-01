@@ -12,9 +12,9 @@ facts. Unknown attributes, missing current offers and incompatible taxonomy are
 not reasons to silently drop a filter. Report the constraint that cannot be
 established. An empty result is an acceptable outcome.
 
-For backend validation, inspect the SQL in all three arms and call the production
+For backend validation, inspect the SQL in all three searches and call the production
 `matches_filters` function against every returned candidate. Check that filtering
-happens before each arm's limit. A narrow-filter negative control should exclude
+happens before each search's limit. A narrow-filter negative control should exclude
 a known ineligible product even when its text/vector similarity is high. A prompt
 or a post-filter over a short list cannot prove this property.
 
@@ -27,23 +27,23 @@ by the actual exact-neighbor count; an empty baseline has no defined recall.
 Do not mistake a full HNSW pool for high recall or neighbor overlap for user relevance.
 
 For relevance recall, use reviewed judgments for a fixed query set and dataset.
-Measure each arm, the fused pool and the final ranked window separately. A product
+Measure each search, the fused pool and the final ranked window separately. A product
 missing from the fused pool cannot be recovered by reranking. Include typos,
 paraphrases, exact identifiers, narrow filters and unsupported requests. Keep
 new evaluation questions separate from examples used to tune the repairs.
 
-If the host only has the four HTTP operations, it can inspect which search methods found each product but
+If the host only has the four HTTP operations, it can inspect which searches found each product but
 cannot claim an exact SQL baseline it did not run. Report **recall not measured**
 unless a saved evaluation identifies the dataset, settings and results used. Historical
 synthetic scores are not measurements of the workshop's selected real catalog.
 
 ## Ranking: inspect the transition between stages
 
-RRF sums reciprocal contributions from each arm's rank position using the running
-configuration. Missing arms contribute nothing. Do not add full-text rank, fuzzy
+RRF sums reciprocal contributions from each search's rank position using the running
+configuration. Missing searches contribute nothing. Do not add full-text rank, fuzzy
 similarity and vector distance together or present their values as probabilities.
 
-Use the persisted event to compare arm ranks, `rrf_contribution`, `rrf_score`,
+Use the persisted event to compare search ranks, `rrf_contribution`, `rrf_score`,
 `pre_rerank_rank`, `rerank_rank` and `final_rank`. Preserve their rank spaces:
 pre-rerank positions describe the larger pool, while final positions describe the
 served window. Comparing differently truncated lists can invent rank movement.
@@ -112,7 +112,7 @@ query set and measurement time, then report:
 |---|---|---|
 | Filters | Applied filters, eligible records, production-path negative control | Missing constraint, ineligible result or eligibility not verified |
 | Recall | Exact-neighbor baseline or reviewed judgments and measured overlap | Relevant candidates absent, or recall not measured |
-| Ranking | Persisted arm/fusion/rerank signals and paired judged comparison | Bad fusion, degraded rerank or improvement not measured |
+| Ranking | Persisted search/fusion/rerank signals and paired judged comparison | Bad fusion, degraded rerank or improvement not measured |
 | Citations | Authorized records, resolved IDs/quotes/revisions and claim checks | Scope violation, unresolved citation or unsupported claim |
 
 In the workshop checkout, use the existing mission-driven lab validators and

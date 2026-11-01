@@ -50,7 +50,7 @@ contracts while preserving their compatible dependency sets.
 | `search_products` | `POST /api/search` | Run filtered hybrid retrieval and return source-attributed products |
 | `get_product_evidence` | `POST /api/products/{product_id}/evidence` | Rank specifications and reviews for one product the supplied `retrieval_scope_id` granted |
 | `compare_products` | `POST /api/retrieval/events/{search_event_id}/compare` | Compare two to five distinct products granted by the supplied `retrieval_scope_id` |
-| `explain_retrieval` | `GET /api/retrieval/events/{search_event_id}` | Replay arm ranks, raw scores, RRF, rerank, filter, and timing signals. Unscoped by design: any valid ID resolves, on the single-attendee disposable-instance assumption. |
+| `explain_retrieval` | `GET /api/retrieval/events/{search_event_id}` | Replay search ranks, raw scores, RRF, rerank, filter, and timing signals. Unscoped by design: any valid ID resolves, on the single-attendee disposable-instance assumption. |
 
 All four tools advertise `readOnlyHint=true` and
 `destructiveHint=false`. Search is not marked idempotent because every search

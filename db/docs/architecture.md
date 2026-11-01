@@ -4,7 +4,7 @@
 
 ### Separate truth from retrieval projection
 
-The normalized `mosaic` schema is the product system of record. The `mosaic_search.product_listing` table is a deliberately denormalized search projection. It copies the fields needed by FTS, fuzzy, HNSW, filtering, scoring, and response rendering, and owns the search indexes. Every search reads it through `mosaic_search.product_listing_view`, which adds the shop's product IDs and recorded source prices; the functions the labs repair live in the same schema.
+The normalized `mosaic` schema is the product system of record. The `mosaic_search.product_listing` table is a deliberately denormalized search projection. It copies the fields needed by full-text search, fuzzy matching, semantic search, filtering, scoring, and response rendering, and owns the search indexes. Every search reads it through `mosaic_search.product_listing_view`, which adds the shop's product IDs and recorded source prices; the functions the labs repair live in the same schema.
 
 This avoids hiding the PostgreSQL lesson behind a forest of joins while preserving a production-oriented source model.
 
@@ -14,7 +14,7 @@ Price, inventory, compatibility, dimensions, availability, and decisive booleans
 
 ### Keep candidate provenance
 
-FTS, `pg_trgm`, and semantic retrieval emit independent ranks and scores. RRF combines ordinal evidence while retaining source-level provenance for the Playground and agent explanation.
+Full-text search, `pg_trgm` fuzzy matching, and `pgvector` semantic search emit independent ranks and scores. RRF combines ordinal evidence while retaining source-level provenance for the Playground and agent explanation.
 
 ### Separate product retrieval from evidence retrieval
 
@@ -26,7 +26,7 @@ FTS, `pg_trgm`, and semantic retrieval emit independent ranks and scores. RRF co
 flowchart LR
     S[verified source records] --> R[restore loads product_listing]
     R --> D[mosaic_search.product_listing_view]
-    D --> F[FTS]
+    D --> F[Full-text search]
     D --> T[pg_trgm]
     D --> V[HNSW]
     F --> X[RRF]

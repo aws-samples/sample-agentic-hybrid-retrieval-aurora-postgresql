@@ -16,7 +16,7 @@ build and deploy an agent), and each is graded against an answer the grader comp
 - **Lab 1: Retrieve - Debug hybrid search · 10 min.** A transposed product ID makes
   Alex's saved headphones vanish. Participants use PostgreSQL's own functions
   (`tsvector` lexemes, `pg_trgm` word similarity, pgvector distance) to show why
-  only one search method recovers it, then find why its candidates never reach
+  only one search recovers it, then find why its candidates never reach
   fusion and add the missing branch. An optional
   Go deeper step has them write a recall query for the semantic search they didn't
   touch. The grader runs
@@ -24,7 +24,7 @@ build and deploy an agent), and each is graded against an answer the grader comp
   faster yet missed half or more of the true nearest neighbours. **Lesson: a full
   result list is not evidence of good recall; only a comparison with exact
   results measures it.**
-- **Lab 2: Rank and re-rank - Tune rank fusion and reranking · 10 min.** The monitor that documents
+- **Lab 2: Rank and rerank - Tune rank fusion and reranking · 10 min.** The monitor that documents
   USB-C charging up to 90W over one cable never reaches the reranker. A provided
   query shows the collapsed contributions tie every single-search candidate, so the
   product-ID tie-breaker, not relevance, decides the 50 products sent to Cohere

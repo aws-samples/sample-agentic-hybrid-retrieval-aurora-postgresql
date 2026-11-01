@@ -1,6 +1,6 @@
 \set ON_ERROR_STOP on
 
--- The three retrieval channels and the filters they share. Each channel returns
+-- The three retrieval searches and the filters they share. Each search returns
 -- its own ranked candidates; labs/lab1_retrieve/hybrid_search.sql fuses them.
 
 CREATE OR REPLACE FUNCTION mosaic_search.matches_filter_values(

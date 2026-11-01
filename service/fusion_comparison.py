@@ -216,12 +216,12 @@ class FusionComparisonService:
             if "FROM fuzzy" not in unweighted_definition:
                 raise LabStateError(
                     f"found {search_schema()}.search_hybrid_rrf without its fuzzy "
-                    "channel, which is Lab 1's deliberate broken state; fix: "
+                    "matching branch, which is Lab 1's deliberate broken state; fix: "
                     "complete the Lab 1 repair in "
                     "labs/lab1_retrieve/hybrid_search.sql and apply it before "
                     "comparing fusion "
                     "methods, because the weighted function still carries the "
-                    "arm and the two pools cannot be identical until then"
+                    "fuzzy matching branch and the two pools cannot be identical until then"
                 )
             started = time.perf_counter()
             unweighted = connection.execute(
@@ -248,7 +248,7 @@ class FusionComparisonService:
                 f"unweighted-only {only_unweighted}, weighted-only "
                 f"{only_weighted}; duplicate IDs unweighted="
                 f"{duplicate_unweighted}, weighted={duplicate_weighted}); fix: "
-                f"both must call the same three arm "
+                f"both must call the same three search "
                 f"functions with the same caps and the same fuzzy threshold, "
                 f"and differ only in fusion arithmetic — a comparison over "
                 f"different pools credits the weights with a difference in inputs"
@@ -265,11 +265,11 @@ class FusionComparisonService:
         if substrate_mismatches:
             product_id = substrate_mismatches[0]
             raise SubstrateError(
-                f"found arm substrate differences for product IDs "
+                f"found search substrate differences for product IDs "
                 f"{substrate_mismatches[:5]}; first mismatch {product_id}: "
                 f"unweighted={_arm_substrate(unweighted_rows[product_id])!r}, "
                 f"weighted={_arm_substrate(weighted_rows[product_id])!r}; fix: "
-                "both fusion functions must return the same per-arm ranks and "
+                "both fusion functions must return the same per-search ranks and "
                 "non-fusion provenance for every candidate"
             )
 

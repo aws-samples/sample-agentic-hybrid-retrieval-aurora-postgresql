@@ -8,8 +8,8 @@ and saved vectors; they do not generate product data or rebuild embeddings.
 
 | Lab | Build | Use it to |
 |---|---|---|
-| 1 · Retrieve | Restore the fuzzy matching SQL path (a vector recall query is optional) | Recover Alex's saved Logitech listing and compare exact and approximate neighbors |
-| 2 · Rank | Implement reciprocal-rank fusion in SQL and evaluate one setting change | Keep the ViewSonic monitor in the shortlist sent to reranking |
+| 1 · Retrieve | Restore the fuzzy matching SQL path (an HNSW recall query is optional) | Recover Alex's saved Logitech listing and compare exact and approximate neighbors |
+| 2 · Rank | Implement reciprocal rank fusion in SQL and evaluate one setting change | Keep the ViewSonic monitor in the shortlist sent to reranking |
 | 3 · Build the Retrieval agent | Assemble the Retrieval agent, connect its Gateway tools and deploy to Runtime | Compare headphones, monitor and chair, cite each product’s sources and respond to a changed requirement |
 
 Labs 1 and 2 use direct `psql` investigations and production search checks. Lab 3

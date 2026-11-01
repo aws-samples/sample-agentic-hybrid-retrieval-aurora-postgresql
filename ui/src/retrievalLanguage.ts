@@ -28,17 +28,17 @@ export const armLanguage: ArmLanguage[] = [
   {
     key: "fts",
     label: "Full-text search",
-    mechanism: "PostgreSQL Full-Text Search",
+    mechanism: "tsvector and ts_rank_cd",
   },
   {
     key: "fuzzy",
     label: "Fuzzy matching",
-    mechanism: "pg_trgm",
+    mechanism: "pg_trgm word_similarity",
   },
   {
     key: "semantic",
     label: "Semantic search",
-    mechanism: "pgvector / HNSW",
+    mechanism: "pgvector HNSW index",
   },
 ];
 
@@ -49,6 +49,13 @@ export const armShortLabel: Record<RetrievalArm, string> = {
   semantic: "Semantic",
 };
 
+/** One search's language entry, by key; a missing key is a bug, so it throws. */
+export function armEntry(key: RetrievalArm): ArmLanguage {
+  const entry = armLanguage.find((arm) => arm.key === key);
+  if (!entry) throw new Error(`armLanguage has no entry for the "${key}" search`);
+  return entry;
+}
+
 export const armLabel: Record<RetrievalArm, string> = {
   fts: "Full-text search",
   fuzzy: "Fuzzy matching",
@@ -57,7 +64,7 @@ export const armLabel: Record<RetrievalArm, string> = {
 
 /**
  * The two ordering stages, in the same customer vocabulary. A product card
- * names no mechanism, so it says "Combined"; the strip, the method cards and the
+ * names no mechanism, so it says "Combined"; the strip, the search cards and the
  * order table, which name mechanisms, say "Combined (RRF)". "Before reranking" is
  * the sub-line, and the 50 it hands to reranking are the guide's "shortlist".
  */
@@ -69,7 +76,7 @@ export const toolPurpose: Record<string, string> = {
   search_products: "Search Aurora with full-text search, fuzzy matching and semantic search, then combine and rerank the filtered matches.",
   get_product_evidence: "Read current specifications and reviews for a product returned by search.",
   compare_products: "Compare products from the current search or the previous answer.",
-  explain_retrieval: "Read a saved search, without running it again, to explain which methods found a product and how its rank changed.",
+  explain_retrieval: "Read a saved search, without running it again, to explain which searches found a product and how its rank changed.",
   synthesize_cited_answer: "Write an answer using allowed products and current sources, check its citations and claims, then save the checked answer.",
 };
 

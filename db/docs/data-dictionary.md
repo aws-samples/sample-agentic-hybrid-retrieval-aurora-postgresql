@@ -21,7 +21,7 @@ Controls the visual Shop experience: media tier, page, position, display title, 
 Physical image metadata plus product-specific roles, crop anchors, and brand-mark zones.
 
 ### `product_evidence`
-Supporting specification, review, Q&A, expert, guide, or benchmark text with its own FTS document and embedding.
+Supporting specification, review, Q&A, expert, guide, or benchmark text with its own full-text search document and embedding.
 
 ### `agent_*` / `rerank_*`
 Agent tool contracts, sessions, turns, tool-call audit, rerank invocation metadata, and per-product rerank outputs.
@@ -35,7 +35,7 @@ Query-level observability, result provenance, and user interaction telemetry.
 One denormalized row per source listing, loaded once by the restore. It contains:
 
 - common filter columns beside the vector
-- weighted FTS fields (`search_document`)
+- weighted full-text search fields (`search_document`)
 - trigram document (`trigram_text`)
 - product semantic document (`embedding_text`)
 - HNSW embedding (`embedding`, `vector(1024)`)

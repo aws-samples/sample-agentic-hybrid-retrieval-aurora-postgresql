@@ -57,12 +57,12 @@ type Inspection = "retrieve" | "rank" | "rerank" | "reason";
 const LESSONS: Record<Inspection, string> = {
   retrieve: "A reranker can only reorder what entered this pool.",
   rank: "A right winner can hide broken fusion: check the order before reranking.",
-  rerank: "Re-rank compares the request with every candidate, but cannot recover a product Rank excluded.",
+  rerank: "Rerank compares the request with every candidate, but cannot recover a product Rank excluded.",
   reason: "A source link still has to support the claim; missing support stays an open question.",
 };
 const rank = (value: number | null | undefined) => (value == null ? "—" : `#${value}`);
 
-/** The details a link opens: `#inspect-rank`, `#labs-stage-re-rank` and the like. */
+/** The details a link opens: `#inspect-rank`, `#labs-stage-rerank` and the like. */
 function linkedDetail(): Inspection | null {
   const linked = linkedInspection();
   return (Object.keys(linked) as Inspection[]).find((stage) => linked[stage]) ?? null;
@@ -354,7 +354,7 @@ function RunNotes({ carried, started, running, error, receipts, selected, onRest
       A new run of the saved Shop search · <button type="button" disabled={running} onClick={onRestore}>Back to saved Shop results</button>
     </p> : null}
     {error ? <p className="inspector-error" role="alert">{error}</p> : null}
-    {receipts.length > 1 ? <div className="inspector-search-selector pg-search-selector"><label htmlFor="inspector-search">Search shown in Retrieve, Rank and Re-rank</label><select id="inspector-search" value={selected?.id} onChange={(event) => onSelectSearch(event.target.value)}>{receipts.map((item, index) => <option key={item.id} value={item.id}>{index + 1}. {item.origin === "reference" ? "Original search · " : ""}{item.response?.query ?? "Reading search…"}</option>)}</select><p>Counts and ranks stay on the selected search. Choose another search here or follow a pick in Reason.</p></div> : null}
+    {receipts.length > 1 ? <div className="inspector-search-selector pg-search-selector"><label htmlFor="inspector-search">Search shown in Retrieve, Rank and Rerank</label><select id="inspector-search" value={selected?.id} onChange={(event) => onSelectSearch(event.target.value)}>{receipts.map((item, index) => <option key={item.id} value={item.id}>{index + 1}. {item.origin === "reference" ? "Original search · " : ""}{item.response?.query ?? "Reading search…"}</option>)}</select><p>Counts and ranks stay on the selected search. Choose another search here or follow a pick in Reason.</p></div> : null}
     {selected?.error ? <p className="inspector-error" role="alert">This record could not be read: {selected.error} {carried && !started ? "Reload this page to retry the saved Shop search." : "Start a new run to try again."}</p> : null}
   </div>;
 }

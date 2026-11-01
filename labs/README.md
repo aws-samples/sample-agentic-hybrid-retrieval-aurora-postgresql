@@ -1,13 +1,13 @@
 # Labs
 
 Follow Workshop Studio in order. [Mosaic.code-workspace](../Mosaic.code-workspace)
-opens **01 - Retrieve**, **02 - Rank and re-rank**, **03 - Reason** and
+opens **01 - Retrieve**, **02 - Rank and rerank**, **03 - Reason** and
 **04 - Explore Mosaic source**. All terminals start at the repository root.
 
 | Lab | Edit | Apply or deploy |
 |---|---|---|
 | [1 · Retrieve](lab1_retrieve/) | `hybrid_search.sql`: `LAB1_EDIT` block | `uv run python scripts/apply_search_functions.py` |
-| [2 · Rank and re-rank](lab2_rank/) | `rrf_contribution.sql`: `LAB2_EDIT` block | `uv run python scripts/apply_search_functions.py` |
+| [2 · Rank and rerank](lab2_rank/) | `rrf_contribution.sql`: `LAB2_EDIT` block | `uv run python scripts/apply_search_functions.py` |
 | [3 · Reason](lab3_reason/) | `agent.py`: `LAB3_EDIT` block | `uv run python scripts/deploy_agentcore.py deploy` |
 
 Each README follows **Broken → Diagnose → Fix → Prove**. Start with

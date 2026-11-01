@@ -11,11 +11,11 @@ flowchart LR
     AGENT -->|IAM-signed MCP| GW[AgentCore Gateway]
     GW --> TOOLS[SQL tools on a separate Runtime]
     TOOLS --> SEARCH
-    SEARCH --> FILTER[Same SQL filters in each arm]
-    FILTER --> FTS[PostgreSQL FTS]
-    FILTER --> TRI[pg_trgm]
-    FILTER --> VEC[pgvector: exact or HNSW]
-    EMB[Bedrock Cohere Embed v4] -->|Query vector| VEC
+    SEARCH --> FILTER[Same SQL filters in each search]
+    FILTER --> FTS[Full-text search, tsvector]
+    FILTER --> TRI[pg_trgm fuzzy matching]
+    FILTER --> VEC[pgvector semantic search: exact or HNSW]
+    EMB[Bedrock Cohere Embed v4] -->|Query embedding| VEC
     FTS --> FUSE[RRF candidate fusion]
     TRI --> FUSE
     VEC --> FUSE
@@ -33,10 +33,10 @@ Aurora executes filtering, candidate retrieval and rank fusion.
 Aurora PostgreSQL holds:
 
 - real source-product metadata (without invented current price or stock)
-- weighted FTS document
-- trigram-normalized text
+- weighted full-text search document (`search_document`)
+- trigram-normalized text for fuzzy matching
 - structured JSONB attributes
-- product embeddings
+- product embeddings for semantic search
 - HNSW index
 - reviews/evidence
 - evaluation judgments and query telemetry
@@ -77,7 +77,7 @@ flowchart LR
     VERIFY --> RESTORE
     RESTORE --> P[553,911 real products]
     P --> V[Live search projection]
-    V --> I[FTS / fuzzy / HNSW indexes]
+    V --> I[Full-text, fuzzy matching and HNSW indexes]
     VOCAB[Verified real-catalog vocabulary] --> V
     Q[Real queries and judgments] --> RUN[Production-path evaluation]
     I --> RUN

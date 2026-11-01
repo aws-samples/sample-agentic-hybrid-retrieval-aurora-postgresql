@@ -5,8 +5,8 @@ catalog schema or measured tuning fits another workload.
 
 ## Keep these checks
 
-- Apply hard eligibility in every retrieval arm before its candidate limit.
-- Bound each arm and the fused pool explicitly.
+- Apply hard eligibility in every retrieval search before its candidate limit.
+- Bound each search and the fused pool explicitly.
 - Fuse independent ranked lists before model reranking.
 - Let reranking reorder only the bounded pool; it must not introduce candidates.
 - Preserve exact identifier matches when a domain has authoritative identifiers.
@@ -42,7 +42,7 @@ catalog schema or measured tuning fits another workload.
    beside the searchable text and vector.
 3. Replace text construction, language configuration, embedding model, vector
    dimensions, and index operator as one versioned migration.
-4. Port the full-text, fuzzy, and semantic arms while preserving pre-limit
+4. Port the full-text, fuzzy, and semantic searches while preserving pre-limit
    eligibility.
 5. Measure candidate depths, fusion, reranking, and HNSW settings on the new
    corpus. Do not copy Mosaic's numbers as production defaults.
@@ -55,7 +55,7 @@ catalog schema or measured tuning fits another workload.
 ## Definition of done
 
 - A logical skill request maps unambiguously to the deployed transport.
-- A hard filter cannot admit an ineligible candidate through any arm.
+- A hard filter cannot admit an ineligible candidate through any search.
 - Reranking cannot add a candidate or displace an authoritative exact match.
 - Evidence and comparison refuse products outside the declared grant.
 - A persisted receipt explains the exact served order without recomputation.

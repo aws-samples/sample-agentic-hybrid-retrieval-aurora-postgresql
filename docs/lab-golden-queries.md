@@ -12,7 +12,7 @@
 
 ## Independent controls
 
-- **G-001 · Preserve the exact listing:** The correctly spelled ASIN retrieves the intended Logitech listing with an Full-text search contribution.
+- **G-001 · Preserve the exact listing:** The correctly spelled ASIN retrieves the intended Logitech listing with a full-text search contribution.
 - **G-012 · Keep the brand requirement:** The model-name search retains the Logitech target. Every saved candidate and displayed result stays within the Logitech headphones filter; a related product from another brand is ineligible.
 - **G-007 · Compare display specifications:** Retrieve both named Dell monitors. Their records distinguish 3840 x 2160 from 1920 x 1080. Do not infer equivalent USB-C charging, current price or stock.
 - **G-009 · Keep brand filters ahead of scoring:** The same monitor need, restricted to Dell, excludes HP and Lenovo before reranking. Inspect both saved candidates and served results.

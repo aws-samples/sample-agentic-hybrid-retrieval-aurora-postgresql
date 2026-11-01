@@ -228,7 +228,7 @@ describe("before and after reranking", () => {
 });
 
 describe("column measures", () => {
-  it("counts the rows each search method actually returned", () => {
+  it("counts the rows each search actually returned", () => {
     const matrix = buildRetrievalMatrix(
       response([
         product(1, {}, signals({
@@ -280,7 +280,7 @@ describe("column measures", () => {
     const matrix = buildRetrievalMatrix(replayed);
 
     expect(matrix.columns[2].mechanism).toBe(
-      "pgvector HNSW cosine · width not recorded",
+      "pgvector HNSW index · width not recorded",
     );
     expect(matrix.columns[2].mechanism).not.toContain("null");
   });
@@ -316,11 +316,11 @@ describe("row verdicts", () => {
       "Only semantic search found it: it shares no word with the query.",
     );
     expect(matrix.rows[0].reasons.map((reason) => reason.label)).toContain(
-      "No query word in this record; nearest by meaning",
+      "Found by semantic search: nearest to the request",
     );
   });
 
-  it("names every search method that reported the row", () => {
+  it("names every search that reported the row", () => {
     const matrix = buildRetrievalMatrix(
       response([
         product(1, {}, signals({

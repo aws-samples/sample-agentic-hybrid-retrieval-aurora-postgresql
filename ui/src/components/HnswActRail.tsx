@@ -98,7 +98,7 @@ export function HnswActRail() {
  * measured assertions a reader quotes ("The neighbours sit in a band 0.03
  * wide."), so they keep their weight; the act heading is set quieter and marked
  * as the group label, and the sections are addressed by the act's id rather than
- * being re-ranked.
+ * being reranked.
  */
 export function HnswAct({
   slug,

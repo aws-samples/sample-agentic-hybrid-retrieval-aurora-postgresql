@@ -42,6 +42,6 @@ export function CandidatePoolOrder({ response }: { response?: SearchResponse }) 
         </tr>)}</tbody>
       </table>
     </div>
-    <p>Search record <code>{eventId}</code>. Re-rank: {response.diagnostics?.rerank_status ?? "not recorded"}.</p>
+    <p>Search record <code>{eventId}</code>. Rerank: {response.diagnostics?.rerank_status ?? "not recorded"}.</p>
   </div>;
 }

@@ -5,7 +5,7 @@
 Attendees repair one retrieval system across four phases in three labs:
 
 ```text
-RETRIEVE -> RANK -> RE-RANK -> REASON
+RETRIEVE -> RANK -> RERANK -> REASON
 ```
 
 The thesis is **retrieval correctness is a pipeline property, not a top-1
@@ -16,7 +16,7 @@ inside the broken boundary still works:
 
 - **Retrieve:** did the right eligible candidates enter the pool?
 - **Rank:** was that pool combined correctly before reranking?
-- **Re-rank:** how does product text change the order within that same pool?
+- **Rerank:** how does product text change the order within that same pool?
 - **Reason:** can synthesis cite only evidence attached to the answer's citation
   scope?
 
@@ -29,7 +29,7 @@ inside the broken boundary still works:
 |---:|---|---|---|
 | 0-15 min | Introduction / Overview / Presentation | Meet Alex, frame the four phases and architecture | `typo-recovery` before repair |
 | 15-25 min | Retrieve | Reconnect one candidate arm and prove target recovery without weakening eligibility | `typo-recovery`, with control anchors |
-| 25-35 min | Rank (2a) and Re-rank (2b) | Repair one RRF formula and keep the suitable monitor inside the reranker input | `rank-with-evidence`, with control anchors |
+| 25-35 min | Rank (2a) and Rerank (2b) | Repair one RRF formula and keep the suitable monitor inside the reranker input | `rank-with-evidence`, with control anchors |
 | 35-55 min | Reason | Assemble and deploy the Retrieval agent, complete the setup with cited evidence, and run the completion gate | `agentic-research`, with one evidence control |
 | 55-60 min | Wrap-up and Q&A | Ask questions or choose an untimed optional exercise | n/a |
 
@@ -51,7 +51,7 @@ Lab 3) can mark a lab passed.
 Goal: construct the right candidate universe before deciding the winner.
 
 1. Save the transposed-ID failure and propose a falsifiable cause.
-2. Compare the three installed search methods with the recorded filters and
+2. Compare the three installed searches with the recorded filters and
    limits in `psql`.
 3. Repair the connection the evidence identifies, then repeat the identical
    request. Prove that only the declared method recovered this target.
@@ -63,8 +63,8 @@ Goal: construct the right candidate universe before deciding the winner.
 Required concepts:
 
 - `tsvector`, `tsquery`, and PostgreSQL full-text search;
-- `pg_trgm` similarity for typo recovery;
-- pgvector HNSW semantic retrieval;
+- `pg_trgm` fuzzy matching for recovering a mistyped ID;
+- pgvector semantic search with an HNSW index;
 - relational and metadata predicates;
 - exact identity, eligibility, and candidate provenance.
 
@@ -74,15 +74,15 @@ deliberately not presented as an embeddings success. On the measured
 The question participants must answer is: **why is seeing the correct product
 not enough to declare retrieval healthy?**
 
-## Lab 2: Rank and re-rank - Tune rank fusion and reranking
+## Lab 2: Rank and rerank - Tune rank fusion and reranking
 
 Goal: put the right candidates in the right order without hiding the ranking
 decisions.
 
 ```text
-FTS --------\
-pg_trgm -----+-> RRF -> bounded candidate set -> Cohere Rerank -> final order
-HNSW -------/
+full-text ----\
+fuzzy --------+-> RRF -> bounded candidate set -> Cohere Rerank -> final order
+semantic ----/
 ```
 
 Structured filters remain eligibility gates. They do not become arbitrary
@@ -204,18 +204,18 @@ runtime-result parity that the workshop did not measure.
 
 The required path captures one persisted retrieval event's production
 `EXPLAIN (ANALYZE, BUFFERS, SETTINGS, FORMAT JSON)` plan on demand. Participants
-connect the FTS and fuzzy function scans, pgvector HNSW index scan, candidate
+connect the full-text search and fuzzy matching function scans, pgvector HNSW index scan, candidate
 caps, joins, runtime settings, and persisted rank receipt rather than treating
 Aurora as an opaque store behind the agent.
 
-The winning architecture is not "vector search." It is a controlled retrieval
+The winning architecture is not semantic search alone. It is a controlled retrieval
 system:
 
 ```text
 query understanding
   -> full-text / fuzzy / semantic candidate generation
   -> relational eligibility filters
-  -> reciprocal-rank fusion
+  -> reciprocal rank fusion
   -> model reranking
   -> evidence + source attribution
   -> typed agent tools

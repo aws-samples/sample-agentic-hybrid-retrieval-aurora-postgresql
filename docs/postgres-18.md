@@ -20,11 +20,11 @@ The schema also installs `pg_trgm`, `unaccent`, and `pgcrypto`
 
 ## What the pipeline uses
 
-**Three retrieval arms in one database.** `mosaic_search.search_fts` reads a
+**Three searches in one database.** `mosaic_search.search_fts` reads a
 stored `tsvector` column through a GIN index.
 `mosaic_search.search_fuzzy` reads `pg_trgm` normalized text through a GIN
 `gin_trgm_ops` index. `mosaic_search.search_semantic` reads an HNSW index built
-with `vector_cosine_ops`, `m = 16`, and `ef_construction = 200`. Each arm
+with `vector_cosine_ops`, `m = 16`, and `ef_construction = 200`. Each search
 applies the same eligibility predicates before its own limit, and
 `mosaic_search.search_hybrid_rrf` fuses their positions. All of them read
 `mosaic_search.product_listing_view`, and PostgreSQL uses the indexes of its table,
@@ -39,8 +39,8 @@ retrieval here depends on them. `mosaic_search.configure_hnsw` sets
 `hnsw.scan_mem_multiplier` for the transaction from the served retrieval
 profile; the shipped values are `relaxed_order`, 100, 20,000, and 2, all owned
 by `db/config/retrieval.yaml`. That file records why the memory multiplier is 2
-and not 1: on a filter anti-correlated with the query neighbourhood, the vector
-arm returned between 42 and 150 of the 150 candidates it asked for across eight
+and not 1: on a filter anti-correlated with the query neighbourhood, the semantic
+search returned between 42 and 150 of the 150 candidates it asked for across eight
 anchors, and fusion then combined the short pool as though it were complete.
 `db/sql/00_extensions.sql` raises a warning at install time if the extension
 predates 0.8.0.
@@ -52,13 +52,13 @@ stores `EXPLAIN (ANALYZE, BUFFERS, SETTINGS, FORMAT JSON)` in the event's
 `plan_json` column with the capture time in its diagnostics. It is explicit and on demand
 because `ANALYZE` executes the query, so a plan exists for the events somebody
 asked about, not for every search. Read that plan carefully: the full-text and
-fuzzy arms are `plpgsql` functions, so they appear as opaque function scans
-with no index named inside them, while the semantic arm is a `sql` function the
+fuzzy searches are `plpgsql` functions, so they appear as opaque function scans
+with no index named inside them, while the semantic search is a `sql` function the
 planner can inline, so its HNSW index does appear, provided the outer
 `search_hybrid_rrf` stays inlinable too (SQL-language, one `SELECT`, not
 `STRICT`, not `VOLATILE`, no `SET` clause); otherwise the whole call collapses
-to one opaque function scan. The per-arm index names on
-the Playground's channel list and their validity in readiness are the
+to one opaque function scan. The per-search index names on
+the Playground's search list and their validity in readiness are the
 authority, not the plan text.
 
 **Generated columns and JSONB filters.** The full-text and evidence documents

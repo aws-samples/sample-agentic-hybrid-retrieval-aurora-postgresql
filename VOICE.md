@@ -5,7 +5,7 @@ action, result, and reason in ordinary language. L400 depth comes from inspectin
 real SQL, settings, records, failure conditions, and tradeoffs.
 
 - Lead with what a person can do or check: "Where this result came from",
-  "Compare each search method", "Sources used", "Saved search", "What changed".
+  "Compare each search", "Sources used", "Saved search", "What changed".
 - Do not use research or internal engineering labels as interface copy:
   ablation, provenance, attribution, substrate, canonical, cohort, artifact,
   invariant, or harness. Explain the specific meaning in context.

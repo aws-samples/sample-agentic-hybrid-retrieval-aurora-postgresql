@@ -271,7 +271,7 @@ describe("lab outcome diagnostics", () => {
     const outcome = retrievalLabOutcome(mission, response(eligibleTarget));
 
     expect(outcome.label).toBe("Repair verified");
-    expect(outcome.title).toBe("Fuzzy retrieval is contributing");
+    expect(outcome.title).toBe("Fuzzy matching is contributing");
     expect(outcome.label).not.toContain("Canonical query");
   });
 

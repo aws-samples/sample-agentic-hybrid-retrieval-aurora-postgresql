@@ -130,7 +130,7 @@ retrieval trial does not establish a benefit that warrants a dependency upgrade
 and new default capabilities. The coding trial requires a purpose-built, scoped
 tool interface and clearer failure handling before becoming a workshop path.
 
-The downloadable [Hybrid Agentic Search skill](../skills/mosaic-hybrid-retrieval/SKILL.md)
+The downloadable [agentic hybrid retrieval skill](../skills/mosaic-hybrid-retrieval/SKILL.md)
 is independent of that choice. Its package passed Strands' strict skill loader
 and the skill-format validator. Loading instructions does not grant tools or
 backend access; connect the declared HTTP operations and keep the application's

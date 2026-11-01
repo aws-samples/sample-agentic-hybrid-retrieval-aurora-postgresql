@@ -1,4 +1,4 @@
-import { FUSED_LABEL, armLanguage } from "./retrievalLanguage";
+import { FUSED_LABEL, armEntry } from "./retrievalLanguage";
 import type { ProductSummary, SearchResponse } from "./types";
 
 /**
@@ -241,8 +241,8 @@ function reasonsFor(
     reasons.push({
       kind: "fts",
       label: shared.length
-        ? `Words in this record: ${shared.slice(0, 3).join(", ")}`
-        : "Matched indexed text not shown on this card",
+        ? `Found by full-text search: ${shared.slice(0, 3).join(", ")}`
+        : "Found by full-text search: indexed text not shown on this card",
     });
   }
   if (signals.fuzzy.rank !== null) {
@@ -250,18 +250,16 @@ function reasonsFor(
     reasons.push({
       kind: "fuzzy",
       label: pairs.length
-        ? `Repaired spelling: ${
+        ? `Found by fuzzy matching: ${
           pairs.map((pair) => `${pair.queryWord} to ${pair.productWord}`).join(", ")
         }`
-        : "Fuzzy matching somewhere in the record",
+        : "Fuzzy matching found it somewhere in the record",
     });
   }
   if (signals.semantic.rank !== null && signals.fts.rank === null && signals.fuzzy.rank === null) {
     reasons.push({
       kind: "semantic",
-      label: shared.length
-        ? "Neither words nor spelling found it; nearest by meaning"
-        : "No query word in this record; nearest by meaning",
+      label: "Found by semantic search: nearest to the request",
     });
   }
   if (rerankApplied) {
@@ -278,7 +276,7 @@ function verdictFor(product: ProductSummary, query: string): string {
   if (signals.fuzzy.rank !== null) arms.push("fuzzy matching");
   if (signals.semantic.rank !== null) arms.push("semantic search");
   if (arms.length === 0) {
-    return "No candidate search method reported this row, so it needs investigation.";
+    return "No search reported this row, so it needs investigation.";
   }
   if (arms.length === 1 && signals.semantic.rank !== null) {
     const shared = sharedWords(query, product);
@@ -420,27 +418,27 @@ export function buildRetrievalMatrix(
       // Labels come from retrievalLanguage so a column heading here and a row in
       // Shop's "Why this match" cannot drift apart; the mechanism line is what
       // this surface adds on top of them.
-      label: armLanguage[0].label,
-      mechanism: "tsvector + ts_rank_cd",
+      label: armEntry("fts").label,
+      mechanism: armEntry("fts").mechanism,
       measure: `${found("fts")} of ${total}`,
       measureDetail: "rows found",
       sql: COLUMN_SQL.fts,
     },
     {
       key: "fuzzy",
-      label: armLanguage[1].label,
-      mechanism: "pg_trgm word_similarity",
+      label: armEntry("fuzzy").label,
+      mechanism: armEntry("fuzzy").mechanism,
       measure: `${found("fuzzy")} of ${total}`,
       measureDetail: "rows found",
       sql: COLUMN_SQL.fuzzy,
     },
     {
       key: "semantic",
-      label: armLanguage[2].label,
+      label: armEntry("semantic").label,
       // A run served from its receipt carries no embedding width, because none
       // was persisted. The suffix says that rather than interpolating the null,
       // which printed "nulld" where a measured run prints "1024d".
-      mechanism: `pgvector HNSW cosine${semanticWidth(response)}`,
+      mechanism: `${armEntry("semantic").mechanism}${semanticWidth(response)}`,
       measure: `${found("semantic")} of ${total}`,
       measureDetail: "rows found",
       sql: COLUMN_SQL.semantic,

@@ -1056,11 +1056,11 @@ describe("CatalogPage", () => {
 
     expect(await screen.findByText("Results for")).toBeTruthy();
     expect(screen.queryByText(/fused candidates/)).toBeNull();
-    // The strip carries where the matches came from; the board below lists each method's top five, open.
+    // The strip carries where the matches came from; the board below lists each search's top five, open.
     const strip = screen.getByRole("region", { name: "How this search ran" });
     expect(strip.textContent).not.toMatch(/Three searches ran/);
-    const board = screen.getByRole("region", { name: "Each method's top five" });
-    expect(within(board).getByRole("heading", { name: "Each method’s top five" })).toBeTruthy();
+    const board = screen.getByRole("region", { name: "Each search's top five" });
+    expect(within(board).getByRole("heading", { name: "Each search’s top five" })).toBeTruthy();
     expect(screen.getByRole("group", { name: "Results view" })).toBeTruthy();
     expect(board.closest("details")).toBeNull();
     // Board first, then grid: strip, then the board, then the products they feed.
@@ -2369,7 +2369,7 @@ describe("CatalogPage", () => {
         expected_techniques: ["rerank", "filters"],
         variant: 1,
       }),
-    ).toThrow(/no known retrieval search method/);
+    ).toThrow(/no known search/);
   });
 
   it("opens contextual filters and keeps active constraints visible", async () => {

@@ -38,8 +38,8 @@ The three repaired capabilities form the `Retrieve -> Rank -> Reason` path. The 
 
 | Lab anchor | Capability | Evidence it is live |
 |---|---|---|
-| `typo-recovery` | pg_trgm candidate arm | `labs/lab1_retrieve/hybrid_search.sql` reads the `fuzzy AS (SELECT * FROM mosaic_search.search_fuzzy(...))` CTE in the `channels` branch between the `LAB1_EDIT` markers |
-| `rank-with-evidence` | reciprocal-rank contribution | `mosaic_search.reciprocal_rank_contribution` computes `1 / (k + rank)` |
+| `typo-recovery` | pg_trgm fuzzy matching search | `labs/lab1_retrieve/hybrid_search.sql` reads the `fuzzy AS (SELECT * FROM mosaic_search.search_fuzzy(...))` CTE in the `channels` branch between the `LAB1_EDIT` markers |
+| `rank-with-evidence` | reciprocal rank contribution | `mosaic_search.reciprocal_rank_contribution` computes `1 / (k + rank)` |
 | `agentic-research` | the Retrieval agent's assembly | `labs/lab3_reason/agent.py` `create_agent` builds the agent from the supplied model, tools, instructions and hooks; `service/agent_setup.py` names it when it still raises `NotImplementedError` |
 
 ## Gap contract
@@ -51,15 +51,15 @@ capabilities and nothing else. Workshop Studio installs Lab 1's gap at provision
 time; the participant's `uv run python scripts/lab_state.py start --lab 2` and `uv run python scripts/lab_state.py start --lab 3`,
 run by the `advance --lab 1` and `advance --lab 2` handoffs, install the later ones.
 
-### GAP-1 — typo-recovery arm
+### GAP-1 — typo-recovery fuzzy matching search
 
 - **Lab 1 anchor** `typo-recovery` (`checkpoint: repair`, stage `retrieve`)
 - **Query** `B0C2WWFCQB` (transposed from listing `B0C2WWCFQB`)
 - **Target** product 1492978, Logitech Zone 900
 - **What to disable** the `fuzzy` CTE in `mosaic_search.search_hybrid_rrf`, so the
-  fusion receives only the FTS and semantic arms. Leave
+  fusion receives only the full-text search and semantic search. Leave
   `mosaic_search.search_fuzzy` itself installed and callable: the lesson is
-  that a working arm is not contributing, not that a function is missing.
+  that a working search is not contributing, not that a function is missing.
 - **Restoring it looks like** adding the `fuzzy` CTE back to the `channels` union
   with its `mosaic_search.reciprocal_rank_contribution(fuzzy_rank, rrf_k)`
   contribution, as in `labs/lab1_retrieve/solution/hybrid_search.sql`. The
@@ -67,15 +67,15 @@ run by the `advance --lab 1` and `advance --lab 2` handoffs, install the later o
 - **Assertion that turns green** `fuzzy_signal_present`
 - **Board state before repair** `REPAIR PENDING`, never `FAIL`
 
-### GAP-2 — reciprocal-rank contribution
+### GAP-2 — reciprocal rank contribution
 
 - **Lab 2 anchor** `rank-with-evidence` (`checkpoint: repair`, stage `rank`)
 - **Query** `27 inch 4K monitor USB-C 90W laptop charging`
 - **Target** product 1551237, ViewSonic VG2756-4K
 - **What to disable** replace the marked `1 / (rrf_k + source_rank)` body with
   `1 / (rrf_k + 1)`. Candidate generation remains intact, but every candidate
-  from an arm contributes as if it held rank 1, so within-arm order disappears.
-- **Restoring it looks like** restoring the inspectable reciprocal-rank formula.
+  from a search contributes as if it held rank 1, so within-search order disappears.
+- **Restoring it looks like** restoring the inspectable reciprocal rank formula.
 - **Measured movement** the collapsed contributions tie every single-search candidate, so the broken 50-product cutoff is decided by product id: the oldest listings stay and the required ViewSonic never reaches reranking, while a 1440p Lenovo T27hv-20 appears among the final results. Correct contributions admit the ViewSonic: on repeated verification it moves from absent to combined position 21 and finishes at final position 5. Other control queries keep their winner; arithmetic remains mandatory. See `docs/real-catalog-exercise-library.md` for all tested variants.
 - **Assertions that turn green** `rank_provenance_present`,
   `rerank_score_present`, plus the production validator's arithmetic and
@@ -146,10 +146,10 @@ recorded so nobody reclassifies a fixed bug as an exercise.
 
 All four were measured on the live 500,000-product Aurora cluster before and
 after the fix. The shipped `search_fts` left the missions that then declared
-`fts` with an empty full-text arm; the fix runs the strict `websearch_to_tsquery`
+`fts` with an empty full-text search; the fix runs the strict `websearch_to_tsquery`
 match first, and only when that returns zero rows backs off to a conjunctive
 query over at most four corpus-present salient terms. A query whose terms exist
 in the corpus now gets a full-text pool; an all-misspelled query such as the Lab 1
-anchor still returns nothing from this arm, and `tests/test_sql_integration.py`
+anchor still returns nothing from this search, and `tests/test_sql_integration.py`
 pins that. `catalog.*` does not exist on that cluster,
 which is why a lab targeting it could never teach anything.

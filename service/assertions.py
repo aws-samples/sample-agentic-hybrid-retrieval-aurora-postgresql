@@ -2,14 +2,14 @@
 
 `data/evals/mosaic_labs_missions.json` names the assertions each mission must
 satisfy. Before this module the names were strings nobody resolved, so a typo in
-the contract was undetectable and — worse — a retrieval arm could fail
+the contract was undetectable and — worse — a retrieval search could fail
 completely with every gate green.
 
-`fts_signal_present` exists because the full-text arm can fail completely:
+`fts_signal_present` exists because the full-text search can fail completely:
 `search_fts` runs a strict AND query with a conjunctive backoff; it never
 OR-combines. Under the AND-only tsquery that shipped before the backoff
-existed, the missions that then declared `fts` lost the full-text arm entirely,
-and no assertion named the full-text arm at all.
+existed, the missions that then declared `fts` lost the full-text search entirely,
+and no assertion named the full-text search at all.
 
 Every assertion carries a `falsifier`: the concrete condition under which it
 fails. The field is required rather than optional because an assertion whose
@@ -17,7 +17,7 @@ failure condition cannot occur is decoration — it reads as evidence while
 proving nothing, which is the defect shape this module was created to remove.
 Writing the falsifier down is what forces the question to be asked.
 
-Assertions are declared here and scoped per mission by the contract. An arm a
+Assertions are declared here and scoped per mission by the contract. A search a
 mission does not declare in `expected_techniques` is not asserted, so a
 principled abstention stays a pass rather than becoming a false failure.
 """
@@ -34,9 +34,9 @@ class Assertion:
 
     Attributes:
         name: The string a mission puts in its `assertions` list.
-        arm: The candidate-generating arm whose signal this proves, or `None`
+        arm: The candidate-generating search whose signal this proves, or `None`
             when the assertion is about the response envelope rather than one
-            arm. Signal assertions are answerable from `candidate_counts`
+            search. Signal assertions are answerable from `candidate_counts`
             alone; envelope assertions are not.
         falsifier: The condition under which this assertion fails. Stated
             concretely, and preferably measured, so the claim can be checked.
@@ -69,7 +69,7 @@ _ASSERTIONS: tuple[Assertion, ...] = (
         name="fts_signal_present",
         arm="fts",
         falsifier=(
-            "the full-text arm contributes no candidates: an AND-only tsquery on "
+            "full-text search contributes no candidates: an AND-only tsquery on "
             "terms that do not co-occur, an unpopulated search_document, or a "
             "dropped GIN index. Measured before Phase 1 on four of six missions."
         ),
@@ -79,7 +79,7 @@ _ASSERTIONS: tuple[Assertion, ...] = (
         name="fuzzy_signal_present",
         arm="pg_trgm",
         falsifier=(
-            "the fuzzy arm contributes no candidates: every eligible product "
+            "fuzzy matching contributes no candidates: every eligible product "
             "scores below the 0.20 similarity threshold, or the filter set is "
             "selective enough to empty the pool. Measured at 0 on "
             "hnsw-performance, whose clean query has nothing to recover."
@@ -90,7 +90,7 @@ _ASSERTIONS: tuple[Assertion, ...] = (
         name="semantic_signal_present",
         arm="hnsw",
         falsifier=(
-            "the semantic arm contributes no candidates: a partially loaded "
+            "semantic search contributes no candidates: a partially loaded "
             "embedding column (measured at 50.2% coverage), a failed Bedrock "
             "embed call, a missing HNSW index, or iterative-scan limits that "
             "truncate the pool to nothing. Measured at 0 for hnsw-performance "
@@ -121,7 +121,7 @@ _ASSERTIONS: tuple[Assertion, ...] = (
         name="rank_provenance_present",
         arm=None,
         falsifier=(
-            "a result carries no per-arm rank, so the fused order cannot be "
+            "a result carries no per-search rank, so the fused order cannot be "
             "explained and RRF becomes an unauditable score"
         ),
         label="every result keeps its combined and final positions",
@@ -271,14 +271,14 @@ _ASSERTIONS: tuple[Assertion, ...] = (
 
 ASSERTIONS: dict[str, Assertion] = {item.name: item for item in _ASSERTIONS}
 
-# Assertion name -> the candidate-generating arm whose signal it proves. Derived
+# Assertion name -> the candidate-generating search whose signal it proves. Derived
 # from the table above rather than declared a second time, so an assertion cannot
 # exist in one collection and be missing from the other.
 SIGNAL_ASSERTIONS: dict[str, str] = {
     item.name: item.arm for item in _ASSERTIONS if item.arm is not None
 }
 
-# Everything else is about the response envelope rather than one arm, so it is
+# Everything else is about the response envelope rather than one search, so it is
 # not resolvable from candidate counts. `rerank_score_present` belongs here: it
 # reads a per-row score, not a pool size.
 ENVELOPE_ASSERTIONS: frozenset[str] = frozenset(
@@ -333,9 +333,9 @@ def falsifier_for(name: str) -> str:
 
 
 def signal_assertions_for(expected_techniques: Sequence[str]) -> list[str]:
-    """Signal assertions a mission is entitled to, given the arms it declares.
+    """Signal assertions a mission is entitled to, given the searches it declares.
 
-    A mission that does not declare `fts` is not asserted on the full-text arm:
+    A mission that does not declare `fts` is not asserted on the full-text search:
     its recovery is a side effect of the fix, not a requirement.
     """
     declared = set(expected_techniques)
@@ -345,9 +345,9 @@ def signal_assertions_for(expected_techniques: Sequence[str]) -> list[str]:
 
 
 def arm_signal_present(candidate_counts: Mapping[str, int], technique: str) -> bool:
-    """True when the named arm actually contributed candidates.
+    """True when the named search actually contributed candidates.
 
-    A zero count is the failure this module exists to catch: the arm ran, the
+    A zero count is the failure this module exists to catch: the search ran, the
     index was fine, and it matched nothing.
     """
     key = _ARM_COUNT_KEY.get(technique, technique)

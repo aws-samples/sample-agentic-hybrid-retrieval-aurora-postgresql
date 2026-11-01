@@ -10,14 +10,14 @@ not a substitute for demonstrating those checks.
 The [Awesome Search overview](https://frutik.github.io/awesome-search/Concepts/Hybrid-Search)
 and [Prem article](https://www.premai.io/blog/hybrid-search-for-rag-bm25-splade-and-vector-search-combined/)
 are useful starting points for questions to test, not evidence of Mosaic's gains.
-The implementation remains native PostgreSQL FTS, `pg_trgm`, pgvector, RRF and
+The implementation remains native PostgreSQL full-text search, `pg_trgm` fuzzy matching, pgvector semantic search, RRF and
 bounded model reranking. There is no new search engine or embedding generation.
 
 | Stage | Mechanism in this workshop | What participants inspect |
 |---|---|---|
-| Find by words | `websearch_to_tsquery`, GIN, `ts_rank_cd` | Matching indexed words, including normalized word forms |
-| Find by spelling | `pg_trgm`, GIN | Whether a transposed listing identifier is recovered |
-| Find by meaning | Cohere query embedding, pgvector HNSW | Related products found without identical wording |
+| Full-text search | `websearch_to_tsquery`, GIN, `ts_rank_cd` | Matching indexed words, including normalized word forms |
+| Fuzzy matching | `pg_trgm`, GIN | Whether a transposed listing identifier is recovered |
+| Semantic search | Cohere query embedding, pgvector HNSW | Related products found without identical wording |
 | Combine | Sum `1 / (k + source_rank)` per product | Which rows survive the configured cutoff |
 | Reorder | Cohere Rerank on the combined list | Whether product text addresses the complete request |
 | Support the answer | Product-scoped specifications and reviews | What each cited record actually establishes |

@@ -16,9 +16,9 @@ self-service page, and facilitators do not support it.
 
 | Time | Work | Evidence to inspect |
 |---|---|---|
-| 0–15 | Presenter introduction, then prepared tools | Alex's need, one saved search and the three search methods |
+| 0–15 | Presenter introduction, then prepared tools | Alex's need, one saved search and the three searches |
 | 15–25 | Lab 1: Retrieve - Debug hybrid search | The missing listing returns through fuzzy matching; filters hold |
-| 25–35 | Lab 2: Rank and re-rank - Tune rank fusion and reranking | Contributions vary with position; judged comparisons support a tuning decision |
+| 25–35 | Lab 2: Rank and rerank - Tune rank fusion and reranking | Contributions vary with position; judged comparisons support a tuning decision |
 | 35–55 | Lab 3: Reason - Build and deploy the Retrieval agent, including completion | Three focused searches, comparison, sources, changed requirement and original-run proof |
 | 55–60 | Wrap-up and Q&A | Questions; Session & Memory, retrieval-tool and HNSW exercises are untimed options |
 
@@ -87,7 +87,7 @@ it: participants inspect their actual result, find the exact mechanism, and
 explain what the repair changes for Alex before moving to his next need.
 
 > Alex needs headphones for focus and calls, a monitor for code and documents,
-> and a chair for long days. We have over half a million product listings in
+> and a chair for long days. We have more than 500,000 product listings in
 > Aurora. Can we find suitable products, rank them, and support each recommendation?
 
 Show the correctly spelled headphone request, then the guide's transposed ID
@@ -100,7 +100,7 @@ Lab 2 only after they have inspected those results.
 
 Point participants to the Event Dashboard's **CodeEditorURL** and **MosaicURL**.
 Code Editor opens a prepared terminal and the numbered lab views:
-**01 - Retrieve**, **02 - Rank and re-rank**, **03 - Reason**. **04 - Explore
+**01 - Retrieve**, **02 - Rank and rerank**, **03 - Reason**. **04 - Explore
 Mosaic source** contains application files; maintainer
 files and reference answers are hidden. These views use the same files and paths.
 The default theme is **Dark Modern**.
@@ -113,8 +113,9 @@ marked block, apply/deploy, then repeat and explain the result.
 
 ### Lab 1: candidate membership
 
-Follow the guide's three typo searches. Run each production search separately
-in `psql`; find the method whose candidates never reach fusion. Participants
+Follow the guide's three searches: full-text search, fuzzy matching and semantic
+search. Run each production search separately in `psql`; find the search whose
+candidates never reach fusion. Participants
 repair only `LAB1_EDIT` in `labs/lab1_retrieve/hybrid_search.sql`. Search lives
 in one schema, `mosaic_search`: the `product_listing` table and its
 `product_search_*` indexes, the `product_listing_view` every search reads, and the
@@ -124,7 +125,7 @@ shows exactly what Aurora runs.
 After applying SQL, inspect the intended listing's fuzzy matching rank and
 contribution. The correct-ID and brand/category controls must still pass.
 Another listing of the same model is not the requested identity. Reranking
-cannot recover a product it never receives. The vector recall query is optional.
+cannot recover a product it never receives. The HNSW recall query is optional.
 
 At the end of Lab 1, `uv run python scripts/lab_state.py advance --lab 1`
 validates the applied repair and live retrieval controls, saves the passing
@@ -137,7 +138,7 @@ while `advance` refuses. A refusal names the first difference (for example
 `column 3 is fuzzy_score`), the fix and the rerun. Equivalent SQL passes:
 column or table aliases and qualified columns. Live-check failures in the
 terminal name the
-product and search method as Shop does and end in a command or a facilitator
+product and the search that found it, as Shop does, and end in a command or a facilitator
 handoff; an apply error names the participant's file and line, and
 `uv run python scripts/diff.py` names in plain words the lines of a lab file that
 differ from the reference answer, inside and outside the markers, without printing
@@ -156,7 +157,7 @@ contributions with the formula. Participants repair only `LAB2_EDIT` in
 `labs/lab2_rank/rrf_contribution.sql`, apply, repeat and grade the saved request.
 Read their actual ranks; do not demand a recorded example's exact positions.
 
-In **2b — Re-rank**, distinguish reaching the shortlist from reaching the page.
+In **2b — Rerank**, distinguish reaching the shortlist from reaching the page.
 `uv run python labs/lab2_rank/rerank_off_on.py` runs the request with reranking
 off, then on; it shows a gain on size and resolution, not proof
 of charging compatibility. The request filters Electronics and Monitor; its

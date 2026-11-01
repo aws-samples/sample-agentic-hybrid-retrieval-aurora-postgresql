@@ -41,10 +41,10 @@ function rrfFormula(
 
 /**
  * One product's itemized receipt from the search that returned it, in the
- * shopper vocabulary: each method that found it with its position and what that
+ * shopper vocabulary: each search that found it with its position and what that
  * position contributed, the combined total before reranking, the reranker's
  * score, the final position, and what the listing itself states. Every value is
- * recorded by the saved search. A method that did not find the product says
+ * recorded by the saved search. A search that did not find the product says
  * "no match" with no position, because a position there would be one Mosaic
  * invented; that absence is what Lab 1 asks a participant to notice.
  *

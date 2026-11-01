@@ -132,11 +132,11 @@ it("shows every recommendation, follows its recorded search, and preserves a cho
   await act(async () => emit({ type: "answer_start", response: answer }));
   expect(screen.getByRole("region", { name: "Mosaic’s picks for Alex" })).toBeTruthy();
   // The agent's searches wait until its answer has been read out.
-  expect(screen.queryByRole("combobox", { name: "Search shown in Retrieve, Rank and Re-rank" })).toBeNull();
+  expect(screen.queryByRole("combobox", { name: "Search shown in Retrieve, Rank and Rerank" })).toBeNull();
   expect(screen.queryByRole("list", { name: "Final ranking preview" })).toBeNull();
   await act(async () => { emit({ type: "complete", response: answer }); finish(); });
   const picks = await screen.findByRole("region", { name: "Mosaic’s picks for Alex" }, { timeout: READ_OUT_MS });
-  const selector = await screen.findByRole("combobox", { name: "Search shown in Retrieve, Rank and Re-rank" }) as HTMLSelectElement;
+  const selector = await screen.findByRole("combobox", { name: "Search shown in Retrieve, Rank and Rerank" }) as HTMLSelectElement;
   expect(selector.value).toBe(firstSearchId);
   openDetail(DETAILS.rerank);
   await waitFor(() => expect(productLinks(screen.getByRole("list", { name: "Final ranking preview" }))).toEqual(first.results.map((product) => `/products/${product.product_id}`)));
@@ -419,7 +419,7 @@ it("keeps the first search counts when a later search supplies the leading recom
   await screen.findByRole("region", { name: "Mosaic’s picks for Alex" }, { timeout: READ_OUT_MS });
   openDetail(DETAILS.retrieve);
   await waitFor(() => expect(visibleCounts()).toEqual(["4", "4", "46"]));
-  const selector = screen.getByRole("combobox", { name: "Search shown in Retrieve, Rank and Re-rank" });
+  const selector = screen.getByRole("combobox", { name: "Search shown in Retrieve, Rank and Rerank" });
   fireEvent.change(selector, { target: { value: secondSearchId } });
   openDetail(DETAILS.retrieve);
   expect(visibleCounts()).toEqual(["0", "0", "50"]);
@@ -490,12 +490,12 @@ it("prints what each arm alone scores from the measured artifact and counts this
   window.history.replaceState({}, "", `/labs/retrieval?event=${firstSearchId}`);
   vi.spyOn(api, "retrievalEventResponse").mockResolvedValue(savedSearch(firstSearchId, products));
   render(<PlaygroundPage />);
-  expect(screen.queryByRole("table", { name: "Scores for each search method" })).toBeNull();
+  expect(screen.queryByRole("table", { name: "Scores for each search" })).toBeNull();
   openDetail(DETAILS.retrieve);
   await waitFor(() => expect(document.querySelectorAll(".method-column")).toHaveLength(3));
   openDetail(DETAILS.retrieve);
-  fireEvent.click(screen.getByText("Compare search methods"));
-  const table = await screen.findByRole("table", { name: "Scores for each search method" });
+  fireEvent.click(screen.getByText("Compare searches"));
+  const table = await screen.findByRole("table", { name: "Scores for each search" });
   expect(within(table).getAllByRole("rowheader").map((cell) => cell.textContent)).toEqual(["Full-text search alone", "Fuzzy matching alone", "Semantic search alone", "All three combined", "Combined, then reranked"]);
   expect(within(table).getByRole("row", { name: /Full-text search alone/ }).textContent).toContain("0.61");
   expect(within(table).getByRole("row", { name: /Combined, then reranked/ }).textContent).toContain("0.93");
@@ -510,7 +510,7 @@ it("says the measured comparison is waiting when the artifact is not attributed 
   render(<PlaygroundPage />);
   openDetail(DETAILS.retrieve);
   expect(await screen.findByText("The measured comparison is waiting for a re-measure on this build.")).toBeTruthy();
-  expect(screen.queryByRole("table", { name: "Scores for each search method" })).toBeNull();
+  expect(screen.queryByRole("table", { name: "Scores for each search" })).toBeNull();
 });
 
 // The search's first result is not the agent's recommendation. On a declined
@@ -585,6 +585,6 @@ it("traces an omitted first result separately from a final choice in another sea
   expect(rows[0].textContent).toContain(`Listing ${omitted.sku}`);
   expect(summary.textContent).toContain("Omission alone does not explain why a product was left out.");
   fireEvent.click(within(summary).getByRole("button", { name: `Trace ${chosen.title}` }));
-  expect((screen.getByRole("combobox", { name: "Search shown in Retrieve, Rank and Re-rank" }) as HTMLSelectElement).value).toBe(secondSearchId);
+  expect((screen.getByRole("combobox", { name: "Search shown in Retrieve, Rank and Rerank" }) as HTMLSelectElement).value).toBe(secondSearchId);
   expect(document.activeElement?.id).toBe(`ranked-product-${chosen.product_id}`);
 });

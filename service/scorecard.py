@@ -99,7 +99,7 @@ SAMPLE_DESCRIPTION = (
     "Prepared searches with selected products graded by suitability. Several "
     "products can be appropriate for the same request. These checks detect "
     "known retrieval regressions; they do not represent customer traffic or "
-    "judge every product in the 500,000-product catalog."
+    "judge every product in the catalog."
 )
 
 ELIGIBILITY_DESCRIPTION = (

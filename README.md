@@ -58,7 +58,7 @@ the same request. Your repairs carry forward from one lab to the next.
 | Lab | Question to answer | Where you work |
 |---|---|---|
 | **Lab 1: Retrieve - Debug hybrid search** | Can search find Alex's Logitech Zone 900 headphones from a mistyped listing ID? | [`labs/lab1_retrieve/`](labs/lab1_retrieve/) |
-| **Lab 2: Rank and re-rank - Tune rank fusion and reranking** | Which candidates survive rank fusion, and how does reranking change their order? | [`labs/lab2_rank/`](labs/lab2_rank/) |
+| **Lab 2: Rank and rerank - Tune rank fusion and reranking** | Which candidates survive rank fusion, and how does reranking change their order? | [`labs/lab2_rank/`](labs/lab2_rank/) |
 | **Lab 3: Reason - Build and deploy the Retrieval agent** | Can your Retrieval agent complete Alex's setup, support each choice with sources, and respond when his requirements change? | [`labs/lab3_reason/`](labs/lab3_reason/) |
 
 Labs 1 and 2 are SQL exercises: you diagnose in `psql`, repair the marked SQL file and
@@ -81,14 +81,14 @@ rank fusion and building your own retrieval tool.
 
 ## How hybrid retrieval works
 
-![The four stages, left to right: Retrieve runs full-text search, fuzzy matching and semantic search in Aurora PostgreSQL; Rank combines the three lists with reciprocal rank fusion; Re-rank uses Cohere on Amazon Bedrock to check fit; Reason uses a Strands agent on AgentCore Runtime to help Alex decide.](docs/images/retrieval-pipeline.png)
+![The four stages, left to right: Retrieve runs full-text search, fuzzy matching and semantic search in Aurora PostgreSQL; Rank combines the three lists with reciprocal rank fusion; Rerank uses Cohere on Amazon Bedrock to check fit; Reason uses a Strands agent on AgentCore Runtime to help Alex decide.](docs/images/retrieval-pipeline.png)
 
 1. **Retrieve.** Under the same SQL filters, three searches each return a ranked list:
    PostgreSQL full-text search (`tsvector`) for terms and IDs, `pg_trgm` fuzzy matching
    for misspellings, and `pgvector` semantic search (HNSW) for meaning.
 2. **Rank.** Reciprocal rank fusion (RRF) combines the lists by position, because each
    search scores on its own scale, and keeps a shortlist.
-3. **Re-rank.** Cohere Rerank 3.5 compares each shortlisted product with the request and
+3. **Rerank.** Cohere Rerank 3.5 compares each shortlisted product with the request and
    reorders the shortlist. It cannot recover a product that never reached it.
 4. **Reason.** The Retrieval agent chooses its searches, reads specifications and
    reviews, and answers with sources. A citation identifies a source but does not prove
@@ -144,7 +144,7 @@ contracts, the agent skill, and the search SQL with its adaptation guide.
 
 - [Adapt the implementation](docs/use-in-your-app.md) maps the schema, retrieval SQL,
   ranking, evaluations and citation checks to the files you change.
-- The [Hybrid Agentic Search skill](skills/mosaic-hybrid-retrieval/SKILL.md) gives your
+- The [agentic hybrid retrieval skill](skills/mosaic-hybrid-retrieval/SKILL.md) gives your
   agent instructions for finding products, comparing them and checking sources. Keep
   its reference files together and follow the
   [adaptation checklist](skills/mosaic-hybrid-retrieval/references/adapting.md).

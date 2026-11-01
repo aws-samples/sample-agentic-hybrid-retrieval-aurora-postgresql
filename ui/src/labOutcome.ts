@@ -252,7 +252,7 @@ function retrieveFaultCopy(
   if (facts.fuzzyPool === 0) {
     return {
       title: `The ${target} is missing`,
-      detail: `Alex typed ${mission.query}. Fuzzy matching is the only method that can match a mistyped ID, and it returned no candidates, so the ${target} never reached the results. Reranking cannot bring back a product that was never retrieved.`,
+      detail: `Alex typed ${mission.query}. Fuzzy matching is the only search that can match a mistyped ID, and it returned no candidates, so the ${target} never reached the results. Reranking cannot bring back a product that was never retrieved.`,
     };
   }
   if (!facts.targetsPresent) {
@@ -268,7 +268,7 @@ function retrieveFaultCopy(
 }
 
 function rankRepairedDetail(rank?: RankFacts): string {
-  const rule = "Each search method now scores its own positions.";
+  const rule = "Each search now scores its own positions.";
   if (!rank || rank.finalRank == null) return rule;
   const reached = rank.combinedRank == null
     ? `finished at final #${rank.finalRank}`
@@ -286,7 +286,7 @@ function participantCopy(
     return fixed
       ? {
           label: "Repair verified",
-          title: "Fuzzy retrieval is contributing",
+          title: "Fuzzy matching is contributing",
           detail:
             "Every product shown still fits Alex's request and filters.",
         }
@@ -312,7 +312,7 @@ function participantCopy(
           label: "Issue reproduced",
           title: "Combining scores ignores each search position",
           detail:
-            "The final order looks plausible, but the combined order ignores the positions from each search method.",
+            "The final order looks plausible, but the combined order ignores the positions from each search.",
           next: labRepairStep(mission, "run this request again"),
         };
   }
@@ -465,7 +465,7 @@ export function liveRetrievalOutcome(
     title,
     detail: gatesDiverged
       ? "This run used Shop's gates, so the lab verdict does not apply. Select the scenario and run it to judge the repair against the scenario's own gates."
-      : "This query is outside the selected checkpoint. Check the positions from each search method and whether the products meet its filters.",
+      : "This query is outside the selected checkpoint. Check the positions from each search and whether the products meet its filters.",
   };
 }
 

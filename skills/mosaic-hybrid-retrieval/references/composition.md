@@ -4,14 +4,14 @@
 
 This is a reveal, not a lab. It occupies 2 to 3 minutes of the 5-minute scorecard
 segment. It adds no required exercise, no provisioning, and no fourth lab. The
-required path remains Retrieve, Rank, Re-rank, Reason across three labs. The subject of this document is
+required path remains Retrieve, Rank, Rerank, Reason across three labs. The subject of this document is
 composability — what a capability lets another agent consume, and what it keeps
 hidden — not a tutorial on any particular transport protocol.
 
 ## 1. What the skill is
 
 One bounded, catalog-read-only retrieval capability over Aurora PostgreSQL. It
-generates candidates three ways, enforces eligibility in SQL, fuses the arms,
+generates candidates three ways, enforces eligibility in SQL, fuses the searches,
 reranks the bounded pool, and returns a receipt of what it did and what it
 granted. Search appends retrieval and candidate receipts, so it is not
 idempotent and needs write capacity for observability data. The full capability
@@ -70,8 +70,8 @@ reproduce the underlying PostgreSQL retrieval mechanics. Some implementation
 details, including index/plan information, may be inspectable through
 diagnostics such as `plan_json` when a plan has been captured separately.
 
-> Encapsulation ≠ secrecy. The skill hides the *responsibility* for FTS,
-> `pg_trgm`, HNSW, RRF, and the rest; it does not promise those mechanics can
+> Encapsulation ≠ secrecy. The skill hides the *responsibility* for full-text
+> search, `pg_trgm` fuzzy matching, `pgvector` semantic search, RRF, and the rest; it does not promise those mechanics can
 > never be inspected.
 
 Read that as one claim, not as two buckets with a line between the observable
@@ -87,24 +87,24 @@ EXPLAIN" action, so a real, participant-run event can carry a populated
 `plan_json` by the time a caller reads it back through `explain_retrieval`.
 A captured `EXPLAIN (ANALYZE, BUFFERS, SETTINGS, FORMAT JSON)` plan over the
 run's own fusion SQL then names one storage structure outright:
-`product_document_embedding_hnsw_cosine_idx`, the HNSW index behind the vector
-arm, resolves to an `Index Scan`. The full-text and fuzzy arms do not resolve
+`product_document_embedding_hnsw_cosine_idx`, the HNSW index behind semantic
+search, resolves to an `Index Scan`. The full-text and fuzzy searches do not resolve
 that far — the planner records them as `Function Scan` nodes over `search_fts`
-and `search_fuzzy`, and it does not expand a plpgsql body, so those arms'
+and `search_fuzzy`, and it does not expand a plpgsql body, so those searches'
 indexes are named nowhere in the plan. One named index is enough to make the
 point: a caller who never asked for any of this can still end up holding it.
 
 None of that inspectability requires a caller to ask twice.
 `include_diagnostics` defaults to `True`, so a plain `search_products` call
-already returns the receipt. A caller can read that the full-text arm
-contributed `fts_in_pool` candidates and the fuzzy arm `fuzzy_in_pool`;
-that the fuzzy arm's similarity floor was `fuzzy_threshold`; that fusion
-ran with `rrf_k`; that each arm was capped before fusion at `fts_limit`,
+already returns the receipt. A caller can read that the full-text search
+contributed `fts_in_pool` candidates and the fuzzy search `fuzzy_in_pool`;
+that the fuzzy search's similarity floor was `fuzzy_threshold`; that fusion
+ran with `rrf_k`; that each search was capped before fusion at `fts_limit`,
 `fuzzy_limit`, and `semantic_limit`, and the fused pool at `fused_limit`;
 and whether, and when, the reranker ran, as `rerank_status`,
-`rerank_model_id`, and `stage_timings_ms["rerank"]`. The semantic arm's
+`rerank_model_id`, and `stage_timings_ms["rerank"]`. The semantic search's
 identity sits in the same place: `search_products`'s own `candidate_counts`
-only ever names that arm the generic `semantic_in_pool`, but `explain_retrieval`
+only ever names that search the generic `semantic_in_pool`, but `explain_retrieval`
 persists and returns the same tuning under the literal key `hnsw_settings`, so
 the index family was already inspectable on that operation before `plan_json`
 named it a second, more specific way. `evidence_id` and `source_uri` address
@@ -113,10 +113,10 @@ just handed over — ordinary resource addressing, not a leak of the storage
 layout underneath it.
 
 None of that inspectability is ownership. A caller can read that `rrf_k` is
-`60`, that the semantic arm ran with a particular `ef_search`, or that a
+`60`, that the semantic search ran with a particular `ef_search`, or that a
 captured plan named a particular index, and still never have had to choose
 any of it, implement fusion, tune an index, or keep any of it consistent with
-the arm caps: the service resolved every one of those values, enforced every
+the search caps: the service resolved every one of those values, enforced every
 one of them, and persisted the receipt so the run can be replayed rather than
 reasoned about after the fact. Inspectable is not the same claim as "configure
 this yourself." The capability keeps working, unchanged from the caller's
@@ -130,7 +130,7 @@ have been captured for the run the caller is reading.
 This is also the claim that actually fits the product. The workshop's own UI
 puts this same diagnostics JSON two clicks away — the Playground tab, then its
 "View retrieval event" disclosure — and the captured plan one click past that,
-behind "View EXPLAIN." A composition document asserting that arm identities,
+behind "View EXPLAIN." A composition document asserting that search identities,
 thresholds, rerank status, or index structures were permanently off-limits
 would contradict a surface the workshop hands every participant. The honest
 claim was always the one that does not need an inventory to defend: nothing
@@ -163,7 +163,7 @@ provisioned. Section 5 is a documentation profile, written so the composition
 story stays concrete instead of hand-waved, not a claim that it runs anywhere.
 
 Every existing adapter reaches the same `RetrievalService` and
-`service/retrieval_scope.py`, reimplements none of filters, arms, fusion,
+`service/retrieval_scope.py`, reimplements none of filters, searches, fusion,
 reranking, or evidence access, and carries no scope policy of its own. An A2A
 adapter, if one were ever built, would be bound by the same rule — a
 composability boundary, not a transport detail, so it belongs here rather than
@@ -218,9 +218,9 @@ Agent Card in that contract's documented shape:
 
 The rest of the Agent Card is ordinary metadata this capability would set, not
 an added protocol constraint: `name: "Mosaic Hybrid Retrieval"`,
-`description: "Catalog-read-only product retrieval over Aurora PostgreSQL full-text,
-pg_trgm, and pgvector HNSW with reciprocal rank fusion and managed
-reranking"`, `version: "0.2.0"`,
+`description: "Catalog-read-only product retrieval over Aurora PostgreSQL full-text
+search, pg_trgm fuzzy matching, and pgvector semantic search with reciprocal
+rank fusion and managed reranking"`, `version: "0.2.0"`,
 `url: "https://bedrock-agentcore.<region>.amazonaws.com/runtimes/<agent-arn>/invocations/"`,
 `capabilities: {"streaming": false}`, `defaultInputModes` and
 `defaultOutputModes: ["text"]`, and

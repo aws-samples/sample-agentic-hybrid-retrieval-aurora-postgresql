@@ -6,7 +6,7 @@ import type { ProductDetail } from "../types";
 
 /**
  * The mistyped ID beside the listing's own, with the characters that differ
- * marked. Lab 1's fault is exactly this gap: fuzzy matching is the only method
+ * marked. Lab 1's fault is exactly this gap: fuzzy matching is the only search
  * that can bridge it, so showing it says why the product went missing.
  */
 function IdComparison({ typed, listing }: { typed: string; listing: string }) {

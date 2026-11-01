@@ -322,9 +322,9 @@ from the search that returned it, inside Shop's "Why this match" disclosure on
 `ProductCard`. The card is `--paper-strong`, 16px corners, `--shadow`, 14px
 sans. In order:
 
-1. One line per retrieval method from `armLanguage`, with a Retrieve dot, the
-   product's position in that method and its fusion contribution to four
-   decimals. A method that did not find the product (`missed`) shows a hollow
+1. One line per search from `armLanguage`, with a Retrieve dot, the
+   product's position in that search and its fusion contribution to four
+   decimals. A search that did not find the product (`missed`) shows a hollow
    violet dot, `--ink-soft` text, no position and "no match". A position there
    would be one Mosaic invented. Beneath a found line, a 12px `--ink-soft`
    sub-line (`.receipt-how`) spells out the arithmetic and its value --
@@ -472,9 +472,9 @@ address is a centred title, one line and a "Back to Shop" pill.
   `tests/test_participant_commands.py` holds to the service's copies.
 - Retrieve, Rank and Reason keep their stage colours on the Playground as
   markers only: the pipeline page's stage chips carry a `--retrieve`, `--rank`
-  or green dot, and the reranked step is green. The three search methods are all
+  or green dot, and the reranked step is green. The three searches are all
   Retrieve: the pipeline page draws their dots in `--retrieve` and tells them
-  apart by label, and a method that found nothing gets a hollow dot, as in the
+  apart by label, and a search that found nothing gets a hollow dot, as in the
   Shop receipt.
 - Every Playground send uses `MosaicRunButton`: a 44px `--action` disc with
   an `--action-ink` plane icon, `--action-hover` under the pointer, and a spinner
@@ -486,7 +486,7 @@ address is a centred title, one line and a "Back to Shop" pill.
   Alex's request in a 26px-radius `--paper-strong` card), a compact final-choice
   summary and an expandable trace of every returned product. The trace names
   listing IDs, search positions, successful comparisons, registered evidence
-  counts and final inclusion. The selected search's record and method-read chips
+  counts and final inclusion. The selected search's record and read chips
   expand on demand. Its first result uses a 144×152 photo beside its search number,
   position and agent-selection status, then Retrieve, Rank and Reason follow as
   full-width sections with 34px sentence headings and a stage chip. Retrieve's
@@ -586,7 +586,7 @@ and keeps the address; it no longer silently shows Shop.
 - PostgreSQL owns filtering, retrieval, and rank fusion; the interface shows
   what it did and never recomputes it. The receipt prints recorded positions
   and scores only.
-- Per-method ranks, fused rank, rerank, and final rank stay visually distinct.
+- Per-search ranks, fused rank, rerank, and final rank stay visually distinct.
 - Citations and source revisions are inspectable from the answer.
 - Technical detail discloses progressively without blocking the task.
 - Controls keep stable dimensions while content loads.
@@ -724,8 +724,8 @@ for the tool, who requested it and how it ended, result count, latency, saved
 search id, arguments). Under the search phase, "How it ranked" has a tab per
 search. Its rows come from `/api/retrieval/events/{id}`, fetched by each step's
 `retrieval_run_id` only once Builder view is on: final position, combined
-position, each retrieval method's position, the recorded rerank score, and a bar
-splitting the combined score by method using the contributions the database
+position, each search's position, the recorded rerank score, and a bar
+splitting the combined score by search using the contributions the database
 wrote (never recomputed, so no constant `k` lives in `ui/src`). `k` and the
 reranker are printed from the saved search. If the saved search cannot be read,
 the recommended products' own signals stand in and the block says "Ranks for the

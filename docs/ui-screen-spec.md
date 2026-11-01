@@ -46,10 +46,10 @@ With a query the story is not rendered. The headline stays the page's h1 for
 assistive technology only, and `Results for ...` is the display line. A search
 shows, in order: one strip of chips for how it ran (each search's count on the
 shortlist, Combined (RRF) · shortlist, Reranked with the shortlist's size, shown)
-with a link to watch the ranking change in the Playground; **Each method's top
+with a link to watch the ranking change in the Playground; **Each search's top
 five**, one column per search plus Combined (RRF) and Reranked, each naming the
 SQL function the guides call (`search_fts`, `search_fuzzy`, `search_semantic`,
-`search_hybrid_rrf`). Each column lists that method's own top five on the
+`search_hybrid_rrf`). Each column lists that search's own top five on the
 shortlist, read from the search's saved receipts: a search row gives its final
 position, Combined and Reranked rows their ▲/▼ movement, and rows below the page
 are faded. A column is empty only when its search put nothing on the shortlist.
@@ -73,14 +73,14 @@ Components:
   "How Mosaic answered" fold once answered, opened by default on the Builder
   view (the "Show tool calls" switch): the full Retrieval agent record ID,
   recorded steps and each search's ranks;
-- agent shortlist cards labelled by the arms that retrieved them, the searches
+- agent shortlist cards labelled by the searches that retrieved them, the searches
   and constraints behind the shortlist, evidence citations, rank explanation,
   and tool receipts;
 - one compact receipt vocabulary across search and agent turns: filters,
-  candidates by arm, fused rank, rerank, evidence IDs, and latency;
+  candidates by search, fused rank, rerank, evidence IDs, and latency;
 - a side-by-side comparison of two to five ticked results, served by the
   scoped compare route rather than filtered from the rendered list, so it can
-  print the arms that found each product, its rank before reranking, and the
+  print the searches that found each product, its rank before reranking, and the
   rank shown. Offered only once a search has run, because the retrieval's
   grant is what authorises it; a product outside that grant is refused with a
   detail that names no product;

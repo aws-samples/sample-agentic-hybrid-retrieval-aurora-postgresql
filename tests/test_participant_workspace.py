@@ -19,7 +19,7 @@ def test_workspace_roots_are_the_production_lab_directories():
     folders = json.loads(WORKSPACE.read_text())["folders"]
     assert [folder["name"] for folder in folders] == [
         "01 - Retrieve",
-        "02 - Rank and re-rank",
+        "02 - Rank and rerank",
         "03 - Reason",
         "04 - Explore Mosaic source",
     ]

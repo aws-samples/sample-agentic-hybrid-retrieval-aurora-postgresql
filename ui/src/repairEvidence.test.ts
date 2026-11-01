@@ -91,7 +91,7 @@ const LAB1_AFTER = run(
 );
 
 describe("buildRepairEvidence — measured Lab 1 pair", () => {
-  it("shows the fuzzy search method's participation moving 0 -> 1", () => {
+  it("shows the fuzzy search's participation moving 0 -> 1", () => {
     const evidence = buildRepairEvidence(LAB1_BEFORE, LAB1_AFTER);
     const fuzzy = evidence.armDeltas.find((delta) => delta.arm === "fuzzy");
 

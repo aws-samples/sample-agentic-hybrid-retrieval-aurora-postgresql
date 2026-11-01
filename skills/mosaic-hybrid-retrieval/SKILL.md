@@ -1,17 +1,17 @@
 ---
 name: mosaic-hybrid-retrieval
-description: Run hybrid agentic product search with PostgreSQL tsvector, pg_trgm and pgvector, reciprocal rank fusion, Cohere Rerank, and evidence-backed answers. Use when finding or comparing products through a compatible Mosaic backend and checking filters, recall, ranking and citations.
+description: Run agentic hybrid retrieval with full-text search (tsvector), pg_trgm fuzzy matching and pgvector semantic search, reciprocal rank fusion, Cohere Rerank, and evidence-backed answers. Use when finding or comparing products through a compatible Mosaic backend and checking filters, recall, ranking and citations.
 metadata:
   compatibility: Requires an agent that can read these instructions and call HTTP tools, plus a running Mosaic-compatible service. Grounded answer synthesis requires the host application's citation validator or Mosaic's agent answer endpoint.
 ---
 
-# Hybrid Agentic Search
+# Agentic hybrid retrieval
 
 Use the workflow you built in the labs:
 
 ```text
-tsvector + pg_trgm + pgvector → RRF → Cohere Rerank → evidence-backed answers
-        SQL eligibility           bounded pool        scoped citations
+full-text + fuzzy + semantic → RRF → Cohere Rerank → evidence-backed answers
+  SQL eligibility              bounded pool        scoped citations
 ```
 
 This is an agent-independent operating skill. The host agent chooses the tool
@@ -28,7 +28,7 @@ obtain the authorized base URL and authentication from the user or host
 configuration, read [`references/http-api.md`](references/http-api.md), and
 inspect `GET /api/tools?surface=skill`. Do not embed credentials in this folder.
 
-Both adapters expose search, evidence, comparison and ranking inspection. The
+Both adapters expose search, evidence, comparison and retrieval explanation. The
 workflow below uses operation names; MCP and the agent take `search_event_id`,
 the HTTP skill takes `retrieval_scope_id`. Use only the operations actually listed by
 the connected server. Transport details are in
@@ -55,9 +55,9 @@ event, connect an independently deployed compatible service.
    unknown. Report both explicitly.
 2. **Retrieve.** Call `search_products` with the intent, supported filters,
    `rerank=true` and `include_diagnostics=true`. PostgreSQL full-text search over
-   `tsvector` matches words, `pg_trgm` recovers misspellings, and `pgvector`
-   finds semantic neighbors. Check `applied_filters`, per-arm signals and warnings.
-   SQL must apply eligibility inside every arm before its limit.
+   `tsvector` matches words, `pg_trgm` fuzzy matching recovers misspellings, and
+   `pgvector` semantic search finds nearest neighbors. Check `applied_filters`, per-search signals and warnings.
+   SQL must apply eligibility inside every search before its limit.
 3. **Inspect fusion and reranking.** Keep `search_event_id` and call
    `explain_retrieval`. RRF combines rank positions, not incompatible raw scores;
    Cohere Rerank only reorders the fused pool. Confirm reranking actually ran,
@@ -65,7 +65,7 @@ event, connect an independently deployed compatible service.
    the reranker's order. A failed or skipped rerank is a degraded result, not a
    successful full-pipeline run.
 4. **Check recall honestly.** A full result pool does not prove recall. Inspect
-   which arms found the relevant candidates. Quantitative recall requires judged
+   which searches found the relevant candidates. Quantitative recall requires judged
    relevant products or an exact-neighbor baseline with the same query vector and
    filters. If neither is available, label recall **not measured**. Use the
    procedures in [`references/quality-checks.md`](references/quality-checks.md)
@@ -135,7 +135,7 @@ transformation.
 | `attributes` | Domain-specific attribute equality constraints. |
 | `limit` | How many ranked results to return. 1 to 50. |
 | `authorized_limit` | How many of those results the caller authorizes for downstream evidence and comparison. Defaults to `limit`. Never greater than `limit`. |
-| `include_diagnostics` | Return per-arm counts, stage timings, and warnings. |
+| `include_diagnostics` | Return per-search counts, stage timings, and warnings. |
 | `rerank` | Apply managed reranking to the fused pool. |
 | `retrieval_scope_id` | The `search_event_id` returned by `search_products`. It addresses the retrieval and bounds evidence and comparison. |
 | `product_id`, `product_ids` | One granted product for evidence, or two to five granted products for comparison. |
@@ -146,10 +146,10 @@ transformation.
 | Field | Meaning |
 |---|---|
 | `search_event_id` | The retrieval-scope handle. Pass this value as `retrieval_scope_id` to the scoped operations. |
-| `results` | Ranked products, each carrying its own rank signals per arm, its fused rank, its rerank score, and its source attribution. |
-| `diagnostics` | Strategy, rerank status, candidate counts per arm, stage timings, warnings. |
+| `results` | Ranked products, each carrying its own rank signals per search, its fused rank, its rerank score, and its source attribution. |
+| `diagnostics` | Strategy, rerank status, candidate counts per search, stage timings, warnings. |
 | `applied_filters` | The eligibility actually enforced, as SQL received it. |
-| `normalized_query` | The query text the arms actually matched on. |
+| `normalized_query` | The query text the searches actually matched on. |
 
 ## Scope rules
 
@@ -195,7 +195,7 @@ disposable. A shared deployment must bind event replay to its owner. See
 
 ## Behavioral guarantees
 
-- Eligibility is applied inside each arm's SQL, before any limit, so a filter can
+- Eligibility is applied inside each search's SQL, before any limit, so a filter can
   never be simulated by discarding rows after the fact.
 - The candidate pool is bounded, and the bound is declared in the receipt.
 - Fusion is unweighted reciprocal rank fusion. The weighted variant exists only

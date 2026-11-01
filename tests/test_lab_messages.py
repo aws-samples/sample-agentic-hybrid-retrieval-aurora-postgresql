@@ -122,7 +122,7 @@ def test_every_lab_1_and_2_failure_names_its_finding_and_a_next_step():
 def test_a_missing_close_spelling_result_points_at_the_lab_1_file_and_its_check():
     anchor = lab_checks.lab_1_checks(RETRIEVE, {"results": []})[0]
 
-    assert "Fuzzy matching candidates are not reaching the combined results" in (
+    assert "fuzzy matching candidates are not reaching the combined results" in (
         anchor.detail
     )
     assert validate_applied_command(1) in anchor.detail

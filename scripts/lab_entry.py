@@ -512,7 +512,8 @@ def _advance_lab_1(
             )
         events: list[str] = []
         say(
-            "Validating Lab 1 in Aurora: the typo request, then two searches that must still work…"
+            "Validating Lab 1 in Aurora: the mistyped-ID request, "
+            "then two searches that must still work…"
         )
         checks = prove_lab_1(api_url, events, rerun=ADVANCE_TO_LAB_2)
         for check in checks:

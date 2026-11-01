@@ -643,7 +643,7 @@ whether a lab is finished.
 
 ## Retrieval scorecard
 
-- `GET /api/scorecard` backs the Playground's **Compare search methods** table,
+- `GET /api/scorecard` backs the Playground's **Compare searches** table,
   saved results the maintainers measured that do not grade a participant's
   repairs (labs are proved in the terminal). It is a read-only render of
   `data/evals/canonical_scorecard.json`, `data/evals/canonical_queries.jsonl`, the

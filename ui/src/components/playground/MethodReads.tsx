@@ -6,6 +6,18 @@ import { modelName } from "./RetrievalPath";
 
 const SHOWN_TRIGRAMS = 5;
 
+const READ_NOTES: Record<RetrievalArm, string> = {
+  fts: "Looks up the request’s words in each listing’s text.",
+  fuzzy:
+    "Compares three-letter slices of the text, trigrams, "
+    + "so a mistyped ID still shares most of them.",
+  semantic: "Compares the request’s embedding with each listing’s.",
+};
+
+function note(arm: RetrievalArm): ReactNode {
+  return <span className="method-reads-note">{READ_NOTES[arm]}</span>;
+}
+
 /** pg_trgm's trigrams for the request's words, in order and without repeats. */
 function requestTrigrams(query: string): string[] {
   const words = query.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean);
@@ -13,7 +25,7 @@ function requestTrigrams(query: string): string[] {
 }
 
 /**
- * One search's words as each method reads them: the lexemes full-text search
+ * One search's words as each search reads them: the lexemes full-text search
  * looks up, the trigrams fuzzy matching compares, and the vector semantic
  * search embeds. The agent may reword Alex's request, so this reads the
  * search's own query. A term no listing holds is struck through, from the
@@ -24,15 +36,20 @@ export function armReads(response: SearchResponse): Record<RetrievalArm, ReactNo
   const grams = requestTrigrams(response.query);
   const embedding = modelName(response.diagnostics?.embedding_model_id);
   return {
-    fts: terms.length
+    fts: <>{note("fts")}{terms.length
       ? terms.map((term) => (term.verdict === "matched"
         ? <code key={term.ordinal}>{term.lexeme}</code>
         : <s key={term.ordinal} title={term.verdict === "recoverable" ? `No listing holds it; closest is ${term.closest_lexeme}` : "No listing holds it"}><code>{term.lexeme}</code></s>))
-      : <span>words not in the saved record</span>,
+      : <span>words not in the saved record</span>}</>,
     fuzzy: <>
+      {note("fuzzy")}
       {grams.slice(0, SHOWN_TRIGRAMS).map((gram) => <code key={gram}>{gram.replace(/ /g, "␣")}</code>)}
       {grams.length > SHOWN_TRIGRAMS ? <span>+{grams.length - SHOWN_TRIGRAMS}</span> : null}
     </>,
-    semantic: <><code>vector</code>{embedding ? <span>{embedding}</span> : null}</>,
+    semantic: <>
+      {note("semantic")}
+      <code>vector</code>
+      {embedding ? <span>{embedding}</span> : null}
+    </>,
   };
 }

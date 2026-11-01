@@ -1,4 +1,4 @@
-/* Each method's top five: one card per method, in the PGConf demo's board style.
+/* Each search's top five: one card per search, in the PGConf demo's board style.
    Blue squares mark the three searches, orange the combining and reranking, and
    green the wanted product. Spacing is on the 8px scale. */
 .method-board { margin: 64px 0 24px; }
@@ -70,3 +70,4 @@
 .method-reads { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 10px 0 2px; color: var(--ink-soft); font-size: 12px; }
 .method-reads code { padding: 2px 7px; border-radius: 6px; background: color-mix(in srgb, var(--ink) 7%, transparent); color: var(--ink); font: 500 12px var(--mono); }
 .method-reads s { opacity: 0.55; }
+.method-reads-note { flex-basis: 100%; }

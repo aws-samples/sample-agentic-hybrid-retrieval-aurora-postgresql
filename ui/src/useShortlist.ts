@@ -21,7 +21,7 @@ function firstBy(receipts: SearchResultEventRecord[], rank: (row: SearchResultEv
 }
 
 /**
- * The shortlist products a board of each method's top five needs: every
+ * The shortlist products a board of each search's top five needs: every
  * search's first five, the combined order's, the final order's, and the wanted
  * product when the shortlist holds it.
  */
@@ -67,7 +67,7 @@ export function fromReceipt(product: ProductSummary, receipt: SearchResultEventR
 }
 
 /**
- * The products each method's top `top` draws from on the search's saved shortlist.
+ * The products each search's top `top` draws from on the search's saved shortlist.
  *
  * Reads the receipts the search wrote to Aurora, so a method whose matches all
  * ranked below the page still shows them, then loads each listed product that
@@ -97,7 +97,7 @@ export function useShortlist(
     })()
       .then((products) => { if (current) setPool({ key, products }); })
       .catch((error: unknown) => {
-        console.warn(`Each method's top five: could not read the shortlist of search ${searchEventId}; showing the products on the page.`, error);
+        console.warn(`Each search's top five: could not read the shortlist of search ${searchEventId}; showing the products on the page.`, error);
       });
     return () => { current = false; };
   }, [response, searchEventId, wantedId, top, key]);

@@ -39,7 +39,7 @@ function foundBy(product: ProductSummary): string {
   const hits = ARMS.filter(([arm]) => armRank(product, arm)?.rank != null).map(
     ([, label]) => label.toLowerCase(),
   );
-  return hits.length ? hits.join(", ") : "not found by any search method";
+  return hits.length ? hits.join(", ") : "not found by any search";
 }
 
 function priceDisplay(product: ProductSummary): string {

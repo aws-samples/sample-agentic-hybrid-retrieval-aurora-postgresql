@@ -18,9 +18,9 @@ This gives the workshop a clean teaching story without forcing every retrieval q
 Catalog source of truth
         ↓ refresh/upsert
 Product retrieval projection
-        ├── PostgreSQL FTS
-        ├── pg_trgm typo recovery
-        ├── pgvector HNSW semantic retrieval
+        ├── Full-text search (tsvector)
+        ├── pg_trgm fuzzy matching
+        ├── pgvector semantic search (HNSW)
         └── SQL/JSONB metadata filters
                 ↓
              RRF fusion
@@ -35,7 +35,7 @@ Product retrieval projection
 Product recommendations use **one product-level embedding**. Every active
 product has an authoritative specification row in `mosaic.product_evidence`;
 review evidence is available where sourced. Evidence retrieval ranks those rows
-against the question with FTS and uses the product vector only for the
+against the question with full-text search and uses the product vector only for the
 authoritative product-spec row, so the agent can separately answer:
 
 - Which products match the shopper's intent?
@@ -127,7 +127,7 @@ Do not overload one field for every retrieval stage.
 
 | Representation | Job |
 |---|---|
-| `search_document` | Weighted FTS for exact product language, model names, and features |
+| `search_document` | Weighted full-text search document for exact product language, model names, and features |
 | `trigram_text` | Typo tolerance for brands, models, aliases, and product terms |
 | `embedding_text` | Stable semantic product document; excludes volatile price/inventory |
 | `embedding` | HNSW candidate retrieval |

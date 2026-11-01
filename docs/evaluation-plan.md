@@ -8,8 +8,8 @@ A plausible-looking first result cannot answer that question.
 
 | Step | Participant question | Evidence to inspect |
 |---|---|---|
-| Retrieve | Did a known suitable headphone enter the results after the typo repair? | The target's presence and contributing search method in the saved search |
-| Rank | Does fusion use each search method's actual position? | Positions and reciprocal-rank arithmetic before model reranking |
+| Retrieve | Did a known suitable headphone enter the results after the fuzzy matching repair? | The target's presence and the search that contributed it |
+| Rank | Does fusion use each search's actual position? | Positions and reciprocal rank arithmetic before model reranking |
 | Reason | Do the recommendation's claims have supporting records? | Product specifications, reviews and resolvable source references |
 
 Use the existing lab mission queries in this order; their single source is
@@ -20,13 +20,13 @@ benchmark terminology. Historical synthetic fixtures and their generators have b
 Mosaic serves the real source catalog selected by `db/config/real-catalog-cache.json`. Current worked-example evidence is recorded in [the hybrid-search review](hybrid-search-design.md).
 The canonical query file contains the ten real-catalog requests.
 
-### Compare methods without changing the question
+### Compare searches without changing the question
 
 For a new judged request, inspect full-text search, fuzzy matching, semantic search,
 the RRF combined list, then model reranking, in that order. Keep the source
-selection, query vector, filters and configured per-method limits fixed.
+selection, query vector, filters and configured per-search limits fixed.
 
-- **Find:** did each method return any independently reviewed suitable products?
+- **Find:** did each search return any independently reviewed suitable products?
 - **Combine:** which suitable rows survived the combined-list cutoff?
 - **Reorder:** did suitable rows move up, and did unsuitable rows move down?
 - **Decide:** which claims are supported by specifications or reviews?
@@ -58,7 +58,7 @@ and run `make test-aurora-invariants`.
 
 - ten real-catalog cases with documented teaching concepts;
 - graded judgments from 0 (irrelevant) through 3 (ideal);
-- explicit hard negatives, expected channels, and ranking behavior;
+- explicit hard negatives, expected searches, and ranking behavior;
 - nine single-request product-retrieval cases;
 - one agent-contract case, `G-021`, validated through Lab 3 rather than
   mis-scored as one product search.
@@ -69,8 +69,8 @@ Run the measured release scorecard against Aurora:
 make score-evals
 ```
 
-This invokes the served retrieval path: indexed PostgreSQL FTS, `pg_trgm`,
-pgvector HNSW, pre-fusion SQL filters, unweighted RRF, Cohere Rerank 3.5, and
+This invokes the served retrieval path: indexed PostgreSQL full-text search, `pg_trgm`
+fuzzy matching, pgvector semantic search (HNSW), pre-fusion SQL filters, unweighted RRF, Cohere Rerank 3.5, and
 exact-identity preservation. It measures:
 
 - Recall@10, using judgments graded 2 or 3 as relevant;

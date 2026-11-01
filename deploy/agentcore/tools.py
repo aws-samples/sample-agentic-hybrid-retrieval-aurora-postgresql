@@ -24,9 +24,13 @@ def _result(value) -> dict:
     }
 
 
-@mcp.tool()
+@mcp.tool(
+    description=(
+        "Search Aurora with shared filters, full-text search, pg_trgm fuzzy matching, "
+        "pgvector semantic search and reranking."
+    )
+)
 def search_products(request: SearchRequest) -> dict:
-    """Search Aurora with shared filters, full-text search, pg_trgm, pgvector and reranking."""
     return _result(search(request))
 
 

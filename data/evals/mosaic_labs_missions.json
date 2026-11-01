@@ -1,6 +1,6 @@
 {
   "version": 3,
-  "name": "Mosaic Retrieve Rank Re-rank Reason Lab Contract",
+  "name": "Mosaic Retrieve Rank Rerank Reason Lab Contract",
   "ownership": {
     "source_repository": "Lab timing, retrieval examples, application surfaces, evaluation assertions, and the gap seams with their broken bodies (scripts/lab_state.py).",
     "workshop_studio": "Participant instructions, provisioning-time gap injection, and code-editor exercises."
@@ -74,14 +74,14 @@
         "approximate_lines": 5,
         "task": "Find the search whose candidates never reach fusion, then add its channels branch in search_hybrid_rrf.",
         "broken_state": "Alex transposes CF to FC in listing ID B0C2WWCFQB. Full-text search and the bounded semantic search list miss that listing. Fuzzy matching finds it, but search_hybrid_rrf never reads its CTE, so it never reaches fusion.",
-        "fixed_state": "The restored fuzzy matching channel admits Logitech Zone 900, product 1492978, with fuzzy rank 1. It was final rank 1 in repeated verification.",
+        "fixed_state": "The restored fuzzy matching admits Logitech Zone 900, product 1492978, with fuzzy rank 1. It was final rank 1 in repeated verification.",
         "observe_before": [
           "HTTP 200 with other headphones; the intended Logitech listing 1492978 is absent from the first 10 results.",
           "The saved combined pool omits 1492978 and reports fuzzy_in_pool = 0."
         ],
         "observe_after": [
           "The identical B0C2WWFCQB request returns listing B0C2WWCFQB (1492978).",
-          "The target has a fuzzy rank and contribution; its FTS and semantic ranks remain null.",
+          "The target has a fuzzy rank and contribution; its full-text search and semantic search ranks remain null.",
           "All products satisfy the headphones category and electronics domain filters."
         ],
         "checkpoint_question": "Why can related headphones be wrong for an exact-product request, and why could reranking not recover the missing listing?"
@@ -112,7 +112,7 @@
       "stage": "rank",
       "core": true,
       "duration_minutes": 10,
-      "title": "Lab 2: Rank and re-rank - Tune rank fusion and reranking",
+      "title": "Lab 2: Rank and rerank - Tune rank fusion and reranking",
       "discover_label": "Keep the right monitor in the shortlist",
       "canonical_query_id": "G-008",
       "query": "27 inch 4K monitor USB-C 90W laptop charging",
@@ -134,7 +134,7 @@
       "participant_edit": {
         "file": "labs/lab2_rank/rrf_contribution.sql",
         "approximate_lines": 6,
-        "task": "Restore the reciprocal-rank contribution formula 1 / (k + rank).",
+        "task": "Restore the reciprocal rank contribution formula 1 / (k + rank).",
         "broken_state": "Collapsed contributions erase positions within each search, so every single-search candidate ties and the 50-product cutoff is decided by product id: the oldest listings stay, and every recent 27-inch 4K USB-C listing, including the ViewSonic VG2756-4K, never reaches reranking.",
         "fixed_state": "Correct contributions retain the ViewSonic VG2756-4K (1551237), found by semantic search rank 10. In verification on the Mosaic catalog it moved from absent to combined position 21 and final position 5; its source record states 27-inch 4K IPS, USB-C with 90W charging over one cable, RJ45, HDMI and DisplayPort.",
         "observe_before": [
@@ -285,7 +285,7 @@
         "fts"
       ],
       "checkpoint": "baseline",
-      "expected_outcome": "The correctly spelled ASIN retrieves the intended Logitech listing with an Full-text search contribution.",
+      "expected_outcome": "The correctly spelled ASIN retrieves the intended Logitech listing with a full-text search contribution.",
       "assertions": [
         "target_in_top_k",
         "fts_signal_present",
@@ -331,7 +331,7 @@
       "core": false,
       "placement": "lab-1",
       "duration_minutes": 0,
-      "title": "Checkpoint - Recover a misspelled edition",
+      "title": "Checkpoint - Recover a misspelled feature",
       "discover_label": "A misspelled Logitech feature",
       "canonical_query_id": "G-022",
       "query": "Quick Acess to ANC and Bluetoth",
@@ -348,7 +348,7 @@
         "cohere_rerank"
       ],
       "checkpoint": "repair",
-      "expected_outcome": "Alex recalls a feature from the listing he saved, quick access to ANC and Bluetooth, and misspells two words. Full-text search and semantic search miss it; the restored fuzzy matching channel finds it at fuzzy rank 1 and reranking puts it first.",
+      "expected_outcome": "Alex recalls a feature from the listing he saved, quick access to ANC and Bluetooth, and misspells two words. Full-text search and semantic search miss it; the restored fuzzy matching finds it at fuzzy rank 1 and reranking puts it first.",
       "assertions": [
         "target_in_top_k",
         "fuzzy_signal_present",
@@ -387,7 +387,7 @@
         "cohere_rerank"
       ],
       "checkpoint": "baseline",
-      "expected_outcome": "Inspect which methods retrieve the Dell when the request describes screen resolution and laptop charging rather than a model name.",
+      "expected_outcome": "Inspect which searches retrieve the Dell when the request describes screen resolution and laptop charging rather than a model name.",
       "assertions": [
         "target_in_top_k",
         "semantic_signal_present",
@@ -624,7 +624,7 @@
           "domain": "consumer_electronics",
           "category_key": "headphones"
         },
-        "notice": "The deck’s worked search: follow the same headphones through Retrieve, Rank and Re-rank. Then ask the agent what their sources support. Live positions can differ from the deck’s saved run."
+        "notice": "The deck’s worked search: follow the same headphones through Retrieve, Rank and Rerank. Then ask the agent what their sources support. Live positions can differ from the deck’s saved run."
       },
       {
         "id": "recover-headphones",

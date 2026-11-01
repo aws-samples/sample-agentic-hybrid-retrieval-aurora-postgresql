@@ -1,7 +1,7 @@
 import type { CSSProperties, ReactNode } from "react";
 import { productImage } from "../media";
 import { RankMove } from "./RankMove";
-import { armLabel, armPoolKey, type RetrievalArm } from "../retrievalLanguage";
+import { armLabel, armLanguage, armPoolKey, type RetrievalArm } from "../retrievalLanguage";
 import type { ProductSummary, SearchResponse } from "../types";
 import "../method-board.css";
 
@@ -34,11 +34,9 @@ function bestSearchRank(product: ProductSummary): number | null {
   return ranks.length ? Math.min(...ranks) : null;
 }
 
-const ARM_ENGINE: Record<RetrievalArm, string> = {
-  fts: "tsvector and ts_rank_cd",
-  fuzzy: "pg_trgm",
-  semantic: "pgvector HNSW index",
-};
+const ARM_ENGINE = Object.fromEntries(
+  armLanguage.map((arm) => [arm.key, arm.mechanism]),
+) as Record<RetrievalArm, string>;
 
 /** The functions participants call by name in psql, so a card and the terminal agree. */
 const ARM_FUNCTION: Record<RetrievalArm, string> = {
@@ -95,11 +93,11 @@ function columnsFor(response: SearchResponse): Column[] {
 type Tier = "target" | "lower" | "unranked";
 
 /**
- * Each search method's own top five on the search's shortlist.
+ * Each search's own top five on the search's shortlist.
  *
  * Shared by Shop and the Playground. Every rank printed is the product's real
- * rank in that method, read from `signals`, never a renumbered position. With
- * `pool`, the shortlist products read from the search's saved receipts, a method
+ * rank in that search, read from `signals`, never a renumbered position. With
+ * `pool`, the shortlist products read from the search's saved receipts, a search
  * whose matches all ranked below the page still lists them, faded; without it
  * the board ranks only the products shown and says so. `targetRank` is the last
  * rank the lab counts as found (the manifest's bound), so the wanted product's
@@ -139,10 +137,10 @@ export function MethodBoard({
   const note = pool
     ? wantedMissing
       ? `The ${name} is not on the shortlist of ${shortlist}.`
-      : `Each method’s own top five on the shortlist of ${shortlist}. Faded rows are not among the ${shown} shown.${wanted ? " Green marks the lab’s product." : ""}`
+      : `Each search’s own top five on the shortlist of ${shortlist}. Faded rows are not among the ${shown} shown.${wanted ? " Green marks the lab’s product." : ""}`
     : wantedMissing
       ? `The ${name} is not among the ${shown} shown.`
-      : `The ${shown} shown, at each method’s own rank.${wanted ? " Green marks the lab’s product." : ""}`;
+      : `The ${shown} shown, at each search’s own rank.${wanted ? " Green marks the lab’s product." : ""}`;
 
   const badge = (column: Column): { tier: Tier; text: string } | null => {
     if (!wanted) return null;
@@ -153,9 +151,9 @@ export function MethodBoard({
   };
 
   return (
-    <section className="method-board" aria-label="Each method's top five">
+    <section className="method-board" aria-label="Each search's top five">
       <header className="method-board-head">
-        <h3>Each method’s top five</h3>
+        <h3>Each search’s top five</h3>
         <p>{note}</p>
       </header>
       <div className="method-columns" style={{ "--board-columns": columns.length, "--board-parts": parts } as CSSProperties}>

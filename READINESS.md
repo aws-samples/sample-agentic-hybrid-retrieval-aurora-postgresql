@@ -7,7 +7,7 @@ test pass into deployment evidence.
 ## Fixed session contract
 
 - exactly three required labs;
-- `RETRIEVE -> RANK -> RE-RANK -> REASON`;
+- `RETRIEVE -> RANK -> RERANK -> REASON`;
 - 553,911 real source products and saved Cohere Embed v4 vectors in Aurora;
 - no historical synthetic products, reviews or vocabulary in fresh workshops;
 - 40 minutes of required hands-on work, including completion, inside a 60-minute session;
@@ -177,7 +177,7 @@ Release readiness requires one recorded Workshop Studio rehearsal:
 6. save `build/bootstrap-timings.tsv` and restore with
    `--report build/real-catalog-restore.json` to record schema, restore and index times;
 7. run `make db-verify-bootstrap` to verify the pinned 553,911 real products and
-   saved vectors, required FTS/fuzzy/HNSW indexes, real vocabulary and receipts,
+   saved vectors, required full-text, fuzzy matching and HNSW indexes, real vocabulary and receipts,
    with zero historical products, brands or search documents;
 8. rehearse Labs 1, 2, and 3, including independent reset and solution paths;
 9. rehearse Cohere reranking and Ask Mosaic cold starts, recording prior model

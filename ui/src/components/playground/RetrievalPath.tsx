@@ -47,13 +47,13 @@ export function modelName(modelId: string | null | undefined): string | null {
   return `Cohere ${cohere[1] === "embed" ? "Embed" : "Rerank"} v${version}`;
 }
 
-/** The measured answer to "why hybrid": each method alone, then combined, then reranked. */
+/** The measured answer to "why hybrid": each search alone, then combined, then reranked. */
 export function MethodComparison({ ablation }: { response?: SearchResponse; ablation: ScorecardStageAblation | null | undefined }) {
   const gain = ablation?.attributed ? stageGainSentence(ablation) : null;
-  return <details className="pg-disclosure pg-methods"><summary>Compare search methods</summary><div>
+  return <details className="pg-disclosure pg-methods"><summary>Compare searches</summary><div>
     {ablation?.attributed ? <>
-      <table className="pg-arm-table" aria-label="Scores for each search method">
-        <thead><tr><th scope="col">Method</th><th scope="col">Ordering <small>nDCG@10</small></th><th scope="col">Found <small>Recall@10</small></th><th scope="col">First match <small>MRR</small></th></tr></thead>
+      <table className="pg-arm-table" aria-label="Scores for each search">
+        <thead><tr><th scope="col">Search</th><th scope="col">Ordering <small>nDCG@10</small></th><th scope="col">Found <small>Recall@10</small></th><th scope="col">First match <small>MRR</small></th></tr></thead>
         <tbody>{ablation.arms.map((arm) => <tr key={arm.key} data-served={arm.key === "rrf_fused_reranked" || undefined}>
           <th scope="row">{armTitle[arm.key]}</th><td>{arm.ndcg_at_10.toFixed(2)}</td><td>{arm.recall_at_10.toFixed(2)}</td><td>{arm.mrr.toFixed(2)}</td>
         </tr>)}</tbody>

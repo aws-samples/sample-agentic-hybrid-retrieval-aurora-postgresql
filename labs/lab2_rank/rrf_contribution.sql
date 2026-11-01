@@ -1,7 +1,7 @@
 -- Lab 2: the reciprocal rank fusion contribution.
 --
 -- Lab 1's mosaic_search.search_hybrid_rrf adds this contribution once for each
--- channel that found a product, so it alone decides how channel ranks combine.
+-- search that found a product, so it alone decides how search ranks combine.
 -- The marked block is Lab 2's edit; README.md beside this file has the task,
 -- the commands and the reference answer.
 
@@ -14,7 +14,7 @@ LANGUAGE sql
 IMMUTABLE
 PARALLEL SAFE
 AS $$
--- Lab 2 edit: one channel's contribution. See README.md beside this file.
+-- Lab 2 edit: one search's contribution. See README.md beside this file.
 -- LAB2_EDIT_START
 SELECT
     1.0::double precision

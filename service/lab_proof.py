@@ -197,7 +197,7 @@ def contained_database_state(
 #: Said beside a failing Lab 1 proof while Lab 2's fault is installed, so the
 #: participant is not sent to repair a lab that is already repaired.
 LAB1_UNDER_RANKING_FAULT = (
-    "Lab 2's ranking fault is installed. It gives every search method's candidates "
+    "Lab 2's ranking fault is installed. It gives every search's candidates "
     "the same 1/(k + 1) credit, so the swapped-ID listing ties with other headphones "
     "and can fall outside the candidates sent to reranking. Your Lab 1 repair is "
     "still in the file and in Aurora; this check runs normally once Lab 2 is repaired."

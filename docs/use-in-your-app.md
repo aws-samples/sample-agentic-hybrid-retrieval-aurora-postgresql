@@ -2,7 +2,7 @@
 
 Reuse the search, ranking and evidence operations you repaired. This guide maps
 the SQL, evaluation runner and citation checks to the files you adapt. The
-[Hybrid Agentic Search skill](../skills/mosaic-hybrid-retrieval/SKILL.md)
+[agentic hybrid retrieval skill](../skills/mosaic-hybrid-retrieval/SKILL.md)
 provides a calling agent with instructions and API mappings for a running
 Mosaic service. Your application retains responsibility for orchestration,
 answer synthesis and citation validation.
@@ -17,7 +17,7 @@ Keep a full checkout of Mosaic as the runnable reference. The downloadable exerc
    managed Lab 3 tools use IAM through Gateway; the portable adapter is a separate
    process for another host, not a publicly deployed workshop endpoint.
 2. Download `/api/skill-package` and keep its folder intact in your agent's skill
-   directory. It guides search, comparison, ranking inspection and source checks
+   directory. It guides search, comparison, retrieval explanation and source checks
    through the tools you connected. The tool sets differ by surface. The Gateway exposes three tools
    (`search_products`, `get_product_evidence`, `explain_retrieval`). The portable MCP
    adapter exposes four (search, evidence, compare and explain). The in-process agent has
@@ -43,10 +43,10 @@ adapting this single-participant workshop for shared use.
 
 - **Catalog facts and structured attributes.** `db/sql/03_catalog.sql`. Adapt: Your entities, price or eligibility fields, and JSONB attributes.
 - **Versioned source records.** `db/sql/05_evidence.sql`. Adapt: Source identity, ownership, revisions and evidence text.
-- **Searchable projection.** `db/sql/06_retrieval_projection.sql`. Adapt: Weighted FTS text, stable embedding text, and reranker text.
+- **Searchable projection.** `db/sql/06_retrieval_projection.sql`. Adapt: Weighted full-text search text, stable embedding text, and reranker text.
 - **Search indexes.** `db/sql/07_indexes.sql`, built after the load. Adapt: GIN indexes and the vector index for your dimensions and workload.
-- **FTS, fuzzy matching, semantic search and filters.** `db/sql/08_search_channels.sql`, with fusion in `labs/lab1_retrieve/solution/hybrid_search.sql`. Adapt: Search language and eligibility predicates inside each candidate path.
-- **Fusion arithmetic and candidate bounds.** `db/config/retrieval.yaml`, `mosaic_search.reciprocal_rank_contribution` in `labs/lab2_rank/solution/rrf_contribution.sql`. Adapt: Tune against your evaluation queries; retain per-arm ranks.
+- **Full-text search, fuzzy matching, semantic search and filters.** `db/sql/08_search_channels.sql`, with fusion in `labs/lab1_retrieve/solution/hybrid_search.sql`. Adapt: Search language and eligibility predicates inside each candidate path.
+- **Fusion arithmetic and candidate bounds.** `db/config/retrieval.yaml`, `mosaic_search.reciprocal_rank_contribution` in `labs/lab2_rank/solution/rrf_contribution.sql`. Adapt: Tune against your evaluation queries; retain per-search ranks.
 - **Embedding and reranking calls.** `service/embeddings.py`, `service/rerank.py`, `service/retrieval.py`. Adapt: Model identities, document text, error handling and latency budgets.
 - **Tool inputs and outputs.** `db/config/agent_tool_contracts.json`, `service/models.py`. Adapt: Typed parameters, source ownership and bounded responses.
 - **Tool implementation and registration.** `service/agent_tools.py`, `service/agent.py`. Adapt: `TOOL_FUNCTIONS`, focused searches, fresh evidence and application-owned state.
@@ -63,7 +63,7 @@ The example wraps `POST /api/search`, so it retains the production pipeline and 
 
 ## Keep ranking explainable
 
-Each candidate has a position in each retrieval list. The SQL template adds reciprocal-rank contributions and then passes a bounded pool to the reranker. Read the configured fusion constant and bounds from `db/config/retrieval.yaml`; do not copy another set of defaults into a client.
+Each candidate has a position in each retrieval list. The SQL template adds reciprocal rank contributions and then passes a bounded pool to the reranker. Read the configured fusion constant and bounds from `db/config/retrieval.yaml`; do not copy another set of defaults into a client.
 
 Higher RRF scores rank better within fusion. The reranker has its own score scale. Rank 1 is first in either list. Compare positions and candidate membership, not raw scores across methods or independent searches.
 

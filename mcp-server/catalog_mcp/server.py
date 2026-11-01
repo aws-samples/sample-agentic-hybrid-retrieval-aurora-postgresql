@@ -51,8 +51,9 @@ mcp = MCPServer(
     name="mosaic-retrieval",
     title="Mosaic hybrid product retrieval",
     description=(
-        "Catalog-read-only product discovery through PostgreSQL full-text, "
-        "pg_trgm, pgvector HNSW, hard filters, unweighted RRF, and Cohere Rerank."
+        "Catalog-read-only product discovery through full-text search, pg_trgm "
+        "fuzzy matching, pgvector semantic search, hard filters, unweighted RRF, "
+        "and Cohere Rerank."
     ),
     instructions=(
         "Use search_products to create a source-attributed candidate set. Pass "
@@ -201,7 +202,7 @@ def compare_products(
 @mcp.tool(
     title="Explain a retrieval",
     description=(
-        "Replay persisted full-text, fuzzy, semantic, RRF, rerank, "
+        "Replay persisted full-text search, fuzzy matching, semantic search, RRF, rerank, "
         "filter, timing, and final-order signals for one saved search. Unscoped "
         "by design: unlike the agent's explain_retrieval tool, any valid "
         "search_event_id resolves here, on the single-attendee disposable-instance assumption."

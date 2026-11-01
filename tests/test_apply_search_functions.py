@@ -219,7 +219,7 @@ def test_a_score_passed_as_the_position_names_the_argument_to_change():
         rolled_back=True,
     )
 
-    assert "takes a channel's position (bigint), got real" in message
+    assert "takes a search's position (bigint), got real" in message
     assert "fuzzy_rank" in message
     assert "fuzzy_score" in message
     assert "LAB1_EDIT" in message
@@ -233,7 +233,7 @@ def test_an_unrelated_missing_function_gets_no_position_advice():
         rolled_back=True,
     )
 
-    assert "takes a channel's position" not in message
+    assert "takes a search's position" not in message
 
 
 @pytest.mark.parametrize("sqlstate", ["42601", "42703", "22012"])
