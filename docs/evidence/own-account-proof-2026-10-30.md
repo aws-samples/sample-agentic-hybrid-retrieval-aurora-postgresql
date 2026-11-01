@@ -159,7 +159,9 @@ minutes after the first pass. The plain second delete then failed twice: CloudFo
 retries only `DELETE_FAILED` resources, so the two set aside stayed `DELETE_SKIPPED` inside
 the VPC and the VPC could not go. `teardown` now deletes them first; run that way on 31
 October, the Code Editor stack, the client security group, the root stack and the VPC were
-gone in 66 seconds. The us-west-2 interface was still in use at 01:46 UTC on 31 October.
+gone in 66 seconds. The us-west-2 interface was still in use at 01:46 UTC on 31 October;
+AWS removed it at 04:38 UTC, and the same `teardown` then finished us-west-2, so no proof
+stack or VPC remains in either Region.
 
 Transaction Search came back through the full stack: the custom resource's delete note was
 "restored indexing, destination, policy, kept aws/spans, kept
