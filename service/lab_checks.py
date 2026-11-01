@@ -41,6 +41,8 @@ from service.participant_commands import (
     APPLY_SQL,
     DEPLOY_AGENT,
     DIFF,
+    ask_agent_command,
+    grade_setup_run_command,
     validate_applied_command,
 )
 from service.retrieval_fingerprint import explain
@@ -1155,13 +1157,14 @@ def _explanation_problem(
     if not _is_plan(evidence.captured_plan):
         return explain(
             "Lab 3 EXPLAIN activity returned no PostgreSQL JSON plan",
-            "use the production plan-capture endpoint for the explained "
-            "retrieval event",
+            "ask Alex's setup request again; if the plan is still missing, tell "
+            "your facilitator",
         )
     if evidence.replayed_plan != evidence.captured_plan:
         return explain(
             "Lab 3 EXPLAIN plan was not persisted on the explained retrieval event",
-            "replay the same event after plan capture",
+            "ask Alex's setup request again; if the plan is still missing, tell "
+            "your facilitator",
         )
     return None
 
@@ -1233,7 +1236,8 @@ def _check_execution_origins(agent: Mapping[str, Any]) -> LabCheck:
                 f"execution origin for step(s) {unattributed}"
                 if unattributed
                 else "an empty tool trace",
-                "run Reason again so the Retrieval agent calls at least one tool",
+                "ask Alex's setup request again so the Retrieval agent calls at least "
+                "one tool",
             )
         ),
     )
@@ -1418,11 +1422,15 @@ def agent_response_checks(
 # Lab 3 -- the retrieval agent, graded over persisted rows
 # ---------------------------------------------------------------------------
 
-REASON_FIX = (
-    f"deploy your Retrieval agent with {DEPLOY_AGENT}, because Mosaic runs the deployed "
-    "copy, not the file in Code Editor; then run Reason on the "
-    "Playground and submit the agent_run_id it returns"
-)
+
+def reason_fix() -> str:
+    """The Lab 3 recovery in the participant's own commands: deploy, ask, grade."""
+    return (
+        f"deploy your Retrieval agent with {DEPLOY_AGENT}, because Mosaic runs the "
+        "deployed copy, not the file in Code Editor; then ask Alex's setup request:\n"
+        f"{ask_agent_command(mission_for_lab(3)['query'])}\n"
+        f"and grade it with {grade_setup_run_command()}"
+    )
 
 
 def missing_run_detail(requested_run_id: str | None) -> str:
@@ -1434,13 +1442,13 @@ def missing_run_detail(requested_run_id: str | None) -> str:
     """
     if requested_run_id is None:
         return explain(
-            "no agent_run_id was submitted, so no Reason turn was named to grade",
-            REASON_FIX,
+            "no run ID was given, so no Retrieval agent run was named to grade",
+            reason_fix(),
         )
     return explain(
         f"no persisted Retrieval agent turn under agent_run_id {requested_run_id}, so "
-        "Reason produced no receipts to grade",
-        REASON_FIX,
+        "the Retrieval agent produced no receipts to grade",
+        reason_fix(),
     )
 
 
@@ -1468,7 +1476,7 @@ def _proof_answer(run: PersistedAgentRun | None, missing_detail: str) -> LabChec
         "answer of record present",
         passed=bool(message.strip()),
         falsifier=(
-            "mosaic.agent_turn.assistant_message is null: Reason never wrote "
+            "mosaic.agent_turn.assistant_message is null: the Retrieval agent never wrote "
             "an answer of record, which is what an ungrounded run looks like "
             "once the evidence state is detached from synthesis."
         ),
@@ -1477,7 +1485,7 @@ def _proof_answer(run: PersistedAgentRun | None, missing_detail: str) -> LabChec
             if message.strip()
             else explain(
                 "mosaic.agent_turn.assistant_message is empty",
-                REASON_FIX,
+                reason_fix(),
             )
         ),
         run=run,
@@ -1506,7 +1514,7 @@ def _proof_outcome(run: PersistedAgentRun | None, missing_detail: str) -> LabChe
         detail=(
             explain(
                 "the persisted answer of record declined the Lab 3 question",
-                REASON_FIX,
+                reason_fix(),
             )
             if declined
             else f"outcome {outcome or 'grounded'}: synthesis was attempted"
@@ -1535,7 +1543,7 @@ def _proof_synthesis(run: PersistedAgentRun | None, missing_detail: str) -> LabC
                 f"synthesize_cited_answer outcome={outcome!r} over "
                 f"{len(scope)} selected product(s)",
                 "attach retrieved evidence IDs to the Retrieval agent state by product "
-                "before synthesis, then re-run Reason",
+                "before synthesis, then ask Alex's setup request again",
             )
         ),
         run=run,
@@ -1622,7 +1630,7 @@ def _proof_evidence(run: PersistedAgentRun | None, missing_detail: str) -> LabCh
                 f"{len(successful)} successful evidence event(s), empty for "
                 f"{empty}, missing for {missing}",
                 "retrieve evidence for every selected product before "
-                "synthesis, then re-run Reason",
+                "synthesis, then ask Alex's setup request again",
             )
         ),
         run=run,
@@ -1677,7 +1685,7 @@ def lab_3_proof_checks(
 
     `run` is `None` in two different cases, and `requested_run_id` separates
     them: nothing was submitted, or the submitted id names no persisted turn.
-    Every check is still returned, failed, naming Reason -- so the count
+    Every check is still returned, failed, naming the Retrieval agent -- so the count
     stays a stable witness and the participant is told where to produce a run
     rather than reading an empty list as a pass.
 

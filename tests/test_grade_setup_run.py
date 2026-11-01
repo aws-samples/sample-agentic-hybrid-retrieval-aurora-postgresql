@@ -180,3 +180,54 @@ def test_a_named_run_is_checked_without_a_pick(monkeypatch, workspace) -> None:
 
     saved = json.loads((grade_setup_run.ROOT / ".local/lab-3/context.json").read_text())
     assert saved == {"lab_agent_id": str(named)}
+
+
+def test_an_unreachable_aurora_is_reported_without_a_traceback(
+    monkeypatch, capsys, workspace
+) -> None:
+    import psycopg
+
+    @contextmanager
+    def connect():
+        raise psycopg.OperationalError("connection timeout expired")
+        yield
+
+    monkeypatch.setattr("service.db.connect", connect)
+    monkeypatch.setattr(sys, "argv", ["grade_setup_run.py"])
+
+    assert grade_setup_run.main() == 2
+
+    out = capsys.readouterr().out
+    assert out.startswith("Lab 3 exercise: CANNOT GRADE - Aurora did not answer")
+    assert "OperationalError" in out and "Traceback" not in out
+    assert workspace == []
+
+
+def test_the_saved_context_keeps_what_lab_request_saved(tmp_path) -> None:
+    """`lab_request.py` saves more keys in the same files; naming the run must keep them."""
+    output = tmp_path / ".local/lab-3"
+    output.mkdir(parents=True)
+    earlier = str(uuid4())
+    (output / "context.json").write_text(
+        json.dumps({"lab_agent_id": earlier, "lab_before_agent_id": earlier}) + "\n"
+    )
+    chosen = str(uuid4())
+
+    grade_setup_run.save_context(output, chosen)
+
+    values = json.loads((output / "context.json").read_text())
+    assert values == {"lab_agent_id": chosen, "lab_before_agent_id": earlier}
+    psql = (output / "context.psql").read_text()
+    assert "AS lab_agent_id" in psql and "AS lab_before_agent_id" in psql
+    assert not list(output.glob("*.tmp"))
+
+
+def test_a_cut_off_context_file_is_replaced_not_crashed_on(tmp_path) -> None:
+    output = tmp_path / ".local/lab-3"
+    output.mkdir(parents=True)
+    (output / "context.json").write_text('{"lab_agent_id": "abc')
+    chosen = str(uuid4())
+
+    grade_setup_run.save_context(output, chosen)
+
+    assert json.loads((output / "context.json").read_text()) == {"lab_agent_id": chosen}

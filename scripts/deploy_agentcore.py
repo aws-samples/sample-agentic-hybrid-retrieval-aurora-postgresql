@@ -10,7 +10,6 @@ import re
 import subprocess
 import sys
 import tempfile
-import textwrap
 import time
 from pathlib import Path
 from urllib.parse import quote, quote_plus
@@ -25,6 +24,7 @@ sys.path.insert(0, str(ROOT))
 from scripts.checks.rehearsal import redact
 from scripts.package_agentcore import package
 from scripts.progress import Progress
+from scripts.terminal_text import fill_words, wrap_words
 from service import agentcore_transport, gateway_tools
 from service.agent_deploys import record_deploy
 from service.agent_setup import AGENT_NOT_BUILT, agent_code_message
@@ -584,7 +584,14 @@ def _when(value: object) -> str:
 
 
 def _row(label: str, *cells: object) -> str:
-    return f"  {label:<24} " + "   ".join(str(cell) for cell in cells)
+    """One resource line, its text wrapped under the label column at word boundaries."""
+    lead = f"  {label:<24} "
+    return fill_words(
+        "   ".join(str(cell) for cell in cells),
+        LINE_CHARS,
+        initial_indent=lead,
+        subsequent_indent=" " * len(lead),
+    )
 
 
 def _runtime_lines(control) -> list[str]:
@@ -656,8 +663,11 @@ def resources() -> None:
     print("AgentCore resources in this event (read-only):")
     print("\n".join(lines))
     print(
-        "Next: when your deploy finishes, run this again; the Retrieval agent runtime shows a "
-        "new version and update time."
+        fill_words(
+            "Next: when your deploy finishes, run this again; the Retrieval agent runtime "
+            "shows a new version and update time.",
+            LINE_CHARS,
+        )
     )
 
 
@@ -753,12 +763,10 @@ def tool_lines(tools: list[dict]) -> list[str]:
     """One entry per Gateway tool, its description wrapped at word boundaries."""
     lines = []
     for tool in tools:
-        lines += textwrap.wrap(
+        lines += wrap_words(
             f"{tool['name']}: {tool.get('description', '')}",
-            width=LINE_CHARS,
+            LINE_CHARS,
             subsequent_indent="    ",
-            break_long_words=False,
-            break_on_hyphens=False,
         )
     return lines
 
@@ -822,7 +830,7 @@ def main() -> int:
             progress.finish()
             print(
                 "Your Retrieval agent is deployed and its SQL tools are connected through "
-                f"Gateway. Next: ask Alex's setup request:\n{ask_setup_command()}"
+                f"Gateway.\nNext: ask Alex's setup request:\n{ask_setup_command()}"
             )
         elif args.action == "resources":
             resources()

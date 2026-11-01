@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Grade the SQL exercises and the deployed participant agent, and record the attempt.
 
-Each grade (a row in `mosaic.lab_decision` and a receipt) compares the participant's work with an answer this script computes
-independently, in read-only transactions. It never repairs a lab, never
-changes catalog data, and never shows the reference answer.
+Each grade (a row in `mosaic.lab_decision` and a receipt) compares the participant's
+work with an answer this script computes independently, in read-only transactions. It
+never repairs a lab, never changes catalog data, and never shows the reference answer.
 
 - Lab 1: a recall query for the filtered semantic search, graded with the planner's
   own plan and again with the HNSW index forced.
@@ -26,7 +26,6 @@ import math
 import os
 import re
 import sys
-import textwrap
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -37,6 +36,7 @@ sys.path.insert(0, str(REPO))
 from psycopg.rows import dict_row
 
 from scripts import lab2_tuning, lab_state
+from scripts.terminal_text import fill_words, wrap_words
 from service.catalog_runtime import LIVE_INDEXES
 from service.lab_files import LAB2_SQL
 from service.participant_commands import (
@@ -519,7 +519,8 @@ def grade_lab3(path: Path) -> dict[str, Any]:
 
     if path.resolve() != default_work(3).resolve():
         raise ExerciseError(
-            f"Lab 3 runs labs/lab3_reason/agent.py; save your Retrieval agent there, then deploy with {DEPLOY_AGENT}."
+            "Lab 3 runs labs/lab3_reason/agent.py; save your Retrieval agent there, "
+            f"then deploy with {DEPLOY_AGENT}."
         )
     problem = lab_state.lab3_problem()
     if problem is not None:
@@ -528,7 +529,8 @@ def grade_lab3(path: Path) -> dict[str, Any]:
         raise ExerciseError(agent_setup_message(problem))
     if not runtime_arn():
         raise ExerciseError(
-            "AgentCore Runtime is not connected. Ask your facilitator to check this workshop's deployment."
+            "AgentCore Runtime is not connected. Ask your facilitator to check this "
+            "workshop's deployment."
         )
     values = load_context(3)
     proof = completion_proof(3, agent_run_id=UUID(values["lab_agent_id"]))
@@ -542,7 +544,8 @@ def grade_lab3(path: Path) -> dict[str, Any]:
         failures = [asked.detail]
     if proof.status != "pass" and not failures:
         failures.append(
-            f"Your current code does not match the completed labs. Apply Labs 1 and 2, then deploy with {DEPLOY_AGENT}."
+            "Your current code does not match the completed labs. Apply Labs 1 and 2, "
+            f"then deploy with {DEPLOY_AGENT}."
         )
     return {"agent_run_id": values["lab_agent_id"], "failures": failures}
 
@@ -620,7 +623,8 @@ def print_comparison(table: dict) -> None:
         "rerank unit per query."
     )
     print(
-        f"{'Change':<18}{'Exact found':>12}{'Better':>8}{'Worse':>7}{'Sign test p':>13}{'Rerank units':>14}"
+        f"{'Change':<18}{'Exact found':>12}{'Better':>8}{'Worse':>7}"
+        f"{'Sign test p':>13}{'Rerank units':>14}"
     )
     for row in table["rows"]:
         p_value = "<0.0001" if row["sign_test_p"] == 0 else row["sign_test_p"]
@@ -636,8 +640,29 @@ def print_comparison(table: dict) -> None:
             )
     # Wrapped at word boundaries: a 124-column terminal otherwise breaks the sentence
     # mid-word, which the guide's capture of this output then shows.
-    print(textwrap.fill(table["scope"], width=100))
+    print(fill_words(table["scope"], 100))
     print("Choose a setting to test next and one measurement needed before shipping.")
+
+
+def failure_lines(failure: str) -> str:
+    """A failure wrapped at word boundaries, with each command on a line of its own.
+
+    A command line stays whole however long it is, so it can be copied as printed.
+    """
+    lines = []
+    for number, line in enumerate(failure.splitlines()):
+        if line.startswith("uv run "):
+            lines.append(line)
+            continue
+        lines.extend(
+            wrap_words(
+                line,
+                100,
+                initial_indent="FAIL: " if number == 0 else "",
+                subsequent_indent="  ",
+            )
+        )
+    return "\n".join(lines)
 
 
 def _print_lab3(report: dict) -> None:
@@ -739,7 +764,7 @@ def main(argv: list[str] | None = None) -> int:
     receipt.parent.mkdir(parents=True, exist_ok=True)
     receipt.write_text(json.dumps(report, indent=2, default=str) + "\n")
     for failure in report["failures"]:
-        print(f"FAIL: {failure}")
+        print(failure_lines(failure))
     print(f"Lab {args.lab} exercise: {report['verdict']} ({receipt.relative_to(REPO)})")
     return 1 if report["failures"] else 0
 

@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -23,9 +24,11 @@ from uuid import UUID
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+import psycopg
 from dotenv import load_dotenv
 
 from scripts import lab_exercise
+from scripts.lab_request import sql_context
 
 # Runs are compared in Python, with the completion check's own rule for "the same
 # request"; a participant asks a handful, so a bounded window holds them all.
@@ -144,14 +147,41 @@ def main() -> int:
         # An unreadable Lab 3 start record names its own fix.
         print(f"Lab 3 exercise: CANNOT GRADE - {error}")
         return 2
+    except psycopg.Error as error:
+        print(
+            "Lab 3 exercise: CANNOT GRADE - Aurora did not answer "
+            f"({type(error).__name__}). Next: open a new terminal from the Terminal "
+            "menu, which loads the workshop settings, and run this command again; if it "
+            "repeats, tell your facilitator."
+        )
+        return 2
     if run_id is None:
         return 2
-    output = ROOT / ".local/lab-3"
-    output.mkdir(parents=True, exist_ok=True)
-    values = {"lab_agent_id": str(run_id)}
-    (output / "context.json").write_text(json.dumps(values) + "\n")
-    (output / "context.psql").write_text(f"\\set lab_agent_id '{run_id}'\n")
+    save_context(ROOT / ".local/lab-3", str(run_id))
     return lab_exercise.main(["grade", "--lab", "3"])
+
+
+def save_context(output: Path, run_id: str) -> None:
+    """Name the run to grade in the lab's saved context, keeping the other saved values.
+
+    `lab_request.py` writes the same files with more keys; replacing them whole would
+    drop what it saved, and a crash between the two files would leave them apart.
+    """
+    output.mkdir(parents=True, exist_ok=True)
+    context = output / "context.json"
+    try:
+        values = json.loads(context.read_text()) if context.exists() else {}
+    except json.JSONDecodeError:
+        # lab_request.py writes this file in place; a run killed mid-write leaves it cut off.
+        values = {}
+    values["lab_agent_id"] = run_id
+    for path, text in (
+        (context, json.dumps(values, indent=2) + "\n"),
+        (output / "context.psql", sql_context(values)),
+    ):
+        staged = path.with_suffix(path.suffix + ".tmp")
+        staged.write_text(text)
+        os.replace(staged, path)
 
 
 if __name__ == "__main__":

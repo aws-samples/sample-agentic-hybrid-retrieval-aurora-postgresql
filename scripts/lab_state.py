@@ -1086,7 +1086,10 @@ def _lab_3_status(repo: Path) -> str:
         return f"Lab 3: REPAIRED, NOT DEPLOYED. Next: deploy with {DEPLOY_AGENT}."
     if _lab_3_passed_since(deploys[-1].deployed_at, repo):
         return "Lab 3: SOLVED"
-    return f"Lab 3: DEPLOYED, NOT YET PROVED. Next: {ask_setup_command()}, then {grade_setup_run_command()}"
+    return (
+        f"Lab 3: DEPLOYED, NOT YET PROVED. Next: {ask_setup_command()}, "
+        f"then {grade_setup_run_command()}"
+    )
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -1398,8 +1401,8 @@ def assert_workshop_database(database_url: str | None) -> None:
     expected = os.getenv("MOSAIC_WORKSHOP_DATABASE", "mosaic_catalog")
     if not database_url:
         raise SystemExit(
-            "Lab reset rule: DATABASE_URL is missing; fix: select the authorized "
-            "Aurora workshop database before resetting a lab."
+            "Workshop database rule: DATABASE_URL is missing; fix: open a new terminal "
+            "from the Terminal menu; it loads the workshop settings."
         )
     try:
         with psycopg.connect(
@@ -1417,7 +1420,7 @@ def assert_workshop_database(database_url: str | None) -> None:
         or not identity["aurora"]
     ):
         raise SystemExit(
-            f"Lab reset rule: found database {identity['name']!r}; expected "
+            f"Workshop database rule: found database {identity['name']!r}; expected "
             f"Aurora workshop database {expected!r} with the Mosaic catalog. "
             "Fix: select the workshop DATABASE_URL; for a custom workshop name, "
             "set MOSAIC_WORKSHOP_DATABASE to its provisioned DBName."

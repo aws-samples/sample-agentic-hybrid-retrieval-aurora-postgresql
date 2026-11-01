@@ -78,6 +78,7 @@ from service.participant_commands import (
     APPLY_SQL,
     DEPLOY_AGENT,
     DIFF,
+    ask_setup_command,
     proof_steps_text,
     start_command,
 )
@@ -603,13 +604,17 @@ def _managed_agent_checks(rows: AgentTurnRows | None, root: Path) -> list[LabChe
                 and not_own_deploy is None
             )
             if code_deployed and not sql_applied:
-                failure = f"Aurora runs search SQL different from your lab files in Code Editor. Next: apply it with {APPLY_SQL}, then ask Alex's question again."
+                failure = (
+                    "Aurora runs search SQL different from your lab files in Code Editor. "
+                    f"Next: apply it with {APPLY_SQL}, then ask Alex's setup request again:\n"
+                    f"{ask_setup_command()}"
+                )
             elif code_deployed and not run_on_current_sql:
                 failure = (
                     f"This run searched with SQL {', '.join(d[:12] for d in run_sql)}, "
                     f"not your lab files' {workspace_sql[:12]}: it was saved before "
-                    "your last apply. Next: ask Alex's setup request again with "
-                    "ask_agent.py, then prove the new run."
+                    "your last apply. Next: ask Alex's setup request again:\n"
+                    f"{ask_setup_command()}\nthen grade the new run."
                 )
             elif code_deployed and not run_on_current_code:
                 made_by = (
@@ -619,13 +624,17 @@ def _managed_agent_checks(rows: AgentTurnRows | None, root: Path) -> list[LabChe
                     else "does not record which Retrieval agent code made it"
                 )
                 failure = (
-                    f"This run {made_by}. Next: ask Alex's setup request again "
-                    "with ask_agent.py, then prove the new run."
+                    f"This run {made_by}. Next: ask Alex's setup request again:\n"
+                    f"{ask_setup_command()}\nthen grade the new run."
                 )
             elif not_own_deploy is not None:
                 failure = not_own_deploy
     except (RuntimeError, ValueError) as error:
-        failure = f"Deployment check failed ({type(error).__name__}). Next: deploy with {DEPLOY_AGENT} in Code Editor, then ask Alex's question again."
+        failure = (
+            f"Deployment check failed ({type(error).__name__}). Next: deploy with "
+            f"{DEPLOY_AGENT} in Code Editor, then ask Alex's setup request again:\n"
+            f"{ask_setup_command()}"
+        )
     return [
         LabCheck(
             name="managed_agent_deployed",

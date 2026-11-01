@@ -263,7 +263,7 @@ def test_reset_guard_rejects_wrong_environment(monkeypatch, identity):
     connection.execute.return_value.fetchone.return_value = identity
     monkeypatch.setattr("psycopg.connect", lambda *a, **kw: connection)
     monkeypatch.delenv("MOSAIC_WORKSHOP_DATABASE", raising=False)
-    with pytest.raises(SystemExit, match="Lab reset rule"):
+    with pytest.raises(SystemExit, match="Workshop database rule"):
         assert_workshop_database("test-only")
 
 
@@ -282,7 +282,9 @@ def test_reset_guard_accepts_named_aurora_and_rejects_missing_dsn(monkeypatch):
     monkeypatch.setattr("psycopg.connect", lambda *a, **kw: connection)
     monkeypatch.setenv("MOSAIC_WORKSHOP_DATABASE", "named_workshop")
     assert_workshop_database("test-only")
-    with pytest.raises(SystemExit, match="DATABASE_URL is missing"):
+    with pytest.raises(
+        SystemExit, match="DATABASE_URL is missing; fix: open a new terminal"
+    ):
         assert_workshop_database(None)
 
 

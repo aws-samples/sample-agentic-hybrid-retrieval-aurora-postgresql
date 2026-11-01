@@ -789,10 +789,10 @@ def test_lab_3_without_a_run_id_fails_naming_stage_03(monkeypatch) -> None:
     run_checks = [check for check in proof.checks if check.name != "lab_started"]
     assert proof.status == "fail"
     assert len(run_checks) == 16
-    assert all("Reason" in check.detail for check in run_checks)
+    assert all("Retrieval agent" in check.detail for check in run_checks)
     # Mosaic runs the deployed agent, not the file in Code Editor. A participant
-    # who edited the agent and re-ran Reason without deploying graded the old
-    # copy, so the fix has to name the deploy before it names the re-run.
+    # who edited the agent and asked again without deploying graded the old
+    # copy, so the fix has to name the deploy before it names the new ask.
     assert all(DEPLOY_AGENT in check.detail for check in run_checks)
     assert proof.evidence.agent_run_id is None
 
@@ -804,7 +804,7 @@ def test_lab_3_with_an_unknown_run_id_fails_naming_stage_03(monkeypatch) -> None
 
     assert proof.status == "fail"
     assert all(
-        "Reason" in check.detail
+        "Retrieval agent" in check.detail
         for check in proof.checks
         if check.name != "lab_started"
     )

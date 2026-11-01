@@ -450,9 +450,10 @@ def test_lab_3_proof_without_a_persisted_run_names_stage_03():
 
     assert len(checks) == 6
     assert not any(check.passed for check in checks)
-    assert all("Reason" in check.detail for check in checks), [
-        check.detail for check in checks if "Reason" not in check.detail
+    assert all("Retrieval agent" in check.detail for check in checks), [
+        check.detail for check in checks if "Retrieval agent" not in check.detail
     ]
+    assert all(lab_checks.grade_setup_run_command() in check.detail for check in checks)
 
 
 def test_lab_3_proof_names_the_submitted_id_or_says_none_was_submitted():
@@ -462,10 +463,10 @@ def test_lab_3_proof_names_the_submitted_id_or_says_none_was_submitted():
         LAB_3_MISSION, None, requested_run_id="5e0c2b9a-1f2d-4c3b-8a7e-0d1c2b3a4f56"
     )
 
-    assert "no agent_run_id was submitted" in absent[0].detail
+    assert "no run ID was given" in absent[0].detail
     assert "5e0c2b9a-1f2d-4c3b-8a7e-0d1c2b3a4f56" in unknown[0].detail
-    assert "was submitted" not in unknown[0].detail
-    assert all("Reason" in check.detail for check in absent + unknown)
+    assert "was given" not in unknown[0].detail
+    assert all("Retrieval agent" in check.detail for check in absent + unknown)
 
 
 def test_lab_3_proof_fails_an_ungrounded_run():
@@ -483,7 +484,7 @@ def test_lab_3_proof_fails_an_ungrounded_run():
     assert not _by_name(checks, "answer of record present").passed
     assert not _by_name(checks, "grounded synthesis produced a product scope").passed
     assert not _by_name(checks, "citation evidence resolves").passed
-    assert "Reason" in _by_name(checks, "answer of record present").falsifier
+    assert "Retrieval agent" in _by_name(checks, "answer of record present").falsifier
 
 
 def test_lab_3_proof_fails_a_citation_that_resolves_to_another_product():

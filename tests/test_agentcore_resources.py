@@ -146,6 +146,28 @@ def test_resources_names_each_piece_with_its_role_and_state(control, capsys):
     assert "123456789012" not in out
 
 
+def test_a_long_row_wraps_under_its_label_at_word_boundaries(control, capsys):
+    """Code Editor's terminal breaks a wider line mid-word, as the first captures showed."""
+    stub_runtimes_and_gateway(control)
+    many = memory()
+    many["memory"]["strategies"] = [
+        {**many["memory"]["strategies"][0], "name": f"Strategy-{i}", "type": "SEMANTIC"}
+        for i in range(6)
+    ]
+    control.add_response("get_memory", many, {"memoryId": "MosaicMemory-1"})
+
+    deploy.resources()
+
+    lines = capsys.readouterr().out.splitlines()
+    assert all(len(line) <= deploy.LINE_CHARS for line in lines)
+    assert all(not line.endswith("-") for line in lines)
+    continuation = [
+        line for line in lines if line.startswith(" " * 27) and line.strip()
+    ]
+    assert continuation, "a six-strategy row must wrap onto an indented second line"
+    assert " ".join(" ".join(lines).split()).count("Strategy-5 (SEMANTIC)") == 1
+
+
 def test_an_event_without_memory_says_it_is_optional(control, capsys, monkeypatch):
     monkeypatch.delenv("MOSAIC_AGENTCORE_MEMORY_ID")
     stub_runtimes_and_gateway(control)

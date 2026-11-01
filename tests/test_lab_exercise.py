@@ -333,6 +333,21 @@ def test_comparison_scope_wraps_at_word_boundaries(capsys):
     assert " ".join(scope_lines) == words.strip()
 
 
+def test_a_hyphenated_word_at_the_margin_moves_whole_to_the_next_line(capsys):
+    scope = "judged " * 13 + "noise-cancelling headphones"
+    assert len(scope[: scope.index("noise-") + 6]) == 97
+    lab_exercise.print_comparison(
+        {
+            "baseline": {"exact_in_cutoff": 1, "billed_search_units_per_query": 1},
+            "rows": [],
+            "scope": scope,
+        }
+    )
+    lines = capsys.readouterr().out.splitlines()
+    assert any(line.startswith("noise-cancelling") for line in lines)
+    assert all(not line.endswith("-") for line in lines)
+
+
 def test_the_untouched_recall_starter_is_named_before_any_grading(
     monkeypatch, tmp_path
 ):
@@ -385,3 +400,16 @@ def test_the_recall_report_fits_the_terminal_without_breaking_a_word(capsys):
         "Index Scan using product_search_vector_idx on product_listing d; Execution Time: 13.000 ms"
     )
     assert lines[2].startswith("forced HNSW")
+
+
+def test_a_failure_wraps_its_prose_and_keeps_each_command_whole():
+    from service.lab_checks import reason_fix
+    from service.participant_commands import ask_setup_command
+
+    text = lab_exercise.failure_lines("no run ID was given; fix: " + reason_fix())
+
+    lines = text.splitlines()
+    assert lines[0].startswith("FAIL: ")
+    assert ask_setup_command() in lines
+    assert all(len(line) <= 100 for line in lines if not line.startswith("uv run "))
+    assert all(not line.endswith("-") for line in lines)
