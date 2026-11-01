@@ -1267,7 +1267,8 @@ def test_lab_3_is_solved_only_after_the_deployed_agent_passed_completion(
 
     _lab_3_deployed(lab_repo, "2026-10-29T11:00:00+00:00")
     assert status_line(3, repo=lab_repo) == (
-        f"Lab 3: DEPLOYED, NOT YET PROVED. Next: {ask_setup_command()}, then {grade_setup_run_command()}"
+        "Lab 3: DEPLOYED, NOT YET PROVED. Next: ask Alex's setup request:\n"
+        f"{ask_setup_command()}\nthen check that run with {grade_setup_run_command()}"
     )
 
     _lab_3_graded(lab_repo, "FAIL", "2026-10-29T11:30:00+00:00")

@@ -98,7 +98,8 @@ def test_finish_runs_every_step_in_order_and_names_each(monkeypatch, capsys, lab
         typical = f"usually about {clock(USUAL_SECONDS[step])}"
         assert f"{number}, {typical}\n    {step}\n" in out
         assert f"{number}  done" in out
-    assert "  Done in " in out
+    # A named tracker's ending names itself, apart from a deploy's own "Done in".
+    assert f"  Finish Lab {lab}: done in " in out
 
 
 @pytest.mark.parametrize("width", [66, 122, 200])

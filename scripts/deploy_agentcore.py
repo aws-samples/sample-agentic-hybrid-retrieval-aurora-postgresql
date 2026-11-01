@@ -231,8 +231,13 @@ def publish_image(repository_uri: str, *, bootstrap: bool) -> str:
                 environment=environment,
                 timeout=1200,
             )
+            # The push's per-layer progress is noise in a participant's terminal; the
+            # build output above still shows a slow or failing build.
             run_docker(
-                "push", ["docker", "push", image], environment=environment, timeout=600
+                "push",
+                ["docker", "push", "--quiet", image],
+                environment=environment,
+                timeout=600,
             )
             digest = image_digest(ecr, repository, tag)
             if digest is None:

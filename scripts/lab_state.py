@@ -21,6 +21,7 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
 from scripts.progress import Progress
+from scripts.terminal_text import fill_words
 from service.agent_setup import AGENT_NOT_BUILT
 from service.catalog_runtime import search_schema
 from service.lab_files import (
@@ -64,6 +65,8 @@ FUNCTION_CONTRIBUTION_TOLERANCE = 1e-12
 #: Set for the commands `finish` and `skip-to` run, to the run's label, so a step does
 #: not tell the participant to run the steps that come next: the run does that itself.
 RUN_BY = "MOSAIC_RUN_BY"
+# Code Editor's terminal holds 124 characters a line; prose stays well inside it.
+LINE_CHARS = 100
 
 #: What a participant finds in each marked block when a lab starts. Lab 1's TODO
 #: names the symptom so that finding the lost search stays the participant's work;
@@ -1087,8 +1090,8 @@ def _lab_3_status(repo: Path) -> str:
     if _lab_3_passed_since(deploys[-1].deployed_at, repo):
         return "Lab 3: SOLVED"
     return (
-        f"Lab 3: DEPLOYED, NOT YET PROVED. Next: {ask_setup_command()}, "
-        f"then {grade_setup_run_command()}"
+        "Lab 3: DEPLOYED, NOT YET PROVED. Next: ask Alex's setup request:\n"
+        f"{ask_setup_command()}\nthen check that run with {grade_setup_run_command()}"
     )
 
 
@@ -1136,23 +1139,21 @@ def _parser() -> argparse.ArgumentParser:
 
 def solution_summary(lab: int, path: Path, *, run_by: str | None = None) -> str:
     """Say what `apply-solution` overwrote and, run by hand, which commands come next."""
-    overwrote = (
-        f"Lab {lab}: SOLUTION ({path})\n"
+    overwrote = f"Lab {lab}: SOLUTION ({path})\n" + fill_words(
         f"This overwrote the marked LAB{lab}_ block in {path} with the reference "
-        "answer, so your own edits to that block are gone."
+        "answer, so your own edits to that block are gone.",
+        LINE_CHARS,
     )
     if run_by:
         return overwrote
     if lab == 3:
         next_step = (
-            f"deploy with {DEPLOY_AGENT}, ask Alex's setup request with "
-            f"{ask_setup_command()}, then check that run with {grade_setup_run_command()}"
+            f"Next: deploy with {DEPLOY_AGENT}, then ask Alex's setup request:\n"
+            f"{ask_setup_command()}\nthen check that run with {grade_setup_run_command()}"
         )
     else:
-        next_step = (
-            f"apply it with {APPLY_SQL}, then prove it with {proof_steps_text(lab)}"
-        )
-    return f"{overwrote}\nNext: {next_step}."
+        next_step = f"Next: apply it with {APPLY_SQL}, then prove it with {proof_steps_text(lab)}."
+    return f"{overwrote}\n{next_step}"
 
 
 def _entered(lab: int) -> bool:
@@ -1212,8 +1213,8 @@ def finish_lab(lab: int) -> int:
     if lab == 3:
         print(
             "\nLab 3: the reference Retrieval agent is deployed. Next: ask Alex's "
-            f"setup request with {ask_setup_command()}, then check that run with "
-            f"{grade_setup_run_command()}."
+            f"setup request:\n{ask_setup_command()}\nthen check that run with "
+            f"{grade_setup_run_command()}"
         )
     else:
         print(f"\nLab {lab}: finished with the reference answer.")
@@ -1303,9 +1304,9 @@ def _validate_command(lab: int, database_url: str | None, *, repo: Path = REPO) 
 
             raise SystemExit(AGENT_STARTER_MESSAGE)
         print(
-            "Lab 3: source assembled. This checks the file's shape, not your Retrieval agent. "
-            f"Next: deploy with {DEPLOY_AGENT}, ask Alex's setup request with "
-            f"{ask_setup_command()}, then check that run with {grade_setup_run_command()}."
+            "Lab 3: source assembled. This checks the file's shape, not your Retrieval agent.\n"
+            f"Next: deploy with {DEPLOY_AGENT}, then ask Alex's setup request:\n"
+            f"{ask_setup_command()}\nthen check that run with {grade_setup_run_command()}"
         )
         return 0
     problem = source_problem(lab)

@@ -68,6 +68,19 @@ def completion_path(lab: int, repo: Path = REPO) -> Path:
     return repo / ".local" / f"lab-{lab}" / "completion.json"
 
 
+def started_clock(recorded: str) -> str:
+    """A saved start time as "2026-11-01 17:25 UTC", not the record's microseconds."""
+    from datetime import UTC, datetime
+
+    try:
+        moment = datetime.fromisoformat(recorded)
+    except ValueError:
+        return recorded
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=UTC)
+    return f"{moment.astimezone(UTC):%Y-%m-%d %H:%M} UTC"
+
+
 def load_record(lab: int, repo: Path = REPO) -> dict[str, Any] | None:
     path = record_path(lab, repo)
     if not path.exists():
@@ -314,7 +327,8 @@ def start(
     record = load_record(lab, repo)
     if record and record.get("completed_at"):
         say(
-            f"Lab {lab} was started at {record['completed_at']}; your edits are unchanged."
+            f"Lab {lab} was started at {started_clock(record['completed_at'])}; "
+            "your edits are unchanged."
         )
         return record
     if lab not in FAULT_AT_ENTRY and (missing := missing_file_problem(lab, repo)):

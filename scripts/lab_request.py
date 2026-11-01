@@ -430,7 +430,7 @@ def prepare(lab: int, phase: str, api_url: str, output: Path) -> Path:
     # query is graded against the run they inspected, not a fresh one.
     (output / "context.json").write_text(json.dumps(values, indent=2) + "\n")
     (output / f"{phase}-context.psql").write_text(rendered_context)
-    print(f"Saved the application response. In psql: \\i {context}")
+    print(f"Saved the application response. In psql:\n\\i {context}")
     return context
 
 

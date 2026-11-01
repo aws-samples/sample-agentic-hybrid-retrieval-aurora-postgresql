@@ -300,11 +300,20 @@ class Progress:
             )
 
     def finish(self) -> None:
-        """End the running step and say how long the whole run took. Safe to call twice."""
+        """End the running step and say how long the whole run took. Safe to call twice.
+
+        A named tracker runs commands with trackers of their own, so its ending names
+        itself: "Finish Lab 3: done in 1:08" under a deploy's own "Done in 1:06".
+        """
         self.end()
         if self.number and not self._finished:
             self._finished = True
-            self._print(f"  Done in {clock(self.now() - self._began)}.")
+            took = clock(self.now() - self._began)
+            self._print(
+                f"  {self.title}: done in {took}."
+                if self.name and self.title
+                else f"  Done in {took}."
+            )
 
     def _start_line(self, label: str, typical: float) -> str:
         """The step's counter, label and usual time; with a plan, the share finished first.
