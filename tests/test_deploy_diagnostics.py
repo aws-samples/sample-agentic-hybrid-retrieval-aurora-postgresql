@@ -412,3 +412,25 @@ def test_the_clients_use_the_terminals_region_before_the_default(
     deploy.client("bedrock-agentcore-control")
 
     assert made[0]["region_name"] == expected
+
+
+def test_the_tool_list_wraps_long_descriptions_at_word_boundaries():
+    """Code Editor's terminal wrapped a long description mid-word ("semantic sea|rch")."""
+    description = (
+        "Search Aurora with shared filters, full-text search, pg_trgm fuzzy matching, "
+        "pgvector semantic search and reranking."
+    )
+    tools = [
+        {"name": "mosaic___search_products", "description": description},
+        {"name": "mosaic___explain_retrieval", "description": "Read a saved search."},
+    ]
+
+    lines = deploy.tool_lines(tools)
+
+    assert all(len(line) <= deploy.LINE_CHARS for line in lines)
+    assert lines[0].startswith("mosaic___search_products: Search Aurora")
+    assert lines[1].startswith("    ") and not lines[1][4].isspace()
+    assert " ".join(line.strip() for line in lines[:2]) == (
+        f"mosaic___search_products: {description}"
+    )
+    assert lines[2] == "mosaic___explain_retrieval: Read a saved search."

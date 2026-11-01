@@ -10,6 +10,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import textwrap
 import time
 from pathlib import Path
 from urllib.parse import quote, quote_plus
@@ -744,6 +745,24 @@ def write_connection_values(paths: tuple[Path, ...], values: dict[str, str]) -> 
         os.replace(staged, path)
 
 
+#: Code Editor's terminal holds about 120 columns; wrapping here keeps words whole.
+LINE_CHARS = 100
+
+
+def tool_lines(tools: list[dict]) -> list[str]:
+    """One entry per Gateway tool, its description wrapped at word boundaries."""
+    lines = []
+    for tool in tools:
+        lines += textwrap.wrap(
+            f"{tool['name']}: {tool.get('description', '')}",
+            width=LINE_CHARS,
+            subsequent_indent="    ",
+            break_long_words=False,
+            break_on_hyphens=False,
+        )
+    return lines
+
+
 def main() -> int:
     from dotenv import load_dotenv
 
@@ -808,8 +827,11 @@ def main() -> int:
         elif args.action == "resources":
             resources()
         elif args.action == "tools":
-            for tool in gateway_tools.rpc("tools/list", {}).get("tools", []):
-                print(f"{tool['name']}: {tool.get('description', '')}")
+            print(
+                "\n".join(
+                    tool_lines(gateway_tools.rpc("tools/list", {}).get("tools", []))
+                )
+            )
             print(
                 "Next: open labs/lab3_reason/agent.py and connect these SQL tools to your Retrieval agent."
             )
