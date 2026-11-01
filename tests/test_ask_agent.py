@@ -554,3 +554,86 @@ def test_a_deleted_lab_sql_file_does_not_stop_the_run_id_printing(monkeypatch):
 
     assert text.splitlines()[-1].startswith("Run ID: ")
     assert "could not be read" in text and STATUS in text
+
+
+def refused_then_grounded(detail):
+    run = grounded()
+    run["trace"] = [
+        {"sequence": 1, "tool": "search_products", "detail": "", "outcome": "success"},
+        {
+            "sequence": 2,
+            "tool": "synthesize_cited_answer",
+            "detail": detail,
+            "outcome": "error",
+        },
+        {
+            "sequence": 3,
+            "tool": "synthesize_cited_answer",
+            "detail": "",
+            "outcome": "success",
+        },
+    ]
+    return run
+
+
+@pytest.mark.parametrize(
+    ("detail", "said"),
+    [
+        (
+            (
+                "Synthesis failed with SynthesisOutputError: Synthesized sentence contains "
+                "unsupported numeric claim or availability claim ['100W'] for product 1551237: "
+                "- If 100W is firm, confirm the charger. Cite the record that states it."
+            ),
+            "draft refused: it stated 100W, which no cited record supports",
+        ),
+        (
+            (
+                "Synthesis failed with SynthesisOutputError: Synthesized claim naming product "
+                "1551237 does not cite evidence for that product: No, the records do not show it."
+            ),
+            "draft refused: it named product 1551237 without citing its records",
+        ),
+        (
+            (
+                "Synthesis failed with SynthesisOutputError: unsupported compatibility claim "
+                "'works with your laptop' in: - The ViewSonic works with your laptop. Cite a "
+                "source that states that relationship, or say the sources do not state it."
+            ),
+            "draft refused: it claimed 'works with your laptop', which no cited record supports",
+        ),
+        (
+            "Synthesis failed with SynthesisTruncated: the model stopped at max_tokens.",
+            "draft refused: it was cut off before it finished",
+        ),
+        (
+            "Synthesis failed with SynthesisOutputError: a rule this script does not know.",
+            "draft refused by the answer check",
+        ),
+    ],
+)
+def test_a_refused_draft_says_in_plain_words_why_it_was_refused(detail, said):
+    """A rejected draft used to show only `error`, which participants read as a failure."""
+    text = ask_agent.render(refused_then_grounded(detail))
+
+    lines = text.splitlines()
+    step = next(
+        i for i, line in enumerate(lines) if "2  synthesize_cited_answer" in line
+    )
+    assert "error" in lines[step]
+    assert lines[step + 1].strip() == said
+    assert "SynthesisOutputError" not in text and "Synthesis failed" not in text
+    assert max(len(line) for line in lines) <= ask_agent.LINE_CHARS
+
+
+def test_a_long_refused_claim_is_shortened_to_fit_the_terminal():
+    claim = "works with " + "every laptop you might own " * 8
+    text = ask_agent.render(
+        refused_then_grounded(
+            "Synthesis failed with SynthesisOutputError: unsupported compatibility claim "
+            f"'{claim}' in: - It {claim}."
+        )
+    )
+
+    assert max(len(line) for line in text.splitlines()) <= ask_agent.LINE_CHARS
+    assert "draft refused: it claimed 'works with every laptop" in text

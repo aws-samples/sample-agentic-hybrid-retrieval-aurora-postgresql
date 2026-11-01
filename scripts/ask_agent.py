@@ -110,11 +110,44 @@ def _trace(response: dict[str, Any], workspace: str | None) -> list[str]:
         lines.append(
             f"  {step['sequence']}  {step['tool']:<23}  {step['outcome']}{took}{noted}"
         )
+        if step["tool"] == "synthesize_cited_answer" and step["outcome"] == "error":
+            lines.append(f"     {_refusal(step.get('detail') or '')}")
         if step["tool"] == "search_products" and step.get("route"):
             lines.append(
                 f"     {_search_sql(step.get('search_sql_sha256'), workspace)}"
             )
     return lines
+
+
+REFUSED = "draft refused"
+UNSUPPORTED = "which no cited record supports"
+
+
+def _refusal(detail: str) -> str:
+    """Say in plain words why the answer check refused a draft.
+
+    The trace detail names the Python exception and quotes the whole sentence; a
+    participant needs only the rule the draft broke. A refused draft is not a failed
+    run: the agent drafts again, and the next synthesize step shows the result.
+    """
+    if match := re.search(
+        r"unsupported numeric claim or availability claim \[(.*?)\]", detail
+    ):
+        stated = ", ".join(value.strip(" '\"") for value in match.group(1).split(","))
+        reason = f"it stated {stated}, {UNSUPPORTED}"
+    elif match := re.search(r"naming product (\d+) does not cite evidence", detail):
+        reason = f"it named product {match.group(1)} without citing its records"
+    elif match := re.search(
+        r"unsupported compatibility claim (['\"])(.+?)\1 in:", detail
+    ):
+        frame = f"     {REFUSED}: it claimed '', {UNSUPPORTED}"
+        claim = _clip(match.group(2), LINE_CHARS - len(frame))
+        reason = f"it claimed '{claim}', {UNSUPPORTED}"
+    elif "SynthesisTruncated" in detail:
+        reason = "it was cut off before it finished"
+    else:
+        return f"{REFUSED} by the answer check"
+    return f"{REFUSED}: {reason}"
 
 
 def _clip(text: str, limit: int) -> str:
