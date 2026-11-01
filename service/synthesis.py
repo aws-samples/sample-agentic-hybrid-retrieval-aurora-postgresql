@@ -380,7 +380,12 @@ def reference_name(product: ProductSummary) -> str:
     words = _NAME_BREAK.split(product.title, maxsplit=1)[0].split()
     for index, word in enumerate(words[1:5], 1):
         if re.search(r"\d", word):
-            return " ".join(words[: index + 1]).rstrip(".")
+            end = index + 1
+            # A model written as two codes, "HP E23 G4", keeps both; a size such as
+            # 23" that follows is digit-led and stops the run.
+            while end < min(len(words), 6) and _MODEL_CODE.fullmatch(words[end]):
+                end += 1
+            return " ".join(words[:end]).rstrip(".")
     brand = product.brand.strip().casefold()
     if brand and " ".join(words).casefold().startswith(brand):
         return _brand_phrase(words[:5], len(brand.split())).rstrip(".")
@@ -463,6 +468,13 @@ def _product_names(product: ProductSummary) -> set[str]:
     # two-character code such as "E7" names the listing it leads.
     if code := _leading_code(product):
         names.add(code.casefold())
+    # Each code in the short name ("E23" and "G4" of "HP E23 G4") names the listing on
+    # its own, so "the G4" is read as the product, not as a figure of 4.
+    reference = reference_name(product)
+    if reference != product.title:
+        names |= {
+            word.casefold() for word in reference.split() if _MODEL_CODE.fullmatch(word)
+        }
     return names
 
 
@@ -1156,14 +1168,16 @@ def _requirement_bound(
 
 
 #: A reviewer's stars as an answer reports them: "gave it 5.0", "rated it 3 out of 5",
-#: "a 4-star review". The model is given each review's rating beside its text, and the
-#: citation shows it, so the record's rating field supports these figures and no other.
+#: "rating it 4.0", "a 4-star review". The model is given each review's rating beside its
+#: text, and the citation shows it, so the record's rating field supports these figures
+#: and no other.
 _STAR_RATING_CANDIDATE = re.compile(
-    r"(?P<lead>\b(?:rated|gave|gives|giving|awarded|scored)"
-    r"(?:\s+(?:it|this|them|the\s+[\w-]+))?(?:\s+(?:an?|only|just))?\s+)?"
+    r"(?P<lead>\b(?:rated|rating|rates|rate|gave|gives|giving|awarded|scored)"
+    r"(?:\s+(?:it|this|them|the\s+[\w-]+))?(?:\s+(?:of|at))?"
+    r"(?:\s+(?:an?|only|just))?\s+)?"
     r"(?<![\w.])(?P<value>[0-5](?:\.\d+)?)(?!\d|[.,]\d)"
     r"(?:\s*(?:out\s+of|/)\s*(?P<scale>5(?:\.0+)?)(?!\d|[.,]\d))?"
-    r"(?P<stars>\s*-?\s*stars?\b)?",
+    r"(?P<stars>\s*-?\s*(?:stars?|rating)\b)?",
     re.IGNORECASE,
 )
 #: "Rated 4.3 on average" is the listing's average, which no single review states.

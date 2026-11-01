@@ -1667,3 +1667,47 @@ def test_a_plural_inch_name_matches_a_dash_inch_title():
     monitor = product(title=SAMSUNG_TITLE, brand="SAMSUNG", model="LS34BG850SNXZA")
     review = evidence("Great screen, sharp text.")
     validate("The SAMSUNG 34 inches [1] has sharp text.", [review], [monitor])
+
+
+# On the 1 November event, two correct drafts of the rule question were refused: a listing
+# whose model is two codes, "HP E23 G4", lost its "G4" to the figure check, and a reviewer's
+# stars written "rating it 4.0" were not read as stars.
+HP_TITLE = 'HP E23 G4 23" Full HD LCD Monitor - 16:9'
+
+
+def test_a_two_code_model_names_the_listing_whole():
+    monitor = product(product_id=7, title=HP_TITLE, brand="HP", model="B08TX5BB1N")
+    assert reference_name(monitor) == "HP E23 G4"
+
+
+def test_a_models_second_code_is_a_name_not_a_figure():
+    monitor = product(product_id=7, title=HP_TITLE, brand="HP", model="B08TX5BB1N")
+    review = evidence("Easy setup. Suits business use rather than gaming.").model_copy(
+        update={"evidence_type": "customer_review", "product_id": 7, "rating": 5.0}
+    )
+    validate(
+        "- HP E23 G4: A five-star reviewer describes easy setup and says it suits "
+        "business use rather than gaming [1].",
+        [review],
+        [monitor],
+    )
+    validate("The G4 [1] suits business use.", [review], [monitor])
+    with pytest.raises(SynthesisOutputError, match="unsupported numeric claim"):
+        validate("The HP E23 G5 [1] suits business use.", [review], [monitor])
+
+
+@pytest.mark.parametrize(
+    "sentence",
+    [
+        "A reviewer working from home reports easy height adjustment, rating it 4.0 [1].",
+        "One reviewer gives it a rating of 4.0 [1].",
+        "A reviewer who rates it 4.0 reports no glare [1].",
+    ],
+)
+def test_a_reviewers_stars_written_as_a_rating_match_the_cited_review(sentence):
+    review = evidence("Easy height adjustment and no glare.").model_copy(
+        update={"evidence_type": "customer_review", "rating": 4.0}
+    )
+    validate(sentence, [review])
+    with pytest.raises(SynthesisOutputError, match="unsupported numeric claim"):
+        validate(sentence.replace("4.0", "3.0"), [review])
