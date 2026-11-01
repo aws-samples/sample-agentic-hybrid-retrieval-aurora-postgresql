@@ -572,13 +572,19 @@ def record_decision(lab: int, report: dict[str, Any], values: dict[str, str]) ->
 
 
 def _print_lab1(report: dict) -> None:
+    """Two lines per plan: the measurement, then the scan that produced it.
+
+    The plan node keeps its name and drops its timings, so each line fits Code
+    Editor's terminal without the terminal breaking a word.
+    """
     for condition, result in report["conditions"].items():
         truth = result["independent"]
         print(
             f"{condition:15} the checker's own measurement: recall {truth['recall']:.3f} "
-            f"({truth['approximate_rows']} returned, {truth['exact_rows']} exact) "
-            f"| {truth['access_path'][:70]} | {truth['execution']}"
+            f"({truth['approximate_rows']} returned, {truth['exact_rows']} exact)"
         )
+        scan = truth["access_path"].strip().removeprefix("->").strip().split(" (")[0]
+        print(f"    {scan}; {truth['execution']}")
 
 
 def _print_lab2(report: dict) -> None:

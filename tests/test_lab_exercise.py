@@ -352,3 +352,36 @@ def test_the_untouched_recall_starter_is_named_before_any_grading(
         lab_exercise.ExerciseError, match="still has the starting placeholder"
     ):
         lab_exercise.grade(1, work)
+
+
+def test_the_recall_report_fits_the_terminal_without_breaking_a_word(capsys):
+    """Code Editor wrapped the one-line report mid-word ("product_search_|vector_idx")."""
+    truth = {
+        "recall": 0.76,
+        "approximate_rows": 150,
+        "exact_rows": 150,
+        "access_path": (
+            "->  Index Scan using product_search_vector_idx on product_listing d "
+            "(actual time=2.613..9.896 rows=164.00 loops=1)"
+        ),
+        "execution": "Execution Time: 13.000 ms",
+    }
+    lab_exercise._print_lab1(
+        {
+            "conditions": {
+                "planner's plan": {"independent": truth},
+                "forced HNSW": {"independent": truth},
+            }
+        }
+    )
+
+    lines = capsys.readouterr().out.splitlines()
+    assert len(lines) == 4 and all(len(line) <= 100 for line in lines)
+    assert (
+        lines[0].startswith("planner's plan")
+        and "recall 0.760 (150 returned, 150 exact)" in lines[0]
+    )
+    assert lines[1].strip() == (
+        "Index Scan using product_search_vector_idx on product_listing d; Execution Time: 13.000 ms"
+    )
+    assert lines[2].startswith("forced HNSW")
