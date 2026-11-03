@@ -473,7 +473,7 @@ def _advance_lab_2(
     return record
 
 
-def _lab_2_can_mask(dsn: str | None, repo: Path) -> bool:
+def lab_2_can_mask(dsn: str | None, repo: Path) -> bool:
     """Whether Lab 2's saved block or the SQL Aurora runs still collapses ranks."""
     with _connect(dsn) as connection:
         return bool(
@@ -516,7 +516,7 @@ def _advance_lab_1(
         # Lab 2's ranking fault can hide a correct Lab 1 repair; once Lab 2 is
         # repaired and applied it cannot, so Lab 1 is validated again (a reset of
         # Lab 1 after Lab 2 removes the saved evidence).
-        if load_record(2, repo) is not None and _lab_2_can_mask(dsn, repo):
+        if load_record(2, repo) is not None and lab_2_can_mask(dsn, repo):
             raise LabEntryError(
                 "Lab 1 cannot hand off: Lab 2 was started directly, before Lab 1's "
                 "passing evidence was saved.\n"

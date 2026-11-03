@@ -216,6 +216,36 @@ def require_broken_search(event: dict, mission: dict) -> None:
         )
 
 
+def _lab_2_hides_lab_1() -> bool:
+    """Whether Lab 2 started and its ranking fault can keep Lab 1's product from reranking."""
+    from scripts.lab_entry import lab_2_can_mask, load_record
+
+    return load_record(2, ROOT) is not None and lab_2_can_mask(
+        os.getenv("DATABASE_URL"), ROOT
+    )
+
+
+def _lab_1_handoff(handoff: Path) -> Path:
+    """Under Lab 2's fault, point at the evidence Lab 1 saved when it handed off."""
+    reason = (
+        "Lab 2's exercise changes which products reach reranking,\n"
+        "so this search cannot show your Lab 1 repair"
+    )
+    _require(
+        handoff.exists(),
+        f"{reason}, and Lab 1's passing evidence\n"
+        "was not saved before Lab 2 started. Your edits are unchanged.\n"
+        "Next: continue in the Lab 2 guide. Once Lab 2 is repaired and applied, "
+        f"compare Lab 1 again:\n{repeat_request_command(1)}",
+    )
+    print(
+        f"Lab 1: {reason}.\nIts passing evidence was saved when Lab 1 handed off to Lab 2:\n"
+        f"{handoff.relative_to(ROOT)}\nNext: continue in the Lab 2 guide.",
+        flush=True,
+    )
+    return handoff
+
+
 def _without_before(lab: int, output: Path) -> str:
     """Say why there is no Before to compare, or refuse when the lab never started."""
     path = output / "before-state.json"
@@ -301,6 +331,8 @@ def prepare(lab: int, phase: str, api_url: str, output: Path) -> Path:
             f"{' and '.join(changed)} from this search, so the two cannot be "
             f"compared. Next: {FACILITATOR}.",
         )
+    if lab == 1 and phase == "after" and _lab_2_hides_lab_1():
+        return _lab_1_handoff(ROOT / ".local/lab-1/handoff.json")
     print(f"Alex's request: {mission['query']}", flush=True)
     state = {
         "request": payload,

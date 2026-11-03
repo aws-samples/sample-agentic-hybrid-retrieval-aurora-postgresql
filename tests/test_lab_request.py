@@ -306,3 +306,94 @@ def test_a_run_saves_under_the_checkout_and_honours_lab_api_url(monkeypatch, tmp
     [(lab, phase, api_url, output)] = calls
     assert (lab, phase, api_url) == (2, "after", "http://api.internal:9000")
     assert output == lab_request.ROOT / ".local/lab-2"
+
+
+def _lab_1_after(monkeypatch, tmp_path, *, hides: bool, search) -> object:
+    """Lab 1's repeat request with a saved Before, while Lab 2's fault may be installed."""
+    mission = lab_checks.load_mission("retrieve")
+    ready = {
+        "database": {"dataset_id": mission["dataset_id"], "catalog_ready": True},
+        "source": {"dataset_manifest_sha256": "hash"},
+        "configured_models": {"embed": "model"},
+    }
+    connection = Mock()
+    connection.execute.return_value.fetchone.return_value = {
+        "dataset_id": mission["dataset_id"],
+        "catalog_sha256": "hash",
+    }
+
+    @contextmanager
+    def connect():
+        yield connection
+
+    monkeypatch.setattr("service.db.connect", connect)
+    monkeypatch.setattr(
+        "service.catalog_runtime.active_dataset", lambda: mission["dataset_id"]
+    )
+    monkeypatch.setattr(lab_request, "_request", lambda *args: ready)
+    monkeypatch.setattr(lab_request, "_search", search)
+    monkeypatch.setattr(lab_request, "ROOT", tmp_path)
+    monkeypatch.setattr(lab_request, "_lab_2_hides_lab_1", lambda: hides, raising=False)
+    output = tmp_path / ".local/lab-1"
+    output.mkdir(parents=True)
+    before = {
+        "request": lab_request.request_payload(mission),
+        "catalog_hash": "hash",
+        "models": ready["configured_models"],
+    }
+    (output / "before-state.json").write_text(json.dumps(before))
+    return output
+
+
+def _no_search(*args):
+    pytest.fail("Lab 1 must not run another paid search under Lab 2's fault")
+
+
+def test_lab_1_after_lab_2_started_defers_to_the_saved_handoff(
+    monkeypatch, tmp_path, capsys
+):
+    """1 November event: `finish --lab 1` after `advance --lab 1` stopped at this step
+    with "product 1492978 is still missing from the candidates sent to reranking, so
+    the repair has not reached the search Aurora runs", blaming a correct Lab 1 repair
+    for Lab 2's collapsed ranks."""
+    output = _lab_1_after(monkeypatch, tmp_path, hides=True, search=_no_search)
+    (output / "handoff.json").write_text("{}")
+
+    lab_request.prepare(1, "after", "http://localhost", output)
+
+    printed = capsys.readouterr().out
+    assert "Lab 2's exercise changes which products reach reranking" in printed
+    assert "saved when Lab 1 handed off to Lab 2" in printed
+    assert "has not reached the search Aurora runs" not in printed
+
+
+def test_lab_1_after_lab_2_started_without_a_handoff_points_at_lab_2(
+    monkeypatch, tmp_path
+):
+    output = _lab_1_after(monkeypatch, tmp_path, hides=True, search=_no_search)
+
+    with pytest.raises(LabValidationError, match="continue in the Lab 2 guide"):
+        lab_request.prepare(1, "after", "http://localhost", output)
+
+
+def test_lab_1_after_compares_as_before_while_lab_2_cannot_hide_it(
+    monkeypatch, tmp_path
+):
+    def search(*args):
+        raise RuntimeError("searched")
+
+    output = _lab_1_after(monkeypatch, tmp_path, hides=False, search=search)
+    (output / "handoff.json").write_text("{}")
+
+    with pytest.raises(RuntimeError, match="searched"):
+        lab_request.prepare(1, "after", "http://localhost", output)
+
+
+def test_lab_2_cannot_hide_lab_1_before_lab_2_starts(monkeypatch, tmp_path):
+    monkeypatch.setattr(lab_request, "ROOT", tmp_path)
+    monkeypatch.setattr(
+        "scripts.lab_entry.lab_2_can_mask",
+        lambda *args: pytest.fail("no Lab 2 start record, so Aurora is not read"),
+    )
+
+    assert lab_request._lab_2_hides_lab_1() is False
