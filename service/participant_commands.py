@@ -121,7 +121,7 @@ def proof_steps_text(lab: int) -> str:
 
 
 # How long each command `finish` and `skip-to` run usually takes, in seconds, rounded up:
-# measured on event 814672215611 on 25 October 2026, where `finish --lab 3` from a fresh
+# measured on a Workshop Studio event on 25 October 2026, where `finish --lab 3` from a fresh
 # account took 1:41. A later lab's start only reads its record, because the previous
 # hand-off started that lab. The deploy is the sum of its phases.
 DEPLOY_PHASE_SECONDS = (5, 16, 16, 21, 13)

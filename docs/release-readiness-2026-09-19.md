@@ -158,7 +158,7 @@ AWS identity. These commands were prepared, not executed. Do not upload from an
 incomplete cache checkout, and do not add deletion flags.
 
 ```bash
-cd /Users/shayons/Desktop/Workshops/build-agentic-hybrid-retrieval-with-amazon-aurora-postgresql
+cd ../build-agentic-hybrid-retrieval-with-amazon-aurora-postgresql
 set -e
 SRC=../sample-agentic-hybrid-retrieval-aurora-postgresql
 ASSET_ROOT=s3://ws-assets-us-east-1/d2acf248-2981-4292-a41c-60a0a0e54ab3

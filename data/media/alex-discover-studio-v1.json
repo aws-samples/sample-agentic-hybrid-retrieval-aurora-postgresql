@@ -5,12 +5,12 @@
   "method": "Existing JPEG assets converted to WebP; no crop or generative changes. Assets with a grade field were then colour-corrected as it records.",
   "assets": [
     {
-      "source": "/Users/shayons/Desktop/DAT410-UI-rehaul/grok/public/discover/long-day.jpg",
+      "source": "maintainer-supplied DAT410-UI-rehaul/grok/public/discover/long-day.jpg (not in this repository)",
       "runtime_path": "/assets/images/mosaic/alex-long-day-editorial-v1.webp",
       "sha256": "556a3b4573bd92c7fd35205b0505d005607ad29ee0b08aa44f320803363fdd79"
     },
     {
-      "source": "/Users/shayons/Desktop/DAT410-UI-rehaul/grok/public/products/canvas.jpg",
+      "source": "maintainer-supplied DAT410-UI-rehaul/grok/public/products/canvas.jpg (not in this repository)",
       "runtime_path": "/assets/images/mosaic/alex-screen-space-editorial-v2.webp",
       "sha256": "eda7d789720e249772ee7616f2bc569fe929cc5d6c209ef6f5d8262a6b7d2b5d",
       "graded_from": {

@@ -5,7 +5,7 @@
   "method": "Existing JPEG assets converted to WebP; no crop or generative changes. Assets with a grade field were then colour-corrected as it records.",
   "assets": [
     {
-      "source": "/Users/shayons/Desktop/DAT410-UI-rehaul/grok/public/products/solace.jpg",
+      "source": "maintainer-supplied DAT410-UI-rehaul/grok/public/products/solace.jpg (not in this repository)",
       "runtime_path": "/assets/images/mosaic/alex-focus-editorial-v4.webp",
       "sha256": "50f7a5205e0c2f37646484622c163001439b7cb5fbe82ff8c79330da95ca9b4a",
       "graded_from": {
@@ -15,12 +15,12 @@
       "grade": "Neutral daylight grade to match the walkthrough photographs: per-channel gains in linear light move the brightest 20% of pixels to sRGB (236, 234, 233), with a soft shoulder above 0.85 linear; shadows lifted with luminance gamma 0.8 and colour reduced to 90%. No crop or generative change."
     },
     {
-      "source": "/Users/shayons/Desktop/DAT410-UI-rehaul/grok/public/products/arc.jpg",
+      "source": "maintainer-supplied DAT410-UI-rehaul/grok/public/products/arc.jpg (not in this repository)",
       "runtime_path": "/assets/images/mosaic/alex-comfort-editorial-v3.webp",
       "sha256": "7e080e62f09b5d68a43d5c2cb57b95fe742f3bf43691723bd77bf35e2b60d95e"
     },
     {
-      "source": "/Users/shayons/Desktop/DAT410-UI-rehaul/grok/public/products/atelier.jpg",
+      "source": "maintainer-supplied DAT410-UI-rehaul/grok/public/products/atelier.jpg (not in this repository)",
       "runtime_path": "/assets/images/mosaic/alex-workspace-editorial-v4.webp",
       "sha256": "5b2fbf7c801244186efe7550c7ac65b867eed10233b2d6e8e11b90822ff0c1da",
       "graded_from": {
