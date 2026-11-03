@@ -1442,6 +1442,77 @@ def test_staging_log_group_is_retained_and_unnamed():
     assert "LogGroupName" not in group["Properties"]
 
 
+def function_log_violations(resources: dict) -> list[str]:
+    """Functions that do not log to an expiring group the stack itself deletes."""
+    violations = []
+    for name, resource in resources.items():
+        if resource["Type"] != "AWS::Lambda::Function":
+            continue
+        logging = resource["Properties"].get("LoggingConfig", {})
+        target = logging.get("LogGroup", {}).get("Ref")
+        group = resources.get(target, {})
+        if group.get("Type") != "AWS::Logs::LogGroup":
+            violations.append(
+                f"{name}: no LoggingConfig.LogGroup naming a declared group"
+            )
+        elif not group["Properties"].get("RetentionInDays"):
+            violations.append(f"{name}: {target} has no RetentionInDays")
+        elif (group.get("DeletionPolicy"), group.get("UpdateReplacePolicy")) != (
+            "Delete",
+            "Delete",
+        ):
+            violations.append(f"{name}: {target} is not deleted with the stack")
+        elif group.get("Condition") != resource.get("Condition"):
+            violations.append(f"{name}: {target} has a different Condition")
+    return violations
+
+
+def test_every_function_logs_to_a_group_the_stack_deletes():
+    """Without a declared group, Lambda creates /aws/lambda/<name>, which never
+    expires and outlives the stack in the deployer's account."""
+    violations = {
+        path.name: function_log_violations(
+            yaml.load(path.read_text(), Loader=CloudFormationLoader)["Resources"]
+        )
+        for path in sorted(CLOUDFORMATION.glob("*.yml"))
+    }
+    assert {name: found for name, found in violations.items() if found} == {}, (
+        "Function log group rule: give each function a LoggingConfig naming an "
+        f"AWS::Logs::LogGroup with RetentionInDays and DeletionPolicy Delete: {violations}"
+    )
+
+
+def test_function_log_violations_has_a_falsifier():
+    """Each rule fails on its own violation and passes the pattern the templates use."""
+    function = {"Type": "AWS::Lambda::Function", "Properties": {}}
+    assert function_log_violations({"Launcher": function}) == [
+        "Launcher: no LoggingConfig.LogGroup naming a declared group"
+    ]
+    logged = {
+        **function,
+        "Properties": {"LoggingConfig": {"LogGroup": {"Ref": "Logs"}}},
+    }
+    good = {
+        "Type": "AWS::Logs::LogGroup",
+        "DeletionPolicy": "Delete",
+        "UpdateReplacePolicy": "Delete",
+        "Properties": {"RetentionInDays": 7},
+    }
+    cases = {
+        "Launcher: Logs has no RetentionInDays": {**good, "Properties": {}},
+        "Launcher: Logs is not deleted with the stack": {
+            **good,
+            "UpdateReplacePolicy": "Retain",
+        },
+        "Launcher: Logs has a different Condition": {**good, "Condition": "Traced"},
+    }
+    for expected, group in cases.items():
+        assert function_log_violations({"Launcher": logged, "Logs": group}) == [
+            expected
+        ]
+    assert function_log_violations({"Launcher": logged, "Logs": good}) == []
+
+
 def test_staging_security_group_allows_https_egress_only():
     group = staging_template()["Resources"]["BuilderSecurityGroup"]
     ports = [rule["FromPort"] for rule in group["Properties"]["SecurityGroupEgress"]]

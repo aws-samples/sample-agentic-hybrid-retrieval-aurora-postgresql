@@ -519,10 +519,21 @@ Resources:
                 Action: cloudtrail:CreateServiceLinkedChannel
                 Resource: !Sub 'arn:${AWS::Partition}:cloudtrail:${AWS::Region}:${AWS::AccountId}:channel/aws-service-channel/application-signals/*'
 
+  TransactionSearchConfiguratorLogs:
+    Type: AWS::Logs::LogGroup
+    Condition: ObservabilityEnabled
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      LogGroupName: !Sub '/mosaic/${AWS::StackName}/transaction-search'
+      RetentionInDays: 7
+
   TransactionSearchConfigurator:
     Type: AWS::Lambda::Function
     Condition: ObservabilityEnabled
     Properties:
+      LoggingConfig:
+        LogGroup: !Ref TransactionSearchConfiguratorLogs
       Runtime: python3.13
       Handler: index.handler
       Role: !GetAtt TransactionSearchConfiguratorRole.Arn
@@ -831,9 +842,19 @@ Resources:
                   StringEquals:
                     kms:ViaService: !Sub 'logs.${AWS::Region}.amazonaws.com'
 
+  RuntimeLogConfiguratorLogs:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      LogGroupName: !Sub '/mosaic/${AWS::StackName}/runtime-log-configurator'
+      RetentionInDays: 7
+
   RuntimeLogConfigurator:
     Type: AWS::Lambda::Function
     Properties:
+      LoggingConfig:
+        LogGroup: !Ref RuntimeLogConfiguratorLogs
       Runtime: python3.13
       Handler: index.handler
       Role: !GetAtt RuntimeLogConfiguratorRole.Arn
@@ -1438,10 +1459,20 @@ Resources:
                   StringEquals:
                     aws:ResourceTag/Name: !Sub '${WorkshopName}-code-editor'
 
+  EditorLauncherLogs:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      LogGroupName: !Sub '/mosaic/${AWS::StackName}/editor-launcher'
+      RetentionInDays: 7
+
   EditorLauncherFunction:
     Type: AWS::Lambda::Function
     Properties:
       Description: Launches the Code Editor host on the first zone and instance type with capacity
+      LoggingConfig:
+        LogGroup: !Ref EditorLauncherLogs
       Architectures:
         - arm64
       Runtime: python3.13
