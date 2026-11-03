@@ -2451,3 +2451,86 @@ def test_an_unfinished_teardown_exits_non_zero_and_says_why(
     )
     assert deploy.main(["teardown", "--region", "us-east-1"]) == 2
     assert "NOT FINISHED: come back later" in capsys.readouterr().err
+
+
+AMI_ID = re.compile(r"^ami-[0-9a-f]{17}$")
+
+
+def image_violations(template: dict) -> list[str]:
+    """Images not taken from a Region-keyed mapping of pinned AMI IDs."""
+    found = []
+
+    def walk(node, where):
+        if isinstance(node, dict):
+            for key, value in node.items():
+                if key == "ImageId":
+                    lookup = (
+                        value.get("Fn::FindInMap") if isinstance(value, dict) else None
+                    )
+                    if not lookup or lookup[1] != {"Ref": "AWS::Region"}:
+                        found.append(f"{where}: ImageId is not a per-Region mapping")
+                        continue
+                    regions = template.get("Mappings", {}).get(lookup[0], {})
+                    if not regions or not all(
+                        AMI_ID.match(str(entry.get(lookup[2], "")))
+                        for entry in regions.values()
+                    ):
+                        found.append(
+                            f"{where}: {lookup[0]} does not pin an AMI ID per Region"
+                        )
+                else:
+                    walk(value, f"{where}.{key}")
+        elif isinstance(node, list):
+            for item in node:
+                walk(item, where)
+
+    walk(template.get("Resources", {}), "Resources")
+    for name, parameter in template.get("Parameters", {}).items():
+        if "AWS::EC2::Image::Id" in parameter.get("Type", ""):
+            found.append(f"Parameters.{name}: an image parameter can follow an alias")
+    return found
+
+
+def test_every_host_boots_a_pinned_ami():
+    """Versions rule: the SSM `latest` alias moved under every event; each host boots one
+    AMI ID per Region, and the builder and the workshop host boot the same one."""
+    templates = {
+        path.name: yaml.load(path.read_text(), Loader=CloudFormationLoader)
+        for path in sorted(CLOUDFORMATION.glob("*.yml"))
+    }
+    violations = {name: image_violations(t) for name, t in templates.items()}
+    assert {name: found for name, found in violations.items() if found} == {}, (
+        "AMI pin rule: take each ImageId from a Mappings entry of AMI IDs keyed by "
+        f"Region: {violations}"
+    )
+    editor = templates["hybrid-retrieval-code-editor.yml"]["Mappings"]["CodeEditorAmi"]
+    builder = templates["hybrid-retrieval-staging.yml"]["Mappings"]["BuilderAmi"]
+    assert editor == builder
+
+
+def test_image_violations_has_a_falsifier():
+    alias = {
+        "Parameters": {
+            "Ami": {"Type": "AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>"}
+        },
+        "Resources": {"Host": {"Properties": {"ImageId": {"Ref": "Ami"}}}},
+    }
+    assert image_violations(alias) == [
+        "Resources.Host.Properties: ImageId is not a per-Region mapping",
+        "Parameters.Ami: an image parameter can follow an alias",
+    ]
+    unpinned = {
+        "Mappings": {"Ami": {"us-east-1": {"ImageId": "resolve:ssm:/aws/service/x"}}},
+        "Resources": {
+            "Host": {
+                "Properties": {
+                    "ImageId": {
+                        "Fn::FindInMap": ["Ami", {"Ref": "AWS::Region"}, "ImageId"]
+                    }
+                }
+            }
+        },
+    }
+    assert image_violations(unpinned) == [
+        "Resources.Host.Properties: Ami does not pin an AMI ID per Region"
+    ]

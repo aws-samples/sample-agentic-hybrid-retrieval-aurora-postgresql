@@ -22,7 +22,6 @@ Metadata:
         Parameters:
           - BuilderInstanceType
           - BuilderVolumeSize
-          - BuilderAmi
       - Label:
           default: Release bucket
         Parameters:
@@ -73,10 +72,6 @@ Parameters:
     MinValue: 200
     MaxValue: 1000
 
-  BuilderAmi:
-    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
-    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-6.1-arm64
-
   AssetsBucketName:
     Type: String
     Description: Private bucket in this Region that holds the release and the catalog bundle
@@ -90,6 +85,18 @@ Parameters:
     Default: 10.0.0.0/16
     AllowedValues:
       - 10.0.0.0/16
+
+# The builder boots the AMI the workshop hosts boot; FindInMap fails closed in other Regions.
+Mappings:
+  # al2023-ami-2023.12.20261102.0-kernel-6.1-arm64, which the SSM alias
+  # /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-6.1-arm64 named on 3 November
+  # 2026. A pinned AMI keeps every host on the image and package repository it was
+  # proven on; move it only as a deliberate upgrade proven on a fresh event.
+  BuilderAmi:
+    us-east-1:
+      ImageId: ami-0f11e0e04ccb60d0a
+    us-west-2:
+      ImageId: ami-0cc2cd1a7e55e5a3f
 
 Resources:
   VPCStack:
@@ -257,7 +264,7 @@ Resources:
         Count: 1
         Timeout: PT30M
     Properties:
-      ImageId: !Ref BuilderAmi
+      ImageId: !FindInMap [BuilderAmi, !Ref AWS::Region, ImageId]
       InstanceType: !Ref BuilderInstanceType
       IamInstanceProfile: !Ref BuilderInstanceProfile
       SubnetId: !GetAtt VPCStack.Outputs.PrivateSubnetA

@@ -50,7 +50,7 @@ Parameters:
 
   InfrastructureRevision:
     Type: String
-    Default: 94d356fc143927d1
+    Default: 81b2c61dd07c8913
     AllowedPattern: '^[0-9a-f]{16}$'
     Description: Validator-derived update trigger for nested templates and bootstrap inputs
 
@@ -198,7 +198,6 @@ Resources:
         - Bucket: !If [HasPublicAssetsBucket, !Ref PublicAssetsBucketName, !Ref AssetsBucketName]
           Prefix: !If [HasPublicAssetsBucket, !Ref PublicAssetsBucketPrefix, !Ref AssetsBucketPrefix]
       Parameters:
-        CodeEditorAmi: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-6.1-arm64
         WorkshopName: !Ref WorkshopName
         CodeEditorUser: participant
         HomeFolder: /workshop
