@@ -756,3 +756,94 @@ def test_unreachable_gateway_names_the_cause_and_a_way_out_of_the_verify_loop(
     message = str(raised.value)
     assert reason in message
     assert VERIFY_AGENT in message and DEPLOY_AGENT in message
+
+
+def _ready_runtime(platform):
+    control = Mock()
+    control.get_agent_runtime.return_value = {
+        "status": "READY",
+        "agentRuntimeVersion": "4",
+        **({"platformVersion": platform} if platform else {}),
+    }
+    control.get_agent_runtime_endpoint.return_value = {
+        "status": "READY",
+        "liveVersion": "4",
+    }
+    return control
+
+
+def test_a_runtime_on_another_platform_fails_its_deploy(monkeypatch):
+    """Versions rule 5: the deploy reads the platform each runtime actually runs, and a
+    runtime that reports a platform other than the pinned one fails instead of passing."""
+    from scripts import deploy_agentcore as deploy
+
+    monkeypatch.setattr(deploy.time, "sleep", lambda seconds: None)
+    with pytest.raises(
+        RuntimeError, match="Runtime platform rule: tools runtime runs V2"
+    ):
+        deploy.wait_runtime(_ready_runtime("V2"), "example", "tools runtime")
+
+
+@pytest.mark.parametrize("platform", ["V1", None])
+def test_a_runtime_on_the_pinned_platform_or_reporting_none_is_ready(platform):
+    """A runtime created before platform versions existed returns no platformVersion
+    (seen on 3 November 2026); that is V1 by definition, so it is reported, not failed."""
+    from scripts import deploy_agentcore as deploy
+
+    runtime = deploy.wait_runtime(_ready_runtime(platform), "example", "tools runtime")
+    assert runtime.get("platformVersion") == platform
+
+
+def test_the_deploy_sends_no_platform_version(monkeypatch):
+    """An update without platformVersion keeps the runtime's platform, so the deploy sends
+    exactly the fields it sent before botocore modelled the field."""
+    from scripts import deploy_agentcore as deployment
+
+    for name in ("MOSAIC_AGENTCORE_TOOLS_RUNTIME_ARN", "MOSAIC_AGENTCORE_RUNTIME_ARN"):
+        monkeypatch.setenv(name, ARN)
+    monkeypatch.setenv("MOSAIC_AGENTCORE_GATEWAY_ID", "gateway-id")
+    monkeypatch.setenv("MOSAIC_AGENTCORE_GATEWAY_TARGET_ID", "target-id")
+    control = Mock()
+    control.meta.service_model.operation_model.return_value.input_shape.members = {
+        "agentRuntimeArtifact": None,
+        "platformVersion": None,
+        "roleArn": None,
+    }
+    control.get_agent_runtime.side_effect = lambda **_: {
+        "roleArn": "runtime-role",
+        "platformVersion": "V1",
+        "agentRuntimeArtifact": {"codeConfiguration": {"code": {}}},
+    }
+    control.get_gateway_target.return_value = {"status": "READY"}
+    monkeypatch.setattr(deployment, "client", lambda _: control)
+    monkeypatch.setattr(
+        deployment,
+        "wait_runtime",
+        lambda *_: {"agentRuntimeVersion": "2", "platformVersion": "V1"},
+    )
+    deployment.update(
+        "example.ecr/repo@sha256:" + "a" * 64, deployment.deploy_progress(), "c" * 64
+    )
+    assert control.update_agent_runtime.call_count == 2
+    for call in control.update_agent_runtime.call_args_list:
+        assert "platformVersion" not in call.kwargs
+        assert call.kwargs["roleArn"] == "runtime-role"
+
+
+def test_the_templates_pin_the_platform_the_deploy_checks():
+    """One source of truth held by a test: each runtime in the templates sets the
+    platform version that the deploy and the bootstrap's connect step require."""
+    import yaml
+
+    from scripts import deploy_agentcore as deploy
+    from tests.test_own_account_deploy import CLOUDFORMATION, CloudFormationLoader
+
+    platforms = {
+        resource["Properties"].get("PlatformVersion")
+        for path in CLOUDFORMATION.glob("*.yml")
+        for resource in yaml.load(path.read_text(), Loader=CloudFormationLoader)[
+            "Resources"
+        ].values()
+        if resource["Type"] == "AWS::BedrockAgentCore::Runtime"
+    }
+    assert platforms == {deploy.RUNTIME_PLATFORM_VERSION}

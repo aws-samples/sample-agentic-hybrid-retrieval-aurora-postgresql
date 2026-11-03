@@ -283,6 +283,12 @@ def publish_image_storing_dsn_at_bootstrap(*, bootstrap: bool = False) -> str:
 RUNTIME_FAILED = {"CREATE_FAILED", "UPDATE_FAILED", "DELETING"}
 
 
+# Both runtimes stay on AgentCore Runtime platform V1, the version every event ran on; the
+# templates set it (PlatformVersion: V1), and a test holds the two in step. From 12 November
+# 2026 a runtime created without one gets V2, whose updates take minutes, not seconds.
+RUNTIME_PLATFORM_VERSION = "V1"
+
+
 def wait_runtime(control, runtime_id: str, label: str | None = None) -> dict:
     """Wait for the runtime and its DEFAULT endpoint to serve the new version."""
     label = label or f"runtime {runtime_id}"
@@ -301,6 +307,14 @@ def wait_runtime(control, runtime_id: str, label: str | None = None) -> dict:
                 f"{endpoint.get('liveVersion')} of {version}"
             )
             if endpoint["status"] == "READY" and endpoint.get("liveVersion") == version:
+                # A runtime created before platform versions existed reports none: V1.
+                platform = runtime.get("platformVersion")
+                if platform not in (None, RUNTIME_PLATFORM_VERSION):
+                    raise RuntimeError(
+                        f"Runtime platform rule: {label} runs {platform}, but this workshop "
+                        f"runs {RUNTIME_PLATFORM_VERSION}; fix: share this line with your "
+                        "facilitator, who checks the stack's PlatformVersion."
+                    )
                 return runtime
             if endpoint["status"] in RUNTIME_FAILED:
                 raise RuntimeError(
@@ -415,6 +429,9 @@ def update(image_uri: str, progress: Progress, application_sha256: str) -> None:
         payload.get("networkConfiguration", {}).get("networkModeConfig", {}).pop(
             "requireServiceS3Endpoint", None
         )
+        # An update without platformVersion keeps the runtime's platform, so the deploy sends
+        # what it sent before botocore modelled the field; the template owns the version.
+        payload.pop("platformVersion", None)
         payload["agentRuntimeId"] = runtime_id
         payload["agentRuntimeArtifact"] = {
             "containerConfiguration": {"containerUri": image_uri}
