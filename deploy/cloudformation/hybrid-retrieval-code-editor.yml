@@ -730,6 +730,10 @@ Resources:
         NetworkModeConfig:
           SecurityGroups: [!Ref DatabaseClientSecurityGroupId, !Ref RuntimeSecurityGroup]
           Subnets: [!Ref PrivateSubnetId]
+      # V1 explicitly: from 12 November 2026 a runtime created without a platform
+      # version gets V2, whose snapshot makes each update take minutes, not seconds.
+      # Every event proof and Lab 3's deploy timings were measured on V1.
+      PlatformVersion: V1
       LifecycleConfiguration:
         IdleRuntimeSessionTimeout: 300
         MaxLifetime: 3600
@@ -781,6 +785,10 @@ Resources:
         NetworkModeConfig:
           SecurityGroups: [!Ref DatabaseClientSecurityGroupId, !Ref RuntimeSecurityGroup]
           Subnets: [!Ref PrivateSubnetId]
+      # V1 explicitly: from 12 November 2026 a runtime created without a platform
+      # version gets V2, whose snapshot makes each update take minutes, not seconds.
+      # Every event proof and Lab 3's deploy timings were measured on V1.
+      PlatformVersion: V1
       LifecycleConfiguration:
         IdleRuntimeSessionTimeout: 300
         MaxLifetime: 3600

@@ -1513,6 +1513,39 @@ def test_function_log_violations_has_a_falsifier():
     assert function_log_violations({"Launcher": logged, "Logs": good}) == []
 
 
+def runtimes_off_v1(resources: dict) -> list[str]:
+    """AgentCore runtimes that do not pin platform version V1."""
+    return sorted(
+        name
+        for name, resource in resources.items()
+        if resource["Type"] == "AWS::BedrockAgentCore::Runtime"
+        and resource["Properties"].get("PlatformVersion") != "V1"
+    )
+
+
+def test_every_runtime_pins_platform_version_v1():
+    """A runtime created without a platform version gets V2 from 12 November 2026,
+    whose updates take minutes; Lab 3's deploy and every event proof ran on V1."""
+    found = {
+        path.name: runtimes_off_v1(
+            yaml.load(path.read_text(), Loader=CloudFormationLoader)["Resources"]
+        )
+        for path in sorted(CLOUDFORMATION.glob("*.yml"))
+    }
+    assert {name: off for name, off in found.items() if off} == {}, (
+        "Runtime platform rule: set PlatformVersion: V1 on each runtime until V2 "
+        f"has its own fresh-event proof: {found}"
+    )
+
+
+def test_runtimes_off_v1_has_a_falsifier():
+    runtime = {"Type": "AWS::BedrockAgentCore::Runtime", "Properties": {}}
+    pinned = {**runtime, "Properties": {"PlatformVersion": "V1"}}
+    later = {**runtime, "Properties": {"PlatformVersion": "V2"}}
+    resources = {"Agent": runtime, "Tools": later, "Pinned": pinned}
+    assert runtimes_off_v1(resources) == ["Agent", "Tools"]
+
+
 def test_staging_security_group_allows_https_egress_only():
     group = staging_template()["Resources"]["BuilderSecurityGroup"]
     ports = [rule["FromPort"] for rule in group["Properties"]["SecurityGroupEgress"]]

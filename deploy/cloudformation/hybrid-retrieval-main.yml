@@ -50,7 +50,7 @@ Parameters:
 
   InfrastructureRevision:
     Type: String
-    Default: 3ccb4a8ccdcf7d59
+    Default: 94d356fc143927d1
     AllowedPattern: '^[0-9a-f]{16}$'
     Description: Validator-derived update trigger for nested templates and bootstrap inputs
 
