@@ -399,30 +399,100 @@ def _bootstrap_packages(script: str) -> list[str]:
     return package_install.group("packages").replace("\\\n", " ").split()
 
 
+#: An exact RPM: name-[epoch:]version-release, as `dnf install` accepts it.
+NEVRA = re.compile(
+    r"^(?P<name>[A-Za-z0-9._+-]+?)-(?:(?P<epoch>\d+):)?(?P<version>\d[\w.+]*)"
+    r"-(?P<release>[\w.]+)$"
+)
+
+
+def _assignment(script: str, name: str) -> str:
+    match = re.search(rf"^{name}='([^']*)'$", script, re.MULTILINE)
+    assert match, f"the bootstrap does not assign {name}"
+    return match.group(1)
+
+
+def _resolved_packages(script: str) -> list[str]:
+    """The install line's packages, with each "$NAME" replaced by its assignment."""
+    return [
+        _assignment(script, token[2:-1]) if token.startswith('"$') else token
+        for token in _bootstrap_packages(script)
+    ]
+
+
+def _package_name(package: str) -> str:
+    match = NEVRA.match(package)
+    return match["name"] if match else package
+
+
 def test_bootstrap_installs_one_node_family_and_asserts_it(script: str) -> None:
     """AL2023 arbitrates Node through `alternatives`, so asking for two loses.
 
     The bare `npm` package is Node 18's and pulls nodejs-18 in as a dependency. A
     box that asked for `nodejs20 npm` ran Node 18: npm reported EBADENGINE for
     @anthropic-ai/claude-code, which declares `node >=22`, and the tool ran outside
-    its supported engine. Requesting exactly one family removes the arbitration,
-    and asserting the active version turns a wrong link into an immediate failure
-    rather than a Claude Code preflight that times out three times.
+    its supported engine. Requesting exactly one family, at one exact build, removes
+    the arbitration, and asserting the active version turns a wrong link or a moved
+    repository into an immediate failure.
     """
-    packages = _bootstrap_packages(script)
-    node_packages = {name for name in packages if name.startswith("nodejs")}
-    assert node_packages == {"nodejs22", "nodejs22-npm"}, (
-        f"the bootstrap requests Node packages {sorted(node_packages)}; ask for one "
+    packages = _resolved_packages(script)
+    node = {_package_name(p): p for p in packages if p.startswith("nodejs")}
+    assert set(node) == {"nodejs22", "nodejs22-npm"}, (
+        f"the bootstrap requests Node packages {sorted(node)}; ask for one "
         "family only, and for 22 because the pinned Claude Code needs node >=22"
+    )
+    assert all(NEVRA.match(p) for p in node.values()), (
+        f"Node packages {sorted(node.values())} are not exact builds; pin "
+        "name-epoch:version-release from the pinned AMI's repository"
     )
     assert "npm" not in packages, (
         "the unversioned npm package is Node 18's and installs nodejs-18 as a "
         "dependency, which then wins the alternatives link"
     )
-    assert r"node --version | grep -Eq '^v22\.'" in script, (
-        "the bootstrap does not assert which Node is active, so a wrong "
-        "alternatives link surfaces later as an EBADENGINE warning"
+    assert (
+        _assignment(script, "NODE_VERSION")
+        == "v" + NEVRA.match(node["nodejs22"])["version"]
     )
+    assert '[ "$(node --version)" = "$NODE_VERSION" ]' in script, (
+        "the bootstrap does not assert the exact Node it installed"
+    )
+
+
+def test_bootstrap_pins_and_checks_the_system_python_exactly(script: str) -> None:
+    """The system python3.13 runs the bootstrap's helpers and installs uv; an
+    unpinned RPM would take whatever the AMI's repository offers."""
+    pythons = [
+        p for p in _resolved_packages(script) if _package_name(p) == "python3.13"
+    ]
+    assert len(pythons) == 1 and NEVRA.match(pythons[0]), (
+        f"the bootstrap installs python3.13 as {pythons}; pin one exact build"
+    )
+    version = NEVRA.match(pythons[0])["version"]
+    assert _assignment(script, "PYTHON_VERSION") == f"Python {version}"
+    assert '[ "$(python3.13 --version)" = "$PYTHON_VERSION" ]' in script
+
+
+def test_bootstrap_checks_the_app_python_against_python_version(script: str) -> None:
+    """The application runs the interpreter .python-version names, which uv fetches;
+    the host must fail rather than run the labs on another one."""
+    body = re.search(
+        r"^sync_python_environment\(\) \{\n(?P<body>.*?)^\}",
+        script,
+        re.MULTILINE | re.DOTALL,
+    )
+    assert body, "the bootstrap has no sync_python_environment phase"
+    assert '.venv/bin/python" --version' in body["body"]
+    assert ".python-version" in body["body"]
+
+
+def test_nevra_has_a_falsifier() -> None:
+    assert NEVRA.match("nodejs22-1:22.23.4-1.amzn2023.0.1")["version"] == "22.23.4"
+    assert NEVRA.match("python3.13-3.13.16-1.amzn2023.0.1")["name"] == "python3.13"
+    assert _package_name("nodejs22-npm-1:10.9.9-1.22.23.4.1.amzn2023.0.1") == (
+        "nodejs22-npm"
+    )
+    assert NEVRA.match("nodejs22") is None
+    assert NEVRA.match("python3.13-pip") is None
 
 
 def test_al2023_bootstrap_does_not_request_full_curl(script: str) -> None:

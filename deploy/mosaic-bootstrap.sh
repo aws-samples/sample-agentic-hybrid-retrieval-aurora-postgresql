@@ -218,6 +218,15 @@ CODE_EDITOR_DISTRIBUTION='code-editor-server-v1.101.2-1785233990.076216280-linux
 CODE_EDITOR_SHA256='1965ca15854f1faa8907e6e91c0e87ee887b24d458771b352a71e08fb41d6d60'
 CODE_EDITOR_ROOT="/home/$CODE_EDITOR_USER/.local/lib/code-editor-$CODE_EDITOR_VERSION-linux-arm64"
 CODE_EDITOR_ARCHIVE="/tmp/$CODE_EDITOR_DISTRIBUTION"
+# Exact builds from the pinned AMI's package repository (AL2023 release 2023.12.20261102),
+# the newest each family offers there, so a host cannot install an interpreter no event
+# proved. Move them only together with the AMI in the templates; the checks after the
+# install stop the bootstrap on any other version.
+NODE_RPM='nodejs22-1:22.23.4-1.amzn2023.0.1'
+NODE_NPM_RPM='nodejs22-npm-1:10.9.9-1.22.23.4.1.amzn2023.0.1'
+NODE_VERSION='v22.23.4'
+PYTHON_RPM='python3.13-3.13.16-1.amzn2023.0.1'
+PYTHON_VERSION='Python 3.13.16'
 APP_DB_USER='mosaic_runtime'
 
 # The phase bodies below keep the column-zero layout of the script they came from:
@@ -231,7 +240,7 @@ install_packages() {
 # list said 20, and @anthropic-ai/claude-code declares `node >=22`, so npm
 # reported EBADENGINE at install time and the tool ran outside its supported
 # engine. Installing one Node family leaves nothing to arbitrate.
-network_retry dnf install -y git jq nginx nodejs22 nodejs22-npm postgresql18 python3.13 \
+network_retry dnf install -y git jq nginx "$NODE_RPM" "$NODE_NPM_RPM" postgresql18 "$PYTHON_RPM" \
   python3.13-pip python3.13-setuptools gcc gcc-c++ make sudo tar gzip docker unzip
 command -v aws >/dev/null 2>&1 || \
   (network_retry dnf install -y awscli2 || network_retry dnf install -y awscli)
@@ -246,7 +255,16 @@ docker version --format '{{.Server.Version}}'
 # libldap.so.2, which AL2023 does not provide. psql keeps the standard TLS
 # negotiation, with sslmode=verify-full against the RDS bundle.
 psql --version | grep -Eq '^psql \(PostgreSQL\) 18\.'
-node --version | grep -Eq '^v22\.'
+[ "$(node --version)" = "$NODE_VERSION" ] || {
+  echo "Version rule: node is $(node --version), not $NODE_VERSION;" \
+    "fix: pin NODE_RPM and the AMI together."
+  signal_failure 1
+}
+[ "$(python3.13 --version)" = "$PYTHON_VERSION" ] || {
+  echo "Version rule: python3.13 is $(python3.13 --version), not $PYTHON_VERSION;" \
+    "fix: pin PYTHON_RPM and the AMI together."
+  signal_failure 1
+}
 npm --version >/dev/null
 
 # Vestigial for actual login: NOPASSWD sudo below means this account never
@@ -822,6 +840,15 @@ sync_python_environment() {
 network_retry sudo -u "$CODE_EDITOR_USER" -H bash -lc \
   "cd '$REPO' && uv sync --frozen"
 sudo -u "$CODE_EDITOR_USER" -H bash -lc "cd '$REPO' && uv pip check"
+# The application runs the interpreter .python-version names, which uv fetches, not the
+# system python3.13; a host must not run the labs on any other.
+app_python=$("$REPO/.venv/bin/python" --version)
+wanted_python="Python $(cat "$REPO/.python-version")"
+[ "$app_python" = "$wanted_python" ] || {
+  echo "Version rule: the application's Python is $app_python, not $wanted_python" \
+    "from .python-version; fix: rerun uv sync --frozen."
+  signal_failure 1
+}
 }
 
 phase_source() {
