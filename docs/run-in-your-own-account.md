@@ -45,7 +45,8 @@ more without storing it (Electronics 22.6 GB, Home_and_Kitchen 31.4 GB, Office_P
 which runs the review scans, took 7.6 minutes in its final run, which resumed earlier runs
 stopped by the source host's rate limit; an uninterrupted run was not measured.
 
-**Cost.** This page gives no prices, because they change. Read the current rates:
+**Cost.** Prices change, so this page quotes no current rates; the one dollar figure
+below is what the proof account was billed. Read the current rates:
 
 - [Amazon Aurora pricing](https://aws.amazon.com/rds/aurora/pricing/)
 - [Amazon Bedrock AgentCore pricing](https://aws.amazon.com/bedrock/agentcore/pricing/)

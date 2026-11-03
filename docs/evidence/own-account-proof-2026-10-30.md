@@ -167,7 +167,7 @@ Transaction Search came back through the full stack: the custom resource's delet
 "restored indexing, destination, policy, kept aws/spans, kept
 /aws/application-signals/data", and the Region read destination `XRay` `ACTIVE`, indexing
 0, no Mosaic policy. Both groups were kept because Lab 3's traces had landed in them; they
-remain for the owner to keep or delete.
+remain for the account owner to keep or delete.
 
 ## Cost
 

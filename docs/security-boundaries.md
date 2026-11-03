@@ -28,10 +28,23 @@ catalog SELECT access plus the specific diagnostic/session write grants; schema
 installation and exercise repair use the workshop administration identity.
 
 Logs at application and bootstrap boundaries report exception types or bounded,
-redacted messages. Credentials must not appear in commands, generated reports,
-CloudFormation responses or participant-visible error details. Do not enable
-content capture for real personal data. Review service-provider retention and
-the workshop cleanup checklist before reusing this sample beyond an event.
+redacted messages. Credentials must not appear in commands, generated reports or
+participant-visible error details, with two deliberate exceptions on the
+participant host:
+
+- The `CodeEditorURL` stack output carries the editor's connection token, and the
+  editor's EC2 launch template user data carries that token and the CloudFront
+  origin secret, which the distribution's origin header also holds. Anyone in the
+  account who can read stack outputs, launch templates or CloudFront distributions
+  can open the editor.
+- The participant's shell loads `DATABASE_URL` with the workshop administration
+  password, because the lab commands run as that identity. Any process in that
+  shell, a coding agent included, can read it.
+
+Deploy the stack only in an account whose other users you would trust with that
+host. Do not enable content capture for real personal data. Review
+service-provider retention and the workshop cleanup checklist before reusing this
+sample beyond an event.
 
 A production adaptation needs authenticated identities, owner-scoped receipt
 and memory access, application-level quotas, an explicit data-retention policy,
