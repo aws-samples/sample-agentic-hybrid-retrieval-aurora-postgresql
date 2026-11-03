@@ -880,8 +880,10 @@ chmod 600 "$REPO/.env"
 # on the introduction page. Any new terminal lost it, every one of those commands
 # then ran as psql "" and fell back to a local socket that does not exist, and a
 # bare `psql` never worked at all. Load it in every interactive shell instead, and
-# give libpq its own variables so `psql` with no arguments reaches Aurora too. The
-# password stays out of the environment and out of /etc, in a 0600 ~/.pgpass.
+# give libpq its own variables so `psql` with no arguments reaches Aurora too, with
+# the password from a 0600 ~/.pgpass. DATABASE_URL still carries the administration
+# password, so every shell's environment holds it by design; see
+# docs/security-boundaries.md.
 append_once "/home/$CODE_EDITOR_USER/.bashrc" "export PGHOST='$DB_CLUSTER_ENDPOINT'" <<EOF
 set -a
 [ -r '$REPO/.env' ] && . '$REPO/.env'
