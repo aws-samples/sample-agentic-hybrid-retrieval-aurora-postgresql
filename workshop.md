@@ -1,14 +1,17 @@
 # DAT410-R Mosaic - Presenter brief
 
+> This brief is for the presenters and room support who deliver the workshop at an
+> event. To run Mosaic on your own, start with the [README](README.md) and
+> [Run Mosaic in your own account](docs/run-in-your-own-account.md).
+
 Help Alex choose headphones, a monitor and a chair for his home office.
 Participants repair SQL retrieval and ranking, then build the Retrieval agent, a Strands agent that
 uses that SQL to answer with sources. Follow the participant's Workshop Studio
 guide; it keeps required actions visible and reference material collapsed.
 
-The operational preflight and publication gates live in the Workshop Studio
-repository's `FACILITATOR_GUIDE.md`. Use the [setup guide](docs/workshop-studio-setup.md)
-for both repositories and the [publishing runbook](docs/workshop-studio-publishing.md)
-for release work. This brief is for delivery, not a second runbook. Own-account runs are not a delivery
+Event preflight, publication and release gates belong to the separate Workshop Studio
+content repository that packages the event. This brief is for delivery, not a second
+runbook. Own-account runs are not a delivery
 mode: [Run Mosaic in your own account](docs/run-in-your-own-account.md) is a
 self-service page, and facilitators do not support it.
 

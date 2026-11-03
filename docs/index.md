@@ -46,8 +46,6 @@ The remaining guides are grouped by the work they support.
 | [Intentional gaps](intentional-gaps.md) | Defects in the starting code and their recovery contracts |
 | [Artifacts and restore](../ARTIFACTS.md) | Pinned real products, saved vectors and Aurora connection notes |
 | [Aurora deployment](aurora-deployment.md) | Provisioning and operational sequence |
-| [Workshop Studio setup](workshop-studio-setup.md) | First-time setup and cloning both repositories |
-| [Workshop Studio publishing](workshop-studio-publishing.md) | Repin, validate, sync assets, push and verify the build |
 | [Release readiness](../READINESS.md) | Required source and deployment gates |
 | [Rehearsal runbook](rehearsal-runbook.md) | Clean-account recorder and bounded load exercise |
 | [Fresh-account evidence](evidence/fresh-account-2026-09-26.md) | Measured deployment acceptance and remaining rehearsal work |

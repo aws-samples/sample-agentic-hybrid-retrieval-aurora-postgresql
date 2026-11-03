@@ -91,11 +91,11 @@ writes retrieval receipts. Validate the shared tool contracts with:
 uv run python scripts/checks/tool_contracts.py --check
 ```
 
-## Publish a workshop update
+## Workshop Studio events
 
-Follow the [publishing runbook](workshop-studio-publishing.md): publish source,
-repin, verify and upload assets, sync static URLs, then push the workshop
-repository and verify its build.
+Events are packaged from a separate Workshop Studio content repository that pins
+one commit of this repository; its own runbooks cover publishing. You do not
+need it to develop Mosaic or to run it in your own account.
 
 For other deployments, see [AgentCore Runtime](agentcore-runtime.md) and
 [telemetry export](telemetry-contract.md). Contribution and security-reporting

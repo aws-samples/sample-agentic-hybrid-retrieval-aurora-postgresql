@@ -213,9 +213,9 @@ named here exists.
   complete asset working copy.
 - Required gates live in [READINESS.md](READINESS.md). Never describe an offline
   pass, source push or Workshop Studio build as fresh-account acceptance.
-- Workshop Studio builds are published from the workshop repository with its
-  authoring credentials; see [setup](docs/workshop-studio-setup.md) and
-  [publishing](docs/workshop-studio-publishing.md).
+- Workshop Studio builds are published from the separate Workshop Studio content
+  repository with its authoring credentials, under its own runbooks; nothing in
+  this repository publishes an event.
 
 ### Aurora only
 
