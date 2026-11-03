@@ -1,5 +1,9 @@
 # Start here
 
+> Outside a workshop event? Start with the [README](README.md) and
+> [Run Mosaic in your own account](docs/run-in-your-own-account.md); this page assumes an
+> event's prepared account.
+
 Begin in Workshop Studio with **Getting started**; the **Overview** before it
 is optional. Run Getting started's catalog readiness check in this terminal,
 then save Lab 1's failing search. Keep the guide and Code

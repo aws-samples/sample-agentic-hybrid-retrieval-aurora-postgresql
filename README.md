@@ -133,8 +133,26 @@ The commands you use most:
 A successful deploy or a plausible answer is not completion: each lab ends with the
 guide's checks against the same request, run on the state you applied or deployed.
 
-To run the workshop outside an AWS event, in an account you own, follow
-[Run Mosaic in your own account](docs/run-in-your-own-account.md).
+### Run it in your own account
+
+To run the labs outside an AWS event, in an account you own, follow
+[Run Mosaic in your own account](docs/run-in-your-own-account.md). Read its first section
+before you deploy:
+
+- One CloudFormation stack creates a new Aurora PostgreSQL cluster (`db.r8g.2xlarge` by
+  default), an EC2 host for Code Editor and the storefront, a VPC with a NAT gateway, two
+  CloudFront distributions, Amazon Bedrock AgentCore Runtimes, a Gateway and Memory, Lambda
+  functions and Secrets Manager secrets.
+- The Aurora writer, the host and the NAT gateway bill by the hour until you delete the
+  stack, whether or not you use the labs.
+- You build the catalog yourself first, on a temporary builder host and staging database:
+  7 hours 39 minutes in the proof run, and about $33 of Cohere Embed v4 input tokens at the
+  rate that account was billed.
+- The storefront is reachable without a login, and the Code Editor URL carries its access
+  token. The sample is for one person in an account you control; see
+  [security boundaries](docs/security-boundaries.md).
+- [Tear down](docs/run-in-your-own-account.md#6-tear-down) deletes the stack and lists
+  what outlives it.
 
 ## Use it in your own project
 
