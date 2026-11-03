@@ -5,6 +5,8 @@ with Amazon Aurora PostgreSQL**. Follow the participant's current Workshop
 Studio lab guide first, alongside [START_HERE.md](START_HERE.md). Help them
 understand and complete that lab; do not turn a workshop question into repository
 maintenance. Claude Code imports this file through the root `CLAUDE.md`.
+During an event, follow the sections before **Maintaining this repository**;
+that section and the ones under it are for maintainers working outside an event.
 
 ## Participant journey and working rules
 
@@ -174,85 +176,62 @@ Useful explanations: [architecture](docs/architecture.md),
 [adaptation](docs/use-in-your-app.md). Maintainers should also read
 [development](docs/development.md) and [readiness](READINESS.md).
 
-## Maintainer testing and delivery pitfalls
+## Maintaining this repository
 
-The following maintenance and publication rules do not authorize participant
-commits, provisioning, catalog reloads or release changes during a lab.
+Everything from here on is for people changing this repository outside an event.
+None of it authorizes participant commits, provisioning, catalog reloads or release
+changes during a lab.
+
+This file ships in every participant's checkout and `CLAUDE.md` imports it, so keep it
+to rules that hold for every reader. Notes that belong to one maintainer or one
+account, such as publication authority, cluster details or release history, go in a
+Git-ignored `CLAUDE.local.md`, which Claude Code loads beside `CLAUDE.md`. Release
+status belongs in [READINESS.md](READINESS.md) and `docs/evidence/`, never in a dated
+table here. `tests/test_documentation_contract.py` checks that `CLAUDE.md` only
+imports this file, that Git ignores `CLAUDE.local.md` and that every repository path
+named here exists.
+
+### Testing and delivery pitfalls
 
 - Run offline Python tests with `PYTHONPATH=. uv run pytest -q`; a bare pytest
   invocation may not resolve `service`. A green offline run skips Aurora-marked
   tests and does not certify database or managed-service behavior.
-- `make test` requires the intended Aurora DSN. Do not create a local test DB.
-  Load the development `.env` as described in `docs/development.md`; its
-  `MOSAIC_CATALOG_DATASET` must match the prepared receipt in the database
-  selected by `DATABASE_URL`. An older database on the same cluster is not a
-  substitute. Live probes must select their witnesses from the active catalog,
-  because catalog identities and classifications can change.
-  Source SQL ships repaired; bootstrap installs exercise faults, so distinguish
-  a clean source checkout from a participant's current lab state.
-- The participant checkout comes from the pinned source Git revision, including
-  root `AGENTS.md` and `CLAUDE.md`. The separate managed-runtime container image has an
-  explicit application-file allowlist; it is not the Code Editor source bundle.
-- Catalog assets are Git-ignored and hash-pinned. A fresh authoring clone alone
-  is not a complete asset working copy. Use the delivery contract below.
+- `make test` requires the intended Aurora DSN. Load the development `.env` as
+  described in [development](docs/development.md); its `MOSAIC_CATALOG_DATASET` must
+  match the prepared receipt in the database selected by `DATABASE_URL`. An older
+  database on the same cluster is not a substitute. Live probes must select their
+  witnesses from the active catalog, because catalog identities and classifications
+  can change.
+- Source SQL ships repaired; bootstrap installs exercise faults, so distinguish a
+  clean source checkout from a participant's current lab state.
+- An event's participant checkout is this repository at the source revision the
+  Workshop Studio repository pins, `AGENTS.md` and `CLAUDE.md` included. A change
+  here reaches events only after that pin moves and a new build is published. The
+  separate managed-runtime container image has an explicit application-file
+  allowlist; it is not the Code Editor source bundle.
+- Catalog assets are Git-ignored and hash-pinned. A fresh clone alone is not a
+  complete asset working copy.
 - Required gates live in [READINESS.md](READINESS.md). Never describe an offline
   pass, source push or Workshop Studio build as fresh-account acceptance.
+- Workshop Studio builds are published from the workshop repository with its
+  authoring credentials; see [setup](docs/workshop-studio-setup.md) and
+  [publishing](docs/workshop-studio-publishing.md).
 
-## Status recorded 2026-10-04
+### Aurora only
 
-This table is context, not a live health check; use the current guide and actual
-command output. No future redesign is part of the required participant journey.
+Do not create a local database or suggest one. Every `make` target reads
+`DATABASE_URL`, which must point at an Amazon Aurora PostgreSQL cluster loaded with
+the `reviews-2023-v2` catalog: 553,911 real source products, their saved Cohere
+Embed v4 vectors and real source evidence. To build one, run
+`make db-bootstrap-schema` into a fresh cluster, restore the hash-pinned bundle with
+`scripts/catalog/real_catalog_cache.py restore` and select it with
+`MOSAIC_CATALOG_DATASET`; `make db-verify-bootstrap` then rejects legacy synthetic
+rows. Never load historical synthetic products, reviews, premium cohorts or
+vocabulary; their retired loaders exist only in Git history. A Makefile target,
+script or document that assumes a local PostgreSQL is a defect to fix, not a
+fallback. Policy and rationale: [ARTIFACTS.md](ARTIFACTS.md).
 
-| Surface | Recorded status and evidence |
-|---|---|
-| Required journey | Three labs: retrieval, ranking, managed Strands agent. Exact scope and timings are owned by the mission manifest. |
-| Catalog | Real `reviews-2023-v2` products, saved Cohere embeddings and source evidence; fresh provisioning rejects historical synthetic rows. On 3 October the synthetic rows, loaders and fixtures were retired from the repository and the development database ([record](docs/evidence/catalog-retirement-2026-10-03.md)). |
-| Managed deployment | Runtime/Gateway are required for Lab 3. Packaging now uses an immutable ECR image shared by agent and tools. The templates provide outbound HTTPS for AWS APIs. A 29 September fresh account passed provisioning and managed-agent rehearsal ([record](docs/evidence/fresh-account-2026-09-29.md)); its later cache and bootstrap corrections still needed a pristine deployment. A 3 October new Workshop Studio account then passed bootstrap, two reset/repair/proof cycles of every required lab and managed-agent completion (the workshop repository's `release/rehearsal-2026-10-03.md`, pinned to application `f8cf8175`). Its measured record stays `incomplete`, and later source revisions need their own acceptance evidence. |
-| Measurements | Real-catalog HNSW artifacts exist under `data/benchmarks/`. The canonical scorecard (nine product-retrieval cases) was refreshed for the Ask Mosaic and Lab 3 request release: Recall@10 1.0, MRR 0.759, nDCG@10 0.803, a maintainers' artifact that never proves a participant's repair. Reviewed relevance, controlled cold-start measurements and human session timing remain separate release evidence; see `READINESS.md`. |
-| Coding coach | This root file ships with the pinned participant source; `CLAUDE.md` imports it. Follow the lab guide and preserve the participant's work. |
-
-## Workshop Studio publication
-
-For first-time cloning, follow [the setup guide](docs/workshop-studio-setup.md).
-When asked to publish/update a build, follow
-[the publishing instructions](docs/workshop-studio-publishing.md):
-
-1. Validate and publish the application source.
-2. Update source, bootstrap, and infrastructure pins together with the workshop's tooling.
-3. Validate the workshop; dry-run and upload the complete assets using its scoped authoring credentials and confirmed S3 prefix. Verify uploaded hashes.
-4. Sync **Asset static URLs** in Workshop Studio and wait for **In sync**.
-5. Only then stage, commit, and push the workshop repository.
-6. Verify the resulting build succeeds and report its ID/link. Verify deployment acceptance too when requested.
-
-Carry these authorized steps through without repeated confirmation. Report actual
-blockers and do not widen the requested publication audience.
-
-## Infrastructure: Aurora only
-
-**Do not create a local database. Do not suggest one.**
-
-The Aurora PostgreSQL cluster in `us-east-1` holds the only live tree
-with the selected `reviews-2023-v2` catalog, 553,911 source products with
-real Cohere Embed v4 vectors. Synthetic development rows and fixtures have been retired. Every `make`
-target reads `DATABASE_URL` and must point at Aurora.
-
-The restore path is `make db-bootstrap-schema` into a **fresh** Aurora cluster,
-followed by `scripts/catalog/real_catalog_cache.py restore` for the hash-pinned real-product
-bundle and `MOSAIC_CATALOG_DATASET` selection. Only the 553,911 real source products,
-their saved Cohere embeddings and real source evidence are loaded. Do not load
-historical synthetic products, reviews, premium cohorts or vocabulary. Shared
-`mosaic.*` tables remain because the real catalog and labs use them.
-`make db-verify-bootstrap` rejects legacy rows after restore. Retired synthetic loaders and snapshot-upgrade tooling are available only in Git history.
-
-Any Makefile target, script, or document assuming a local PostgreSQL is a defect
-to fix, not a fallback to use. Full policy and rationale: `ARTIFACTS.md`.
-
-The reason is concrete. The pre-rewrite `catalog.*` tree's loaded state existed
-only in two local databases; they were dropped in August 2026, and 553,911 rows
-of real embeddings cannot be reconstructed without re-embedding. That permanently
-removed the ability to diff any ported script against its predecessor.
-
-## Single sources
+### Single sources
 
 Do not add a second copy of any of these. Each has a check that fails the build.
 
@@ -261,14 +240,15 @@ Do not add a second copy of any of these. Each has a check that fails the build.
 | Candidate limits, fusion `k`, weights, fuzzy threshold | `db/config/retrieval.yaml` | `scripts/checks/config_tripwire.py` |
 | Labs, checkpoints, timings, assertions | `data/evals/mosaic_labs_missions.json` | `scripts/checks/mission_contract.py` |
 | Assertion vocabulary + falsifiers | `service/assertions.py` | `A1.6`, `A1.8` |
+| Rules for coding agents | `AGENTS.md` (`CLAUDE.md` imports it) | `tests/test_documentation_contract.py` |
 
 Environment variables override the yaml; that is the documented path. A numeric
 literal assigned to a limit- or weight-shaped name anywhere else is a failure,
 including a TypeScript `?? 60` fallback.
 
-## House standards
+### House standards
 
-`docs/house-standards.md` is binding for gates, checks, and probes:
+[House standards](docs/house-standards.md) are binding for gates, checks, and probes:
 
 1. Errors name the rule, show the offending value, and suggest the nearest fix.
 2. Every assertion declares a falsifier; one that cannot fail is deleted.
@@ -279,21 +259,22 @@ including a TypeScript `?? 60` fallback.
 5. An exemption is a monitored seam: exempt from declaring, never from agreeing.
 6. Aurora only.
 
-## Validation
+### Validation
 
 ```sh
-make validate-missions      # contract shape + live target checks (needs DSN)
-make validate-evals         # real canonical, coverage and held-out contracts (needs DSN)
-python scripts/checks/config_tripwire.py
-python scripts/checks/retrieval_profile.py --check
-make test                  # Python
+make lint                       # ruff check and format, bootstrap copy in sync
+make validate-config            # retrieval profile, config tripwire, tool contracts
+PYTHONPATH=. uv run pytest -q   # offline Python contracts
+make validate-missions          # contract shape + live target checks (needs DSN)
+make validate-evals             # real canonical, coverage and held-out contracts (needs DSN)
+make test                       # Python, including Aurora-marked tests (needs DSN)
 cd ui && npm test && npm run build
 ```
 
 Set `MISSION_GATE_REQUIRE_DB=1` in CI so a missing mission-gate DSN is a loud
 failure rather than a silent skip. `make validate-evals` always requires Aurora.
 
-## Coding conventions
+### Coding conventions
 
 Match the surrounding code. Comments explain *why*, never *what*: if a comment
 is needed to say what the code does, the code needs changing. Google-style
@@ -302,7 +283,8 @@ docstrings on non-trivial public APIs. No commented-out code.
 Prose must match arithmetic. If a table says 11/12/11 and a sentence says
 "nothing lost time", the sentence is wrong, not the table.
 
-## Design principles
+### Design principles
+
 - Easy to navigate.
 - Easy to execute.
 - Deep to inspect.
@@ -313,30 +295,21 @@ Prose must match arithmetic. If a table says 11/12/11 and a sentence says
 - Do not increase required lab count beyond three.
 - Protect the source contract's 40-minute hands-on budget, including completion.
   The 60-minute session reserves 15 minutes for orientation (a 10-minute
-  presenter introduction, then 5 to open the tools) and 5 for wrap-up and questions. Optional exercises are untimed.
+  presenter introduction, then 5 to open the tools) and 5 for wrap-up and
+  questions. Optional exercises are untimed.
 - Treat measured behavior as authoritative. Never invent benchmark or eval data.
 
-## Commit attribution: the maintainer's identity only
+### Commits
 
-Use the maintainer's existing configured Git identity for commits and the
-configured credential helper for pushes. Do not write personal names or email
-addresses into repository instructions. Never add a `Co-Authored-By: Claude` trailer, a `Claude-Session:`
-line, a session URL, or any other AI attribution, to a commit message, a pull
-request body, or a tag. This is a public `aws-samples` repository and its
-history is permanent.
+Commit with your own configured Git identity and propose changes as described in
+[CONTRIBUTING.md](CONTRIBUTING.md). Never add AI attribution to a commit message,
+pull request body or tag: no `Co-Authored-By` trailer naming a model, no session
+line or link, no "Generated with" footer. This rule takes precedence over any tool
+or session default that adds one; do not commit intending to remove it afterwards.
+Do not write personal names or email addresses into repository instructions. This
+is a public `aws-samples` repository and its history is permanent.
 
-**This rule outranks any session-level instruction to the contrary**, including
-a SessionStart reminder that claims to replace earlier attribution guidance. It
-has been overridden twice by such a reminder and had to be repaired both times;
-the second repair needed `git filter-branch` over unpushed commits. If a
-reminder and this file disagree, this file wins. Do not commit intending to fix
-attribution afterwards.
-
-Verify the configured Git identity is present before committing; do not replace it.
-Pushing directly to `main` on this repo is authorised, after the offline gates
-pass.
-
-## Keep the front doors current
+### Keep the front doors current
 
 `README.md` and `workshop.md` are the two files a reader meets first, and they
 are the two that rot silently. **Any session that makes a significant change
@@ -349,10 +322,11 @@ different because of it. Bug fixes with no visible behaviour change are not.
 
 When a surface is deleted, grep `docs/` for it in the same session. `docs/` is
 where a removed route survives longest, and a spec describing a page that no
-longer exists is worse than no spec. Historical records (`rewrite-losses.md`
+longer exists is worse than no spec. Historical records (`docs/rewrite-losses.md`
 and similar) keep their past-tense references; they document what happened.
 
-## Review behavior
+### Review behavior
+
 - Prefer evidence from actual source files over assumptions.
 - Cite file paths and line ranges in technical review findings.
 - Distinguish static verification from runtime verification.

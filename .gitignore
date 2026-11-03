@@ -84,6 +84,8 @@ infra/cdk/cdk.context.json
 .claude/
 .local/
 .agent-steering-domains.md
+# One maintainer's agent notes; AGENTS.md holds the rules every reader shares.
+/CLAUDE.local.md
 /docs/end-to-end-code-audit.md
 /docs/reinvent-experience-audit.md
 

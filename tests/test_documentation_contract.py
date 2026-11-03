@@ -5,6 +5,7 @@ from __future__ import annotations
 import ast
 import json
 import re
+import subprocess
 from pathlib import Path
 
 from fastapi.routing import APIRoute
@@ -99,3 +100,63 @@ def test_instructor_guide_60_minute_table_matches_the_mission_contract():
         == session["contingency_minutes"] + session["scorecard_minutes"]
     )
     assert sum(minutes_by_row.values()) == session["total_minutes"]
+
+
+AGENT_RULES = ROOT / "AGENTS.md"
+REPO_PATH = re.compile(
+    r"(?<![\w./-])(?:data|db|deploy|docs|labs|scripts|service|skills|tests|ui)/"
+    r"(?:[\w./-]*[\w/])?"
+)
+MARKDOWN_LINK = re.compile(r"\]\((?!https?:|mailto:)([^)\s#]+)")
+
+
+def missing_repo_paths(text: str, root: Path = ROOT) -> list[str]:
+    """Repository paths and relative links named in `text` that do not exist."""
+    named = set(REPO_PATH.findall(text)) | set(MARKDOWN_LINK.findall(text))
+    return sorted(path for path in named if not (root / path).exists())
+
+
+def test_claude_md_only_imports_the_shared_agent_rules():
+    """Claude Code reads the rules every other agent reads, so no rule can live
+    only in `CLAUDE.md`. Falsifier: any line besides the import."""
+    assert (ROOT / "CLAUDE.md").read_text(encoding="utf-8") == "@AGENTS.md\n", (
+        "CLAUDE.md rule: it must contain only '@AGENTS.md'; move shared rules into "
+        "AGENTS.md and one maintainer's notes into the Git-ignored CLAUDE.local.md"
+    )
+
+
+def test_git_ignores_the_local_agent_notes():
+    """`CLAUDE.local.md` holds one maintainer's notes, which must never reach a
+    participant checkout or this public history. Falsifier: `AGENTS.md`, which Git
+    tracks, is reported as not ignored."""
+
+    def check_ignore(name: str) -> int:
+        command = ["git", "check-ignore", "--no-index", "-q", name]
+        return subprocess.run(command, cwd=ROOT, check=False).returncode
+
+    assert check_ignore("CLAUDE.local.md") == 0, (
+        "Local agent notes rule: Git does not ignore CLAUDE.local.md; "
+        "add /CLAUDE.local.md to .gitignore"
+    )
+    assert check_ignore("AGENTS.md") == 1
+
+
+def test_every_repository_path_in_the_agent_rules_exists():
+    """A renamed script or page would leave the coach pointing at nothing."""
+    missing = missing_repo_paths(AGENT_RULES.read_text(encoding="utf-8"))
+    assert missing == [], (
+        f"AGENTS.md path rule: {missing} do not exist; "
+        "fix each path or remove the reference"
+    )
+
+
+def test_missing_repo_paths_reports_paths_that_do_not_exist():
+    """Falsifier for the path rule: a script and a linked page that do not exist."""
+    text = (
+        "Run `uv run python scripts/no_such_script.py`, then read "
+        "[the notes](docs/no_such_page.md) and [Start](START_HERE.md)."
+    )
+    assert missing_repo_paths(text) == [
+        "docs/no_such_page.md",
+        "scripts/no_such_script.py",
+    ]
