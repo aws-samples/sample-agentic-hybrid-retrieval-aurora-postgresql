@@ -8,9 +8,9 @@
   "session": {
     "total_minutes": 60,
     "orientation_minutes": 15,
-    "core_lab_minutes": 40,
+    "core_lab_minutes": 45,
     "scorecard_minutes": 0,
-    "contingency_minutes": 5
+    "contingency_minutes": 0
   },
   "optional_labs": {
     "memory": {
@@ -51,7 +51,7 @@
       "id": "typo-recovery",
       "stage": "retrieve",
       "core": true,
-      "duration_minutes": 10,
+      "duration_minutes": 15,
       "title": "Lab 1: Retrieve - Debug hybrid search",
       "discover_label": "Recover the intended headphones",
       "canonical_query_id": "G-003",

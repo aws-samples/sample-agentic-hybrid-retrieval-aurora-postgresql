@@ -28,10 +28,9 @@ inside the broken boundary still works:
 | Time | Stage | Required outcome | Stable eval anchors |
 |---:|---|---|---|
 | 0-15 min | Introduction / Overview / Presentation | Meet Alex, frame the four phases and architecture | `typo-recovery` before repair |
-| 15-25 min | Retrieve | Reconnect one candidate arm and prove target recovery without weakening eligibility | `typo-recovery`, with control anchors |
-| 25-35 min | Rank (2a) and Rerank (2b) | Repair one RRF formula and keep the suitable monitor inside the reranker input | `rank-with-evidence`, with control anchors |
-| 35-55 min | Reason | Assemble and deploy the Retrieval agent, complete the setup with cited evidence, and run the completion gate | `agentic-research`, with one evidence control |
-| 55-60 min | Wrap-up and Q&A | Ask questions or choose an untimed optional exercise | n/a |
+| 15-30 min | Retrieve | Reconnect one candidate arm and prove target recovery without weakening eligibility | `typo-recovery`, with control anchors |
+| 30-40 min | Rank (2a) and Rerank (2b) | Repair one RRF formula and keep the suitable monitor inside the reranker input | `rank-with-evidence`, with control anchors |
+| 40-60 min | Reason | Assemble and deploy the Retrieval agent, complete the setup with cited evidence, and run the completion gate | `agentic-research`, with one evidence control |
 
 The stable IDs remain evaluation identifiers and ownership keys for the gaps in the starting code.
 They are checkpoints inside three labs, not participant navigation.
@@ -184,7 +183,7 @@ shows retrieved records even when the answer does not cite them.
 
 ## Advanced Labs (OPTIONAL)
 
-Optional work does not consume the required 40-minute three-lab path or the
+Optional work does not consume the required 45-minute three-lab path or the
 completion proof inside Lab 3:
 
 1. Tune the HNSW operating point with recall, latency, plans, filter

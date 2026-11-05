@@ -20,14 +20,13 @@ self-service page, and facilitators do not support it.
 | Time | Work | Evidence to inspect |
 |---|---|---|
 | 0–15 | Presenter introduction, then prepared tools | Alex's need, one saved search and the three searches |
-| 15–25 | Lab 1: Retrieve - Debug hybrid search | The missing listing returns through fuzzy matching; filters hold |
-| 25–35 | Lab 2: Rank and rerank - Tune rank fusion and reranking | Contributions vary with position; judged comparisons support a tuning decision |
-| 35–55 | Lab 3: Reason - Build and deploy the Retrieval agent, including completion | Three focused searches, comparison, sources, changed requirement and original-run proof |
-| 55–60 | Wrap-up and Q&A | Questions; Scale & HNSW, Session & Memory, retrieval-tool and review-example exercises are untimed options |
+| 15–30 | Lab 1: Retrieve - Debug hybrid search | The missing listing returns through fuzzy matching; filters hold |
+| 30–40 | Lab 2: Rank and rerank - Tune rank fusion and reranking | Contributions vary with position; judged comparisons support a tuning decision |
+| 40–60 | Lab 3: Reason - Build and deploy the Retrieval agent, including completion | Three focused searches, comparison, sources, changed requirement and original-run proof |
 
 The [mission manifest](data/evals/mosaic_labs_missions.json) owns the timing,
-exact requests, filters, targets and assertions. Protect its **40-minute
-hands-on budget**. Completion is inside Lab 3; Scale & HNSW leads the untimed optional exercises, then Session & Memory, Retrieval tool and Review examples.
+exact requests, filters, targets and assertions. Protect its **45-minute
+hands-on budget**. The hour has no wrap-up block. Completion is inside Lab 3; Scale & HNSW leads the untimed optional exercises, then Session & Memory, Retrieval tool and Review examples.
 These are planned allocations, not measured human completion times.
 
 During setup, use **Getting started** to open Code Editor, run one readiness

@@ -13,7 +13,7 @@ Behind Alex's shopping goals, participants complete three technical labs. Each
 asks more than the last (find a lost candidate, fix a formula and judge a change,
 build and deploy an agent), and each is graded against an answer the grader computes itself.
 
-- **Lab 1: Retrieve - Debug hybrid search · 10 min.** A transposed product ID makes
+- **Lab 1: Retrieve - Debug hybrid search · 15 min.** A transposed product ID makes
   Alex's saved headphones vanish. Participants use PostgreSQL's own functions
   (`tsvector` lexemes, `pg_trgm` word similarity, pgvector distance) to show why
   only one search recovers it, then find why its candidates never reach

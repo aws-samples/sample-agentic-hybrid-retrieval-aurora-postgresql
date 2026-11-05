@@ -95,8 +95,9 @@ def test_instructor_guide_60_minute_table_matches_the_mission_contract():
         minutes_by_row["Presentation, then Getting started"]
         == session["orientation_minutes"]
     )
+    # A session with no wrap-up minutes has no wrap-up row; a row that remains must agree.
     assert (
-        minutes_by_row["Wrap-up and Q&A"]
+        minutes_by_row.get("Wrap-up and Q&A", 0)
         == session["contingency_minutes"] + session["scorecard_minutes"]
     )
     assert sum(minutes_by_row.values()) == session["total_minutes"]

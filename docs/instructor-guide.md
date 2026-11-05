@@ -48,10 +48,12 @@ The historical synthetic scorecard and 720 filter cases are not its quality gate
 | Clock | Stage | Required outcome |
 |---|---|---|
 | 00:00-00:15 | Presentation, then Getting started | Meet Alex, frame the three lessons and explain the architecture; the guide's Overview page is optional |
-| 00:15-00:25 | Retrieve | Reconnect fuzzy matching; `advance --lab 1` proves the mistyped-ID, exact-ID and description requests |
-| 00:25-00:35 | Rank | Repair RRF so the monitor reaches reranking; `advance --lab 2` proves it and prepares Lab 3 |
-| 00:35-00:55 | Reason | Build and deploy the Retrieval agent, ask the setup and 100W requests with `ask_agent.py`, prove the setup run |
-| 00:55-01:00 | Wrap-up and Q&A | Questions, then untimed optional exercises: Session & Memory first, with a retrieval tool or HNSW as alternatives |
+| 00:15-00:30 | Retrieve | Reconnect fuzzy matching; `advance --lab 1` proves the mistyped-ID, exact-ID and description requests |
+| 00:30-00:40 | Rank | Repair RRF so the monitor reaches reranking; `advance --lab 2` proves it and prepares Lab 3 |
+| 00:40-01:00 | Reason | Build and deploy the Retrieval agent, ask the setup and 100W requests with `ask_agent.py`, prove the setup run |
+
+The hour has no wrap-up block. Optional exercises are untimed: Session & Memory first, with a
+retrieval tool or HNSW as alternatives.
 
 ## Eight proof anchors
 
