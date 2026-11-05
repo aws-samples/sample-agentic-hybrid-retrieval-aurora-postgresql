@@ -33,8 +33,8 @@ These are planned allocations, not measured human completion times.
 During setup, use **Getting started** to open Code Editor, run one readiness
 query in `psql` and save Lab 1's failing search. Every Getting started step
 runs in the terminal; a short section with an animation shows Claude Code, the coding
-coach, and the main page ends with **Continue to Lab 1**. Start options and the catalog
-and Mosaic tours are in **Go deeper (Optional)**, after Wrap-up.
+coach. Two collapsed boxes in Getting started start a later lab and tour Mosaic; the
+catalog tour is on **Lab 1 in depth**, after Wrap-up.
 Mosaic's first visit to Shop opens a guided tour of its controls
 (Next or Skip the tour); the compass in the header replays it. One-time tips then point
 at the Playground link after the first Shop search and at the Retrieval agent's button and steps.
@@ -58,17 +58,18 @@ collapsed **Use the reference answer (replaces your exercise)** command runs
 `uv run python scripts/lab_state.py finish --lab N`: it installs the answer,
 applies or deploys it and runs the checks and handoff. Recovery follows the
 participant's proof. `reset --lab N` restarts a lab.
-**Go deeper (Optional) → Start options and tours → Choose where to start** offers `skip-to --lab N`.
+Getting started's **Know hybrid search already? Start at a later lab** box offers `skip-to --lab N`.
 Lab 3 recovery still needs a setup run the participant starts and checks.
 
-Each lab's main page shows Concepts and its animation, then **Start exercise**
-opens the required flow on an **Exercise** child page. Short action steps name
+Each lab's main page shows Concepts and its animation, then Workshop Studio's **Next**
+opens the required flow on an **Exercise** child page. Numbered action steps, which restart
+under each heading, name
 the editor, terminal or `psql`; each command is followed by its expected result and a
 screenshot, with the numbered callouts listed just above it. A step that pastes into
 two prompts, such as `psql` then `\i`, keeps two copy blocks: pasting both lines at once
 runs `\i` in the shell after psql exits. App walkthroughs use **See it in Mosaic** on the
 Exercise page; supporting animations use collapsed **📷 See it in motion** sections.
-The green completion callout's **Continue** button opens the next lab or Wrap-up.
+A green **Lab N complete.** alert ends each lab, and **Next** opens the next lab or Wrap-up.
 **Go deeper (Optional)** is a section after Wrap-up, so the built-in footer follows the
 required path through the labs.
 

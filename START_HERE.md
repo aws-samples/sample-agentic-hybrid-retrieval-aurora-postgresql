@@ -10,7 +10,7 @@ then save Lab 1's failing search. Keep the guide and Code
 Editor side by side in two browser windows. Mosaic, the store at **MosaicURL**,
 shows the same results the terminal prints; the guide says when a lab uses it.
 
-Each lab's main page shows **Concepts** and its animation. Select **Start exercise**
+Each lab's main page shows **Concepts** and its animation. Select **Next**
 for the required steps; each command is followed by a screenshot of what you should
 see. **Go deeper (Optional)**, after Wrap-up, holds extra reading and experiments.
 Each exercise follows the same flow:
