@@ -77,6 +77,15 @@ signal_failure() {
       "mosaic-bootstrap.service resumes at the next boot"
     exit "$rc"
   fi
+  # The facilitator's readiness view reads this record, written before CloudFormation
+  # hears the failure and can stop this host. A failure before the repository's
+  # environment exists leaves none; CloudFormation's reason, which the view prints
+  # for an account with no record, still carries the cause.
+  if [[ -x /usr/local/sbin/mosaic-readiness-record && -x "${REPO:-/none}/.venv/bin/python" ]]; then
+    /usr/local/sbin/mosaic-readiness-record --failed \
+      "phase ${CURRENT_PHASE:-setup} exited $rc; read /var/log/mosaic-bootstrap.log" \
+      >/dev/null 2>&1 || true
+  fi
   # The cause goes first: CloudFormation can begin rolling back, and stop this host,
   # on the first FAILURE it hears, and only the bootstrap handle carries the cause.
   if [[ -n "${BOOTSTRAP_WAIT_HANDLE:-}" ]]; then
@@ -190,6 +199,7 @@ run_phase() {
     return 0
   fi
   printf '%s phase %s: start\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$name"
+  CURRENT_PHASE="$name"
   "$function"
   touch "$STATE_DIR/$name.done"
   printf '%s phase %s: done\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$name"
@@ -213,6 +223,45 @@ append_once() {
 }
 
 REPO="$HOME_FOLDER/sample-agentic-hybrid-retrieval-aurora-postgresql"
+
+# The event readiness record (scripts/event_readiness.py). Root keeps it where
+# participants cannot read it. The checks run as the participant, from the
+# repository, so the record shows what a participant's terminal can do. A
+# facilitator's --live runs this same command through SSM Run Command. Installing it
+# must never fail the bootstrap: called in an || list, the function runs without
+# errexit or the ERR trap, so each step returns its own failure.
+install_readiness_record() {
+  install -d -m 700 /var/lib/mosaic-readiness || return 1
+  {
+    printf '#!/bin/bash\nuser=%q\nrepo=%q\nstate_dir=%q\n' \
+      "$CODE_EDITOR_USER" "$REPO" "$STATE_DIR"
+    cat <<'RECORD'
+# Writes this box's event readiness record; see scripts/event_readiness.py.
+set -uo pipefail
+dir=/var/lib/mosaic-readiness
+install -d -m 700 "$dir"
+args=(--record "$@")
+if [ -e "$state_dir/readiness.done" ]; then
+  args+=(--gate-passed-at "$(date -u -r "$state_dir/readiness.done" +%Y-%m-%dT%H:%M:%SZ)")
+fi
+tmp=$(mktemp "$dir/record.XXXXXX")
+if [ "${1:-}" = --failed ]; then
+  timeout 120 "$repo/.venv/bin/python" "$repo/scripts/event_readiness.py" "${args[@]}" >"$tmp"
+else
+  timeout 120 sudo -u "$user" -H bash -c 'export PATH=/usr/local/bin:/usr/bin:/bin
+cd "$1" && set -a && . ./.env && set +a && shift &&
+exec .venv/bin/python scripts/event_readiness.py "$@"' _ "$repo" "${args[@]}" >"$tmp"
+fi
+status=$?
+if [ -s "$tmp" ]; then mv "$tmp" "$dir/record.json"; else rm -f "$tmp"; fi
+exit "$status"
+RECORD
+  } >/usr/local/sbin/mosaic-readiness-record || return 1
+  chmod 0755 /usr/local/sbin/mosaic-readiness-record
+}
+install_readiness_record ||
+  echo "Readiness: the record command was not installed; this box will show no record"
+
 CODE_EDITOR_VERSION='v1.101.2'
 CODE_EDITOR_DISTRIBUTION='code-editor-server-v1.101.2-1785233990.076216280-linux-arm64.tar.gz'
 CODE_EDITOR_SHA256='1965ca15854f1faa8907e6e91c0e87ee887b24d458771b352a71e08fb41d6d60'
@@ -1502,6 +1551,25 @@ printf '  timings             see build/bootstrap-timings.tsv\n'
 printf '=== every acceptance check passed; signalling CloudFormation ===\n\n'
 }
 
+# What this bootstrap installed, for the readiness record to compare against. Node,
+# Python and Code Editor are the pins above; Claude Code, uv and the psql major are
+# read back from the exact versions installed and checked earlier. It runs after the
+# SUCCESS signal, in an || list, so a failure here leaves the record's version check
+# failing, never the stack.
+write_readiness_expected() {
+  python3.13 - "$SOURCE_REVISION" "$NODE_VERSION" "$PYTHON_VERSION" "$CODE_EDITOR_VERSION" \
+    "$(claude --version | awk '{print $1}')" "$(uv --version | awk '{print $2}')" \
+    "$(psql --version | sed -E 's/.*\(PostgreSQL\) ([0-9]+)\..*/\1/')" \
+    >/opt/mosaic-workshop/readiness-expected.json <<'EXPECTED' || return 1
+import json
+import sys
+
+keys = ("source_revision", "node", "python", "code_editor", "claude_code", "uv", "psql_major")
+print(json.dumps(dict(zip(keys, sys.argv[1:], strict=True)), indent=1))
+EXPECTED
+  chmod 444 /opt/mosaic-workshop/readiness-expected.json
+}
+
 run_phase packages phase_packages
 run_phase source phase_source
 load_database_credentials
@@ -1538,6 +1606,12 @@ fi
 # The workshop is accepted; the optional build must not change that outcome.
 systemctl start --no-block mosaic-hnsw-prepare.service ||
   echo "mosaic-hnsw-prepare did not start; the Scale & HNSW page stays incomplete"
+# The facilitator's readiness record. It runs after the SUCCESS signal, under its own
+# 120-second cap, so it cannot hold the stack.
+write_readiness_expected ||
+  echo "Readiness: the installed-versions file was not written; the record names it"
+/usr/local/sbin/mosaic-readiness-record >/dev/null ||
+  echo "Readiness record: not ready or not written; scripts/event_readiness.py shows why"
 # Written last: a reboot before this line reruns the PUT (a duplicate SUCCESS is
 # harmless) and the hnsw start, while a marker written earlier would leave
 # CloudFormation waiting for a signal never sent, or the optional page unbuilt.

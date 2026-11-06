@@ -29,7 +29,10 @@ holds the same strings for every message the app prints.
 | `uv run python scripts/grade_setup_run.py [--run-id <run-id>]` | Grade your newest Lab 3 setup run, or the run named |
 
 The guides also use `lab_exercise.py`, `lab_request.py`, `hnsw_exercise.py`
-and `python -m scripts.check_builder_tool` for optional exercises. The other
+and `python -m scripts.check_builder_tool` for optional exercises. Facilitators run
+`event_readiness.py`, which reads each event box's readiness record with the event's Ops
+credentials; `readiness_checks.py` holds the checks the box records
+([event readiness](../docs/event-readiness.md)). The other
 files at this level are helpers those commands import, except
 `prepare_real_catalog.py` and `embed_real_catalog.py`: guides published before
 the scripts moved into `catalog/` link those paths, so each is a one-line

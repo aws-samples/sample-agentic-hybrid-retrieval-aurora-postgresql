@@ -986,6 +986,18 @@ Resources:
               StringEquals:
                 iam:PassedToService: bedrock-agentcore.amazonaws.com
 
+  # The event readiness record: one stream per Code Editor instance, written by
+  # /usr/local/sbin/mosaic-readiness-record and read by scripts/event_readiness.py with
+  # the event's Ops credentials. A fixed name lets the facilitator's laptop find it
+  # without the stack's outputs; records outlive the 24-hour STALE window.
+  ReadinessLogs:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      LogGroupName: /aws/mosaic/readiness
+      RetentionInDays: 30
+
   InstanceRole:
     Type: AWS::IAM::Role
     Properties:
@@ -1108,6 +1120,10 @@ Resources:
                 Effect: Allow
                 Action: sts:GetCallerIdentity
                 Resource: '*'
+              - Sid: WriteReadinessRecord
+                Effect: Allow
+                Action: [logs:CreateLogStream, logs:PutLogEvents]
+                Resource: !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:${ReadinessLogs}:*'
 
   InstanceProfile:
     Type: AWS::IAM::InstanceProfile

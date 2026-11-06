@@ -133,6 +133,11 @@ The commands you use most:
 A successful deploy or a plausible answer is not completion: each lab ends with the
 guide's checks against the same request, run on the state you applied or deployed.
 
+Facilitators check every event account before the event with
+`uv run scripts/event_readiness.py --accounts DIR`, one Ops credential file per account.
+Each box records its own readiness when bootstrap ends; see
+[event readiness](docs/event-readiness.md).
+
 ### Run it in your own account
 
 To run the labs outside an AWS event, in an account you own, follow

@@ -62,9 +62,9 @@ Lab 3 recovery still needs a setup run the participant starts and checks.
 
 Each lab's main page shows Concepts and its animation, then Workshop Studio's **Next**
 opens the required flow on an **Exercise** child page. Numbered action steps, which restart
-under each heading, name
-the editor, terminal or `psql`; each command is followed by its expected result and a
-screenshot, with the numbered callouts listed just above it. A step that pastes into
+under each heading, name the editor, terminal or `psql`; each command is followed by its
+expected result and a screenshot. A screenshot's numbered callouts are labeled on the image
+and in its alt text, never in the sentences. A step that pastes into
 two prompts, such as `psql` then `\i`, keeps two copy blocks: pasting both lines at once
 runs `\i` in the shell after psql exits. App walkthroughs use **See it in Mosaic** on the
 Exercise page; supporting animations use collapsed **📷 See it in motion** sections.
@@ -272,6 +272,10 @@ CloudWatch log names the cause, such as Bedrock throttling.
   guide's apply/deploy command, repeat the request and inspect the new record.
 - Environment failures go to room support with the failing command and redacted
   error. Use the facilitator runbook; do not improvise infrastructure at the table.
+- Before the event, read every account's readiness record with
+  `uv run scripts/event_readiness.py --accounts DIR` and Ops credentials. During it,
+  `--live` repeats only the read-only checks on a box. See
+  [event readiness](docs/event-readiness.md).
 - Preserve filters, retrieval settings, indexes, source checks and participant
   notes. Use Aurora only. Never substitute a facilitator's run for participant proof.
 
