@@ -11,8 +11,11 @@ Bootstrap writes the record twice at most:
 - After its acceptance gate passes and CloudFormation has heard SUCCESS. The record runs
   under its own 120-second cap, so it cannot hold the stack.
 - When a bootstrap phase fails, before CloudFormation hears FAILURE. That record names the
-  failing phase. A failure before the repository's environment exists leaves no record;
-  the laptop then prints CloudFormation's reason instead.
+  failing phase. A failure before the repository's environment exists leaves no record.
+  A rollback deletes the stack's log group, and that record with it. In both cases the
+  laptop prints `no record` with CloudFormation's status and the first failed resource's
+  reason, read from the nested stacks' events even after the rollback deleted them. For a
+  bootstrap failure that reason ends with the bootstrap log's last lines.
 
 A record holds the UTC time, one line per check and a final line: `READY FOR LAB 1`, or
 the first failing check. Root keeps it in `/var/lib/mosaic-readiness/record.json`, and it

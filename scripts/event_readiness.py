@@ -58,6 +58,9 @@ MAX_PARALLEL_ACCOUNTS = 8
 LIVE_WAIT_SECONDS = 240
 LIVE_POLL_SECONDS = 5
 LIVE_GRACE_POLLS = 3
+NESTED_STACK = "AWS::CloudFormation::Stack"
+MAX_STACKS_READ = 20
+REASON_CHARS = 160
 SSM_FINISHED = {"Success", "Failed", "Cancelled", "TimedOut"}
 # The box refused --live because a lab has started; it wrote no record.
 LAB_IN_PROGRESS_EXIT = 3
@@ -267,26 +270,57 @@ def root_stack(stacks: list[dict[str, Any]]) -> dict[str, Any] | None:
     return max(roots, key=lambda stack: stack["CreationTime"], default=None)
 
 
-def first_failure(cfn: Any, stacks: list[dict[str, Any]], root: dict[str, Any]) -> str:
-    """The earliest failed resource's reason across the root and its nested stacks."""
-    family = [s for s in stacks if s.get("RootId") == root["StackId"]] + [root]
-    failures = []
-    for stack in family:
-        events = cfn.describe_stack_events(StackName=stack["StackId"]).get(
-            "StackEvents", []
-        )
-        failures += [
-            event
-            for event in events
-            if event.get("ResourceStatus", "").endswith("_FAILED")
-            and "cancelled" not in event.get("ResourceStatusReason", "")
-            and "Embedded stack" not in event.get("ResourceStatusReason", "")
+def stack_events(cfn: Any, stack_id: str) -> list[dict[str, Any]]:
+    pages = cfn.get_paginator("describe_stack_events").paginate(StackName=stack_id)
+    return [event for page in pages for event in page.get("StackEvents", [])]
+
+
+def family_events(cfn: Any, root_id: str) -> list[dict[str, Any]]:
+    """Events of a stack and of every nested stack it created, deleted ones included.
+
+    A rollback deletes the nested stacks, and DescribeStacks lists only stacks that
+    still exist, so each nested stack is found by the ARN in its parent's events.
+    """
+    events: list[dict[str, Any]] = []
+    pending, seen = [root_id], set()
+    while pending and len(seen) < MAX_STACKS_READ:
+        stack_id = pending.pop()
+        if stack_id in seen:
+            continue
+        seen.add(stack_id)
+        found = stack_events(cfn, stack_id)
+        events += found
+        pending += [
+            event["PhysicalResourceId"]
+            for event in found
+            if event.get("ResourceType") == NESTED_STACK
+            and str(event.get("PhysicalResourceId", "")).startswith("arn:")
         ]
+    return events
+
+
+def short_reason(text: str) -> str:
+    """A reason that fits one row. A wait condition's cause ends its message."""
+    reason = re.sub(r"'? for uniqueId: \S+$", "", " ".join(text.split()))
+    if len(reason) <= REASON_CHARS:
+        return reason
+    return f"{reason[:40]} … {reason[-(REASON_CHARS - 43) :]}"
+
+
+def first_failure(cfn: Any, root: dict[str, Any]) -> str:
+    """The earliest failed resource's reason across the root and its nested stacks."""
+    failures = [
+        event
+        for event in family_events(cfn, root["StackId"])
+        if event.get("ResourceStatus", "").endswith("_FAILED")
+        and "cancelled" not in event.get("ResourceStatusReason", "")
+        and "Embedded stack" not in event.get("ResourceStatusReason", "")
+    ]
     if not failures:
         return ""
     first = min(failures, key=lambda event: event["Timestamp"])
-    reason = " ".join(first.get("ResourceStatusReason", "").split())
-    return f"{first['LogicalResourceId']}: {reason[:140]}"
+    reason = short_reason(first.get("ResourceStatusReason", ""))
+    return f"{first['LogicalResourceId']}: {reason}"
 
 
 def stack_summary(cfn: Any) -> str:
@@ -298,7 +332,7 @@ def stack_summary(cfn: Any) -> str:
             return "no Mosaic stack in this Region"
         status = root["StackStatus"]
         failing = "FAILED" in status or "ROLLBACK" in status
-        reason = first_failure(cfn, stacks, root) if failing else ""
+        reason = first_failure(cfn, root) if failing else ""
     except Exception as error:  # noqa: BLE001 - the row still prints
         return f"stack unreadable: {error_code(error)}"
     return f"{status}: {reason}" if reason else status

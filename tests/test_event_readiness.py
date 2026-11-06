@@ -362,32 +362,68 @@ def stack(status: str, **extra) -> dict:
     }
 
 
-def test_no_record_row_carries_the_stack_failure():
-    cfn = Mock()
-    cfn.get_paginator.return_value = Paginator(
-        [{"Stacks": [stack("ROLLBACK_COMPLETE")]}]
-    )
-    cfn.describe_stack_events.return_value = {
-        "StackEvents": [
+ROOT_ARN = "arn:aws:cloudformation:us-east-1:111122223333:stack/mosaic/0"
+EDITOR_ARN = "arn:aws:cloudformation:us-east-1:111122223333:stack/mosaic-CodeEditor/1"
+
+
+class Cfn:
+    """DescribeStacks lists only live stacks; events stay readable by ARN after delete."""
+
+    def __init__(self, stacks, events):
+        self.stacks, self.events = stacks, events
+
+    def get_paginator(self, name):
+        if name == "describe_stacks":
+            return Paginator([{"Stacks": self.stacks}])
+        return SimpleNamespace(
+            paginate=lambda StackName: iter([{"StackEvents": self.events[StackName]}])
+        )
+
+
+def test_rolled_back_stack_reports_the_deleted_nested_stacks_cause():
+    cause = "catalog restore failed: no space left on device"
+    tail = "x" * 400
+    events = {
+        ROOT_ARN: [
             {
                 "ResourceStatus": "CREATE_FAILED",
                 "Timestamp": NOW,
                 "LogicalResourceId": "CodeEditorStack",
-                "ResourceStatusReason": "Embedded stack arn failed",
+                "PhysicalResourceId": EDITOR_ARN,
+                "ResourceType": "AWS::CloudFormation::Stack",
+                "ResourceStatusReason": f"Embedded stack {EDITOR_ARN} was not created",
+            },
+            {
+                "ResourceStatus": "ROLLBACK_COMPLETE",
+                "Timestamp": NOW,
+                "LogicalResourceId": "mosaic",
+                "PhysicalResourceId": ROOT_ARN,
+                "ResourceType": "AWS::CloudFormation::Stack",
+            },
+        ],
+        EDITOR_ARN: [
+            {
+                "ResourceStatus": "CREATE_FAILED",
+                "Timestamp": NOW - timedelta(minutes=1),
+                "LogicalResourceId": "RuntimeImageRepository",
+                "ResourceStatusReason": "Resource creation cancelled",
             },
             {
                 "ResourceStatus": "CREATE_FAILED",
-                "Timestamp": NOW - timedelta(minutes=5),
+                "Timestamp": NOW - timedelta(minutes=2),
                 "LogicalResourceId": "BootstrapWaitCondition",
-                "ResourceStatusReason": "Mosaic bootstrap failed. Tail: catalog restore",
+                "ResourceStatusReason": "WaitCondition received failed message: 'Mosaic "
+                f"bootstrap failed. Tail of the log: {tail} {cause}' for uniqueId: userdata",
             },
-        ]
+        ],
     }
-    summary = readiness.stack_summary(cfn)
-    assert summary == (
-        "ROLLBACK_COMPLETE: BootstrapWaitCondition: Mosaic bootstrap failed. Tail: "
-        "catalog restore"
+    root = stack("ROLLBACK_COMPLETE", StackId=ROOT_ARN)
+    summary = readiness.stack_summary(Cfn([root], events))
+    assert summary.startswith(
+        "ROLLBACK_COMPLETE: BootstrapWaitCondition: WaitCondition received failed"
     )
+    assert summary.endswith(cause)
+    assert len(summary) < 240
 
 
 def test_account_without_a_stack_says_so():
