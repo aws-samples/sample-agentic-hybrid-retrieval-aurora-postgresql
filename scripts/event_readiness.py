@@ -59,6 +59,13 @@ LIVE_WAIT_SECONDS = 240
 LIVE_POLL_SECONDS = 5
 LIVE_GRACE_POLLS = 3
 NESTED_STACK = "AWS::CloudFormation::Stack"
+# A rollback deletes the stack's own readiness log group, and the failure record in it.
+FAILED_STACK_STATES = {
+    "CREATE_FAILED",
+    "ROLLBACK_IN_PROGRESS",
+    "ROLLBACK_COMPLETE",
+    "ROLLBACK_FAILED",
+}
 MAX_STACKS_READ = 20
 REASON_CHARS = 160
 SSM_FINISHED = {"Success", "Failed", "Cancelled", "TimedOut"}
@@ -323,19 +330,31 @@ def first_failure(cfn: Any, root: dict[str, Any]) -> str:
     return f"{first['LogicalResourceId']}: {reason}"
 
 
-def stack_summary(cfn: Any) -> str:
-    """The Mosaic stack's status and why it failed, when CloudFormation says."""
+def stack_state(cfn: Any) -> tuple[str, str]:
+    """The Mosaic stack's status, and why it failed or why it is unknown."""
     try:
         stacks = mosaic_stacks(cfn)
         root = root_stack(stacks)
         if root is None:
-            return "no Mosaic stack in this Region"
+            return "", "no Mosaic stack in this Region"
         status = root["StackStatus"]
-        failing = "FAILED" in status or "ROLLBACK" in status
-        reason = first_failure(cfn, root) if failing else ""
+        if "FAILED" not in status and "ROLLBACK" not in status:
+            return status, ""
+        reason = first_failure(cfn, root) or short_reason(
+            root.get("StackStatusReason", "")
+        )
     except Exception as error:  # noqa: BLE001 - the row still prints
-        return f"stack unreadable: {error_code(error)}"
-    return f"{status}: {reason}" if reason else status
+        return "", f"stack unreadable: {error_code(error)}"
+    return status, reason
+
+
+def no_record_row(account: str, region: str, cfn: Any) -> Row:
+    """An account with no record: a failed setup, or what CloudFormation says."""
+    status, reason = stack_state(cfn)
+    if status in FAILED_STACK_STATES:
+        return Row(account, region, "-", "-", "❌", f"setup failed: {reason or status}")
+    summary = ": ".join(part for part in (status, reason) if part)
+    return Row(account, region, "-", "-", "⚠️", f"no record ({summary})")
 
 
 def running_instance(ec2: Any) -> str | None:
@@ -490,8 +509,9 @@ def account_row(
     except LabInProgress as busy:
         return busy_row(account, region, busy), busy.previous
     if record is None:
-        summary = stack_summary(aws_client(session, "cloudformation"))
-        return Row(account, region, "-", "-", "⚠️", f"no record ({summary})"), None
+        return no_record_row(
+            account, region, aws_client(session, "cloudformation")
+        ), None
     return record_row(account, region, record, datetime.now(UTC), max_age), record
 
 

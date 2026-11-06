@@ -28,7 +28,9 @@ concurrency:
 jobs:
   offline:
     name: Offline contracts
-    runs-on: ubuntu-latest
+    # Named, not ubuntu-latest: GitHub moves that label on its own calendar. 26.04 is the
+    # image the offline job passed on when the label moved there in November 2026.
+    runs-on: ubuntu-26.04
     steps:
       - name: Check out source
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6

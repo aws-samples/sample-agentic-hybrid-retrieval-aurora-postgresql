@@ -418,18 +418,34 @@ def test_rolled_back_stack_reports_the_deleted_nested_stacks_cause():
         ],
     }
     root = stack("ROLLBACK_COMPLETE", StackId=ROOT_ARN)
-    summary = readiness.stack_summary(Cfn([root], events))
-    assert summary.startswith(
-        "ROLLBACK_COMPLETE: BootstrapWaitCondition: WaitCondition received failed"
+    row = readiness.no_record_row("123456789012", "us-east-1", Cfn([root], events))
+    assert row.icon == "❌"
+    assert row.status.startswith(
+        "setup failed: BootstrapWaitCondition: WaitCondition received failed"
     )
-    assert summary.endswith(cause)
-    assert len(summary) < 240
+    assert row.status.endswith(cause)
+    assert len(row.status) < 240
+    assert not row.ready
+
+
+@pytest.mark.parametrize(
+    "status", ["CREATE_FAILED", "ROLLBACK_IN_PROGRESS", "ROLLBACK_FAILED"]
+)
+def test_every_failed_setup_state_without_a_record_is_a_failure(status):
+    root = stack(status, StackId=ROOT_ARN, StackStatusReason="The following failed")
+    row = readiness.no_record_row("1", "us-east-1", Cfn([root], {ROOT_ARN: []}))
+    assert (row.icon, row.status) == ("❌", "setup failed: The following failed")
+
+
+def test_a_stack_still_creating_without_a_record_is_a_warning():
+    root = stack("CREATE_IN_PROGRESS", StackId=ROOT_ARN)
+    row = readiness.no_record_row("1", "us-east-1", Cfn([root], {ROOT_ARN: []}))
+    assert (row.icon, row.status) == ("⚠️", "no record (CREATE_IN_PROGRESS)")
 
 
 def test_account_without_a_stack_says_so():
-    cfn = Mock()
-    cfn.get_paginator.return_value = Paginator([{"Stacks": []}])
-    assert readiness.stack_summary(cfn) == "no Mosaic stack in this Region"
+    row = readiness.no_record_row("1", "us-east-1", Cfn([], {}))
+    assert (row.icon, row.status) == ("⚠️", "no record (no Mosaic stack in this Region)")
 
 
 def session_with(clients: dict) -> SimpleNamespace:

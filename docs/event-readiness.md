@@ -13,9 +13,10 @@ Bootstrap writes the record twice at most:
 - When a bootstrap phase fails, before CloudFormation hears FAILURE. That record names the
   failing phase. A failure before the repository's environment exists leaves no record.
   A rollback deletes the stack's log group, and that record with it. In both cases the
-  laptop prints `no record` with CloudFormation's status and the first failed resource's
-  reason, read from the nested stacks' events even after the rollback deleted them. For a
-  bootstrap failure that reason ends with the bootstrap log's last lines.
+  laptop reads CloudFormation instead. A stack in `CREATE_FAILED` or a `ROLLBACK_` state
+  shows `❌ setup failed:` and the first failed resource's reason, read from the nested
+  stacks' events even after the rollback deleted them. For a bootstrap failure that
+  reason ends with the bootstrap log's last lines.
 
 A record holds the UTC time, one line per check and a final line: `READY FOR LAB 1`, or
 the first failing check. Root keeps it in `/var/lib/mosaic-readiness/record.json`, and it
@@ -74,14 +75,15 @@ uv run scripts/event_readiness.py --accounts .local/readiness --live
 Account        Region      Instance              Recorded (UTC)     Status
 <12 digits>    us-east-1   i-0123456789abcdef0   2026-12-01 06:40   ✅ READY FOR LAB 1
 <12 digits>    us-east-1   i-0fedcba9876543210   2026-12-01 06:41   ❌ Memory: status CREATING
-<12 digits>    us-west-2   -                     -                  ⚠️ no record (ROLLBACK_COMPLETE: ...)
+<12 digits>    us-west-2   -                     -                  ❌ setup failed: BootstrapWaitCondition: ...
 1 of 3 ready
 ```
 
-A status is one of `✅ READY FOR LAB 1`, `❌` and the first failing check, `⚠️ STALE` for a
-record older than `--max-age-hours` (default 24), `⚠️ no record` with the stack's status
-and first failure, `⚠️ lab in progress (Lab N), not rechecked`, or `⚠️ cannot read:` with
-the AWS error code, such as `ExpiredToken`.
+A status is one of `✅ READY FOR LAB 1`, `❌` and the first failing check, `❌ setup
+failed:` and CloudFormation's first failure for a failed or rolled-back stack without a
+record, `⚠️ STALE` for a record older than `--max-age-hours` (default 24), `⚠️ no record`
+with the stack's status (for example, still creating), `⚠️ lab in progress (Lab N), not
+rechecked`, or `⚠️ cannot read:` with the AWS error code, such as `ExpiredToken`.
 Rows follow file-name order, and at most eight accounts are read at once.
 
 The command exits 0 only when every row is ready and there is at least one row, 1
