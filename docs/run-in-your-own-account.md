@@ -64,6 +64,33 @@ depends on Region, usage and agreements. Check the linked pricing pages or the
 Amazon ECR, AWS KMS, AWS Lambda, Amazon CloudWatch and AWS Secrets Manager also bill by use,
 at the rates on their pricing pages.
 
+**Per search and per agent turn.** A search never calls Claude. It makes at most two model
+calls. Embedding a 20-token request costs $0.0000024. Reranking is one search unit, $0.002,
+or two when long listings split past 100 documents. So 1,000 searches cost about $2 to $4 in
+model calls, almost all of it reranking. An agent turn is billed by its Claude tokens: $0.02
+per 10,000 input tokens and $0.01 per 1,000 output tokens. Each run records its own token
+counts (`input_tokens` and `output_tokens` in the agent's run record), so measure your turns
+rather than estimating them. Reranking every search is the line to watch at high volume.
+
+**Aurora I/O-Optimized or Aurora Standard.** Both Mosaic clusters use Aurora I/O-Optimized.
+It costs more per hour ($1.436 against $1.104 for `db.r8g.2xlarge`) and per GB-month ($0.225
+against $0.10), and it charges nothing for I/O. Aurora Standard charges $0.20 per million I/O
+requests instead. AWS's guidance is to choose I/O-Optimized when I/O is 25% or more of your
+total Aurora spend, and Standard below that
+([Aurora storage configurations](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/Aurora.Overview.StorageReliability.html)).
+
+- **Why Mosaic uses I/O-Optimized.** An event stack lives for hours, and most of its I/O is
+  the catalog restore and index builds. A fixed rate keeps each event's cost predictable.
+- **A steady-state service is different.** Over 14 days, from 23 October to 5 November 2026,
+  a development cluster with a 61 GiB volume served its reads from memory, with almost no
+  read I/O, and wrote about 300,000 I/Os a day. That is about $1.80 a month on Standard,
+  under 1% of the writer's cost, so Standard would cost less there. A catalog that outgrows
+  memory, or heavy write churn, moves the share up.
+- **Measure, then choose.** Check the I/O share of your Aurora spend in Cost Explorer. You can
+  switch from Standard to I/O-Optimized once every 30 days, and back to Standard at any
+  time. On instances without local NVMe storage, such as `db.r8g`, the switch has no
+  downtime.
+
 These run continuously, whether or not you are using the labs: the Aurora writer, the
 Code Editor host (`c6g.2xlarge` with its 50 GB volume), and the NAT gateway with its public
 IPv4 address. The staging database and the builder with its 300 GB volume run only between
