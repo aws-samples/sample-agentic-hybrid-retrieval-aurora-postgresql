@@ -345,8 +345,10 @@ def check_fuzzy_control(ctx: Context) -> list[Line]:
         for case in mission_cases(ctx.repo):
             target = case["target_product_ids"][0]
             rows = connection.execute(
+                # Typed to match search_fuzzy(text, jsonb, integer, real): psycopg
+                # sends a small int as smallint and a float as double precision.
                 "SELECT product_id, fuzzy_rank FROM mosaic_search.search_fuzzy("
-                "%s, %s::jsonb, %s, %s)",
+                "%s::text, %s::jsonb, %s::integer, %s::real)",
                 (
                     case["query"],
                     json.dumps(case["filters"]),
@@ -411,7 +413,12 @@ def runtime_line(ctx: Context, control: Any, label: str, runtime: dict) -> Line:
     ]
     if wrong:
         return failed(label, f"runs {', '.join(wrong)}, unlike the box's .env")
-    uri = runtime["agentRuntimeArtifact"]["containerConfiguration"]["containerUri"]
+    artifact = runtime.get("agentRuntimeArtifact") or {}
+    uri = (artifact.get("containerConfiguration") or {}).get("containerUri")
+    if not uri:
+        return failed(
+            label, "runs no container image; the stack runs the workshop's from ECR"
+        )
     return passed(
         label,
         f"READY on {platform}, version {version}, image "

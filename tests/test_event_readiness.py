@@ -229,6 +229,13 @@ def test_runtime_on_v1_with_matching_models_passes():
     assert line.status == "PASS"
 
 
+def test_runtime_without_a_container_image_fails_with_a_reason():
+    code_only = runtime(agentRuntimeArtifact={"codeConfiguration": {"code": {}}})
+    line = checks.runtime_line(context(), ready_control(), "Tools runtime", code_only)
+    assert line.status == "FAIL"
+    assert "no container image" in line.detail
+
+
 def test_runtime_whose_models_differ_from_the_box_fails():
     line = checks.runtime_line(
         context(BEDROCK_CHAT_MODEL_ID="other"), ready_control(), "Agent", runtime()
@@ -707,3 +714,30 @@ def test_fleet_row_for_a_box_with_a_lab_in_progress_keeps_the_old_record(monkeyp
     assert (row.instance, row.recorded) == ("i-0123456789abcdef0", "2026-12-01 05:40")
     assert shown == previous
     assert not row.ready
+
+
+# --- the box's SQL against Aurora itself --------------------------------------
+
+
+def live_context() -> checks.Context:
+    from service.config import get_settings
+
+    return checks.Context(
+        repo=Path(checks.__file__).resolve().parents[1],
+        env={"DATABASE_URL": get_settings().database_url},
+        expected={"psql_major": "18"},
+    )
+
+
+@pytest.mark.aurora
+def test_fuzzy_control_binds_to_search_fuzzys_real_signature():
+    """A mocked connection accepted argument types Aurora's function does not."""
+    line = checks.check_fuzzy_control(live_context())[0]
+    assert line.status == "PASS", line.detail
+
+
+@pytest.mark.aurora
+def test_aurora_versions_read_from_the_cluster():
+    line = checks.check_aurora(live_context())[0]
+    assert line.status == "PASS", line.detail
+    assert line.detail.startswith("PostgreSQL 18.")

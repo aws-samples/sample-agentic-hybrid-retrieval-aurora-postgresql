@@ -363,6 +363,7 @@ test-aurora-contracts:
 		tests/test_db_pool_recovery.py \
 		tests/test_corpus_vocabulary.py \
 		tests/test_agent_eligibility.py \
+		tests/test_event_readiness.py \
 		tests/test_real_only_bootstrap.py
 
 # Every `pytest.mark.aurora` test, and until this target existed none of them ran
