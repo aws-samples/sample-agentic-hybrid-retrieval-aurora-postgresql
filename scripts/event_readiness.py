@@ -17,7 +17,8 @@ DIR holds one *.env file per account, mode 0600: the facilitator console's Ops
 credential block, pasted as is, plus an AWS_DEFAULT_REGION line. The files are
 parsed, never sourced, and account IDs go to the terminal only. Reading is
 read-only. `--live` runs /usr/local/sbin/mosaic-readiness-record --live on the box
-through SSM Run Command, which repeats the read-only checks and records again.
+through SSM Run Command, which repeats the read-only checks and records again, but
+only before a participant starts a lab; afterwards the row reads "lab in progress".
 
 Exit status: 0 when every row reads READY FOR LAB 1 (and there is at least one),
 1 otherwise, 2 on a usage error. A record older than --max-age-hours is STALE.
@@ -58,12 +59,22 @@ LIVE_WAIT_SECONDS = 240
 LIVE_POLL_SECONDS = 5
 LIVE_GRACE_POLLS = 3
 SSM_FINISHED = {"Success", "Failed", "Cancelled", "TimedOut"}
+# The box refused --live because a lab has started; it wrote no record.
+LAB_IN_PROGRESS_EXIT = 3
 HEADERS = ("Account", "Region", "Instance", "Recorded (UTC)", "Status")
 ASSIGNMENT = re.compile(
     r"(?:export\s+)?(?P<key>[A-Za-z_][A-Za-z0-9_]*)="
     r"(?:\"(?P<double>[^\"]*)\"|'(?P<single>[^']*)'"
     r"|(?P<bare>[^\s\"']*?)(?=\s|$|(?:export\s+)?[A-Za-z][A-Za-z0-9]*_[A-Za-z0-9_]*=))"
 )
+
+
+class LabInProgress(Exception):
+    """--live found a started lab on the box and rechecked nothing."""
+
+    def __init__(self, lab: str, instance_id: str, previous: dict[str, Any] | None):
+        super().__init__(lab)
+        self.lab, self.instance_id, self.previous = lab, instance_id, previous
 
 
 class CannotRead(Exception):
@@ -154,8 +165,31 @@ def box_lines(args: argparse.Namespace) -> tuple[str, list[Line]]:
     ]
 
 
-def record_on_box(args: argparse.Namespace, *, logs: Any = None) -> int:
-    """Run the checks, write CloudWatch, and print the record for root to keep."""
+def lab_in_progress(repo: Path = REPO) -> str | None:
+    """The newest lab a participant started, or why that is unknown; None if none."""
+    try:
+        from scripts.lab_entry import load_record
+
+        started = [lab for lab in (1, 2, 3) if load_record(lab, repo) is not None]
+    except Exception as error:  # noqa: BLE001 - unreadable state refuses the recheck
+        return f"lab state unreadable: {type(error).__name__}"
+    return f"Lab {started[-1]}" if started else None
+
+
+def record_on_box(
+    args: argparse.Namespace,
+    *,
+    logs: Any = None,
+    busy: Callable[[], str | None] = lab_in_progress,
+) -> int:
+    """Run the checks, write CloudWatch, and print the record for root to keep.
+
+    --live first reads the labs' state: once a participant has started a lab, the
+    checks would run against their work, so it opens no session and writes nothing.
+    """
+    if args.live and (lab := busy()):
+        print(json.dumps({"labInProgress": lab}))
+        return LAB_IN_PROGRESS_EXIT
     mode, lines = box_lines(args)
     record = build_record(
         lines, mode=mode, instance_id=imds_instance_id(), now=datetime.now(UTC)
@@ -288,9 +322,9 @@ def running_instance(ec2: Any) -> str | None:
     return newest["InstanceId"] if newest else None
 
 
-def box_instance(session: Any, logs: Any) -> str:
+def box_instance(session: Any, previous: dict[str, Any] | None) -> str:
     """The instance the newest record names, or else the running Code Editor host."""
-    named = (latest_record(logs) or {}).get("instanceId")
+    named = (previous or {}).get("instanceId")
     if named:
         return named
     try:
@@ -315,14 +349,27 @@ def send_live(ssm: Any, instance_id: str) -> str:
     return sent["Command"]["CommandId"]
 
 
-def command_status(ssm: Any, command_id: str, instance_id: str) -> str:
+def command_invocation(ssm: Any, command_id: str, instance_id: str) -> dict[str, Any]:
     try:
-        found = ssm.get_command_invocation(CommandId=command_id, InstanceId=instance_id)
+        return ssm.get_command_invocation(CommandId=command_id, InstanceId=instance_id)
     except Exception as error:
         if error_code(error) == "InvocationDoesNotExist":
-            return "Pending"
+            return {"Status": "Pending"}
         raise CannotRead(error_code(error)) from error
-    return found["Status"]
+
+
+def refused_lab(invocation: dict[str, Any]) -> str | None:
+    """The started lab a finished --live command reported, or None."""
+    if invocation.get("Status") not in SSM_FINISHED:
+        return None
+    if invocation.get("ResponseCode") != LAB_IN_PROGRESS_EXIT:
+        return None
+    for line in reversed((invocation.get("StandardOutputContent") or "").splitlines()):
+        try:
+            return str(json.loads(line)["labInProgress"])
+        except (ValueError, KeyError, TypeError):
+            continue
+    return "a lab"
 
 
 def live_record(
@@ -335,7 +382,8 @@ def live_record(
     gets a short grace for the record to arrive.
     """
     logs = aws_client(session, "logs")
-    instance_id = box_instance(session, logs)
+    previous = latest_record(logs)
+    instance_id = box_instance(session, previous)
     ssm = aws_client(session, "ssm")
     since_ms = int((datetime.now(UTC) - timedelta(seconds=60)).timestamp() * 1000)
     command_id = send_live(ssm, instance_id)
@@ -343,7 +391,10 @@ def live_record(
     grace = LIVE_GRACE_POLLS
     while time.monotonic() < deadline and grace > 0:
         sleep(LIVE_POLL_SECONDS)
-        status = command_status(ssm, command_id, instance_id)
+        invocation = command_invocation(ssm, command_id, instance_id)
+        status = invocation["Status"]
+        if lab := refused_lab(invocation):
+            raise LabInProgress(lab, instance_id, previous)
         record = latest_record(logs, stream=instance_id, since_ms=since_ms)
         if record and record.get("mode") == "live":
             return record
@@ -373,6 +424,18 @@ def record_row(
     return Row(*cells, when, "❌", final.removeprefix("x FAIL").strip())
 
 
+def busy_row(account: str, region: str, busy: LabInProgress) -> Row:
+    """A box --live left alone, shown with the record it already had."""
+    previous = busy.previous or {}
+    when = "-"
+    if previous.get("recordedAt"):
+        recorded = datetime.fromisoformat(previous["recordedAt"]).astimezone(UTC)
+        when = recorded.strftime("%Y-%m-%d %H:%M")
+    instance = previous.get("instanceId") or busy.instance_id
+    status = f"lab in progress ({busy.lab}), not rechecked"
+    return Row(account, region, instance, when, "⚠️", status)
+
+
 def account_row(
     session: Any, region: str, *, live: bool, max_age: float, label: str = ""
 ) -> tuple[Row, dict[str, Any] | None]:
@@ -390,6 +453,8 @@ def account_row(
         )
     except CannotRead as error:
         return Row(account, region, "-", "-", "⚠️", f"cannot read: {error.code}"), None
+    except LabInProgress as busy:
+        return busy_row(account, region, busy), busy.previous
     if record is None:
         summary = stack_summary(aws_client(session, "cloudformation"))
         return Row(account, region, "-", "-", "⚠️", f"no record ({summary})"), None

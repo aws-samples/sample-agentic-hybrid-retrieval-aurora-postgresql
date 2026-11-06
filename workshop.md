@@ -273,9 +273,9 @@ CloudWatch log names the cause, such as Bedrock throttling.
 - Environment failures go to room support with the failing command and redacted
   error. Use the facilitator runbook; do not improvise infrastructure at the table.
 - Before the event, read every account's readiness record with
-  `uv run scripts/event_readiness.py --accounts DIR` and Ops credentials. During it,
-  `--live` repeats only the read-only checks on a box. See
-  [event readiness](docs/event-readiness.md).
+  `uv run scripts/event_readiness.py --accounts DIR` and Ops credentials; `--live`
+  rechecks a box until its participant starts a lab. During the session, read records
+  without `--live`. See [event readiness](docs/event-readiness.md).
 - Preserve filters, retrieval settings, indexes, source checks and participant
   notes. Use Aurora only. Never substitute a facilitator's run for participant proof.
 

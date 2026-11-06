@@ -253,6 +253,8 @@ cd "$1" && set -a && . ./.env && set +a && shift &&
 exec .venv/bin/python scripts/event_readiness.py "$@"' _ "$repo" "${args[@]}" >"$tmp"
 fi
 status=$?
+# 3: --live found a started lab and recorded nothing, so the last record stays.
+if [ "$status" -eq 3 ]; then cat "$tmp"; rm -f "$tmp"; exit 3; fi
 if [ -s "$tmp" ]; then mv "$tmp" "$dir/record.json"; else rm -f "$tmp"; fi
 exit "$status"
 RECORD

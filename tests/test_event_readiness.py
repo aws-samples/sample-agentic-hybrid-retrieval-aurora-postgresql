@@ -511,8 +511,8 @@ def test_host_line_records_the_booted_ami_and_never_decides_readiness(monkeypatc
 
 
 class Invocations:
-    def __init__(self, status):
-        self.status = status
+    def __init__(self, status, code=None, output=""):
+        self.status, self.code, self.output = status, code, output
         self.sent = []
 
     def send_command(self, **kwargs):
@@ -520,7 +520,11 @@ class Invocations:
         return {"Command": {"CommandId": "c-1"}}
 
     def get_command_invocation(self, **_):
-        return {"Status": self.status}
+        return {
+            "Status": self.status,
+            "ResponseCode": self.code,
+            "StandardOutputContent": self.output,
+        }
 
 
 class ReadsInTurn:
@@ -577,7 +581,7 @@ def test_without_a_record_live_finds_the_newest_running_editor_host():
     ]
     ec2 = Mock()
     ec2.get_paginator.return_value.paginate.return_value = iter(pages)
-    assert readiness.box_instance(session_with({"ec2": ec2}), logs_with([])) == "i-new"
+    assert readiness.box_instance(session_with({"ec2": ec2}), None) == "i-new"
     ec2.get_paginator.assert_called_once_with("describe_instances")
     assert ec2.get_paginator.return_value.paginate.call_args.kwargs["Filters"] == [
         {"Name": "tag-key", "Values": ["eval-skills:launch-inputs"]},
@@ -590,3 +594,64 @@ def test_launcher_tag_matches_the_editor_launcher():
         "deploy/cloudformation/editor_launcher.py"
     )
     assert f'INPUTS_TAG = "{readiness.LAUNCHER_TAG}"' in launcher.read_text("utf-8")
+
+
+# --- --live leaves a box alone once a lab has started --------------------------
+
+
+def test_live_on_the_box_refuses_a_started_lab_before_any_check(monkeypatch, capsys):
+    def no_checks(_args):
+        pytest.fail("a check ran on a box where a lab has started")
+
+    monkeypatch.setattr(readiness, "box_lines", no_checks)
+    logs = Mock()
+    args = readiness.parser().parse_args(["--record", "--live"])
+    status = readiness.record_on_box(args, logs=logs, busy=lambda: "Lab 2")
+    assert status == readiness.LAB_IN_PROGRESS_EXIT
+    assert json.loads(capsys.readouterr().out) == {"labInProgress": "Lab 2"}
+    assert not logs.method_calls
+
+
+def test_bootstrap_record_ignores_the_lab_guard(monkeypatch, capsys):
+    monkeypatch.setattr(readiness, "imds_instance_id", lambda: "i-1")
+    monkeypatch.setattr(
+        readiness, "box_lines", lambda _a: ("bootstrap", [Line("PASS", "S", "ok")])
+    )
+    args = readiness.parser().parse_args(["--record"])
+    assert readiness.record_on_box(args, logs=Mock(), busy=lambda: "Lab 1") == 0
+
+
+def test_started_and_unreadable_lab_state(monkeypatch):
+    from scripts import lab_entry
+
+    monkeypatch.setattr(
+        lab_entry, "load_record", lambda lab, _r: {} if lab < 3 else None
+    )
+    assert readiness.lab_in_progress() == "Lab 2"
+    monkeypatch.setattr(lab_entry, "load_record", lambda lab, _r: None)
+    assert readiness.lab_in_progress() is None
+
+    def unreadable(_lab, _repo):
+        raise ValueError("bad json")
+
+    monkeypatch.setattr(lab_entry, "load_record", unreadable)
+    assert readiness.lab_in_progress() == "lab state unreadable: ValueError"
+
+
+def test_fleet_row_for_a_box_with_a_lab_in_progress_keeps_the_old_record(monkeypatch):
+    monkeypatch.setattr(readiness, "LIVE_POLL_SECONDS", 0)
+    sts = Mock()
+    sts.get_caller_identity.return_value = {"Account": "123456789012"}
+    previous = record()
+    logs = ReadsInTurn([event(previous)], [event(previous)])
+    ssm = Invocations("Failed", code=3, output='{"labInProgress": "Lab 2"}\n')
+    row, shown = readiness.account_row(
+        session_with({"sts": sts, "logs": logs, "ssm": ssm}),
+        "us-east-1",
+        live=True,
+        max_age=24,
+    )
+    assert (row.icon, row.status) == ("⚠️", "lab in progress (Lab 2), not rechecked")
+    assert (row.instance, row.recorded) == ("i-0123456789abcdef0", "2026-12-01 05:40")
+    assert shown == previous
+    assert not row.ready

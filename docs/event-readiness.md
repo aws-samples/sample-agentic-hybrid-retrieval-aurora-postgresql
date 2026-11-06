@@ -32,9 +32,7 @@ search that writes an audit row, or runs the agent. They cover:
   origin rule, the model IDs the API, both runtimes and the terminal use, Gateway's three
   SQL tools, Memory, the three Bedrock models, Docker and the bootstrap image for Lab 3's
   deploy, and Claude Code's managed settings.
-- **State before participants start:** Lab 1 `BROKEN`, Labs 2 and 3 `NOT STARTED`. Once
-  a participant starts a lab, this line becomes information and no longer decides
-  readiness.
+- **State before participants start:** Lab 1 `BROKEN`, Labs 2 and 3 `NOT STARTED`.
 
 The checks that need a write ran once in the bootstrap gate: Lab 1's broken search, a
 reranked search, a Gateway search with evidence, the Session Memory round trip, Claude
@@ -79,7 +77,8 @@ Account        Region      Instance              Recorded (UTC)     Status
 
 A status is one of `✅ READY FOR LAB 1`, `❌` and the first failing check, `⚠️ STALE` for a
 record older than `--max-age-hours` (default 24), `⚠️ no record` with the stack's status
-and first failure, or `⚠️ cannot read:` with the AWS error code, such as `ExpiredToken`.
+and first failure, `⚠️ lab in progress (Lab N), not rechecked`, or `⚠️ cannot read:` with
+the AWS error code, such as `ExpiredToken`.
 Rows follow file-name order, and at most eight accounts are read at once.
 
 The command exits 0 only when every row is ready and there is at least one row, 1
@@ -91,6 +90,13 @@ names, or else to the running Code Editor host that `ec2:DescribeInstances` find
 editor launcher's tag. It follows the command with `GetCommandInvocation` and reads the
 new record from CloudWatch, waiting up to four minutes. A box that is not ready makes
 the command fail but still writes its record, so the record decides the row.
+
+`--live` rechecks a box only before its participant starts. The box first reads each
+lab's state, as `lab_state.py status` does. Once any lab has started, Lab 1 included
+(Getting started runs `start --lab 1`), or when the state cannot be read, it opens no
+database session, writes no record and prints `⚠️ lab in progress (Lab N), not
+rechecked` with the previous record's time. During the session, read the records without
+`--live`.
 
 The Ops role was proven for `logs:FilterLogEvents` and `ssm:SendCommand` on a DAT416 test
 event. Prove `ssm:GetCommandInvocation`, `ec2:DescribeInstances` and the CloudFormation
