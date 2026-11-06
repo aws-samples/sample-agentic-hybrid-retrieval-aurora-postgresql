@@ -45,15 +45,24 @@ more without storing it (Electronics 22.6 GB, Home_and_Kitchen 31.4 GB, Office_P
 which runs the review scans, took 7.6 minutes in its final run, which resumed earlier runs
 stopped by the source host's rate limit; an uninterrupted run was not measured.
 
-**Cost.** Prices change, so this page quotes no current rates; the one dollar figure
-below is what the proof account was billed. Read the current rates:
+**Cost.** List prices in us-east-1 on 6 November 2026, before tax and Free Tier. Your cost
+depends on Region, usage and agreements. Check the linked pricing pages or the
+[AWS Pricing Calculator](https://calculator.aws/).
 
-- [Amazon Aurora pricing](https://aws.amazon.com/rds/aurora/pricing/)
-- [Amazon Bedrock AgentCore pricing](https://aws.amazon.com/bedrock/agentcore/pricing/)
-- [Amazon Bedrock pricing](https://aws.amazon.com/bedrock/pricing/) (embeddings, reranking and the agent model)
-- [Amazon EC2 pricing](https://aws.amazon.com/ec2/pricing/on-demand/)
-- [Amazon CloudFront pricing](https://aws.amazon.com/cloudfront/pricing/)
-- [NAT gateway pricing](https://aws.amazon.com/vpc/pricing/) (listed under NAT Gateway)
+| Service | List price | What makes it grow | How Mosaic keeps it down |
+|---|---|---|---|
+| [Aurora PostgreSQL](https://aws.amazon.com/rds/aurora/pricing/), workshop cluster | $1.436 per hour for the `db.r8g.2xlarge` writer on Aurora I/O-Optimized, plus $0.225 per GB-month of storage. I/O-Optimized has no separate I/O charge. | The instance size, and the catalog with its vectors and indexes | One writer instance. The optional Scale & HNSW exercise weighs an index's space against the recall it buys. |
+| [Amazon EC2](https://aws.amazon.com/ec2/pricing/on-demand/), Code Editor host | $0.272 per hour for `c6g.2xlarge`, plus $0.08 per GB-month for its 50 GB gp3 volume | The hours the stack runs | Delete the stack when you finish (section 6). |
+| [NAT gateway](https://aws.amazon.com/vpc/pricing/) | $0.045 per hour, plus $0.045 per GB processed | The hours the stack runs, and the host's downloads | One NAT gateway for the stack |
+| [Cohere Embed v4 in Amazon Bedrock](https://aws.amazon.com/bedrock/pricing/) | $0.12 per million input tokens | The catalog build, then one embedding for each new search request | Listings are embedded once, when the catalog is built. The API keeps the last 256 request embeddings, so a repeated request is not embedded again. |
+| [Cohere Rerank 3.5 in Amazon Bedrock](https://aws.amazon.com/bedrock/pricing/) | $0.002 per search unit. A unit is one query with up to 100 documents. | Searches, the size of the reranked shortlist, and long listings, which Bedrock splits into several documents | Only the top 50 are reranked, so a search uses about one unit. Lab 2's comparison estimates the units for each setting, counting each listing once. |
+| [Claude Sonnet 5.5 in Amazon Bedrock](https://aws.amazon.com/bedrock/pricing/) | $2.00 per million input tokens and $10.00 per million output tokens, through global cross-Region inference | Agent turns, and the searches and evidence reads in each turn | The agent may make at most 10 tool calls in a turn. Its tool trace shows every call. |
+| [Amazon Bedrock AgentCore](https://aws.amazon.com/bedrock/agentcore/pricing/) | Gateway, $0.000005 per tool call. Runtime and Memory bill by use, at the rates on the pricing page. | Agent turns and tool calls | Memory is optional, and product facts never come from it. |
+| [Amazon CloudFront](https://aws.amazon.com/cloudfront/pricing/) | Requests and data transfer, at the rates on the pricing page | Page views and downloads | Two distributions that serve one person |
+| Builder host and staging database (temporary) | $0.29 per hour for the `c7g.2xlarge` builder, plus $0.08 per GB-month for its 300 GB gp3 volume. The staging cluster uses the same database template, so its `db.r8g.2xlarge` writer is also on Aurora I/O-Optimized, at $1.436 per hour plus $0.225 per GB-month of storage. | The build's hours, about 9 in the proof run | Section 4 deletes both at step 6. |
+
+Amazon ECR, AWS KMS, AWS Lambda, Amazon CloudWatch and AWS Secrets Manager also bill by use,
+at the rates on their pricing pages.
 
 These run continuously, whether or not you are using the labs: the Aurora writer, the
 Code Editor host (`c6g.2xlarge` with its 50 GB volume), and the NAT gateway with its public
