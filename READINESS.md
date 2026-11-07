@@ -7,8 +7,11 @@ test pass into deployment evidence.
 The [7 November remediation checks](docs/evidence/remediation-2026-11-07.md)
 record source changes, development Aurora checks and remaining release work.
 The Shop count timeout is repaired and verified on development Aurora. The
-clean-commit scorecard and final-pin managed rehearsal remain open; the new
-claim review is not yet certified by a fresh event run.
+canonical scorecard and stage comparison have been re-measured on committed
+source. Deployment acceptance also requires Gateway/Runtime checks and a timed
+participant rehearsal on the delivered Workshop Studio build; source tests do
+not certify either. Build and event evidence lives in the workshop repository's
+`release/` records.
 
 ## Fixed session contract
 

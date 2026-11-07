@@ -125,3 +125,32 @@ Tracing pool creation identified an unintended telemetry database write in
 was mocked, but its telemetry persistence was not. That unit test now isolates
 the write. Production idle-connection replacement and timeout rollback/reuse
 both passed against Aurora.
+
+The final offline run passed **3,361 tests**, with **56 skipped**,
+in 83.68 seconds and emitted no pool shutdown warning. All **820 UI tests**, the
+production UI build, lint/configuration/release-workflow checks, 126 mission
+checks, and the three evaluation-contract populations passed. The installed
+production count call took **3.847 seconds**, including connection setup, with
+the same six totals. The function census found 15 names with one signature each.
+
+The source repair was published as `1410900540994aa6b9c916e6301c9623721ea19e`
+under the maintainer's configured Git identity, and all three source CI runs
+passed. The new canonical measurement uses the existing pinned query vectors.
+All nine scored product-retrieval queries kept their per-query metrics and
+deterministic release checks: Recall@10 **1.0**, MRR **0.759259**, and nDCG@10
+**0.803296**. The only returned-list change was below the intended first result
+in `G-003`; its named hard negatives remained excluded. This establishes
+regression coverage on these judgments, not improved general relevance.
+
+The stage comparison also retained its previous measured metrics. At cutoff 10,
+full-text/fuzzy/semantic recall was **0.388889 / 0.555556 / 0.444444**; fusion
+reached **0.722222**, and managed reranking reached **1.0**. Every judged relevant
+product was present in the fused shortlist. The artifact preserves its explicit
+warning about the small population: nine queries and 14 judgments cannot resolve
+small differences. Its reranked arm reuses the newly measured canonical results;
+the other four arms were queried again against Aurora. All 148 measurement and
+artifact contract tests passed.
+
+Managed deployment and saved-run acceptance are recorded separately with the
+Workshop Studio build and test event. This source record does not claim a timed
+unfamiliar-participant rehearsal or fresh-event acceptance from offline tests.
