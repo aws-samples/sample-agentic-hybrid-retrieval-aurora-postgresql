@@ -9,6 +9,7 @@ The remaining guides are grouped by the work they support.
 |---|---|
 | [Start Here](../START_HERE.md) | Open your prepared environment and follow the three required labs |
 | [Use the pattern in your app](use-in-your-app.md) | Take-home map for schema, SQL, ranking and agent tools |
+| [Run Mosaic in your own account](run-in-your-own-account.md) | Outside an event: what the stack creates, dated list prices, the catalog build, deploy and tear-down |
 | [Mosaic skill](skill-composition.md) | Portable workflow, HTTP mapping and adaptation references |
 
 ## Developers
@@ -38,6 +39,7 @@ The remaining guides are grouped by the work they support.
 |---|---|
 | [Workshop brief](../workshop.md) | Presenter brief: the hour, how to open with Alex, each lab's teaching point and how to help without erasing the exercise |
 | [Instructor guide](instructor-guide.md) | Facilitation narrative and recovery plan |
+| [Event readiness](event-readiness.md) | Each box's readiness record and the per-account table to read before an event |
 | [Lab design](l400-lab-design.md) | Participant page shape, graded work and acceptance boundaries |
 | [Retrieval curriculum](retrieval-curriculum.md) | Builder-session learning flow |
 | [Abstract delivery map](abstract-delivery-map.md) | Required work and optional extensions |

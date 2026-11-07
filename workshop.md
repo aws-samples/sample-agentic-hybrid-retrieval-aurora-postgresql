@@ -69,6 +69,9 @@ two prompts, such as `psql` then `\i`, keeps two copy blocks: pasting both lines
 runs `\i` in the shell after psql exits. App walkthroughs use **See it in Mosaic** on the
 Exercise page; supporting animations use collapsed **📷 See it in motion** sections.
 A green **Lab N complete.** alert ends each lab, and **Next** opens the next lab or Wrap-up.
+Just above it, a blue **Production tips** callout gives that lab's sizing and cost levers
+for after the event: index size and Aurora capacity, rerank cost, then agent cost. It is
+reading, not a step; point participants who ask about cost or production there.
 **Go deeper (Optional)** is a section after Wrap-up, so the built-in footer follows the
 required path through the labs.
 

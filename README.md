@@ -23,7 +23,8 @@ Retrieval agent on Amazon Bedrock AgentCore that answers with sources.**
 
 [The scenario](#the-scenario) · [Labs](#what-you-build) · [Architecture](#architecture) ·
 [How it works](#how-hybrid-retrieval-works) · [Run the workshop](#run-the-workshop) ·
-[Use it in your project](#use-it-in-your-own-project)
+[Use it in your project](#use-it-in-your-own-project) ·
+[Production](#before-you-run-it-in-production)
 
 </div>
 
@@ -149,7 +150,8 @@ before you deploy:
   CloudFront distributions, Amazon Bedrock AgentCore Runtimes, a Gateway and Memory, Lambda
   functions and Secrets Manager secrets.
 - The Aurora writer, the host and the NAT gateway bill by the hour until you delete the
-  stack, whether or not you use the labs.
+  stack, whether or not you use the labs. Section 1 lists every resource's us-east-1 list
+  price on 6 November 2026 and what makes it grow.
 - You build the catalog yourself first, on a temporary builder host and staging database:
   7 hours 39 minutes in the proof run, and about $33 of Cohere Embed v4 input tokens at the
   rate that account was billed.
@@ -182,6 +184,40 @@ are read-only, although each search appends an audit record. MCP tool annotation
 skill instructions do not grant or restrict database access: the service validates
 requests and the database role enforces privileges. See
 [the access boundary](docs/mcp-interoperability.md#permissions-and-workflow-guidance).
+
+## Before you run it in production
+
+The workshop runs one app for one person. These measurements and us-east-1 list prices
+(6 November 2026) help you size your own deployment.
+
+- **Model cost.** A search never calls Claude. It makes at most two model calls, one to
+  embed the request and one to rerank, about $2 to $4 per 1,000 searches, almost all of
+  it reranking. Only the Retrieval agent uses Claude, billed by its tokens, and each run
+  records its token counts.
+  [Run Mosaic in your own account](docs/run-in-your-own-account.md#1-what-you-get-and-what-it-costs)
+  lists every price.
+- **Vector index size.** The full-precision HNSW index for 553,911 products is 4.5 GB. A
+  `halfvec` index is a third of that and finds the same 98.63% of the true 10 nearest
+  products. A binary index is 5% of it and reaches 99.2% when its nearest 100 are sorted
+  again at full precision. See the
+  [saved scale benchmarks](docs/current-scale-benchmarks.md#representations).
+- **Memory and Optimized Reads.** Mosaic's working set (table, vectors and index) is
+  13.0 GB, and a `db.r8g.2xlarge` gives its buffer cache 41.5 GiB. Aurora Optimized Reads
+  (`db.r8gd`) adds an NVMe cache that helps only once the working set outgrows memory. At
+  full memory it cost 13% more an hour for slightly fewer searches. With memory cut to
+  2 GiB on purpose, it served 3.7 to 14 times as many. See the
+  [instance comparison](docs/hardware-comparison-2026-09-26.md).
+- **Storage and capacity.** Both Mosaic clusters use Aurora I/O-Optimized storage, and
+  section 1 of the own-account guide explains when Standard costs less. Aurora
+  serverless suits idle or spiky traffic: at $0.16 per ACU-hour it costs less than the
+  `db.r8g.2xlarge` writer only while it averages under about 9 ACUs.
+- **Agent cost.** Every round of tool calls resends the agent's instructions and tool
+  definitions, so Bedrock prompt caching is the first lever. Mosaic does not turn it on
+  today. Amazon Bedrock Model Distillation is not currently available for Anthropic
+  models.
+- **Security and operations.** Add sign-in, per-user quotas and a retention policy for
+  search records and memory. See [security boundaries](docs/security-boundaries.md) and
+  the [production checklist](docs/production-readiness.md).
 
 ## Repository layout
 
