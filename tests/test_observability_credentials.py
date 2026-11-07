@@ -3,9 +3,12 @@
 from unittest.mock import Mock
 
 import pytest
-import requests
 from botocore.credentials import Credentials
 
+requests = pytest.importorskip(
+    "requests",
+    reason="The requests client is part of the agentcore-observability extra.",
+)
 auth = pytest.importorskip(
     "amazon.opentelemetry.distro.exporter.otlp.aws.common.aws_auth_session",
     reason="Run with --extra agentcore-observability to test the runtime exporter.",
