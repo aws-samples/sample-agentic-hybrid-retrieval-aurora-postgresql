@@ -87,6 +87,10 @@ jobs:
         if: ${{ !cancelled() && steps.python-deps.outcome == 'success' }}
         run: PYTHONPATH=. uv run pytest -q
 
+      - name: Check runtime trace credential recovery
+        if: ${{ !cancelled() && steps.python-deps.outcome == 'success' }}
+        run: PYTHONPATH=. uv run --frozen --extra agentcore-observability pytest -q tests/test_observability_credentials.py
+
       - name: Lint the CloudFormation templates in both Regions
         if: ${{ !cancelled() && steps.python-deps.outcome == 'success' }}
         run: |

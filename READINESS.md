@@ -38,6 +38,7 @@ make validate-config
 make validate-release-workflow
 uv run python scripts/checks/mission_contract.py --shape-only
 PYTHONPATH=. uv run pytest -q
+PYTHONPATH=. uv run --frozen --extra agentcore-observability pytest -q tests/test_observability_credentials.py
 make mcp-install && make mcp-test && make mcp-wheel-smoke
 cd ui && npm test && npm run build && npm audit --audit-level=moderate
 ```

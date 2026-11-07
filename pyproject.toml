@@ -19,7 +19,7 @@ dependencies = [
 
 [project.optional-dependencies]
 agentcore-observability = [
-    "aws-opentelemetry-distro>=0.18,<1",
+    "aws-opentelemetry-distro==0.22.0",
 ]
 
 [dependency-groups]

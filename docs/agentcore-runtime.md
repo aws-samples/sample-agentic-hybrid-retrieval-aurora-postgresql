@@ -60,6 +60,15 @@ which the stack does not configure. The image sets
 `AWS_GENAI_CONTENT_EXTRACTION_OPT_OUT=true`, which keeps prompt and answer text on
 the spans the agent trace view reads.
 
+The image pins ADOT 0.22.0 to recover when a metadata credential lookup returns
+no credentials. Earlier versions cached that result and kept sending unsigned
+exports, producing `Failed to load AWS Credentials` followed by `403 Forbidden`.
+The [upstream fix](https://github.com/aws-observability/aws-otel-python-instrumentation/pull/941)
+retries credential resolution on the next export. CI tests that recovery with the
+runtime extra installed. A successful agent answer or an error-free trace summary
+does not establish trace completeness. Compare the saved tool calls with the
+downstream MCP spans and inspect both runtime log groups for export failures.
+
 The workshop stack's `AgentObservability` parameter (default `enabled`) sets the
 switch. When enabled, a custom resource turns on Transaction Search unless the
 account already has it, and reports any problem without failing the stack, since
