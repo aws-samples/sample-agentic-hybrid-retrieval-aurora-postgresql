@@ -6,7 +6,7 @@
     "vector_extension_version": "0.8.1"
   },
   "canonical_query_count": 10,
-  "database_instance_id": "agenticretrievalcorestack-aurorapostgresretrievalc-5wdg4dpl2bg2",
+  "database_instance_id": "hybrid-retrieval-main-databasesta-dbinstancewriter-7ekb3f54mwyb",
   "dataset_manifest_sha256": "9029570fea95d7356b6c4653eb666ba2ebf6c43af37c0ce6cec912dc1500ea51",
   "deterministic_release_checks": [
     {
@@ -34,7 +34,7 @@
     "scan_mem_multiplier": 2.0
   },
   "k": 10,
-  "measured_at": "2026-11-07T16:53:30.790773+00:00",
+  "measured_at": "2026-11-07T18:45:16.198413+00:00",
   "metrics": {
     "mrr": 0.7592592592592592,
     "ndcg@10": 0.8032961425511451,
@@ -122,7 +122,7 @@
   "query_set": "data/evals/canonical_queries.jsonl",
   "query_set_sha256": "337b8158e378c31a09e7d8292b7d85ed09d24721e6ff0fd5399683bdfe15c8d1",
   "query_vectors_sha256": "27f91a652ed06b9ccdc1fdd1b70e372dff581c651f78c870c04261d5e6a8a01f",
-  "ranked_result_sha256": "5d6c5929a8472574c847a66a1caf4a2a846c2902f3474fcea15ef1828e09ccca",
+  "ranked_result_sha256": "6c6d7f2122bcb576b678632cd288cf88047d70ba1476396068f593a64301a202",
   "retrieval_fingerprint": "dd20e4a46b0f5f25cc83e01546930d069a06a801f672dd27e94292858ccedb07",
   "retrieval_profile": {
     "authorized_limit": 10,
@@ -145,7 +145,7 @@
   "scorecard_methodology_sha256": "389361d99cfea09d51ff1ec8d62cd069c5a2814882f6b54541177bf7b8793598",
   "scored_query_set_sha256": "952f034619dec9b0964e7dd3dac061619894f7ce315dfdef9ac28ccaf6c7b06d",
   "source": {
-    "revision": "05fa0127ff1a6988125dd17a99c8868a58679661",
+    "revision": "9a83f8883675894b014818db3c63b785abdfeee1",
     "worktree_dirty": false
   },
   "strategy": "rrf_fusion+rerank+exact_sku_preservation"
