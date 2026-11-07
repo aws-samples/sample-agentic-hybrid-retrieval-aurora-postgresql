@@ -6,7 +6,9 @@ import asyncio
 import json
 import logging
 import threading
+import time
 from contextlib import aclosing
+from copy import deepcopy
 from typing import Any
 
 from botocore.exceptions import ClientError
@@ -16,6 +18,12 @@ from strands.models import BedrockModel
 from strands.types.exceptions import ModelThrottledException
 
 from service import agent_tools
+from service.agent_execution import (
+    execution_budget,
+    offload,
+    outstanding_work,
+    run_async,
+)
 from service.agent_setup import (
     AGENT_HOOKS_MESSAGE,
     AGENT_STARTER_MESSAGE,
@@ -187,22 +195,12 @@ class ToolCallBudgetExceeded(RuntimeError):
 class AgentTurnDeadlineExceeded(RuntimeError):
     """One turn's model-and-tool loop exceeded its overall wall-clock budget.
 
-    Bounds when the caller gets a response and when the admission slot is
-    released -- not the underlying work. Strands runs each Bedrock call
-    through `asyncio.to_thread`, so `asyncio.wait_for`/`asyncio.timeout`
-    cancels the *awaiting* task but cannot interrupt a boto3 call already
-    executing in its worker thread: a call in flight when the deadline fires
-    keeps running, unobserved, for up to its own remaining
-    `BEDROCK_MAX_ATTEMPTS * (connect_timeout + read_timeout)` -- 325s at the
-    default `BEDROCK_MAX_ATTEMPTS=5` -- plus whatever additional delay
-    botocore's adaptive-mode retry backoff adds between attempts, which these
-    settings do not bound. Only one Bedrock call is ever in flight per turn,
-    so this is a per-turn ceiling, not a per-call one that accumulates.
-
-    Unlike `ToolCallBudgetExceeded`, this skips the fallback synthesis attempt
-    entirely (see the `fallback_error` assignments in `answer()` and
-    `stream()`): the turn already spent its time budget, so it reports
-    failure rather than spending one more model call.
+    Bounds the model-and-tool wait, including fallback synthesis. Persistence
+    has its own database timeout. Cancellation cannot interrupt an SDK call
+    already running in a thread; its SDK timeouts and retry policy still apply.
+    The process-owned executor bounds synchronous/fallback workers, and a
+    cancelled worker cannot start another synthesis/review call or publish a
+    late answer into the persisted failure snapshot.
     """
 
 
@@ -632,30 +630,27 @@ class ProductDiscoveryAgent:
             state["trace_id"] = observation.correlation.trace_id
             state["span_id"] = observation.correlation.span_id
             deadline = get_settings().agent_turn_deadline_seconds
+            deadline_at = time.monotonic() + deadline
             try:
-                # Agent.__call__ delegates to a worker thread. The tool run is held
-                # in a ContextVar so concurrent requests stay isolated, and moving
-                # the loop to another thread discards that context before the first
-                # tool executes. The FastAPI route is synchronous, so running the
-                # native async invocation here preserves the request context.
-                #
-                # `wait_for` bounds when this call returns to the caller, not
-                # any one model call's own worker-thread work: nothing else
-                # caps how many tool-call round trips, and their retries, one
-                # turn can accumulate. See `AgentTurnDeadlineExceeded`'s
-                # docstring for the worst-case background work this leaves
-                # running after the deadline fires.
-                result = asyncio.run(
-                    asyncio.wait_for(
-                        build_agent().invoke_async(_agent_prompt(request, state)),
-                        timeout=deadline,
-                    )
+                # Scheduling the native coroutine copies the tool ContextVar.
+                # The process-owned loop avoids asyncio.run's executor shutdown
+                # wait, which would otherwise defeat the response deadline.
+                result = run_async(
+                    build_agent().invoke_async(_agent_prompt(request, state)),
+                    timeout=deadline_at - time.monotonic(),
                 )
             except TimeoutError:
+                # An SDK worker can finish later. Persist a detached failure
+                # snapshot so its late result cannot become this turn's answer.
+                state = deepcopy(state)
+                state["answer_of_record"] = None
                 error = AgentTurnDeadlineExceeded(
                     f"The agent run exceeded its {deadline:g}s turn deadline."
                 )
-                logger.warning("Strands agent loop exceeded its turn deadline")
+                logger.warning(
+                    "Strands agent loop exceeded its turn deadline; outstanding_workers=%s",
+                    outstanding_work(),
+                )
             except Exception as caught:  # noqa: BLE001 - retain a failed tool run without logging its payload
                 error = _loop_error(caught)
                 logger.warning(
@@ -685,7 +680,21 @@ class ProductDiscoveryAgent:
             ):
                 agent_tools.set_unsupported_answer_of_record(state)
             if fallback_error is None:
-                fallback_error = self._finalize_or_failure(request, state)
+                working = deepcopy(state)
+
+                def finish():
+                    with agent_tools.bind_run(working):
+                        return self._finalize_or_failure(request, working)
+
+                try:
+                    fallback_error = run_async(
+                        offload(finish), timeout=deadline_at - time.monotonic()
+                    )
+                    state.update(working)
+                except TimeoutError:
+                    fallback_error = AgentTurnDeadlineExceeded(
+                        f"The agent run exceeded its {deadline:g}s turn deadline."
+                    )
             if fallback_error is not None:
                 error = fallback_error
             strands_usage = _usage(result) if result is not None else {}
@@ -707,9 +716,13 @@ class ProductDiscoveryAgent:
         """Forward controller receipts while blocking dependencies run in a worker."""
         loop = asyncio.get_running_loop()
         queue: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue()
+        working = deepcopy(state)
+        active = True
 
         def progress():
-            snapshot = _partial(state)
+            if not active or loop.is_closed():
+                return
+            snapshot = _partial(working)
             if snapshot.trace:
                 loop.call_soon_threadsafe(
                     queue.put_nowait,
@@ -718,13 +731,14 @@ class ProductDiscoveryAgent:
             loop.call_soon_threadsafe(queue.put_nowait, {"agent_partial": snapshot})
 
         async def finish():
-            state["_progress_callback"] = progress
+            working["_progress_callback"] = progress
             try:
-                return await asyncio.to_thread(
-                    self._finalize_or_failure, request, state
-                )
+                with agent_tools.bind_run(working):
+                    result = await offload(self._finalize_or_failure, request, working)
+                working.pop("_progress_callback", None)
+                state.update(working)
+                return result
             finally:
-                state.pop("_progress_callback", None)
                 queue.put_nowait(None)
 
         task = asyncio.create_task(finish())
@@ -733,9 +747,9 @@ class ProductDiscoveryAgent:
                 yield event
             yield {"fallback_error": await task}
         finally:
-            # A running thread cannot be cancelled safely: finish its owned work
-            # before its request context and telemetry are released.
-            await asyncio.shield(task)
+            active = False
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
 
     async def _stream_agent_loop(
         self,
@@ -815,19 +829,11 @@ class ProductDiscoveryAgent:
         restore their state on the way out. The route that streams this run
         owns its admission slot; see `service.main._AdmittedStream`.
 
-        A disconnect during the *fallback synthesis* tail is a second,
-        narrower case: the model call there already runs in a worker thread
-        behind `_stream_fallback`'s own `asyncio.shield`, so cancelling this
-        generator must not skip recording whatever that call produced. See
-        the `try`/`finally` around the fallback loop below.
-
-        What this cannot do: interrupt a tool call or model round trip that is
-        already in flight. Strands' Bedrock and Aurora calls run to completion
-        under their own bounded timeouts (`service/bedrock.py`,
-        `service/db.py`) even after the generator that consumes their result
-        has been closed; only the *next* one is prevented from starting. That
-        bound is what a caller is exposed to between sending a stop and the
-        stream actually ending.
+        Fallback runs against a private state snapshot in a bounded worker
+        pool. Closing the stream cancels its await and persists the completed
+        state; unfinished work cannot publish a late answer. An in-flight SDK
+        call may still finish under its own timeouts. The cancelled execution
+        budget prevents another synthesis/review call from starting afterward.
         """
         state = await asyncio.to_thread(
             agent_tools.start_run,
@@ -848,7 +854,11 @@ class ProductDiscoveryAgent:
             result: Any | None = None
             error: Exception | None = None
             deadline = get_settings().agent_turn_deadline_seconds
-            with observe_agent_turn(state, request.question) as observation:
+            deadline_at = time.monotonic() + deadline
+            with (
+                observe_agent_turn(state, request.question) as observation,
+                execution_budget(deadline),
+            ):
                 state["trace_id"] = observation.correlation.trace_id
                 state["span_id"] = observation.correlation.span_id
                 async with aclosing(
@@ -860,6 +870,10 @@ class ProductDiscoveryAgent:
                             result, error = outcome
                         else:
                             yield event
+
+                if isinstance(error, AgentTurnDeadlineExceeded):
+                    state = deepcopy(state)
+                    state["answer_of_record"] = None
 
                 # See the matching comment in `answer()`: a deadline skips
                 # the fallback synthesis attempt entirely rather than
@@ -879,24 +893,28 @@ class ProductDiscoveryAgent:
                     and not state["trace"]
                 ):
                     agent_tools.set_unsupported_answer_of_record(state)
-                # A disconnect while this loop is suspended at `yield
-                # fallback_event` must not skip persisting a synthesis
-                # that already completed (or is about to, inside
-                # `_stream_fallback`'s own shielded task): `aclosing` here
-                # makes closing this generator wait for that task exactly
-                # as `_stream_fallback`'s docstring describes, and the
-                # `finally` below runs the bookkeeping regardless of
-                # whether the loop finished normally or was closed.
+                # Always persist completed work on disconnect. Closing the
+                # fallback cancels its await without waiting on an SDK thread.
                 try:
                     if fallback_error is None:
-                        async with aclosing(
-                            self._stream_fallback(request, state)
-                        ) as fallback_events:
-                            async for fallback_event in fallback_events:
-                                if "fallback_error" in fallback_event:
-                                    fallback_error = fallback_event["fallback_error"]
-                                else:
-                                    yield fallback_event
+                        try:
+                            async with asyncio.timeout(
+                                max(0, deadline_at - time.monotonic())
+                            ):
+                                async with aclosing(
+                                    self._stream_fallback(request, state)
+                                ) as fallback_events:
+                                    async for fallback_event in fallback_events:
+                                        if "fallback_error" in fallback_event:
+                                            fallback_error = fallback_event[
+                                                "fallback_error"
+                                            ]
+                                        else:
+                                            yield fallback_event
+                        except TimeoutError:
+                            fallback_error = AgentTurnDeadlineExceeded(
+                                f"The agent run exceeded its {deadline:g}s turn deadline."
+                            )
                     if fallback_error is not None:
                         error = fallback_error
                 finally:

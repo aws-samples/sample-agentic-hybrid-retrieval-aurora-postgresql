@@ -15,6 +15,7 @@ canned `SearchResponse` rather than reimplemented.
 
 from __future__ import annotations
 
+import hashlib
 import json
 from contextlib import contextmanager
 from datetime import UTC, datetime
@@ -132,6 +133,7 @@ class _FakeConnection:
         self.statements: list[str] = []
         self.transactions = 0
         self.candidates = []
+        self.followup = None
 
     @contextmanager
     def transaction(self):
@@ -141,6 +143,21 @@ class _FakeConnection:
 
     def execute(self, sql: str, params=None) -> _FakeCursor:
         self.statements.append(sql)
+        if "created_at > %s" in sql:
+            return _FakeCursor([self.followup.turn] if self.followup else [])
+        if (
+            self.followup
+            and params
+            and params[0] == self.followup.turn["agent_turn_id"]
+        ):
+            return self.followup.execute(sql, params)
+        if (
+            self.followup
+            and "mosaic.search_result_event" in sql
+            and params
+            and params[0] == [s["search_event_id"] for s in self.followup.searches]
+        ):
+            return self.followup.execute(sql, params)
         if "pg_get_functiondef" in sql:
             if self.lab_1_error is not None:
                 raise self.lab_1_error
@@ -399,6 +416,7 @@ def _evidence_row(evidence_id: int, *, product_id: int | None = None) -> dict:
         "source_uri": f"mosaic://evidence/{evidence_id}",
         "revision": EVIDENCE_REVISION,
         "title": "Specification",
+        "source_name": "Catalog",
         "text": quote,
     }
 
@@ -526,6 +544,32 @@ def _grounded_connection() -> _FakeConnection:
     for tool in trace:
         tool["execution_origin"] = "model"
     connection.tools = trace
+    from test_lab_followup import valid_followup
+
+    followup, _ = valid_followup()
+    followup.turn["extracted_intent"]["retrieved_evidence"] = [_evidence_row(9002)]
+    connection.followup = _FakeConnection(
+        turn=followup.turn, searches=_persisted_searches(), tools=followup.tools
+    )
+    connection.followup.candidates = followup.candidates
+    connection.turn["extracted_intent"]["application_sha256"] = "current-code"
+    connection.turn["extracted_intent"]["usage"] = {
+        "synthesis": {
+            "claim_review": {
+                "answer_sha256": hashlib.sha256(
+                    connection.turn["assistant_message"].encode()
+                ).hexdigest(),
+                "passages": [
+                    {
+                        "id": 1,
+                        "verdict": "supported",
+                        "support": [{"number": 1, "quote": CITED_EVIDENCE[9001][1]}],
+                        "reason": "Fixture receipt.",
+                    }
+                ],
+            }
+        }
+    }
     return connection
 
 
@@ -762,18 +806,31 @@ def test_lab_2_proof_runs_primary_twice_and_controls(monkeypatch) -> None:
     )
 
 
-def test_lab_3_proof_runs_seventeen_checks_over_persisted_rows(monkeypatch) -> None:
+def test_lab_3_proof_checks_setup_and_changed_requirement(monkeypatch) -> None:
     _use(monkeypatch, _grounded_connection())
     _resolve_evidence(monkeypatch)
 
     proof = lab_proof.completion_proof(3, agent_run_id=AGENT_RUN_ID)
 
-    assert len(proof.checks) == 17, [check.name for check in proof.checks]
+    assert len(proof.checks) == 19, [check.name for check in proof.checks]
     assert proof.checks[-1].name == "lab_started"
     assert proof.status == "pass"
     assert proof.database_state == "not_applicable"
     assert proof.evidence.agent_run_id == AGENT_RUN_ID
     assert proof.evidence.evidence_ids == [9001, 9002, 9101]
+
+
+def test_lab_3_cannot_complete_without_the_changed_requirement(monkeypatch):
+    connection = _grounded_connection()
+    connection.followup = None
+    _use(monkeypatch, connection)
+    _resolve_evidence(monkeypatch)
+
+    proof = lab_proof.completion_proof(3, agent_run_id=AGENT_RUN_ID)
+
+    assert proof.status == "fail"
+    check = next(c for c in proof.checks if c.name == "changed requirement checked")
+    assert not check.passed and "100W" in check.detail
 
 
 # ---------------------------------------------------------------------------
@@ -1071,8 +1128,14 @@ def _managed_run(
     connection = _grounded_connection()
     for search in connection.searches:
         search["diagnostics"] = {"search_sql_sha256": searched_with}
+    for search in connection.followup.searches:
+        search["diagnostics"] = {"search_sql_sha256": searched_with}
     if made_by is not _UNRECORDED:
         connection.turn["extracted_intent"]["application_sha256"] = made_by
+        connection.followup.turn["extracted_intent"]["application_sha256"] = made_by
+    else:
+        connection.turn["extracted_intent"].pop("application_sha256", None)
+        connection.followup.turn["extracted_intent"].pop("application_sha256", None)
     _use(monkeypatch, connection)
     _resolve_evidence(monkeypatch)
     if deployed is not None:

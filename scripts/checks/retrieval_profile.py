@@ -108,9 +108,8 @@ BOUNDS: tuple[Bound, ...] = (
     # uncalibrated guardrail on the workshop's headline query.
     Bound("coverage.similarity_floor", None, 0.01, 1.0, float),
     Bound("fusion.rrf_k", "RRF_K", 1, 10_000, int),
-    # The agent hands the fused pool to `SearchRequest.limit` (service/agent_tools.py),
-    # which caps at 50; a larger value would pass here and fail on every agent search.
-    Bound("fusion.fused_limit", "RERANK_CANDIDATE_LIMIT", 1, 50, int),
+    # Internal reranking candidates are independent of the public result/grant window.
+    Bound("fusion.fused_limit", "RERANK_CANDIDATE_LIMIT", 1, 100, int),
     Bound("fusion.weights.fts", None, 0, 1, float),
     Bound("fusion.weights.semantic", None, 0, 1, float),
     Bound("fusion.weights.fuzzy", None, 0, 1, float),

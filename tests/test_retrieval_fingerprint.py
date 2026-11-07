@@ -8,7 +8,7 @@ exactly this reason.
 
 The fake tree mirrors the real manifest's file *paths* with placeholder
 content, so the module's hardcoded `_EXPECTED_CATEGORY_COUNTS` (23 SQL files,
-1 config, 9 service, 7 scripts, 2 eval-data files) hold without needing a
+1 config, 10 service, 7 scripts, 2 eval-data files) hold without needing a
 test-only override parameter on production code.
 """
 
@@ -85,6 +85,7 @@ def _populate(root: Path) -> None:
     _write(root / "service" / "rerank.py", "# rerank fixture\n")
     _write(root / "service" / "embeddings.py", "# embeddings fixture\n")
     _write(root / "service" / "bedrock.py", "# bedrock fixture\n")
+    _write(root / "service" / "agent_execution.py", "# execution fixture\n")
     _write(root / "service" / "coverage.py", "# coverage fixture\n")
     for name in ("catalog_runtime", "live_catalog", "source_catalog", "staged_catalog"):
         _write(root / "service" / f"{name}.py", f"# {name} fixture\n")
@@ -163,10 +164,10 @@ def test_the_complete_tree_matches_every_expected_category_count_exactly(fake_re
     assert counts == _EXPECTED_CATEGORY_COUNTS
     assert counts["sql"] == 23
     assert counts["config"] == 1
-    assert counts["service"] == 9
+    assert counts["service"] == 10
     assert counts["scripts"] == 7
     assert counts["eval_data"] == 2
-    assert sum(counts.values()) == 42
+    assert sum(counts.values()) == 43
 
 
 def test_manifest_files_visit_a_representative_of_every_category(fake_repo):
@@ -175,7 +176,7 @@ def test_manifest_files_visit_a_representative_of_every_category(fake_repo):
     files = manifest_files(repo_root=fake_repo)
     relative = {path.relative_to(fake_repo).as_posix() for path in files}
 
-    assert len(files) == 42
+    assert len(files) == 43
     assert "labs/lab1_retrieve/hybrid_search.sql" in relative
     assert "db/config/retrieval.yaml" in relative
     assert "service/retrieval.py" in relative

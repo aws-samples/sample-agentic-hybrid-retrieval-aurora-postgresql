@@ -193,6 +193,12 @@
       ],
       "requires_independent_target_searches": true,
       "requires_explain_plan": true,
+      "changed_requirement": {
+        "query": "My laptop needs 100W charging. Does the ViewSonic VG2756-4K monitor still meet that need? Use its product records and explain what I would need to check.",
+        "product_id": 1551237,
+        "requirement": "100W charging",
+        "evidence_type": "product_spec"
+      },
       "checkpoint": "repair",
       "participant_edit": {
         "file": "labs/lab3_reason/agent.py",

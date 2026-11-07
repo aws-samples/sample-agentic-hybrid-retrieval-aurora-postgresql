@@ -95,7 +95,7 @@ def test_cache_covers_every_judged_query_at_the_served_limits():
 
     assert set(cache["queries"]) == {str(q["query_id"]) for q in subset["queries"]}
     for setting, arm in lab2_tuning.ARM_OF.items():
-        assert baseline[setting] <= cache["limits"][arm]
+        assert baseline[setting] == cache["limits"][arm]
     assert len(cache["chair_controls"]) == 4
 
 
@@ -136,6 +136,27 @@ def test_comparison_refuses_a_cache_from_another_source_before_querying_aurora()
         lab2_tuning.verify_cache(None, {"source_sha256": "old"}, {})
 
 
+@pytest.mark.parametrize("fault", ["larger_pool", "threshold"])
+def test_comparison_refuses_different_candidate_generation_before_querying_aurora(
+    fault,
+):
+    from scripts.checks.retrieval_profile import load_profile
+
+    cache = {
+        "source_sha256": cache_lab2_arms.cache_source_sha256(),
+        "limits": cache_lab2_arms.served_limits(),
+        "fuzzy_threshold": load_profile().fuzzy_threshold,
+    }
+    if fault == "larger_pool":
+        cache["limits"]["semantic"] *= 2
+    else:
+        cache["fuzzy_threshold"] /= 2
+    with pytest.raises(
+        lab2_tuning.TuningError, match="cached (channel limits|fuzzy threshold)"
+    ):
+        lab2_tuning.verify_cache(None, cache, {})
+
+
 def test_cached_search_lists_use_the_production_hnsw_configuration():
     from service.models import RetrievalProfile
 
@@ -161,6 +182,18 @@ def test_cached_search_lists_use_the_production_hnsw_configuration():
         profile.max_scan_tuples,
         profile.scan_mem_multiplier,
     )
+    assert [args[2] for _, args in connection.calls[1:]] == [
+        profile.fts_limit,
+        profile.fuzzy_limit,
+        profile.semantic_limit,
+    ]
+
+
+def test_the_proposed_shortlist_is_a_supported_configuration(monkeypatch):
+    from scripts.checks.retrieval_profile import load_profile
+
+    monkeypatch.setenv("RERANK_CANDIDATE_LIMIT", "75")
+    assert load_profile().fused_limit == 75
 
 
 def test_grading_prefers_the_workshop_database_cache(tmp_path):

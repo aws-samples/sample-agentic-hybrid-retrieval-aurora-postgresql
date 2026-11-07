@@ -13,6 +13,14 @@ _clients: dict[tuple[str, str], Any] = {}
 _lock = threading.Lock()
 
 
+def converse(client: Any, **request):
+    """Refuse new synthesis/review work after cancellation; SDK timeouts bound in-flight work."""
+    from service.agent_execution import check_budget
+
+    check_budget()
+    return client.converse(**request)
+
+
 def client_config() -> Config:
     settings = get_settings()
     return Config(

@@ -607,14 +607,18 @@ def test_compare_route_accepts_duplicates_that_collapse_within_bounds(monkeypatc
     assert response.status_code == 404
 
 
-def test_agent_declares_the_window_it_grants_not_the_one_it_requests(monkeypatch):
+@pytest.mark.parametrize("pool", [50, 75, 100])
+def test_agent_declares_the_window_it_grants_not_the_one_it_requests(monkeypatch, pool):
     """The agent asks for 50 to inspect the pool and grants at most 2.
 
     Falsifier: if the tool passed no `authorized_limit`, the request would
     declare 50, and every one of the 50 pooled candidates would become
     evidence-addressable while the model only ever saw 2.
     """
+    from dataclasses import replace
+
     from service import agent_tools
+    from service.config import get_settings
     from service.models import (
         RetrievalDiagnostics,
         RetrievalProfile,
@@ -622,6 +626,11 @@ def test_agent_declares_the_window_it_grants_not_the_one_it_requests(monkeypatch
         SearchResponse,
     )
 
+    monkeypatch.setattr(
+        agent_tools,
+        "get_settings",
+        lambda: replace(get_settings(), rerank_candidate_limit=pool),
+    )
     captured = {}
 
     def _product(product_id):
@@ -680,6 +689,9 @@ def test_agent_declares_the_window_it_grants_not_the_one_it_requests(monkeypatch
             )
 
     monkeypatch.setattr(agent_tools, "get_retrieval_service", lambda: FakeRetrieval())
+    monkeypatch.setattr(
+        "service.telemetry.persist_retrieval_telemetry", lambda **_kwargs: None
+    )
     state = {
         "base_filters": SearchFilters(),
         "result_limit": 2,
@@ -699,7 +711,9 @@ def test_agent_declares_the_window_it_grants_not_the_one_it_requests(monkeypatch
         agent_tools._RUN.reset(token)
 
     assert result["ok"] is True
-    assert captured["limit"] == 50, "the agent still inspects the full pool"
+    assert captured["limit"] == 50, (
+        "the public result window stays within its schema even with a larger internal pool"
+    )
     assert captured["authorized_limit"] == 2, "but it grants only what it returns"
     assert len(state["products"]) == captured["authorized_limit"]
 

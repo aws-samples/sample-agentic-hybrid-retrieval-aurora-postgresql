@@ -188,6 +188,26 @@ def check_shape(contract: dict[str, Any], report: Report) -> None:
 
     all_missions = timed + supporting
     for mission in timed:
+        if mission.get("stage") == "reason":
+            changed = mission.get("changed_requirement")
+            valid = (
+                isinstance(changed, dict)
+                and all(
+                    isinstance(changed.get(key), str) and changed[key].strip()
+                    for key in ("query", "requirement")
+                )
+                and type(changed.get("product_id")) is int
+                and changed["product_id"] in mission.get("target_product_ids", [])
+                and changed.get("evidence_type") == "product_spec"
+            )
+            report.check(
+                "A1.1d changed requirement proof",
+                bool(valid),
+                explain(
+                    f"changed_requirement={changed!r}",
+                    "restore the existing follow-up request, its setup product ID, requirement and product_spec evidence type",
+                ),
+            )
         if mission.get("stage") == "rank":
             bound = mission.get("expected_final_top_k")
             limit = mission.get("top_k")

@@ -3,6 +3,18 @@
 -- The three retrieval searches and the filters they share. Each search returns
 -- its own ranked candidates; labs/lab1_retrieve/hybrid_search.sql fuses them.
 
+-- Keep the array subquery outside the per-product predicate so PostgreSQL can
+-- inline that predicate. An EXISTS here prevented inlining and timed out counts.
+CREATE OR REPLACE FUNCTION mosaic_search.casefold_brands(brands jsonb)
+RETURNS text[]
+LANGUAGE sql
+IMMUTABLE
+PARALLEL SAFE
+AS $$
+SELECT coalesce(array_agg(lower(name)), ARRAY[]::text[])
+FROM jsonb_array_elements_text(brands) AS b(name)
+$$;
+
 CREATE OR REPLACE FUNCTION mosaic_search.matches_filter_values(
     product_domain mosaic.product_domain,
     product_category_key text,
@@ -27,10 +39,9 @@ SELECT
     (
         NOT (f ? 'brands')
         OR jsonb_array_length(f->'brands') = 0
-        OR EXISTS (
-            SELECT 1
-            FROM jsonb_array_elements_text(f->'brands') AS b(name)
-            WHERE lower(b.name) = lower(product_brand_name)
+        OR coalesce(
+            lower(product_brand_name) = ANY(mosaic_search.casefold_brands(f->'brands')),
+            false
         )
     ) AND
     (NOT (f ? 'min_price_cents') OR product_price_cents >= (f->>'min_price_cents')::bigint) AND
@@ -334,7 +345,7 @@ LANGUAGE sql
 STABLE
 PARALLEL SAFE
 AS $$
-WITH scored AS (
+WITH scored AS MATERIALIZED (
     SELECT d.product_id,
            d.embedding <=> query_embedding AS distance
     FROM mosaic_search.product_listing_view d
@@ -354,6 +365,8 @@ WITH scored AS (
 SELECT product_id,
        distance,
        (1 - distance)::real,
-       row_number() OVER (ORDER BY distance, product_id)
+       -- Relaxed HNSW order is approximate. On PostgreSQL 17+, + 0 prevents
+       -- the planner from reusing that order instead of sorting the shortlist.
+       row_number() OVER (ORDER BY distance + 0, product_id)
 FROM scored
 $$;

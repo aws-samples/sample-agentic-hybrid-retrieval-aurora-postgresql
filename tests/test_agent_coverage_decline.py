@@ -255,7 +255,7 @@ def test_one_grounded_search_keeps_the_run_grounded(monkeypatch, no_synthesis):
 
     def complete(question: str) -> None:
         completions.append(question)
-        state["answer_of_record"] = {
+        agent_tools._state()["answer_of_record"] = {
             "answer": "Choose the Voltiq 65W GaN Charger [1].",
             "citations": [],
             "recommendations": [product()],
@@ -378,7 +378,7 @@ def test_a_grounded_mission_question_reaches_the_controller_unrefused(monkeypatc
 
     def complete(question: str) -> None:
         completions.append(question)
-        state["answer_of_record"] = {
+        agent_tools._state()["answer_of_record"] = {
             "answer": "Choose the Voltiq 65W GaN Charger [1].",
             "citations": [],
             "recommendations": [product()],
@@ -1018,20 +1018,10 @@ def test_closing_the_stream_stops_scheduling_further_tools_and_synthesis(monkeyp
 def test_closing_the_stream_during_the_fallback_tail_still_persists_and_finishes(
     monkeypatch,
 ):
-    """Rebase-review finding #1: a disconnect during fallback synthesis must
-    not skip persistence.
+    """A completed fallback must still be persisted when its stream closes.
 
-    `_stream_fallback` forwards tool-trace progress from its worker thread
-    while `run_controller_fallback` is still running; `stream()` re-yields
-    each one at `yield fallback_event`. Closing the outer stream while it is
-    suspended exactly there raises `GeneratorExit` at that point. Before this
-    fix, that skipped straight past `_persist` and `observation.finish`, so a
-    synthesis call that had already produced (or was about to produce) a
-    grounded answer never reached `mosaic.agent_turn` or the trace -- a
-    completed, billed run that simply vanished. `_stream_fallback`'s own
-    `asyncio.shield` already guarantees the synthesis call itself finishes
-    before its generator can close; this test proves the bookkeeping
-    afterward is no longer skipped.
+    The worker finishes and merges its answer before cancellation. The companion
+    deadline tests cover unfinished work, which must never publish a late answer.
     """
     import threading
     import time
@@ -1071,7 +1061,7 @@ def test_closing_the_stream_during_the_fallback_tail_still_persists_and_finishes
         assert release.wait(timeout=2), "event loop could not progress"
         # Simulates a completed, billed synthesis: by the time the disconnect
         # closes the stream, the answer of record already exists.
-        state["answer_of_record"] = {
+        agent_tools._state()["answer_of_record"] = {
             "answer": "The Voltiq 65W GaN Charger fits your needs [1].",
             "recommendations": [],
             "citations": [],
@@ -1099,6 +1089,9 @@ def test_closing_the_stream_during_the_fallback_tail_still_persists_and_finishes
             await anext(stream)
             await anext(stream)
             await anext(stream)
+            async with asyncio.timeout(2):
+                while state["answer_of_record"] is None:
+                    await asyncio.sleep(0)
             await stream.aclose()
         finally:
             await other

@@ -64,7 +64,8 @@ the same request. Your repairs carry forward from one lab to the next.
 
 Labs 1 and 2 are SQL exercises: you diagnose in `psql`, repair the marked SQL file and
 apply it to Aurora. In Lab 3 you build the Retrieval agent in Python, deploy it to
-AgentCore Runtime and check its answers from the terminal. Optional exercises cover
+AgentCore Runtime and check its answers from the terminal. Completion checks both
+the saved setup answer and the 100W follow-up against the records each run retrieved. Optional exercises cover
 AgentCore Memory, a smaller and faster HNSW index for filtered semantic search, weighted
 rank fusion and building your own retrieval tool.
 
@@ -94,8 +95,11 @@ rank fusion and building your own retrieval tool.
 4. **Reason.** The Retrieval agent chooses its searches, reads specifications and
    reviews, and answers with sources. A citation identifies a source but does not prove
    the claim, so the application checks every drafted answer: each citation must name a
-   record the agent was given, and every figure a sentence states must appear in the
-   cited record, in the same unit.
+   record the agent was given, and measurements must match the cited property and unit.
+   A separate model review then checks the finished draft for unsupported claims,
+   contradictions and compatibility assumptions, quoting its cited records. An
+   incomplete or rejected review prevents delivery. This model check can still
+   make mistakes; inspect the sources before relying on a recommendation.
 
 Everything search reads or runs lives in one schema, `mosaic_search`: the
 `product_listing` table with one index per search, the `product_listing_view` that every

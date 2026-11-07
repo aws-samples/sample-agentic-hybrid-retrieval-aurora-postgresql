@@ -1,0 +1,145 @@
+{
+  "measured_at": "2026-11-07T16:15:05.631784+00:00",
+  "model_id": "global.anthropic.claude-sonnet-5-5",
+  "scope": "Single-pass support-review probes using in-memory fixtures, no catalog mutations; not a workshop rehearsal or a reliability estimate.",
+  "source_revision": "d662b6196ba6edfbac071d24070f0611dc47245b",
+  "source_worktree_dirty": true,
+  "cases": [
+    {
+      "case": "reversed_review",
+      "source": "The headset was uncomfortable and hurt my ears.",
+      "answer": "The reviewer found it comfortable for all-day wear [1].",
+      "expected_supported": false,
+      "accepted": false,
+      "passed": true,
+      "seconds": 3.127,
+      "reason": "claim support: passage 1: The cited record says the headset was uncomfortable and hurt the ears, which contradicts the claim of all-day comfort.; remove the unsupported claim or cite evidence that supports it",
+      "usage": {
+        "inputTokens": 1564,
+        "outputTokens": 221,
+        "totalTokens": 1785,
+        "cacheReadInputTokens": 0,
+        "cacheWriteInputTokens": 0
+      }
+    },
+    {
+      "case": "wrong_property",
+      "source": "Display refresh rate 90 Hz. Microphone frequency response not stated.",
+      "answer": "Its microphone frequency response is 90 Hz [1].",
+      "expected_supported": false,
+      "accepted": false,
+      "passed": true,
+      "seconds": 3.489,
+      "reason": "claim support: passage 1: The 90 Hz figure is a display refresh rate; the record says microphone frequency response is not stated, so the claim is contradicted/unsupported.; remove the unsupported claim or cite evidence that supports it",
+      "usage": {
+        "inputTokens": 1571,
+        "outputTokens": 223,
+        "totalTokens": 1794,
+        "cacheReadInputTokens": 0,
+        "cacheWriteInputTokens": 0
+      }
+    },
+    {
+      "case": "number_words",
+      "source": "Battery life 48 hours.",
+      "answer": "It has one hundred hours of battery life [1].",
+      "expected_supported": false,
+      "accepted": false,
+      "passed": true,
+      "seconds": 1.986,
+      "reason": "claim support: passage 1: Passage claims one hundred hours of battery life, but the cited specification states 48 hours; contradicted.; remove the unsupported claim or cite evidence that supports it",
+      "usage": {
+        "inputTokens": 1551,
+        "outputTokens": 172,
+        "totalTokens": 1723,
+        "cacheReadInputTokens": 0,
+        "cacheWriteInputTokens": 0
+      }
+    },
+    {
+      "case": "unsupported_compatibility",
+      "source": "Battery life 48 hours.",
+      "answer": "It supports your laptop [1].",
+      "expected_supported": false,
+      "accepted": false,
+      "passed": true,
+      "seconds": 2.707,
+      "reason": "claim support: passage 1: Claims the product supports the user's laptop, but the cited spec only states battery life of 48 hours; no compatibility information is given.; remove the unsupported claim or cite evidence that supports it",
+      "usage": {
+        "inputTokens": 1546,
+        "outputTokens": 179,
+        "totalTokens": 1725,
+        "cacheReadInputTokens": 0,
+        "cacheWriteInputTokens": 0
+      }
+    },
+    {
+      "case": "unsupported_guarantee",
+      "source": "Battery life 48 hours.",
+      "answer": "It guarantees perfectly clear calls in every noisy office [1].",
+      "expected_supported": false,
+      "accepted": false,
+      "passed": true,
+      "seconds": 2.179,
+      "reason": "claim support: passage 1: Cited spec only states battery life of 48 hours; it gives no evidence of call clarity, noise suppression, or any guarantee.; remove the unsupported claim or cite evidence that supports it",
+      "usage": {
+        "inputTokens": 1558,
+        "outputTokens": 205,
+        "totalTokens": 1763,
+        "cacheReadInputTokens": 0,
+        "cacheWriteInputTokens": 0
+      }
+    },
+    {
+      "case": "supported_battery",
+      "source": "Battery life 48 hours.",
+      "answer": "It has 48 hours of battery life [1].",
+      "expected_supported": true,
+      "accepted": true,
+      "passed": true,
+      "seconds": 5.192,
+      "reason": null,
+      "usage": {
+        "inputTokens": 1550,
+        "outputTokens": 168,
+        "totalTokens": 1718,
+        "cacheReadInputTokens": 0,
+        "cacheWriteInputTokens": 0
+      }
+    },
+    {
+      "case": "accurate_negative_review",
+      "source": "The headset was uncomfortable and hurt my ears.",
+      "answer": "This reviewer found the headset uncomfortable [1].",
+      "expected_supported": true,
+      "accepted": true,
+      "passed": true,
+      "seconds": 2.726,
+      "reason": null,
+      "usage": {
+        "inputTokens": 1562,
+        "outputTokens": 308,
+        "totalTokens": 1870,
+        "cacheReadInputTokens": 0,
+        "cacheWriteInputTokens": 0
+      }
+    },
+    {
+      "case": "charging_shortfall",
+      "source": "USB-C power delivery: 90W.",
+      "answer": "Its 90W power delivery falls short of your 100W charging requirement [1].",
+      "expected_supported": true,
+      "accepted": true,
+      "passed": true,
+      "seconds": 2.129,
+      "reason": null,
+      "usage": {
+        "inputTokens": 1564,
+        "outputTokens": 230,
+        "totalTokens": 1794,
+        "cacheReadInputTokens": 0,
+        "cacheWriteInputTokens": 0
+      }
+    }
+  ]
+}

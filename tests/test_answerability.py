@@ -4,6 +4,7 @@ import json
 from types import SimpleNamespace
 
 import pytest
+from claim_review_helpers import supported_review
 from test_synthesis_claims import evidence, product
 
 from service.synthesis import synthesize_cited_answer
@@ -15,6 +16,8 @@ class Client:
         self.calls = []
 
     def converse(self, **kwargs):
+        if response := supported_review(kwargs):
+            return response
         self.calls.append(kwargs)
         review = len(self.calls) == 1
         return {

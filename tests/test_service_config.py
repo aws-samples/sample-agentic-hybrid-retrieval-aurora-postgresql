@@ -275,27 +275,18 @@ def test_cors_response_never_carries_the_credentials_header():
     assert "access-control-allow-credentials" not in response.headers
 
 
-def test_fused_limit_bound_fits_what_the_agent_hands_to_search_request():
-    """The agent passes the fused pool as `SearchRequest.limit` (agent_tools.py).
-
-    A bound above the request cap accepts a setting every agent search then
-    rejects, so moving either number alone must fail here.
-    """
-    from scripts.checks.retrieval_profile import BOUNDS
+def test_internal_fused_pool_can_exceed_the_public_result_window(monkeypatch):
+    from scripts.checks.retrieval_profile import BOUNDS, load_profile
     from service.models import SearchRequest
 
     bound = next(item for item in BOUNDS if item.path == "fusion.fused_limit")
-    cap = next(
-        meta.le
-        for meta in SearchRequest.model_fields["limit"].metadata
-        if hasattr(meta, "le")
-    )
-
-    assert bound.high <= cap, (
-        f"fusion.fused_limit allows {bound.high} but SearchRequest.limit caps at "
-        f"{cap}; fix: lower the bound in scripts/checks/retrieval_profile.py"
-    )
-    assert SearchRequest(query="xx", limit=int(bound.high)).limit == bound.high
+    cap = SearchRequest.model_json_schema()["properties"]["limit"]["maximum"]
+    monkeypatch.setenv("RERANK_CANDIDATE_LIMIT", str(int(bound.high)))
+    assert load_profile().fused_limit == bound.high
+    assert bound.high > cap
+    # The production agent-call test separately verifies the bounded public
+    # request and its smaller evidence authorization at this maximum pool.
+    assert SearchRequest(query="xx", limit=cap).limit == cap
 
 
 def test_settings_repr_never_prints_the_password_or_origin_secret(monkeypatch):

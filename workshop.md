@@ -49,7 +49,7 @@ beside the contribution the search recorded.
 Lab 2 ends with `advance --lab 2`, which proves Lab 2 and installs the
 Retrieval agent's starting code. Lab 3 stays in the terminal: deploy, ask the setup
 request and the 100W follow-up with `scripts/ask_agent.py`, then complete with
-`scripts/grade_setup_run.py`, which checks the newest setup run. Ask Mosaic is an
+`scripts/grade_setup_run.py`, which checks the saved setup and 100W runs. Ask Mosaic is an
 optional view of the same runs.
 
 Each lab opens with its time and a link to **Running behind**. That section's
@@ -58,7 +58,7 @@ collapsed **Use the reference answer (replaces your exercise)** command runs
 applies or deploys it and runs the checks and handoff. Recovery follows the
 participant's proof. `reset --lab N` restarts a lab.
 Getting started's **Know hybrid search already? Start at a later lab** box offers `skip-to --lab N`.
-Lab 3 recovery still needs a setup run the participant starts and checks.
+Lab 3 recovery still needs setup and 100W runs the participant starts and checks.
 
 Each lab's main page shows Concepts and its animation, then Workshop Studio's **Next**
 opens the required flow on an **Exercise** child page. Numbered action steps, which restart
@@ -203,8 +203,10 @@ each call is its own run. When the answer check refuses a draft, an errored
 the agent then drafts again. A step the model or the service failed prints
 `draft step failed (<error>), not refused by a check` instead. `uv run python scripts/grade_setup_run.py` then checks the
 newest run of the setup request since Lab 3 started that opened its own conversation,
-and says which run it chose; `--run-id` checks a particular one. A follow-up question
-is not graded against the lab.
+and says which run it chose; `--run-id` selects a particular setup run. The same
+completion check also requires the saved 100W follow-up, a new search, the monitor's
+current specification, matching deployed code, and either a checked answer or a
+relevant decline. Grading does not generate replacement answers.
 
 Until a participant deploys after Lab 3 starts, questions from the terminal, Playground
 and Ask Mosaic wait for that deploy, and completion refuses a run without one: AgentCore
@@ -245,6 +247,10 @@ connects them over MCP. Both are required for Lab 3 and provisioned by the works
 
 The application constrains tool calls and checks citations. Registering a source
 allows its citation; it does not establish that every sentence follows from it.
+After deterministic citation and measurement checks, a separate model review checks
+every passage of the finished draft against its cited records. Unsupported claims,
+missing decisions and fabricated quotations fail closed. That review adds a model
+call and can still make judgment errors; it does not replace inspecting evidence.
 Specifications, reviews and unknowns remain distinct. Catalog-read-only tools
 still write search audit records.
 

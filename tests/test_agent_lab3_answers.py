@@ -184,6 +184,10 @@ class DraftClient(Client):
         self.draft = draft
 
     def converse(self, **kwargs):
+        from claim_review_helpers import supported_review
+
+        if response := supported_review(kwargs):
+            return response
         response = super().converse(**kwargs)
         if len(self.calls) > 1:
             response["output"]["message"]["content"] = [{"text": self.draft}]

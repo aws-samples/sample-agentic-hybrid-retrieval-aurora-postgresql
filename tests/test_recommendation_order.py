@@ -383,6 +383,10 @@ class _Writer:
         self.picks, self.drafts, self.calls = picks, list(drafts), []
 
     def converse(self, **kwargs):
+        from claim_review_helpers import supported_review
+
+        if response := supported_review(kwargs):
+            return response
         self.calls.append(kwargs)
         if len(self.calls) == 1:
             review = {

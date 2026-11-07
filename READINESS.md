@@ -4,13 +4,19 @@ This is the release gate for **Build agentic hybrid retrieval with Amazon Aurora
 PostgreSQL**. It is not a benchmark report and it does not convert an offline
 test pass into deployment evidence.
 
+The [7 November remediation checks](docs/evidence/remediation-2026-11-07.md)
+record source changes, development Aurora checks and remaining release work.
+The Shop count timeout is repaired and verified on development Aurora. The
+clean-commit scorecard and final-pin managed rehearsal remain open; the new
+claim review is not yet certified by a fresh event run.
+
 ## Fixed session contract
 
 - exactly three required labs;
 - `Retrieve -> Rank -> Rerank -> Reason`;
 - 553,911 real source products and saved Cohere Embed v4 vectors in Aurora;
 - no historical synthetic products, reviews or vocabulary in fresh workshops;
-- 40 minutes of required hands-on work, including completion, inside a 60-minute session;
+- 45 minutes of required hands-on work, including completion, inside a 60-minute session;
 - HNSW tuning remains an optional Advanced Lab.
 
 `data/evals/mosaic_labs_missions.json` owns the lab queries, assertions, and
@@ -95,7 +101,10 @@ prepare the next lab. Lab 3 grades the attendee's own persisted agent run:
 `uv run python scripts/grade_setup_run.py` evaluates the newest setup run (or one
 named with `--run-id`) without generating a new answer, including whether the
 application deployed now and the SQL Aurora runs now are the ones that made it, and
-whether a deploy the attendee made since Lab 3 started produced it. Each check carries its falsifier.
+whether a deploy the attendee made since Lab 3 started produced it. Completion also
+checks the saved 100W follow-up for a fresh search, current monitor specification,
+matching deployment, and a checked answer or relevant decline. The setup answer must
+carry its finished-draft support review. Each check carries its falsifier.
 
 State inspection is separate and proves no result:
 `uv run python scripts/lab_state.py validate --lab N --database-url "$DATABASE_URL"`

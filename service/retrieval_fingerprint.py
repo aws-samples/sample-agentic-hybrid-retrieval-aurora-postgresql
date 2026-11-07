@@ -184,7 +184,7 @@ _EXPECTED_CATEGORY_COUNTS: dict[str, int] = {
     # scorecard reads unattributed until the next measured baseline.
     "sql": 23,
     "config": 1,
-    "service": 9,
+    "service": 10,
     "scripts": 7,
     "eval_data": 2,
 }
@@ -221,6 +221,7 @@ def _category_files(repo_root: Path) -> dict[str, tuple[Path, ...]]:
             repo_root / "service" / "rerank.py",
             repo_root / "service" / "embeddings.py",
             repo_root / "service" / "bedrock.py",
+            repo_root / "service" / "agent_execution.py",
             repo_root / "service" / "coverage.py",
             repo_root / "service" / "catalog_runtime.py",
             repo_root / "service" / "live_catalog.py",

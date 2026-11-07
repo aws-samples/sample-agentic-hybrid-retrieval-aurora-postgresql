@@ -163,6 +163,23 @@ def test_batched_counts_match_shop_with_empty_and_combined_filters():
     assert counts[3] == 0
 
 
+def test_catalog_filter_rule_inlines_in_batched_counts(connection):
+    """A per-product SQL call made six Shop counts exceed the 30s deadline."""
+    from service.catalog_runtime import filter_predicate
+
+    plan = connection.execute(
+        f"""EXPLAIN (FORMAT JSON)
+        SELECT (SELECT count(*) FROM mosaic_search.product_listing_view d
+                WHERE {filter_predicate("requested.filters")})
+        FROM jsonb_array_elements(%s::jsonb) AS requested(filters)""",
+        (json.dumps([{"min_rating": 4}, {"brands": ["SONY", "Bose"]}]),),
+    ).fetchone()[0]
+    assert "matches_filter_values" not in json.dumps(plan), (
+        "The shared rule must inline into predicates instead of invoking a SQL "
+        "function for every product in every count."
+    )
+
+
 def test_database_level_fuzzy_gates_match_the_profile(connection, profile):
     """Every new Aurora session must inherit deterministic pg_trgm index gates."""
     connection.execute("SELECT similarity('mosaic', 'mosaic')").fetchone()
@@ -403,3 +420,62 @@ def test_brand_filters_ignore_case_on_both_forms(connection, filters, expected):
         (json.dumps(filters),),
     ).fetchone()[0]
     assert matched is expected
+
+
+@pytest.mark.parametrize(
+    ("brand", "brands", "expected"),
+    [
+        ("München", ["MÜNCHEN"], True),
+        ("Sony", ["sony", "SONY"], True),
+        ("Sony", [None, "Bose"], False),
+        (None, ["Sony"], False),
+        (None, [], True),
+        ("", [""], True),
+    ],
+)
+def test_brand_array_filter_preserves_missing_and_casefolded_values(
+    connection, brand, brands, expected
+):
+    matched = connection.execute(
+        "SELECT mosaic_search.matches_filter_values("
+        "NULL, NULL, %s, 0, NULL, NULL, '{}'::jsonb, false, false, %s::jsonb)",
+        (brand, json.dumps({"brands": brands})),
+    ).fetchone()[0]
+    assert matched is expected
+
+
+@pytest.mark.aurora
+def test_semantic_ranks_sort_the_actual_relaxed_hnsw_candidates():
+    """A saved judged query exposes incremental sort trusting relaxed ANN order."""
+    import json
+    from pathlib import Path
+
+    from scripts.cache_lab2_arms import decode_vector
+    from service.catalog_runtime import search_schema
+    from service.db import connect
+    from service.models import RetrievalProfile
+    from service.retrieval import RetrievalService
+
+    root = Path(__file__).resolve().parents[1]
+    cases = json.loads((root / "data/evals/esci_judged_subset.json").read_text())[
+        "queries"
+    ]
+    vectors = json.loads((root / "data/evals/esci_query_vectors.json").read_text())[
+        "vectors"
+    ]
+    with connect() as connection:
+        connection.execute("SET TRANSACTION READ ONLY")
+        RetrievalService._configure_hnsw(connection, RetrievalProfile())
+        for case in cases[:3]:
+            rows = connection.execute(
+                f"SELECT product_id, cosine_distance, semantic_rank FROM {search_schema()}.search_semantic(%s::vector, %s::jsonb, %s)",
+                (
+                    decode_vector(vectors[str(case["query_id"])]),
+                    json.dumps(case["filters"]),
+                    RetrievalProfile().semantic_limit,
+                ),
+            ).fetchall()
+            assert rows, "the order check needs actual candidates"
+            assert sorted(rows, key=lambda r: r["semantic_rank"]) == sorted(
+                rows, key=lambda r: (r["cosine_distance"], r["product_id"])
+            )

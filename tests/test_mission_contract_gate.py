@@ -84,6 +84,25 @@ def test_a_fourth_required_lab_fails(passing):
     assert "A1.1" in rules_failing(passing)
 
 
+@pytest.mark.parametrize(
+    "value",
+    [
+        None,
+        {},
+        {
+            "query": "changed request",
+            "requirement": "charging",
+            "product_id": -1,
+            "evidence_type": "review",
+        },
+    ],
+)
+def test_missing_or_unrelated_changed_requirement_fails(passing, value):
+    reason = next(m for m in passing["missions"] if m["stage"] == "reason")
+    reason["changed_requirement"] = value
+    assert "A1.1d" in rules_failing(passing)
+
+
 @pytest.mark.parametrize("bound", [None, 0, True, 11])
 def test_invalid_final_shortlist_bound_fails(passing, bound):
     rank = next(m for m in passing["missions"] if m["stage"] == "rank")

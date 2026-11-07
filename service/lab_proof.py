@@ -697,6 +697,61 @@ def completion_proof(
             )
         )
         checks.extend(_managed_agent_checks(rows, root))
+        if rows is not None:
+            from service.agent_deploys import lab_3_started_at
+            from service.lab_followup import (
+                changed_requirement_check,
+                claim_review_problem,
+                load_changed_requirement,
+            )
+            from service.participant_commands import ask_agent_command
+
+            problem = claim_review_problem(rows.turn)
+            checks.append(
+                LabCheck(
+                    name="finished answer support reviewed",
+                    passed=problem is None,
+                    falsifier="the final answer has no matching completed claim-support review, or its review rejected a claim",
+                    detail="The finished setup answer passed its claim-support review"
+                    if problem is None
+                    else f"Claim support: {problem}. Next: {ask_setup_command()}, then grade again.",
+                )
+            )
+            with connect() as connection:
+                followup = load_changed_requirement(
+                    connection, mission, lab_3_started_at(root)
+                )
+            records = (
+                {
+                    item["evidence_id"]: resolve_evidence(item["evidence_id"])
+                    for item in (
+                        _as_dict(followup.turn.get("extracted_intent")).get(
+                            "retrieved_evidence"
+                        )
+                        or []
+                    )
+                    if isinstance(item, dict)
+                    and isinstance(item.get("evidence_id"), int)
+                }
+                if followup
+                else {}
+            )
+            checks.append(changed_requirement_check(mission, followup, rows, records))
+            if followup is not None:
+                for check in _managed_agent_checks(followup, root):
+                    checks.append(
+                        LabCheck(
+                            name="changed requirement deployment",
+                            passed=check.passed,
+                            falsifier=check.falsifier,
+                            detail=check.detail.replace(
+                                ask_setup_command(),
+                                ask_agent_command(
+                                    mission["changed_requirement"]["query"]
+                                ),
+                            ).replace("setup request", "changed-requirement request"),
+                        )
+                    )
         # The turn's own receipts, not new ones: this path issues no retrieval,
         # and reporting them is what makes the verdict replayable afterwards.
         search_event_ids: list[UUID] = (

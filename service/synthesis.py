@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from collections.abc import Collection, Iterable, Sequence
@@ -9,7 +10,8 @@ from dataclasses import dataclass
 from typing import Any
 
 from service.answerability import SynthesisDeclined, assess_answerability
-from service.bedrock import get_bedrock_client, thinking_off_fields
+from service.bedrock import converse, get_bedrock_client, thinking_off_fields
+from service.claim_review import ClaimReviewError, assess_claim_support
 from service.config import Settings, get_settings
 from service.models import (
     AgentCitation,
@@ -191,7 +193,9 @@ def _only_names(sentence: str, mentions: Sequence[tuple[int, int, set[int]]]) ->
 
 
 def _normalized_support_text(value: str) -> str:
-    return re.sub(r"\s+", " ", value.casefold().replace("_", " ").replace("-", " "))
+    return re.sub(
+        r"\s+", " ", _number_words(value).casefold().replace("_", " ").replace("-", " ")
+    )
 
 
 _CURRENCY_PATTERN = r"\$\s*(\d[\d,]*)(?:\.(\d{1,2}))?"
@@ -755,6 +759,67 @@ _UNIT_ALIASES = {
     "tb": "terabyte",
 }
 
+_SMALL_NUMBERS = dict(
+    zip(
+        [
+            "zero",
+            "one",
+            "two",
+            "three",
+            "four",
+            "five",
+            "six",
+            "seven",
+            "eight",
+            "nine",
+            "ten",
+            "eleven",
+            "twelve",
+            "thirteen",
+            "fourteen",
+            "fifteen",
+            "sixteen",
+            "seventeen",
+            "eighteen",
+            "nineteen",
+        ],
+        range(20),
+        strict=True,
+    )
+) | dict(
+    zip(
+        ["twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety"],
+        range(20, 100, 10),
+        strict=True,
+    )
+)
+_NUMBER_SCALES = {"hundred": 100, "thousand": 1000, "million": 1000000}
+_NUMBER_WORD = "|".join([*_SMALL_NUMBERS, *_NUMBER_SCALES])
+_SPELLED_MEASUREMENT = re.compile(
+    rf"\b(?:{_NUMBER_WORD})(?:[ -]+(?:and[ -]+)?(?:{_NUMBER_WORD}))*"
+    rf"(?=[ -]+(?:{'|'.join(sorted(_UNIT_ALIASES, key=len, reverse=True))})\b)",
+    re.IGNORECASE,
+)
+
+
+def _number_words(text: str) -> str:
+    """Normalize spelled measurements without turning 'one reviewer' into a figure."""
+
+    def replace(match: re.Match[str]) -> str:
+        total = current = 0
+        for word in re.split(r"[ -]+", match.group().casefold()):
+            if word in _SMALL_NUMBERS:
+                current += _SMALL_NUMBERS[word]
+            elif word == "hundred":
+                current = max(current, 1) * 100
+            elif word in _NUMBER_SCALES:
+                total += max(current, 1) * _NUMBER_SCALES[word]
+                current = 0
+        return str(total + current)
+
+    return _SPELLED_MEASUREMENT.sub(replace, text)
+
+
 #: A figure whose letters come *before* its digits is an identifier, not a
 #: measurement: `IP68`, `WH-C720`, `A2342`. It is supported only by itself.
 _IDENTIFIER_SHAPE = re.compile(r"^[A-Za-z]+\d")
@@ -962,9 +1027,22 @@ def _states_figure_in_unit(support: str, figure: str, family: str) -> bool:
     return re.search(pattern, support) is not None
 
 
-def _duration_kind(text: str, claim: MeasurableClaim) -> str | None:
-    """Bind an hourly measurement to its closest label within the same clause."""
-    if claim.unit != "hour":
+def _measurement_kind(text: str, claim: MeasurableClaim) -> str | None:
+    """Bind ambiguous measurements to their closest property in the same clause."""
+    properties = {
+        "hour": (
+            ("battery_hours", r"\b(?:battery|playback|single charge)\b"),
+            (
+                "recommended_hours",
+                r"\b(?:recommended(?:[ _-]+daily)?[ _-]+(?:use|usage|hours)|daily[ _-]+(?:use|usage))\b",
+            ),
+        ),
+        "hertz": (
+            ("refresh_hz", r"\b(?:refresh(?: rate)?|display)\b"),
+            ("frequency_hz", r"\b(?:frequency(?: response)?|microphone)\b"),
+        ),
+    }
+    if claim.unit not in properties:
         return None
     boundaries = list(
         re.finditer(
@@ -976,13 +1054,7 @@ def _duration_kind(text: str, claim: MeasurableClaim) -> str | None:
         (m.start() for m in boundaries if m.start() >= claim.end), default=len(text)
     )
     labels = []
-    for kind, pattern in (
-        ("battery_hours", r"\b(?:battery|playback|single charge)\b"),
-        (
-            "recommended_hours",
-            r"\b(?:recommended(?:[ _-]+daily)?[ _-]+(?:use|usage|hours)|daily[ _-]+(?:use|usage))\b",
-        ),
-    ):
+    for kind, pattern in properties[claim.unit]:
         for match in re.finditer(pattern, text[start:end], re.IGNORECASE):
             distance = max(
                 start + match.start() - claim.end, claim.start - start - match.end(), 0
@@ -1035,13 +1107,13 @@ def _claim_supported(
             for match in _RESOLUTION_PATTERN.finditer(support)
         }
     if claim.unit:
-        meaning = _duration_kind(segment, claim)
+        meaning = _measurement_kind(segment, claim)
         if meaning is not None:
             figure = re.search(r"\d[\d,]*(?:\.\d+)?", claim.value).group()
             # A duration in one field cannot authorize another field with the
             # same value and unit, even when both belong to the same product.
             return any(
-                _duration_kind(support, stated) == meaning
+                _measurement_kind(support, stated) == meaning
                 and _states_figure_in_unit(support[stated.start :], figure, claim.unit)
                 and re.search(r"\d[\d,]*(?:\.\d+)?", stated.value).group() == figure
                 for stated in _measurable_claims(support)
@@ -1235,7 +1307,8 @@ def _validate_measurable_claim_support(
     question: str = "",
 ) -> None:
     """Validate every claim occurrence against its product and cited sources."""
-    question_figures = _question_figures(question)
+    answer = _number_words(answer)
+    question_figures = _question_figures(_number_words(question))
     ignored_names = {name for product in products for name in _product_names(product)}
     brands = {product.brand.casefold() for product in products if product.brand}
     by_product_id = {product.product_id: product for product in products}
@@ -1785,16 +1858,34 @@ def synthesize_cited_answer(
         request["additionalModelRequestFields"] = thinking_off
 
     own_request = question if current_request is None else current_request
+    claim_reviews: list[dict[str, Any]] = []
+    claim_usage: list[dict[str, Any]] = []
 
     def validated(response: dict[str, Any]) -> tuple[str, list[AgentCitation]]:
         answer, citations = _validated_output(
             response, products, evidence_records, own_request
         )
         _validate_lead(answer, products, citations, own_request)
+        answer = _without_empty_alternatives(answer)
+        try:
+            receipt, used = assess_claim_support(
+                answer,
+                own_request,
+                products,
+                evidence_records,
+                client=runtime,
+                model_id=settings.synthesis_model_id,
+            )
+        except ClaimReviewError as error:
+            claim_usage.append({"usage": getattr(error, "usage", {})})
+            raise SynthesisOutputError(str(error)) from error
+        claim_reviews.append(receipt)
+        claim_usage.append({"usage": used})
         return answer, citations
 
     responses = [
-        runtime.converse(
+        converse(
+            runtime,
             **request,
             messages=messages,
         )
@@ -1804,7 +1895,8 @@ def synthesize_cited_answer(
     except (SynthesisOutputError, SynthesisTruncated) as error:
         draft = _text(responses[-1])
         responses.append(
-            runtime.converse(
+            converse(
+                runtime,
                 **request,
                 messages=[
                     *messages,
@@ -1835,6 +1927,18 @@ def synthesize_cited_answer(
         answer, citations = validated(responses[-1])
     answer = with_limit_notes(_without_empty_alternatives(answer), limits)
     usage = _combined_usage(responses)
+    checked_usage: dict[str, Any] = {}
+    for response in claim_usage:
+        for key, value in response["usage"].items():
+            if isinstance(value, (int, float)):
+                checked_usage[key] = checked_usage.get(key, 0) + value
+                usage[key] = usage.get(key, 0) + value
+    usage["claim_review_usage"] = checked_usage
+    usage["claim_review"] = {
+        **claim_reviews[-1],
+        "reviewed_answer_sha256": claim_reviews[-1]["answer_sha256"],
+        "answer_sha256": hashlib.sha256(answer.encode()).hexdigest(),
+    }
     usage["answerability"] = review.model_dump()
     usage["answerability_usage"] = review_usage
     for key, value in review_usage.items():

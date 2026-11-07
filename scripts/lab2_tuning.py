@@ -27,6 +27,7 @@ from scripts.cache_lab2_arms import (
     decode_vector,
     search_identity,
     search_lists,
+    served_limits,
 )
 
 REPO = Path(__file__).resolve().parents[1]
@@ -155,6 +156,20 @@ def verify_cache(connection, cache: dict, subset: dict) -> dict:
             f"{expected_source}; the bundled search cache is out of date. "
             "Ask the facilitator to rebuild it with scripts/cache_lab2_arms.py --for-workshop "
             "against this release's Aurora database."
+        )
+    if cache.get("limits") != served_limits():
+        raise TuningError(
+            f"cached channel limits {cache.get('limits')!r} differ from served limits "
+            f"{served_limits()}; rebuild with scripts/cache_lab2_arms.py --for-workshop. "
+            "A larger ANN list's prefix does not prove served retrieval."
+        )
+    from scripts.checks.retrieval_profile import load_profile
+
+    if cache.get("fuzzy_threshold") != load_profile().fuzzy_threshold:
+        raise TuningError(
+            f"cached fuzzy threshold {cache.get('fuzzy_threshold')!r} differs from "
+            f"served threshold {load_profile().fuzzy_threshold}; rebuild with "
+            "scripts/cache_lab2_arms.py --for-workshop."
         )
     identity = search_identity(connection)
     for key, live in identity.items():

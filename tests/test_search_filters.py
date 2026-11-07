@@ -115,5 +115,9 @@ def test_brands_filter_lowercases_both_sides_in_sql():
         Path(__file__).resolve().parents[1] / "db/sql/08_search_channels.sql"
     ).read_text()
     assert "? product_brand_name" not in sql
-    assert "jsonb_array_elements_text(f->'brands')" in sql
-    assert "lower(b.name) = lower(product_brand_name)" in sql
+    assert "jsonb_array_elements_text(brands)" in sql
+    assert "array_agg(lower(name))" in sql
+    assert (
+        "lower(product_brand_name) = ANY(mosaic_search.casefold_brands(f->'brands'))"
+        in sql
+    )

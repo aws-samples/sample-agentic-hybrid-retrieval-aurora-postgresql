@@ -3,10 +3,10 @@
 
 Grading a Lab 2 proposal replays fusion over 141 ESCI queries and four reviewed
 chair controls. Running the three installed search functions live for all of
-them takes minutes, so this saves each query's lists once, at limits at least as
-large as any proposal may request. A proposal with smaller limits reads a prefix
-of each list: every search function orders by its own rank before applying its
-limit. The cache records the catalog, rendered reference SQL and installed
+them takes minutes, so this saves each query's lists at the actual served limits.
+ANN membership can change with the requested limit; a larger list's prefix is
+not a substitute for the served search. The comparison varies fusion, keeping
+these channel limits fixed. The cache records the catalog, rendered reference SQL and installed
 function hashes, and the grader refuses it when any has changed.
 """
 
@@ -28,7 +28,6 @@ sys.path.insert(0, str(REPO))
 
 REFERENCE_CACHE = Path("data/evals/lab2_search_cache.json")
 WORKSHOP_CACHE = Path("build/lab2-search-cache.json")
-MAX_LIMITS = {"fts": 240, "fuzzy": 160, "semantic": 300}
 # One connection took 238 s for the judged queries on the 20 October workshop,
 # all of it on the deployment's critical path. The catalog does not change while
 # the cache is built, so splitting the queries changes no list.
@@ -55,6 +54,14 @@ ARM_SQL = {
         "%s::vector, %s::jsonb, %s)"
     ),
 }
+
+
+def served_limits() -> dict[str, int]:
+    """Resolve channel limits from the same profile production retrieval uses."""
+    from service.models import RetrievalProfile
+
+    profile = RetrievalProfile()
+    return {arm: getattr(profile, f"{arm}_limit") for arm in ARM_SQL}
 
 
 def decode_vector(encoded: str) -> str:
@@ -112,7 +119,7 @@ def search_identity(connection) -> dict[str, str]:
         "SELECT string_agg(pg_get_functiondef(p.oid), E'\\n' ORDER BY p.proname) AS d "
         "FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace "
         "WHERE n.nspname = %s AND p.proname IN "
-        "('search_fts', 'search_fuzzy', 'search_semantic', 'matches_filter_values')",
+        "('search_fts', 'search_fuzzy', 'search_semantic', 'matches_filter_values', 'casefold_brands')",
         (schema,),
     ).fetchone()["d"]
     return {
@@ -123,7 +130,7 @@ def search_identity(connection) -> dict[str, str]:
 
 
 def search_lists(connection, query: str, filters: dict, vector: str) -> dict:
-    """Run the three installed searches at the cache limits; rows are [id, rank]."""
+    """Run the three installed searches at served limits; rows are [id, rank]."""
     from scripts.checks.retrieval_profile import load_profile
     from service.catalog_runtime import search_schema
     from service.models import RetrievalProfile
@@ -133,10 +140,11 @@ def search_lists(connection, query: str, filters: dict, vector: str) -> dict:
     schema = search_schema()
     encoded = json.dumps(filters)
     threshold = load_profile().fuzzy_threshold
+    limits = served_limits()
     arguments = {
-        "fts": (query, encoded, MAX_LIMITS["fts"]),
-        "fuzzy": (query, encoded, MAX_LIMITS["fuzzy"], threshold),
-        "semantic": (vector, encoded, MAX_LIMITS["semantic"]),
+        "fts": (query, encoded, limits["fts"]),
+        "fuzzy": (query, encoded, limits["fuzzy"], threshold),
+        "semantic": (vector, encoded, limits["semantic"]),
     }
     lists = {}
     for name, sql in ARM_SQL.items():
@@ -256,7 +264,7 @@ def main() -> None:
                 "source_sha256": cache_source_sha256(),
                 "dataset_id": subset["dataset_id"],
                 "embedding_model_id": vectors["embedding_model_id"],
-                "limits": MAX_LIMITS,
+                "limits": served_limits(),
                 "fuzzy_threshold": load_profile().fuzzy_threshold,
                 "queries": queries,
                 "chair_controls": chair,

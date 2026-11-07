@@ -11,6 +11,7 @@ from uuid import uuid4
 
 import pytest
 from botocore.exceptions import ClientError
+from claim_review_helpers import supported_review
 from fastapi.testclient import TestClient
 
 from service import agent_tools
@@ -89,6 +90,8 @@ class FakeSynthesisClient:
         self.review_requests: list[dict] = []
 
     def converse(self, **kwargs):
+        if response := supported_review(kwargs):
+            return response
         text = kwargs["messages"][0]["content"][0]["text"]
         if text.startswith('{"question":'):
             payload = json.loads(text)
@@ -1365,8 +1368,10 @@ def test_agent_surfaces_grounding_contract_failure_over_model_loop_error(
     assert persisted_errors == ["GroundingContractError"]
 
 
+@pytest.mark.parametrize("threaded", [False, True])
 def test_agent_turn_deadline_stops_the_loop_without_a_fallback_synthesis_call(
     monkeypatch,
+    threaded,
 ):
     """A deadline is a hard stop: no fallback model call after it fires.
 
@@ -1375,6 +1380,7 @@ def test_agent_turn_deadline_stops_the_loop_without_a_fallback_synthesis_call(
     `run_controller_fallback` anyway, and the assertion below catches it.
     """
     import asyncio
+    import time
 
     state = {
         "agent_run_id": uuid4(),
@@ -1385,7 +1391,10 @@ def test_agent_turn_deadline_stops_the_loop_without_a_fallback_synthesis_call(
 
     class SlowAgent:
         async def invoke_async(self, _question):
-            await asyncio.sleep(5)
+            if threaded:
+                await asyncio.to_thread(time.sleep, 0.5)
+            else:
+                await asyncio.sleep(5)
 
     monkeypatch.setattr(agent_tools, "start_run", lambda *_args: state)
     monkeypatch.setattr("service.agent.build_agent", lambda: SlowAgent())
@@ -1402,12 +1411,14 @@ def test_agent_turn_deadline_stops_the_loop_without_a_fallback_synthesis_call(
         agent_tools, "persist_completed_run", lambda *_args, **_kwargs: None
     )
 
+    started = time.perf_counter()
     with pytest.raises(AgentTurnDeadlineExceeded, match="0.05s turn deadline"):
         ProductDiscoveryAgent().answer(
             AgentRequest(question="What should I buy?", result_limit=2)
         )
 
     assert fallback_calls == [], "the deadline must skip fallback synthesis entirely"
+    assert time.perf_counter() - started < 0.3
 
 
 def test_streaming_agent_turn_deadline_reports_a_failure_event_and_no_fallback(
@@ -1473,6 +1484,81 @@ def test_streaming_agent_turn_deadline_reports_a_failure_event_and_no_fallback(
     assert "0.05s turn deadline" in failures[0]["detail"]
     assert not any("agent_response" in event for event in events)
     assert fallback_calls == [], "the deadline must skip fallback synthesis entirely"
+
+
+@pytest.mark.parametrize("streamed", [False, True])
+def test_fallback_shares_the_turn_deadline_and_cannot_publish_a_late_answer(
+    monkeypatch, streamed
+):
+    import threading
+    import time
+
+    state = {
+        "agent_run_id": uuid4(),
+        "products": {101: product()},
+        "searches": [],
+        "trace": [],
+        "answer_of_record": None,
+        "context_search_event_ids": [],
+    }
+    release, completed = threading.Event(), threading.Event()
+    persisted = []
+
+    class SilentAgent:
+        async def invoke_async(self, _):
+            await asyncio.sleep(0.03)
+
+        async def stream_async(self, _):
+            await asyncio.sleep(0.03)
+            yield {}
+
+    def finish(self, request, working):
+        assert release.wait(2)
+        working["answer_of_record"] = {"answer": "Late unchecked answer"}
+        completed.set()
+
+    monkeypatch.setattr(agent_tools, "start_run", lambda *_a, **_k: state)
+    monkeypatch.setattr("service.agent.build_agent", SilentAgent)
+    monkeypatch.setattr(
+        "service.agent.get_settings",
+        lambda: replace(get_settings(), agent_turn_deadline_seconds=0.08),
+    )
+    monkeypatch.setattr("service.session_memory.attach_run", lambda *_a: None)
+    monkeypatch.setattr(ProductDiscoveryAgent, "_finalize_or_failure", finish)
+    monkeypatch.setattr(
+        ProductDiscoveryAgent,
+        "_persist",
+        lambda self, saved, *_a: persisted.append(saved["answer_of_record"]),
+    )
+    request = AgentRequest(question="What should I buy?")
+
+    async def drain():
+        events = []
+        try:
+            async for event in ProductDiscoveryAgent().stream(request):
+                events.append(event)
+        except AgentTurnDeadlineExceeded:
+            pass
+        return events
+
+    started = time.perf_counter()
+    try:
+        if streamed:
+            events = asyncio.run(drain())
+            assert any(
+                e.get("agent_failure", {}).get("code") == "agent_turn_deadline"
+                for e in events
+            )
+            assert not any("agent_response" in e for e in events)
+        else:
+            with pytest.raises(AgentTurnDeadlineExceeded):
+                ProductDiscoveryAgent().answer(request)
+        assert time.perf_counter() - started < 0.3
+        assert persisted == [None]
+    finally:
+        release.set()
+    assert completed.wait(1)
+    assert state["answer_of_record"] is None
 
 
 def test_strands_registers_the_read_only_product_tools():

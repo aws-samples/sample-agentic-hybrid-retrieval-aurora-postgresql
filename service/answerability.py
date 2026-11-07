@@ -8,7 +8,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, ValidationError
 
-from service.bedrock import accepts_forced_tool_choice, thinking_off_fields
+from service.bedrock import accepts_forced_tool_choice, converse, thinking_off_fields
 from service.models import EvidenceRecord, ProductSummary
 
 
@@ -314,7 +314,7 @@ def assess_answerability(
         request["additionalModelRequestFields"] = thinking_off
     usage: dict[str, Any] = {}
     for attempt in range(2):
-        response = client.converse(**request)
+        response = converse(client, **request)
         for key, value in response.get("usage", {}).items():
             if isinstance(value, (int, float)):
                 usage[key] = usage.get(key, 0) + value

@@ -9,6 +9,7 @@ real draft arrives in.
 from __future__ import annotations
 
 import pytest
+from claim_review_helpers import supported_review
 
 from service.models import EvidenceRecord, ProductSummary
 from service.synthesis import (
@@ -1457,6 +1458,8 @@ class _SynthesisClient:
         self.calls = 0
 
     def converse(self, **_kwargs):
+        if response := supported_review(_kwargs):
+            return response
         self.calls += 1
         if self.calls == 1:
             content = {
