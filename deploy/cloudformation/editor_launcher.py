@@ -5,8 +5,10 @@ stack's launch template when CloudFormation creates the host, so the choice is m
 time. Each instance type, in priority order, is tried in every private subnet before the next
 type, and the subnet order is rotated per stack so event accounts spread across zones. A shortage,
 or a type a zone does not offer, moves to the next option; when every option is short, the
-launcher pauses and tries them all again while Lambda has time. Any other refusal fails the stack
-with its error code, so nothing launches unprotected and nothing fails silently.
+launcher pauses and tries them all again while Lambda has time. An instance that ended because the
+account's EBS key was not yet usable moves on after a pause, at most KEY_ATTEMPTS times. Any other
+refusal fails the stack with its error code, so nothing launches unprotected and nothing fails
+silently.
 
 The result is a plain EC2 instance, so EC2's automatic recovery stays on, and the host is replaced
 only when a stack update changes its launch inputs. Every instance is tagged with the request that
@@ -29,6 +31,13 @@ INPUTS_TAG = "eval-skills:launch-inputs"
 FAILED_PREFIX = "editor-launch-failed-"
 SKIP_CODES = frozenset({"InsufficientInstanceCapacity", "Unsupported"})
 ENDED_FOR_CAPACITY = "Server.InsufficientInstanceCapacity"
+# A brand-new account's first encrypted volume makes EBS create the account's aws/ebs key, and an
+# instance launched in that moment can end before the key is usable (a fresh event account, 8
+# November 2026). The next attempt finds the key ready; a key that stays unusable, disabled or
+# pending deletion, still fails the stack after KEY_ATTEMPTS ends.
+ENDED_FOR_KEY = "Client.InvalidKMSKey.InvalidState"
+KEY_ATTEMPTS = 3
+KEY_PAUSE_SECONDS = 15
 LAUNCH_INPUTS = ("LaunchTemplateId", "LaunchTemplateVersion", "InstanceTypes", "Subnets")
 ROUND_PAUSE_SECONDS = 30
 # No new attempt starts with less than this left: room for the running wait and the answer.
@@ -90,12 +99,14 @@ def launch(ec2, props, request_id, stack_id, context, sleep):
         SubnetId and AvailabilityZoneId.
 
     Raises:
-        LaunchError: On any refusal other than a shortage, or when time runs out first.
+        LaunchError: On any refusal other than a shortage, when the EBS key stays unusable for
+            KEY_ATTEMPTS instances, or when time runs out first.
     """
     order = options(props, stack_id)
     tags = [{"Key": REQUEST_TAG, "Value": request_id},
             {"Key": INPUTS_TAG, "Value": inputs_digest(props)}]
     shortages = {}
+    key_ends = 0
     round_number = 0
     while True:
         for itype, subnet in order:
@@ -106,6 +117,11 @@ def launch(ec2, props, request_id, stack_id, context, sleep):
             if instance:
                 return identity(ec2, instance)
             shortages[(itype, subnet)] = shortage
+            if shortage == ENDED_FOR_KEY:
+                key_ends += 1
+                if key_ends >= KEY_ATTEMPTS:
+                    raise LaunchError(key_unusable(key_ends))
+                sleep(KEY_PAUSE_SECONDS)
         if context.get_remaining_time_in_millis() - ROUND_PAUSE_SECONDS * 1000 < RESERVE_MS:
             raise LaunchError(no_capacity(shortages, round_number))
         sleep(ROUND_PAUSE_SECONDS)
@@ -153,9 +169,9 @@ def running_wait(context):
 
 
 def ended(ec2, instance_id, error):
-    """Explain an instance that never ran: a shortage moves on, anything else fails."""
+    """Explain an instance that never ran: a shortage or an unready key moves on, else fail."""
     reason = described(ec2, instance_id).get("StateReason", {}).get("Code", "")
-    if reason == ENDED_FOR_CAPACITY:
+    if reason in (ENDED_FOR_CAPACITY, ENDED_FOR_KEY):
         print(f"{instance_id} ended: {reason}")
         return reason
     terminate(ec2, [instance_id])
@@ -179,6 +195,12 @@ def identity(ec2, instance):
             "PrivateIpAddress": instance["PrivateIpAddress"],
             "InstanceType": instance["InstanceType"], "SubnetId": subnet,
             "AvailabilityZoneId": zone}
+
+
+def key_unusable(key_ends):
+    return (f"{key_ends} instances ended with {ENDED_FOR_KEY}: the KMS key that encrypts the "
+            "launch template's EBS volumes is not usable. Check that it is Enabled, not pending "
+            "deletion, and that the launcher's role may use it.")
 
 
 def no_capacity(shortages, round_number):

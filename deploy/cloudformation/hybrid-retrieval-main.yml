@@ -50,7 +50,7 @@ Parameters:
 
   InfrastructureRevision:
     Type: String
-    Default: fcfa9ff0fd4cc520
+    Default: 082a173699415173
     AllowedPattern: '^[0-9a-f]{16}$'
     Description: Validator-derived update trigger for nested templates and bootstrap inputs
 
@@ -62,13 +62,13 @@ Parameters:
 
   EditorLauncherArchiveName:
     Type: String
-    Default: editor-launcher-9bfffa5546fef339.zip
+    Default: editor-launcher-e9018e01df06c1c6.zip
     AllowedPattern: '^editor-launcher-[0-9a-f]{16}\.zip$'
     Description: The editor launcher's Lambda package, named by its own SHA-256
 
   EditorLauncherCodeSha256:
     Type: String
-    Default: m//6VUb+8zkA8+E1+9+wm9X9KlTsQsFSFb0SDft9Gg0=
+    Default: 6QGOAd8Gwca/vKHC5pxhnr2UBkge+yI7yx/h/Os5KCU=
     AllowedPattern: '^[A-Za-z0-9+/]{43}=$'
     Description: Base64 SHA-256 Lambda must report for the editor launcher package
 
