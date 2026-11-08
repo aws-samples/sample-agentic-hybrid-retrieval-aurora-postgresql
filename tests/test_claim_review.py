@@ -114,7 +114,12 @@ def test_incomplete_model_reviews_fail_closed_and_retain_usage(fault):
             client=Client(),
             model_id="test",
         )
-    assert caught.value.usage == {"inputTokens": 11, "outputTokens": 7}
+    # A review that breaks its rules is asked once more; usage covers both calls.
+    assert caught.value.usage == {
+        "inputTokens": 22,
+        "outputTokens": 14,
+        "reviewCalls": 2,
+    }
 
 
 def test_successful_synthesis_receipt_names_the_delivered_answer_and_bills_review():

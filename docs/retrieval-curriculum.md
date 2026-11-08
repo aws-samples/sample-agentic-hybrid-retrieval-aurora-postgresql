@@ -135,8 +135,10 @@ one retrieval receipt for each headphone, monitor and chair target, with all
 three in the comparison and final shortlist. A single broad search cannot satisfy decomposition.
 
 The implementation is intentionally narrow: one Strands agent, a bounded tool
-budget, one repair attempt after invalid synthesis, and no delegation or
-multi-hop graph traversal. Closed-world follow-ups can reuse a server-validated
+budget, one repair attempt after invalid synthesis, one corrected support review
+when the review itself breaks its rules, and no delegation or multi-hop graph
+traversal. A later draft in the same turn is told why the earlier drafts were
+refused. Closed-world follow-ups can reuse a server-validated
 prior shortlist, but every answer still retrieves fresh evidence and passes the
 same citation checks.
 

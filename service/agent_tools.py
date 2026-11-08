@@ -1599,6 +1599,7 @@ def synthesize_cited_answer(
             evidence,
             limits=_reported_limits(state),
             current_request=state["question"],
+            earlier_refusals=state.get("synthesis_refusals", ()),
         )
     except SynthesisDeclined as decline:
         set_unsupported_answer_of_record(state, decline)
@@ -1661,6 +1662,8 @@ def synthesize_cited_answer(
         )
         if isinstance(error, (SynthesisOutputError, SynthesisTruncated)):
             state["synthesis_retry_product_ids"] = unique_ids
+            # The next draft, by the model or the controller fallback, is told why.
+            state.setdefault("synthesis_refusals", []).append(str(error))
             return _failure(
                 f"The draft failed evidence checks: {error}",
                 f"Keep the same product IDs {unique_ids}; retry synthesis to repair the cited claims, not the selection.",
@@ -1921,6 +1924,7 @@ def _synthesize_supported(
             _evidence_for_products(state, [p.product_id for p in selection]),
             limits=_reported_limits(state),
             current_request=state["question"],
+            earlier_refusals=state.get("synthesis_refusals", ()),
         )
 
     try:

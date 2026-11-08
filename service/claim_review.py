@@ -15,13 +15,25 @@ from service.models import EvidenceRecord, ProductSummary
 
 
 class ClaimReviewError(ValueError):
-    """A draft lacks a complete, source-bound support review."""
+    """A draft lacks a complete, source-bound support review.
+
+    `verdict` is True when a valid review judged a claim unsupported, so the draft
+    must change. Otherwise the review broke its own rules (malformed, incomplete, or
+    quoting outside a passage's citations), which says nothing about the draft.
+    """
 
     usage: dict[str, Any]
 
-    def __init__(self, message: str, usage: dict[str, Any] | None = None):
+    def __init__(
+        self,
+        message: str,
+        usage: dict[str, Any] | None = None,
+        *,
+        verdict: bool = False,
+    ):
         super().__init__(message)
         self.usage = usage or {}
+        self.verdict = verdict
 
 
 class SourceQuote(BaseModel):
@@ -67,10 +79,12 @@ quote its relevant available facts and explain the limit. Unknown stays unknown.
 
 Use non_claim only for headings, shopper requirements, conditional advice, questions,
 or preference-based recommendations that add no product facts. It is never an escape
-for an uncited factual claim. Give non_claim no supporting quotes. A passage that mixes
-advice or preference with facts must have all those facts supported. Use unsupported
-for any unsupported, contradicted, uncited or uncertain factual claim, with a short
-reason naming the problem. Do not rewrite the answer and do not add outside knowledge.
+for an uncited factual claim. Give non_claim no supporting quotes. A passage that cites
+a record is never non_claim: judge what it states against that record, and mark it
+unsupported when the record does not state it, such as advice carrying a citation.
+A passage that mixes advice or preference with facts must have all those facts
+supported. Use unsupported for any unsupported, contradicted, uncited or uncertain
+factual claim, with a short reason naming the problem. Do not rewrite the answer and do not add outside knowledge.
 """
 
 
@@ -89,6 +103,25 @@ def passages(answer: str) -> list[dict[str, Any]]:
     ]
 
 
+CITATION = re.compile(r"\[(\d+)\]")
+# How much of an offending passage an error quotes.
+EXCERPT_CHARS = 160
+
+
+def _excerpt(text: str) -> str:
+    return text if len(text) <= EXCERPT_CHARS else text[: EXCERPT_CHARS - 1] + "…"
+
+
+def _numbers(cited: set[int]) -> str:
+    return "".join(f"[{number}]" for number in sorted(cited)) or "nothing"
+
+
+def _quoted_from(quote: str, text: str) -> bool:
+    """Whether the quote appears in the record, ignoring line breaks and runs of spaces."""
+    wanted = " ".join(quote.split())
+    return bool(wanted) and wanted in " ".join(text.split())
+
+
 def validate_review(
     review: ClaimReview, answer: str, evidence: Sequence[EvidenceRecord]
 ) -> None:
@@ -100,50 +133,70 @@ def validate_review(
             "claim support: incomplete or duplicate passage decisions; review every passage exactly once"
         )
     for decision in review.passages:
-        if decision.verdict == "unsupported":
-            raise ClaimReviewError(
-                f"claim support: passage {decision.id}: {decision.reason}; remove the unsupported claim or cite evidence that supports it"
-            )
-        if decision.verdict == "non_claim":
-            if decision.support or re.search(r"\[\d+\]", parts[decision.id]):
-                raise ClaimReviewError(
-                    "claim support: non-claim carries evidence; classify its factual claims"
-                )
-            continue
-        cited = {int(n) for n in re.findall(r"\[(\d+)\]", parts[decision.id])}
-        if not decision.support:
-            raise ClaimReviewError(
-                "claim support: supported passage has no source quote; cite supporting evidence"
-            )
-        for support in decision.support:
-            if support.number not in cited or not 1 <= support.number <= len(evidence):
-                raise ClaimReviewError(
-                    "claim support: quote is outside the passage's citations; use its cited record"
-                )
-            record = evidence[support.number - 1]
-            normalize = lambda text: " ".join(text.split())
-            if not normalize(support.quote) or normalize(
-                support.quote
-            ) not in normalize(record.text):
-                raise ClaimReviewError(
-                    "claim support: quote is absent from the cited record; quote its exact text"
-                )
+        _check_decision(decision, parts[decision.id], evidence)
 
 
-def assess_claim_support(
+def _check_decision(
+    decision: PassageDecision, text: str, evidence: Sequence[EvidenceRecord]
+) -> None:
+    """One passage's decision: a verdict on the draft, or a rule the review broke.
+
+    Each message names the passage, so the corrected review or the repair draft
+    knows which sentence to fix.
+    """
+    where = f"claim support: passage {decision.id}"
+    cited = {int(number) for number in CITATION.findall(text)}
+    if decision.verdict == "unsupported":
+        raise ClaimReviewError(
+            f"{where}: {decision.reason}; "
+            "remove the unsupported claim or cite evidence that supports it",
+            verdict=True,
+        )
+    if decision.verdict == "non_claim":
+        if cited:
+            # The draft's fault: a citation says its record states the sentence.
+            raise ClaimReviewError(
+                f"{where} cites {_numbers(cited)} but states no product fact: "
+                f'"{_excerpt(text)}"; write advice, checks and headings without '
+                "citations, or state the fact the record gives",
+                verdict=True,
+            )
+        if decision.support:
+            raise ClaimReviewError(
+                f"{where} is a non-claim with supporting quotes; "
+                "give a non-claim no quotes, or judge its factual claims"
+            )
+        return
+    if not decision.support:
+        raise ClaimReviewError(
+            f"{where} is marked supported without a source quote; "
+            "quote the cited record that supports it"
+        )
+    for support in decision.support:
+        if support.number not in cited or not 1 <= support.number <= len(evidence):
+            raise ClaimReviewError(
+                f"{where} cites {_numbers(cited)} but quotes record {support.number}; "
+                "quote only the records it cites, or mark it unsupported"
+            )
+        if not _quoted_from(support.quote, evidence[support.number - 1].text):
+            raise ClaimReviewError(
+                f"{where}: the quote is not in record {support.number}; "
+                "copy the record's exact text"
+            )
+
+
+# One review, plus one corrected review when the first breaks its own rules.
+REVIEW_CALLS = 2
+
+
+def _review_request(
     answer: str,
     question: str,
     products: Sequence[ProductSummary],
     evidence: Sequence[EvidenceRecord],
-    *,
-    client: Any,
     model_id: str,
-) -> tuple[dict[str, Any], dict[str, Any]]:
-    """Review one draft with a single bounded call and return an answer-bound receipt.
-
-    Malformed, incomplete and unsupported decisions fail closed. The synthesis
-    caller owns its one replacement-draft retry; this review adds no retry loop.
-    """
+) -> dict[str, Any]:
+    """The forced record_claim_support call that reviews every passage of one draft."""
     schema = ClaimReview.model_json_schema()
     definitions = schema.pop("$defs")
     decision = definitions["PassageDecision"]
@@ -194,7 +247,11 @@ def assess_claim_support(
     }
     if thinking_off := thinking_off_fields(model_id):
         request["additionalModelRequestFields"] = thinking_off
-    response = converse(client, **request)
+    return request
+
+
+def _decision(response: dict[str, Any]) -> ClaimReview:
+    """The one record_claim_support call in a response, or a rule-break error."""
     try:
         calls = [
             block["toolUse"]
@@ -207,21 +264,70 @@ def assess_claim_support(
             or calls[0].get("name") != "record_claim_support"
         ):
             raise ClaimReviewError(
-                "claim support: incomplete review; return one complete support decision",
-                response.get("usage", {}),
+                "claim support: incomplete review; return one complete support decision"
             )
-        review = ClaimReview.model_validate(calls[0]["input"])
+        return ClaimReview.model_validate(calls[0]["input"])
     except (KeyError, TypeError, ValidationError) as error:
         raise ClaimReviewError(
-            "claim support: malformed decision; return the complete support schema",
-            response.get("usage", {}),
+            "claim support: malformed decision; return the complete support schema"
         ) from error
-    try:
-        validate_review(review, answer, evidence)
-    except ClaimReviewError as error:
-        error.usage = response.get("usage", {})
-        raise
+
+
+def _corrected(request: dict[str, Any], error: ClaimReviewError) -> dict[str, Any]:
+    """The same review request, told which rule the rejected review broke."""
+    message = request["messages"][0]
+    note = (
+        f"The application rejected an earlier review of this same answer: {error}. "
+        "Submit a new record_claim_support call. Review every passage once. Quote "
+        "only records whose numbers that passage cites, copying each quote exactly. "
+        "When a passage's cited records do not support its claim, mark it unsupported."
+    )
     return {
-        "answer_sha256": hashlib.sha256(answer.encode()).hexdigest(),
-        **review.model_dump(),
-    }, response.get("usage", {})
+        **request,
+        "messages": [{**message, "content": [*message["content"], {"text": note}]}],
+    }
+
+
+def _add_usage(total: dict[str, Any], usage: dict[str, Any]) -> None:
+    for key, value in usage.items():
+        if isinstance(value, (int, float)):
+            total[key] = total.get(key, 0) + value
+
+
+def assess_claim_support(
+    answer: str,
+    question: str,
+    products: Sequence[ProductSummary],
+    evidence: Sequence[EvidenceRecord],
+    *,
+    client: Any,
+    model_id: str,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Review one draft and return an answer-bound receipt.
+
+    A review that breaks its own rules judges nothing about the draft, so it is asked
+    once more, told the rule it broke; the corrected review passes the same validation.
+    An unsupported verdict, or a second rule-breaking review, fails closed. The
+    synthesis caller owns the replacement-draft retry. Usage covers every call, and
+    `reviewCalls` counts them.
+    """
+    request = _review_request(answer, question, products, evidence, model_id)
+    usage: dict[str, Any] = {}
+    for call in range(1, REVIEW_CALLS + 1):
+        response = converse(client, **request)
+        _add_usage(usage, response.get("usage", {}))
+        usage["reviewCalls"] = call
+        try:
+            review = _decision(response)
+            validate_review(review, answer, evidence)
+        except ClaimReviewError as error:
+            error.usage = dict(usage)
+            if error.verdict or call == REVIEW_CALLS:
+                raise
+            request = _corrected(request, error)
+            continue
+        return {
+            "answer_sha256": hashlib.sha256(answer.encode()).hexdigest(),
+            **review.model_dump(),
+        }, usage
+    raise AssertionError("unreachable: the last review call returns or raises")

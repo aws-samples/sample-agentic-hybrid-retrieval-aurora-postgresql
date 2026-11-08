@@ -66,6 +66,10 @@ soften one with "roughly", "around", or "about". Preserve every other figure
 and its unit family, and do not introduce a
 threshold of your own, not even as a rule of thumb.
 
+Never name the dataset, file or collection a record comes from: a year in a
+dataset name is checked as a product claim. Cite each record in the sentence that
+uses it, never in a list of sources or a line that holds only a product name and
+its citations.
 When asked to compare sources, distinguish catalog specifications from review
 experiences. Cite each source you discuss. One review is one person's report:
 write that a reviewer reports or describes an experience, never that a review
@@ -118,6 +122,10 @@ only the two or three attributes that matter most to the question; do not
 rewrite the specification sheet.
 
 For requests covering different product categories, describe each product in its own role. A monitor and a chair are complementary choices, not alternatives; do not put one under Other strong options.
+No record states how a product relates to the shopper's other products, so never
+write that one fits, suits, matches or completes their setup or works with their
+other products. Give each product's role and what its own records state, in a
+sentence that cites that product.
 
 For shopping requests with alternatives in the same category, add the Markdown heading "### Other strong options" on
 its own line, followed by one concise bullet for each remaining product, in
@@ -125,7 +133,8 @@ supplied order, with an allowed citation for that product. When no product
 remains for that section, omit the heading entirely.
 
 For shopping requests, finish with the Markdown heading "### The deciding trade-off" on its own line,
-then one short, plain-language decision rule with citations. Write both headings
+then one short, plain-language decision rule. Cite each product fact it states;
+a check the shopper must make carries no citation. Write both headings
 as "### " headings, never as bold text inside a sentence: bold runs the heading
 into the sentence that follows it. Do not repeat facts already stated unless they
 are necessary to explain the choice. Finish the final sentence completely.
@@ -1718,6 +1727,28 @@ def with_limit_notes(answer: str, limits: ReportedLimits) -> str:
     return "\n\n".join([answer, *notes])
 
 
+# The newest refusals a retry is told about, and the length kept of each.
+EARLIER_REFUSALS_SHOWN = 3
+EARLIER_REFUSAL_CHARS = 400
+
+
+def _earlier_refusal_note(refusals: Sequence[str]) -> list[dict[str, str]]:
+    """A content block naming what refused this turn's earlier drafts, or nothing."""
+    shown = list(dict.fromkeys(refusals))[-EARLIER_REFUSALS_SHOWN:]
+    if not shown:
+        return []
+    reasons = "\n".join(f"- {reason[:EARLIER_REFUSAL_CHARS]}" for reason in shown)
+    return [
+        {
+            "text": (
+                "The application's answer checks refused earlier drafts of this "
+                "answer. Write a new draft that avoids each of these problems:\n"
+                + reasons
+            )
+        }
+    ]
+
+
 def synthesize_cited_answer(
     question: str,
     products: Sequence[ProductSummary],
@@ -1727,6 +1758,7 @@ def synthesize_cited_answer(
     client: Any | None = None,
     limits: ReportedLimits = NO_LIMITS,
     current_request: str | None = None,
+    earlier_refusals: Sequence[str] = (),
 ) -> tuple[str, list[AgentCitation], dict[str, Any]]:
     """Write the citation-bounded answer of record for one turn.
 
@@ -1748,6 +1780,8 @@ def synthesize_cited_answer(
             memory and the previous turn for the model; figures and the lead rating
             are checked against this text only, so nothing a prior turn said can
             become a requirement. Defaults to `question`.
+        earlier_refusals: Why the answer checks refused earlier drafts of this answer
+            in the same turn. The first draft is told, so a retry does not repeat them.
 
     Returns:
         The answer, its validated citations, and the model usage.
@@ -1842,7 +1876,8 @@ def synthesize_cited_answer(
                         f"Numbered evidence records:\n"
                         f"{json.dumps(evidence, default=str)}"
                     )
-                }
+                },
+                *_earlier_refusal_note(earlier_refusals),
             ],
         }
     ]

@@ -1,0 +1,1870 @@
+{
+ "stats": {
+  "fisher_two_sided": {
+   "setup": 0.04338153503893215,
+   "followup": 0.1746031746031746,
+   "required_asks": 0.003065817671003927
+  }
+ },
+ "arms": {
+  "baseline": {
+   "requests": 16,
+   "grounded": 11,
+   "failed": 5,
+   "grounded_ms_median": 57808,
+   "grounded_ms_range": [
+    35554,
+    108528
+   ],
+   "recorded_synthesis_calls": 29,
+   "refused_synthesis_calls": 18,
+   "runs": [
+    {
+     "order": 1,
+     "exit": 0,
+     "ms": 45145,
+     "outcome": "grounded",
+     "run_id": "e7b04e40-a25f-4430-a237-695f561e1e8f",
+     "synthesis_steps": [
+      {
+       "sequence": 9,
+       "outcome": "success",
+       "duration_ms": 16208,
+       "detail": "Validated and persisted 6 source citation(s)."
+      }
+     ]
+    },
+    {
+     "order": 2,
+     "exit": 0,
+     "ms": 99469,
+     "outcome": "grounded",
+     "run_id": "21cdc8fb-a11a-426c-83e7-0ab448184abe",
+     "synthesis_steps": [
+      {
+       "sequence": 9,
+       "outcome": "error",
+       "duration_ms": 27228,
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: passage 2: Compatibility/fit claim with no citation or evidence.; remove the unsupported claim or cite evidence that supports it"
+      },
+      {
+       "sequence": 10,
+       "outcome": "error",
+       "duration_ms": 11697,
+       "detail": "Synthesis failed with SynthesisOutputError: Synthesized sentence contains unsupported numeric claim or availability claim ['2023'] for product 1551237: All three are Amazon Reviews 2023 records, each with a catalog listing and one customer review: Zone 900 [1]"
+      },
+      {
+       "sequence": 11,
+       "outcome": "success",
+       "duration_ms": 23992,
+       "detail": "Citation-bounded synthesis after model orchestration completed without calling its required final tool."
+      }
+     ]
+    },
+    {
+     "order": 3,
+     "exit": 0,
+     "ms": 50626,
+     "outcome": "grounded",
+     "run_id": "b8cbc3b2-2228-4537-a311-6f6d3604f09a",
+     "synthesis_steps": [
+      {
+       "sequence": 10,
+       "outcome": "success",
+       "duration_ms": 19155,
+       "detail": "Validated and persisted 6 source citation(s). Left out Steelcase Gesture Office Chair: another listing of the Steelcase Gesture, ranked lower by its search."
+      }
+     ]
+    },
+    {
+     "order": 4,
+     "exit": 1,
+     "ms": 78754,
+     "outcome": "none",
+     "run_id": "0555211d-62cf-4911-8735-89b322bf5922",
+     "synthesis_steps": [
+      {
+       "sequence": 10,
+       "outcome": "error",
+       "duration_ms": 29674,
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: passage 1: 'Fits this setup' asserts compatibility with the headphones/monitor setup; the chair catalog says nothing about that relationship.; remove the unsupported claim or cite evidence that support"
+      }
+     ]
+    },
+    {
+     "order": 5,
+     "exit": 0,
+     "ms": 56522,
+     "outcome": "grounded",
+     "run_id": "173235d6-159e-4a0e-8b21-68cef673d9ef",
+     "synthesis_steps": [
+      {
+       "sequence": 9,
+       "outcome": "error",
+       "duration_ms": 18863,
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: passage 1: The listing supports the adjustable features, but \"a strong match for your setup\" is an unsupported compatibility or fit claim with no evidence tying the chair to the headset or monitor.; re"
+      },
+      {
+       "sequence": 10,
+       "outcome": "success",
+       "duration_ms": 12503,
+       "detail": "Validated and persisted 6 source citation(s)."
+      }
+     ]
+    },
+    {
+     "order": 6,
+     "exit": 1,
+     "ms": 102124,
+     "outcome": "none",
+     "run_id": "d468db34-3d7f-4aa3-b09a-5323a4206486",
+     "synthesis_steps": [
+      {
+       "sequence": 9,
+       "outcome": "error",
+       "duration_ms": 26573,
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: non-claim carries evidence; classify its factual claims"
+      },
+      {
+       "sequence": 10,
+       "outcome": "error",
+       "duration_ms": 24636,
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: quote is outside the passage's citations; use its cited record"
+      }
+     ]
+    },
+    {
+     "order": 7,
+     "exit": 0,
+     "ms": 99916,
+     "outcome": "grounded",
+     "run_id": "c36adf22-c8ed-4ef7-b4fe-91ba25f79a68",
+     "synthesis_steps": [
+      {
+       "sequence": 9,
+       "outcome": "error",
+       "duration_ms": 21741,
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: quote is outside the passage's citations; use its cited record"
+      },
+      {
+       "sequence": 10,
+       "outcome": "error",
+       "duration_ms": 18551,
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: passage 1: The listing details are supported, but 'a strong fit to complete your setup' is a fit claim with no evidence relating the chair to the headphones or monitor.; remove the unsupported claim or"
+      },
+      {
+       "sequence": 11,
+       "outcome": "success",
+       "duration_ms": 29498,
+       "detail": "Citation-bounded synthesis after model orchestration completed without calling its required final tool."
+      }
+     ]
+    },
+    {
+     "order": 8,
+     "exit": 1,
+     "ms": 81441,
+     "outcome": "none",
+     "run_id": "584f03e9-8547-40b5-8b23-41713b121238",
+     "synthesis_steps": [
+      {
+       "sequence": 10,
+       "outcome": "error",
+       "duration_ms": 23634,
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: quote is absent from the cited record; quote its exact text"
+      }
+     ]
+    },
+    {
+     "order": 9,
+     "exit": 0,
+     "ms": 76517,
+     "outcome": "grounded",
+     "run_id": "a9e95042-ecc5-4657-bbc3-8f41ed597616",
+     "synthesis_steps": [
+      {
+       "sequence": 10,
+       "outcome": "error",
+       "duration_ms": 19272,
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: quote is absent from the cited record; quote its exact text"
+      },
+      {
+       "sequence": 11,
+       "outcome": "success",
+       "duration_ms": 23893,
+       "detail": "Citation-bounded synthesis after model orchestration completed without calling its required final tool. Left out Steelcase Gesture Chair: another listing of the Steelcase Gesture, ranked lower by its search."
+      }
+     ]
+    },
+    {
+     "order": 10,
+     "exit": 0,
+     "ms": 108528,
+     "outcome": "grounded",
+     "run_id": "bd3344e5-4be4-4891-88ee-14008852ba03",
+     "synthesis_steps": [
+      {
+       "sequence": 9,
+       "outcome": "error",
+       "duration_ms": 19815,
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: quote is outside the passage's citations; use its cited record"
+      },
+      {
+       "sequence": 10,
+       "outcome": "error",
+       "duration_ms": 24274,
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: malformed decision; return the complete support schema"
+      },
+      {
+       "sequence": 11,
+       "outcome": "success",
+       "duration_ms": 26446,
+       "detail": "Citation-bounded synthesis after model orchestration completed without calling its required final tool."
+      }
+     ]
+    },
+    {
+     "order": 11,
+     "exit": 0,
+     "ms": 46861,
+     "outcome": "grounded",
+     "run_id": "7e4bed43-894d-4b61-bc2b-c46c4c694583",
+     "synthesis_steps": [
+      {
+       "sequence": 9,
+       "outcome": "success",
+       "duration_ms": 14900,
+       "detail": "Validated and persisted 6 source citation(s)."
+      }
+     ]
+    },
+    {
+     "order": 12,
+     "exit": 0,
+     "ms": 57808,
+     "outcome": "grounded",
+     "run_id": "63ce041b-0b7d-4000-ab38-fbe0a02747f5",
+     "synthesis_steps": [
+      {
+       "sequence": 10,
+       "outcome": "error",
+       "duration_ms": 11123,
+       "detail": "Synthesis failed with SynthesisOutputError: Synthesized sentence contains unsupported numeric claim or availability claim ['2023'] for product 1551237: All three come from Amazon Reviews 2023: catalog listings [1][3][5] and one customer review each [2][4][6]. "
+      },
+      {
+       "sequence": 11,
+       "outcome": "success",
+       "duration_ms": 12873,
+       "detail": "Citation-bounded synthesis after model orchestration completed without calling its required final tool. Left out Steelcase Gesture Office Chair: another listing of the Steelcase Gesture, ranked lower by its search."
+      }
+     ]
+    },
+    {
+     "order": 13,
+     "exit": 1,
+     "ms": 92101,
+     "outcome": "none",
+     "run_id": "c034bfcf-94f1-4b7d-993f-4365d5902504",
+     "synthesis_steps": [
+      {
+       "sequence": 9,
+       "outcome": "error",
+       "duration_ms": 13540,
+       "detail": "Synthesis failed with SynthesisOutputError: Synthesized sentence contains unsupported numeric claim or availability claim ['900'] for product 1551237: Zone 900: [1], [2]. Use the cited measurement's original meaning, value and unit. If the sources do not state"
+      },
+      {
+       "sequence": 10,
+       "outcome": "error",
+       "duration_ms": 9407,
+       "detail": "Synthesis failed with SynthesisOutputError: Synthesized claim naming product 1540761 does not cite evidence for that product: The Steelcase Gesture Office Chair completes your setup. Cite that product's evidence in the same sentence, even when it says a source"
+      }
+     ]
+    },
+    {
+     "order": 14,
+     "exit": 1,
+     "ms": 80552,
+     "outcome": "none",
+     "run_id": "ae308fc7-3e1a-4118-a4e8-535ecdb0f75d",
+     "synthesis_steps": [
+      {
+       "sequence": 9,
+       "outcome": "error",
+       "duration_ms": 20564,
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: quote is outside the passage's citations; use its cited record"
+      },
+      {
+       "sequence": 10,
+       "outcome": "error",
+       "duration_ms": 12029,
+       "detail": "Synthesis failed with SynthesisOutputError: Synthesized claim naming product 1540761 does not cite evidence for that product: The Steelcase Gesture Office Chair completes your setup. Cite that product's evidence in the same sentence, even when it says a source"
+      }
+     ]
+    },
+    {
+     "order": 15,
+     "exit": 0,
+     "ms": 76927,
+     "outcome": "grounded",
+     "run_id": "4d7d0b65-408a-4b7a-b7ba-54dec858a715",
+     "synthesis_steps": [
+      {
+       "sequence": 9,
+       "outcome": "error",
+       "duration_ms": 30360,
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: quote is outside the passage's citations; use its cited record"
+      },
+      {
+       "sequence": 10,
+       "outcome": "success",
+       "duration_ms": 16485,
+       "detail": "Validated and persisted 6 source citation(s)."
+      }
+     ]
+    },
+    {
+     "order": 16,
+     "exit": 0,
+     "ms": 35554,
+     "outcome": "grounded",
+     "run_id": "10e3b04a-a992-4dc2-8149-402915fbca82",
+     "synthesis_steps": [
+      {
+       "sequence": 9,
+       "outcome": "success",
+       "duration_ms": 15191,
+       "detail": "Validated and persisted 6 source citation(s)."
+      }
+     ]
+    }
+   ]
+  },
+  "fixAB": {
+   "requests": 16,
+   "grounded": 13,
+   "failed": 3,
+   "grounded_ms_median": 64261,
+   "grounded_ms_range": [
+    40865,
+    103198
+   ],
+   "recorded_synthesis_calls": 26,
+   "refused_synthesis_calls": 13,
+   "runs": [
+    {
+     "order": 1,
+     "exit": 0,
+     "ms": 86438,
+     "outcome": "grounded",
+     "run_id": "759abef1-70fa-4422-8914-bc4800b98cbf",
+     "synthesis_steps": [
+      {
+       "sequence": 9,
+       "outcome": "error",
+       "duration_ms": 29192,
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: quote is outside the passage's citations; use its cited record"
+      },
+      {
+       "sequence": 10,
+       "outcome": "success",
+       "duration_ms": 16059,
+       "detail": "Validated and persisted 6 source citation(s)."
+      }
+     ]
+    },
+    {
+     "order": 2,
+     "exit": 0,
+     "ms": 63911,
+     "outcome": "grounded",
+     "run_id": "cc328c9f-c0aa-455c-8fcd-e38123039315",
+     "synthesis_steps": [
+      {
+       "sequence": 10,
+       "outcome": "success",
+       "duration_ms": 37630,
+       "detail": "Validated and persisted 6 source citation(s). Left out Steelcase Gesture Chair: another listing of the Steelcase Gesture, ranked lower by its search."
+      }
+     ]
+    },
+    {
+     "order": 3,
+     "exit": 1,
+     "ms": 125454,
+     "outcome": "none",
+     "run_id": "aa94e7b4-4fda-4a36-bbd5-2916679bcbb4",
+     "synthesis_steps": [
+      {
+       "sequence": 9,
+       "outcome": "error",
+       "duration_ms": 35106,
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: passage 1: The features are supported, but 'completes your setup best' is an unsupported superlative about fit with the other products; no evidence compares or establishes this.; remove the unsupported"
+      },
+      {
+       "sequence": 10,
+       "outcome": "error",
+       "duration_ms": 16742,
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: passage 1: The adjustability features and 400-pound recommendation are in the listing, but nothing shows the chair 'suits your setup'. That suitability claim has no evidence and conflicts with the answ"
+      }
+     ]
+    },
+    {
+     "order": 4,
+     "exit": 0,
+     "ms": 51176,
+     "outcome": "grounded",
+     "run_id": "5c56edfc-fbf2-4d53-8060-161d837e5d22",
+     "synthesis_steps": [
+      {
+       "sequence": 10,
+       "outcome": "success",
+       "duration_ms": 25208,
+       "detail": "Validated and persisted 6 source citation(s). Left out Steelcase Gesture Chair: another listing of the Steelcase Gesture, ranked lower by its search."
+      }
+     ]
+    },
+    {
+     "order": 5,
+     "exit": 0,
+     "ms": 59730,
+     "outcome": "grounded",
+     "run_id": "7451c89b-8b4a-4964-81f8-64aa46298dc7",
+     "synthesis_steps": [
+      {
+       "sequence": 10,
+       "outcome": "error",
+       "duration_ms": 9907,
+       "detail": "Synthesis failed with SynthesisOutputError: Synthesized sentence contains unsupported numeric claim or availability claim ['90W'] for product 1540761: Also check your laptop's required charging wattage against the monitor's listed 90W [3]. Use the cited measur"
+      },
+      {
+       "sequence": 11,
+       "outcome": "success",
+       "duration_ms": 22923,
+       "detail": "Citation-bounded synthesis after model orchestration completed without calling its required final tool. Left out Steelcase Gesture Chair: another listing of the Steelcase Gesture, ranked lower by its search."
+      }
+     ]
+    },
+    {
+     "order": 6,
+     "exit": 0,
+     "ms": 64261,
+     "outcome": "grounded",
+     "run_id": "057fd819-cf90-4566-92a7-7662b7d94505",
+     "synthesis_steps": [
+      {
+       "sequence": 10,
+       "outcome": "error",
+       "duration_ms": 15988,
+       "detail": "Synthesis failed with SynthesisOutputError: Synthesized sentence contains unsupported numeric claim or availability claim ['2023'] for product 1551237: All three listings come from Amazon Reviews 2023 [1][3][5]. Use the cited measurement's original meaning, va"
+      },
+      {
+       "sequence": 11,
+       "outcome": "success",
+       "duration_ms": 16200,
+       "detail": "Citation-bounded synthesis after model orchestration completed without calling its required final tool. Left out Steelcase Gesture Chair: another listing of the Steelcase Gesture, ranked lower by its search."
+      }
+     ]
+    },
+    {
+     "order": 7,
+     "exit": 0,
+     "ms": 48747,
+     "outcome": "grounded",
+     "run_id": "90813060-c206-46e1-8e2b-243ae0d2270d",
+     "synthesis_steps": [
+      {
+       "sequence": 10,
+       "outcome": "success",
+       "duration_ms": 22030,
+       "detail": "Validated and persisted 6 source citation(s). Left out Steelcase Gesture Office Chair: another listing of the Steelcase Gesture, ranked lower by its search."
+      }
+     ]
+    },
+    {
+     "order": 8,
+     "exit": 0,
+     "ms": 64927,
+     "outcome": "grounded",
+     "run_id": "f824171f-7266-464e-95a2-959945f1fba3",
+     "synthesis_steps": [
+      {
+       "sequence": 9,
+       "outcome": "error",
+       "duration_ms": 31919,
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: quote is outside the passage's citations; use its cited record"
+      },
+      {
+       "sequence": 10,
+       "outcome": "success",
+       "duration_ms": 11402,
+       "detail": "Validated and persisted 6 source citation(s)."
+      }
+     ]
+    },
+    {
+     "order": 9,
+     "exit": 0,
+     "ms": 87637,
+     "outcome": "grounded",
+     "run_id": "14afc51a-94e4-4332-83b3-9f8428c4c22e",
+     "synthesis_steps": [
+      {
+       "sequence": 9,
+       "outcome": "error",
+       "duration_ms": 20343,
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: passage 1: Specs are supported, but the claim that the chair 'completes your setup' is an unsupported compatibility/fit assertion; the answer itself later says fit with the desk and other products is u"
+      },
+      {
+       "sequence": 10,
+       "outcome": "error",
+       "duration_ms": 16405,
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: passage 1: The listing details are supported, but \"a strong chair choice\" is an evaluative recommendation not established by the cited evidence.; remove the unsupported claim or cite evidence that supp"
+      },
+      {
+       "sequence": 11,
+       "outcome": "success",
+       "duration_ms": 16767,
+       "detail": "Citation-bounded synthesis after model orchestration completed without calling its required final tool."
+      }
+     ]
+    },
+    {
+     "order": 10,
+     "exit": 1,
+     "ms": 86824,
+     "outcome": "none",
+     "run_id": "d13d0ccb-4eee-439d-b541-bf02344873a3",
+     "synthesis_steps": [
+      {
+       "sequence": 10,
+       "outcome": "error",
+       "duration_ms": 23941,
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: non-claim carries evidence; classify its factual claims"
+      }
+     ]
+    },
+    {
+     "order": 11,
+     "exit": 0,
+     "ms": 79845,
+     "outcome": "grounded",
+     "run_id": "542bbe32-8f53-4577-ad35-807acfa1144d",
+     "synthesis_steps": [
+      {
+       "sequence": 9,
+       "outcome": "error",
+       "duration_ms": 22197,
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: non-claim carries evidence; classify its factual claims"
+      },
+      {
+       "sequence": 10,
+       "outcome": "success",
+       "duration_ms": 29970,
+       "detail": "Validated and persisted 6 source citation(s)."
+      }
+     ]
+    },
+    {
+     "order": 12,
+     "exit": 1,
+     "ms": 71495,
+     "outcome": "none",
+     "run_id": "126e8e8f-c583-4adf-b1bf-6d6cfd80b44d",
+     "synthesis_steps": [
+      {
+       "sequence": 10,
+       "outcome": "error",
+       "duration_ms": 37033,
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: non-claim carries evidence; classify its factual claims"
+      }
+     ]
+    },
+    {
+     "order": 13,
+     "exit": 0,
+     "ms": 70267,
+     "outcome": "grounded",
+     "run_id": "d021b24e-5593-4270-a530-58321bf683e3",
+     "synthesis_steps": [
+      {
+       "sequence": 10,
+       "outcome": "success",
+       "duration_ms": 34553,
+       "detail": "Validated and persisted 6 source citation(s). Left out Steelcase Gesture Chair: another listing of the Steelcase Gesture, ranked lower by its search."
+      }
+     ]
+    },
+    {
+     "order": 14,
+     "exit": 0,
+     "ms": 49300,
+     "outcome": "grounded",
+     "run_id": "85c26132-f88b-4d5e-be88-50e71493f989",
+     "synthesis_steps": [
+      {
+       "sequence": 9,
+       "outcome": "success",
+       "duration_ms": 23403,
+       "detail": "Validated and persisted 6 source citation(s)."
+      }
+     ]
+    },
+    {
+     "order": 15,
+     "exit": 0,
+     "ms": 103198,
+     "outcome": "grounded",
+     "run_id": "17a91350-6a00-48fa-8c8b-f7b236a97145",
+     "synthesis_steps": [
+      {
+       "sequence": 9,
+       "outcome": "error",
+       "duration_ms": 23852,
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: passage 1: The listed features are supported, but \"strong fit for your setup\" asserts compatibility with the user's headset and monitor that no source establishes. Passage 9 also says the fit with the "
+      },
+      {
+       "sequence": 10,
+       "outcome": "error",
+       "duration_ms": 28338,
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: non-claim carries evidence; classify its factual claims"
+      },
+      {
+       "sequence": 11,
+       "outcome": "success",
+       "duration_ms": 15508,
+       "detail": "Citation-bounded synthesis after model orchestration completed without calling its required final tool."
+      }
+     ]
+    },
+    {
+     "order": 16,
+     "exit": 0,
+     "ms": 40865,
+     "outcome": "grounded",
+     "run_id": "941bc861-f83e-4a0a-a2a7-c6c58cfd5e26",
+     "synthesis_steps": [
+      {
+       "sequence": 10,
+       "outcome": "success",
+       "duration_ms": 22588,
+       "detail": "Validated and persisted 6 source citation(s). Left out Steelcase Gesture Chair: another listing of the Steelcase Gesture, ranked lower by its search."
+      }
+     ]
+    }
+   ]
+  },
+  "fixALL": {
+   "requests": 16,
+   "grounded": 16,
+   "failed": 0,
+   "grounded_ms_median": 52510.5,
+   "grounded_ms_range": [
+    34327,
+    84186
+   ],
+   "recorded_synthesis_calls": 19,
+   "refused_synthesis_calls": 3,
+   "runs": [
+    {
+     "order": 1,
+     "exit": 0,
+     "ms": 60011,
+     "outcome": "grounded",
+     "run_id": "cd3a73e9-7b07-4302-b24e-b243d0533d8c",
+     "synthesis_steps": [
+      {
+       "sequence": 10,
+       "outcome": "success",
+       "duration_ms": 31100,
+       "detail": "Validated and persisted 6 source citation(s). Left out Steelcase Gesture Chair: another listing of the Steelcase Gesture, ranked lower by its search."
+      }
+     ]
+    },
+    {
+     "order": 2,
+     "exit": 0,
+     "ms": 47552,
+     "outcome": "grounded",
+     "run_id": "12564b34-af5d-477b-bd9d-742521bc8cae",
+     "synthesis_steps": [
+      {
+       "sequence": 9,
+       "outcome": "success",
+       "duration_ms": 23041,
+       "detail": "Validated and persisted 6 source citation(s)."
+      }
+     ]
+    },
+    {
+     "order": 3,
+     "exit": 0,
+     "ms": 66586,
+     "outcome": "grounded",
+     "run_id": "bd2960c5-79ac-4bb3-b5ea-b4e336691360",
+     "synthesis_steps": [
+      {
+       "sequence": 10,
+       "outcome": "success",
+       "duration_ms": 40611,
+       "detail": "Validated and persisted 6 source citation(s). Left out Steelcase Gesture Chair: another listing of the Steelcase Gesture, ranked lower by its search."
+      }
+     ]
+    },
+    {
+     "order": 4,
+     "exit": 0,
+     "ms": 45206,
+     "outcome": "grounded",
+     "run_id": "4be11526-7db7-4e54-9a07-8ac2f124248b",
+     "synthesis_steps": [
+      {
+       "sequence": 10,
+       "outcome": "success",
+       "duration_ms": 14533,
+       "detail": "Validated and persisted 6 source citation(s). Left out Steelcase Gesture Chair: another listing of the Steelcase Gesture, ranked lower by its search."
+      }
+     ]
+    },
+    {
+     "order": 5,
+     "exit": 0,
+     "ms": 34327,
+     "outcome": "grounded",
+     "run_id": "1a9a1ebd-0c4e-463c-a9a9-2634d65230c0",
+     "synthesis_steps": [
+      {
+       "sequence": 9,
+       "outcome": "success",
+       "duration_ms": 16159,
+       "detail": "Validated and persisted 6 source citation(s)."
+      }
+     ]
+    },
+    {
+     "order": 6,
+     "exit": 0,
+     "ms": 50728,
+     "outcome": "grounded",
+     "run_id": "84f54a08-5a33-4913-bdf0-f8274db4c706",
+     "synthesis_steps": [
+      {
+       "sequence": 9,
+       "outcome": "success",
+       "duration_ms": 25739,
+       "detail": "Validated and persisted 6 source citation(s)."
+      }
+     ]
+    },
+    {
+     "order": 7,
+     "exit": 0,
+     "ms": 55766,
+     "outcome": "grounded",
+     "run_id": "9a2e3245-74ef-4cd4-ae9e-aadd53ee3b23",
+     "synthesis_steps": [
+      {
+       "sequence": 10,
+       "outcome": "success",
+       "duration_ms": 21065,
+       "detail": "Validated and persisted 6 source citation(s). Left out Steelcase Gesture Chair: another listing of the Steelcase Gesture, ranked lower by its search."
+      }
+     ]
+    },
+    {
+     "order": 8,
+     "exit": 0,
+     "ms": 75718,
+     "outcome": "grounded",
+     "run_id": "6f7be660-7744-4892-81ff-fb80393f9994",
+     "synthesis_steps": [
+      {
+       "sequence": 9,
+       "outcome": "error",
+       "duration_ms": 41200,
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: passage 3: Wireless, ANC and up to 14 hours of battery are supported by the cited record, but the passage's 'headset' framing is fine; however the 14-hour figure carries an asterisked caveat. Treated a"
+      },
+      {
+       "sequence": 10,
+       "outcome": "success",
+       "duration_ms": 14562,
+       "detail": "Validated and persisted 6 source citation(s)."
+      }
+     ]
+    },
+    {
+     "order": 9,
+     "exit": 0,
+     "ms": 57890,
+     "outcome": "grounded",
+     "run_id": "245a9b90-ffe4-44ec-b708-5cd5d8a33794",
+     "synthesis_steps": [
+      {
+       "sequence": 10,
+       "outcome": "success",
+       "duration_ms": 28974,
+       "detail": "Validated and persisted 6 source citation(s). Left out Steelcase Gesture Chair: another listing of the Steelcase Gesture, ranked lower by its search."
+      }
+     ]
+    },
+    {
+     "order": 10,
+     "exit": 0,
+     "ms": 44105,
+     "outcome": "grounded",
+     "run_id": "2eae6ac6-610e-47ad-bbd4-9589ab2ca078",
+     "synthesis_steps": [
+      {
+       "sequence": 10,
+       "outcome": "success",
+       "duration_ms": 18806,
+       "detail": "Validated and persisted 6 source citation(s). Left out Steelcase Gesture Chair: another listing of the Steelcase Gesture, ranked lower by its search."
+      }
+     ]
+    },
+    {
+     "order": 11,
+     "exit": 0,
+     "ms": 43965,
+     "outcome": "grounded",
+     "run_id": "d4003969-084c-4e5b-9fe2-fd3682f7d8c0",
+     "synthesis_steps": [
+      {
+       "sequence": 10,
+       "outcome": "success",
+       "duration_ms": 14405,
+       "detail": "Validated and persisted 6 source citation(s). Left out Steelcase Gesture Chair: another listing of the Steelcase Gesture, ranked lower by its search."
+      }
+     ]
+    },
+    {
+     "order": 12,
+     "exit": 0,
+     "ms": 43445,
+     "outcome": "grounded",
+     "run_id": "d739b608-ecff-4e48-be1d-d694446645fc",
+     "synthesis_steps": [
+      {
+       "sequence": 9,
+       "outcome": "success",
+       "duration_ms": 14593,
+       "detail": "Validated and persisted 6 source citation(s)."
+      }
+     ]
+    },
+    {
+     "order": 13,
+     "exit": 0,
+     "ms": 54293,
+     "outcome": "grounded",
+     "run_id": "12eeccc0-967e-4977-ac8c-d352fc1a3d2b",
+     "synthesis_steps": [
+      {
+       "sequence": 9,
+       "outcome": "success",
+       "duration_ms": 20127,
+       "detail": "Validated and persisted 6 source citation(s)."
+      }
+     ]
+    },
+    {
+     "order": 14,
+     "exit": 0,
+     "ms": 46437,
+     "outcome": "grounded",
+     "run_id": "8950b694-03d8-4a9d-abca-4614270bb6d2",
+     "synthesis_steps": [
+      {
+       "sequence": 9,
+       "outcome": "success",
+       "duration_ms": 20271,
+       "detail": "Validated and persisted 6 source citation(s)."
+      }
+     ]
+    },
+    {
+     "order": 15,
+     "exit": 0,
+     "ms": 80072,
+     "outcome": "grounded",
+     "run_id": "9125fa33-36a6-4594-a70f-aaa828a5ca16",
+     "synthesis_steps": [
+      {
+       "sequence": 9,
+       "outcome": "error",
+       "duration_ms": 23689,
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: passage 8: Uncited factual claim about absence across all sources; cites no record.; remove the unsupported claim or cite evidence that supports it"
+      },
+      {
+       "sequence": 10,
+       "outcome": "success",
+       "duration_ms": 30370,
+       "detail": "Validated and persisted 6 source citation(s)."
+      }
+     ]
+    },
+    {
+     "order": 16,
+     "exit": 0,
+     "ms": 84186,
+     "outcome": "grounded",
+     "run_id": "2f43785b-830d-44fd-9564-c4313d23a174",
+     "synthesis_steps": [
+      {
+       "sequence": 9,
+       "outcome": "error",
+       "duration_ms": 27904,
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: passage 7: The passage cites no records, so its statement about what the records do or do not establish is uncited.; remove the unsupported claim or cite evidence that supports it"
+      },
+      {
+       "sequence": 10,
+       "outcome": "success",
+       "duration_ms": 28550,
+       "detail": "Validated and persisted 6 source citation(s)."
+      }
+     ]
+    }
+   ]
+  },
+  "followup_old": {
+   "requests": 12,
+   "grounded": 10,
+   "failed": 2,
+   "grounded_ms_median": 49757.5,
+   "grounded_ms_range": [
+    22772,
+    99232
+   ],
+   "recorded_synthesis_calls": 32,
+   "refused_synthesis_calls": 20,
+   "runs": [
+    {
+     "order": 1,
+     "exit": 0,
+     "ms": 50457,
+     "outcome": "grounded",
+     "run_id": "8e7af689-1da7-43fc-bac8-a9fa66e33b43",
+     "synthesis_steps": [
+      {
+       "sequence": 4,
+       "outcome": "error",
+       "duration_ms": 13044,
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: quote is outside the passage's citations; use its cited record"
+      },
+      {
+       "sequence": 5,
+       "outcome": "success",
+       "duration_ms": 17232,
+       "detail": "Validated and persisted 2 source citation(s)."
+      }
+     ]
+    },
+    {
+     "order": 2,
+     "exit": 0,
+     "ms": 38889,
+     "outcome": "grounded",
+     "run_id": "77eb9d6f-4238-487b-84c4-bd92babc41c2",
+     "synthesis_steps": [
+      {
+       "sequence": 4,
+       "outcome": "success",
+       "duration_ms": 17978,
+       "detail": "Validated and persisted 2 source citation(s)."
+      }
+     ]
+    },
+    {
+     "order": 3,
+     "exit": 0,
+     "ms": 49058,
+     "outcome": "grounded",
+     "run_id": "d4c4ae53-e31a-4f65-9b1e-04468ab88993",
+     "synthesis_steps": [
+      {
+       "sequence": 4,
+       "outcome": "error",
+       "duration_ms": 12337,
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: quote is outside the passage's citations; use its cited record"
+      },
+      {
+       "sequence": 5,
+       "outcome": "success",
+       "duration_ms": 10825,
+       "detail": "Validated and persisted 2 source citation(s)."
+      }
+     ]
+    },
+    {
+     "order": 4,
+     "exit": 1,
+     "ms": 82538,
+     "outcome": "none",
+     "run_id": "388a2c54-6d87-4843-ad0f-09ce9ad8dc91",
+     "synthesis_steps": [
+      {
+       "sequence": 4,
+       "outcome": "error",
+       "duration_ms": 11208,
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: quote is outside the passage's citations; use its cited record"
+      },
+      {
+       "sequence": 5,
+       "outcome": "error",
+       "duration_ms": 10959,
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: quote is outside the passage's citations; use its cited record"
+      },
+      {
+       "sequence": 6,
+       "outcome": "error",
+       "duration_ms": 18071,
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: quote is outside the passage's citations; use its cited record"
+      }
+     ]
+    },
+    {
+     "order": 5,
+     "exit": 0,
+     "ms": 22772,
+     "outcome": "grounded",
+     "run_id": "1159f83b-1b3f-4caa-9d3f-1923a0b69cd3",
+     "synthesis_steps": [
+      {
+       "sequence": 4,
+       "outcome": "success",
+       "duration_ms": 8728,
+       "detail": "Validated and persisted 2 source citation(s)."
+      }
+     ]
+    },
+    {
+     "order": 6,
+     "exit": 0,
+     "ms": 55813,
+     "outcome": "grounded",
+     "run_id": "1da58a2e-a904-4b20-b1bb-9f9cb5614652",
+     "synthesis_steps": [
+      {
+       "sequence": 4,
+       "outcome": "error",
+       "duration_ms": 7673,
+       "detail": "Synthesis failed with SynthesisOutputError: unsupported compatibility claim 'works with your specific laptop' in: Neither source says it works with your specific laptop [1][2]. Cite a source that states that relationship, or say the sources do not state it."
+      },
+      {
+       "sequence": 5,
+       "outcome": "error",
+       "duration_ms": 13631,
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: quote is outside the passage's citations; use its cited record"
+      },
+      {
+       "sequence": 6,
+       "outcome": "success",
+       "duration_ms": 16625,
+       "detail": "Validated and persisted 2 source citation(s)."
+      }
+     ]
+    },
+    {
+     "order": 7,
+     "exit": 1,
+     "ms": 93462,
+     "outcome": "none",
+     "run_id": "2f2170d1-4124-4634-8c4e-83b5467c5c01",
+     "synthesis_steps": [
+      {
+       "sequence": 4,
+       "outcome": "error",
+       "duration_ms": 16062,
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: quote is outside the passage's citations; use its cited record"
+      },
+      {
+       "sequence": 5,
+       "outcome": "error",
+       "duration_ms": 13569,
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: quote is outside the passage's citations; use its cited record"
+      },
+      {
+       "sequence": 7,
+       "outcome": "error",
+       "duration_ms": 14761,
+       "detail": "Synthesis failed with SynthesisOutputError: Synthesized claim naming product 1551237 does not cite evidence for that product: - Verify the monitor's USB-C power output in ViewSonic's official specifications. Cite that product's evidence in the same sentence, e"
+      },
+      {
+       "sequence": 8,
+       "outcome": "error",
+       "duration_ms": 12562,
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: quote is absent from the cited record; quote its exact text"
+      },
+      {
+       "sequence": 11,
+       "outcome": "denied",
+       "duration_ms": 2369,
+       "detail": "Answerability review refused products [1545696]: answerability: the request is supported by products [1551237] only; products [1545696] lack evidence for it"
+      }
+     ]
+    },
+    {
+     "order": 8,
+     "exit": 0,
+     "ms": 35793,
+     "outcome": "grounded",
+     "run_id": "5f8be82f-d145-424e-9076-4de0380227ef",
+     "synthesis_steps": [
+      {
+       "sequence": 4,
+       "outcome": "success",
+       "duration_ms": 17294,
+       "detail": "Validated and persisted 2 source citation(s)."
+      }
+     ]
+    },
+    {
+     "order": 9,
+     "exit": 0,
+     "ms": 27977,
+     "outcome": "grounded",
+     "run_id": "ee8ddf5e-09ad-4130-9164-b6d9a49fee00",
+     "synthesis_steps": [
+      {
+       "sequence": 4,
+       "outcome": "success",
+       "duration_ms": 12662,
+       "detail": "Validated and persisted 2 source citation(s)."
+      }
+     ]
+    },
+    {
+     "order": 10,
+     "exit": 0,
+     "ms": 57101,
+     "outcome": "grounded",
+     "run_id": "2c01f16c-acfb-4fa4-b267-171d4ff5e75a",
+     "synthesis_steps": [
+      {
+       "sequence": 4,
+       "outcome": "error",
+       "duration_ms": 12692,
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: quote is outside the passage's citations; use its cited record"
+      },
+      {
+       "sequence": 5,
+       "outcome": "error",
+       "duration_ms": 15822,
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: quote is outside the passage's citations; use its cited record"
+      },
+      {
+       "sequence": 6,
+       "outcome": "success",
+       "duration_ms": 10958,
+       "detail": "Validated and persisted 2 source citation(s)."
+      }
+     ]
+    },
+    {
+     "order": 11,
+     "exit": 0,
+     "ms": 74039,
+     "outcome": "grounded",
+     "run_id": "9ff2a595-f079-4e7a-986b-a4954bcb8b91",
+     "synthesis_steps": [
+      {
+       "sequence": 4,
+       "outcome": "error",
+       "duration_ms": 12814,
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: quote is outside the passage's citations; use its cited record"
+      },
+      {
+       "sequence": 5,
+       "outcome": "error",
+       "duration_ms": 11185,
+       "detail": "Synthesis failed with SynthesisOutputError: unsupported compatibility claim 'compatible with your specific laptop model' in: - Check that the monitor's USB-C port is compatible with your specific laptop model. Cite a source that states that relationship, or sa"
+      },
+      {
+       "sequence": 6,
+       "outcome": "error",
+       "duration_ms": 18816,
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: quote is outside the passage's citations; use its cited record"
+      },
+      {
+       "sequence": 7,
+       "outcome": "success",
+       "duration_ms": 11685,
+       "detail": "Validated and persisted 2 source citation(s)."
+      }
+     ]
+    },
+    {
+     "order": 12,
+     "exit": 0,
+     "ms": 99232,
+     "outcome": "grounded",
+     "run_id": "9cf1aec3-c54f-4133-91af-004505fde2eb",
+     "synthesis_steps": [
+      {
+       "sequence": 4,
+       "outcome": "error",
+       "duration_ms": 12355,
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: quote is outside the passage's citations; use its cited record"
+      },
+      {
+       "sequence": 5,
+       "outcome": "error",
+       "duration_ms": 16029,
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: quote is outside the passage's citations; use its cited record"
+      },
+      {
+       "sequence": 6,
+       "outcome": "error",
+       "duration_ms": 7611,
+       "detail": "Synthesis failed with SynthesisOutputError: Synthesized sentence contains unsupported numeric claim or availability claim ['100W'] for product 1551237: - Your laptop's required charging wattage, and whether it can charge or run on less power than 100W. Cite th"
+      },
+      {
+       "sequence": 7,
+       "outcome": "error",
+       "duration_ms": 16152,
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: quote is outside the passage's citations; use its cited record"
+      },
+      {
+       "sequence": 10,
+       "outcome": "denied",
+       "duration_ms": 3506,
+       "detail": "Answerability review refused products [1545696]: answerability: the request is supported by products [1551237] only; products [1545696] lack evidence for it"
+      },
+      {
+       "sequence": 11,
+       "outcome": "success",
+       "duration_ms": 21460,
+       "detail": "Citation-bounded synthesis after model orchestration completed without calling its required final tool."
+      }
+     ]
+    }
+   ]
+  },
+  "followup_fix": {
+   "requests": 8,
+   "grounded": 8,
+   "failed": 0,
+   "grounded_ms_median": 40861.0,
+   "grounded_ms_range": [
+    26539,
+    56573
+   ],
+   "recorded_synthesis_calls": 12,
+   "refused_synthesis_calls": 4,
+   "runs": [
+    {
+     "order": 1,
+     "exit": 0,
+     "ms": 51334,
+     "outcome": "grounded",
+     "run_id": "63484250-07c0-45a0-ae32-22409285673c",
+     "synthesis_steps": [
+      {
+       "sequence": 4,
+       "outcome": "error",
+       "duration_ms": 17653,
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: passage 7: the quote is not in record 1; copy the record's exact text"
+      },
+      {
+       "sequence": 5,
+       "outcome": "success",
+       "duration_ms": 10395,
+       "detail": "Validated and persisted 2 source citation(s)."
+      }
+     ]
+    },
+    {
+     "order": 2,
+     "exit": 0,
+     "ms": 43945,
+     "outcome": "grounded",
+     "run_id": "ac1117c2-c6c7-4658-ae73-6fdfefe9e07a",
+     "synthesis_steps": [
+      {
+       "sequence": 4,
+       "outcome": "error",
+       "duration_ms": 7635,
+       "detail": "Synthesis failed with SynthesisOutputError: Synthesized sentence contains unsupported numeric claim or availability claim ['100W'] for product 1551237: The ViewSonic VG2756-4K does not clearly meet a 100W need, since its listing describes 90W charging over one"
+      },
+      {
+       "sequence": 5,
+       "outcome": "success",
+       "duration_ms": 20162,
+       "detail": "Validated and persisted 2 source citation(s)."
+      }
+     ]
+    },
+    {
+     "order": 3,
+     "exit": 0,
+     "ms": 26539,
+     "outcome": "grounded",
+     "run_id": "ac85d534-b917-478d-a8aa-1f8b9e67e95f",
+     "synthesis_steps": [
+      {
+       "sequence": 4,
+       "outcome": "success",
+       "duration_ms": 11062,
+       "detail": "Validated and persisted 2 source citation(s)."
+      }
+     ]
+    },
+    {
+     "order": 4,
+     "exit": 0,
+     "ms": 32387,
+     "outcome": "grounded",
+     "run_id": "2bbb2040-c47a-4cc0-8754-e3b6864f8141",
+     "synthesis_steps": [
+      {
+       "sequence": 4,
+       "outcome": "success",
+       "duration_ms": 10116,
+       "detail": "Validated and persisted 2 source citation(s)."
+      }
+     ]
+    },
+    {
+     "order": 5,
+     "exit": 0,
+     "ms": 37777,
+     "outcome": "grounded",
+     "run_id": "ddc715d3-d65d-4df1-acb8-db3ebee366be",
+     "synthesis_steps": [
+      {
+       "sequence": 4,
+       "outcome": "success",
+       "duration_ms": 23173,
+       "detail": "Validated and persisted 2 source citation(s)."
+      }
+     ]
+    },
+    {
+     "order": 6,
+     "exit": 0,
+     "ms": 56573,
+     "outcome": "grounded",
+     "run_id": "ea8ad764-29b1-4904-93ac-1ba03bc7371a",
+     "synthesis_steps": [
+      {
+       "sequence": 4,
+       "outcome": "error",
+       "duration_ms": 18942,
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: passage 7: The claim that the listing is a historical parent-product record comes from record metadata, not the record text, and the cited text does not state it.; remove the unsupported claim or cite "
+      },
+      {
+       "sequence": 5,
+       "outcome": "success",
+       "duration_ms": 21113,
+       "detail": "Validated and persisted 2 source citation(s)."
+      }
+     ]
+    },
+    {
+     "order": 7,
+     "exit": 0,
+     "ms": 46684,
+     "outcome": "grounded",
+     "run_id": "8016c256-4f81-4211-a67e-e6ff05fa1efc",
+     "synthesis_steps": [
+      {
+       "sequence": 4,
+       "outcome": "error",
+       "duration_ms": 21269,
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: passage 6: the quote is not in record 1; copy the record's exact text"
+      },
+      {
+       "sequence": 5,
+       "outcome": "success",
+       "duration_ms": 9218,
+       "detail": "Validated and persisted 2 source citation(s)."
+      }
+     ]
+    },
+    {
+     "order": 8,
+     "exit": 0,
+     "ms": 33630,
+     "outcome": "grounded",
+     "run_id": "d3602bbf-ce43-4822-a072-f697ef9f760b",
+     "synthesis_steps": [
+      {
+       "sequence": 4,
+       "outcome": "success",
+       "duration_ms": 20014,
+       "detail": "Validated and persisted 2 source citation(s)."
+      }
+     ]
+    }
+   ]
+  },
+  "sweep_fixALL": {
+   "note": "Non-success synthesis steps only.",
+   "runs": [
+    {
+     "order": 1,
+     "request": "followup",
+     "exit": 0,
+     "ms": 57029,
+     "outcome": "grounded",
+     "decline_reason": null,
+     "run_id": "7a7ab76d-f269-45fa-ad97-8884dbe0e935",
+     "synthesis_steps": [
+      {
+       "sequence": 4,
+       "outcome": "error",
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: passage 2: Makes a factual conclusion about the product with no citation.; remove the unsupported claim or cite evidence that supports it"
+      }
+     ]
+    },
+    {
+     "order": 2,
+     "request": "followup",
+     "exit": 0,
+     "ms": 24539,
+     "outcome": "grounded",
+     "decline_reason": null,
+     "run_id": "8734dd9e-9153-4ad8-b8e1-a200d2146e88",
+     "synthesis_steps": []
+    },
+    {
+     "order": 3,
+     "request": "followup",
+     "exit": 0,
+     "ms": 34975,
+     "outcome": "grounded",
+     "decline_reason": null,
+     "run_id": "0b541189-94e3-4629-a353-39d2dd6cb046",
+     "synthesis_steps": [
+      {
+       "sequence": 4,
+       "outcome": "error",
+       "detail": "Synthesis failed with SynthesisOutputError: Synthesized sentence contains unsupported numeric claim or availability claim ['90W'] for product 1551237: If your laptop charges acceptably at 90W, the single-cable setup the reviewer d"
+      }
+     ]
+    },
+    {
+     "order": 4,
+     "request": "followup",
+     "exit": 0,
+     "ms": 53759,
+     "outcome": "grounded",
+     "decline_reason": null,
+     "run_id": "3010872c-d6f5-41fe-9601-7fc46c1b516c",
+     "synthesis_steps": [
+      {
+       "sequence": 4,
+       "outcome": "error",
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: passage 7: the quote is not in record 1; copy the record's exact text"
+      }
+     ]
+    },
+    {
+     "order": 5,
+     "request": "followup",
+     "exit": 0,
+     "ms": 38997,
+     "outcome": "grounded",
+     "decline_reason": null,
+     "run_id": "2ca090ac-63d7-439e-b391-95944400ba44",
+     "synthesis_steps": [
+      {
+       "sequence": 4,
+       "outcome": "error",
+       "detail": "Synthesis failed with SynthesisOutputError: Synthesized sentence contains unsupported numeric claim or availability claim ['100W'] for product 1551237: - If 100W is essential, plan to keep your laptop's own charger available. Cite"
+      }
+     ]
+    },
+    {
+     "order": 6,
+     "request": "followup",
+     "exit": 0,
+     "ms": 37720,
+     "outcome": "grounded",
+     "decline_reason": null,
+     "run_id": "4cc4ff92-5d5c-4443-88cb-944f849b2e1d",
+     "synthesis_steps": []
+    },
+    {
+     "order": 7,
+     "request": "followup",
+     "exit": 0,
+     "ms": 48236,
+     "outcome": "grounded",
+     "decline_reason": null,
+     "run_id": "a01651bd-537e-42b3-b7b2-32a219bd964e",
+     "synthesis_steps": [
+      {
+       "sequence": 4,
+       "outcome": "error",
+       "detail": "Synthesis failed with SynthesisOutputError: Synthesized sentence contains unsupported numeric claim or availability claim ['100W'] for product 1551237: - Decide whether you would rely on a separate 100W charger instead. Cite the r"
+      }
+     ]
+    },
+    {
+     "order": 8,
+     "request": "followup",
+     "exit": 0,
+     "ms": 78304,
+     "outcome": "grounded",
+     "decline_reason": null,
+     "run_id": "40837240-0db7-4f4f-bd6f-de8a5eb09d7a",
+     "synthesis_steps": [
+      {
+       "sequence": 4,
+       "outcome": "error",
+       "detail": "Synthesis failed with SynthesisOutputError: Synthesized claim naming product 1551237 does not cite evidence for that product: - Check ViewSonic's current specifications for the exact variant you plan to buy. Cite that product's ev"
+      },
+      {
+       "sequence": 5,
+       "outcome": "error",
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: passage 3: the quote is not in record 2; copy the record's exact text"
+      },
+      {
+       "sequence": 6,
+       "outcome": "error",
+       "detail": "Synthesis failed with SynthesisOutputError: Synthesized sentence contains unsupported numeric claim or availability claim ['90W'] for product 1551237: If your laptop can run on 90W, the single-cable charging a reviewer describes m"
+      }
+     ]
+    },
+    {
+     "order": 9,
+     "request": "gd_id",
+     "exit": 0,
+     "ms": 8541,
+     "outcome": "declined",
+     "decline_reason": "unanchored_query_terms: 'B0C2WWFCQB'",
+     "run_id": "caabca9e-fecb-423f-a552-571752100d67",
+     "synthesis_steps": [
+      {
+       "sequence": 2,
+       "outcome": "denied",
+       "detail": "Recommendation refused; every search this turn came back unanchored (unanchored_query_terms: 'B0C2WWFCQB')."
+      }
+     ]
+    },
+    {
+     "order": 10,
+     "request": "gd_id",
+     "exit": 0,
+     "ms": 9878,
+     "outcome": "declined",
+     "decline_reason": "unanchored_query_terms: 'B0C2WWFCQB'",
+     "run_id": "356a9563-0ed0-4c76-97a7-cd44a9269525",
+     "synthesis_steps": [
+      {
+       "sequence": 2,
+       "outcome": "denied",
+       "detail": "Recommendation refused; every search this turn came back unanchored (unanchored_query_terms: 'B0C2WWFCQB')."
+      }
+     ]
+    },
+    {
+     "order": 11,
+     "request": "gd_100w",
+     "exit": 0,
+     "ms": 20480,
+     "outcome": "declined",
+     "decline_reason": "unsupported_requirements",
+     "run_id": "15cd2aa8-771f-4ddc-bbe3-781d62eb0163",
+     "synthesis_steps": [
+      {
+       "sequence": 8,
+       "outcome": "denied",
+       "detail": "Answerability review declined: unsupported_requirements."
+      }
+     ]
+    },
+    {
+     "order": 12,
+     "request": "gd_100w",
+     "exit": 0,
+     "ms": 26904,
+     "outcome": "declined",
+     "decline_reason": "unsupported_requirements",
+     "run_id": "c7a652f4-b007-4220-8d32-55df1e090d03",
+     "synthesis_steps": [
+      {
+       "sequence": 9,
+       "outcome": "denied",
+       "detail": "Answerability review declined: unsupported_requirements."
+      }
+     ]
+    },
+    {
+     "order": 13,
+     "request": "gd_rule",
+     "exit": 0,
+     "ms": 41825,
+     "outcome": "grounded",
+     "decline_reason": null,
+     "run_id": "00671ec6-6321-4212-9be7-1f985970493f",
+     "synthesis_steps": []
+    },
+    {
+     "order": 14,
+     "request": "gd_rule",
+     "exit": 0,
+     "ms": 76505,
+     "outcome": "grounded",
+     "decline_reason": null,
+     "run_id": "1ee7c5b4-a25e-4e0d-b058-863a9dd97198",
+     "synthesis_steps": []
+    },
+    {
+     "order": 15,
+     "request": "gd_rule",
+     "exit": 0,
+     "ms": 103001,
+     "outcome": "grounded",
+     "decline_reason": null,
+     "run_id": "5aab594f-55d5-4496-88cc-4761b6786372",
+     "synthesis_steps": [
+      {
+       "sequence": 8,
+       "outcome": "denied",
+       "detail": "Answerability review refused products [1521126]: answerability: the request is supported by products [1544584, 1538588] only; products [1521126] lack evidence for it"
+      },
+      {
+       "sequence": 9,
+       "outcome": "error",
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: passage 4: Makes a factual claim about the absence of bad reviews in supplied records but cites no evidence.; remove the unsupported claim or cite evidence that supports i"
+      }
+     ]
+    }
+   ]
+  },
+  "final_setup": {
+   "requests": 8,
+   "grounded": 8,
+   "failed": 0,
+   "grounded_ms_median": 48715.0,
+   "grounded_ms_range": [
+    42356,
+    91985
+   ],
+   "recorded_synthesis_calls": 9,
+   "refused_synthesis_calls": 1,
+   "runs": [
+    {
+     "order": 1,
+     "exit": 0,
+     "ms": 48731,
+     "outcome": "grounded",
+     "run_id": "a9abcb92-354d-4b8e-8725-d1b0d39c7689",
+     "synthesis_steps": [
+      {
+       "sequence": 9,
+       "outcome": "success",
+       "duration_ms": 14258,
+       "detail": "Validated and persisted 6 source citation(s)."
+      }
+     ]
+    },
+    {
+     "order": 2,
+     "exit": 0,
+     "ms": 49236,
+     "outcome": "grounded",
+     "run_id": "baaaa371-ccda-4f35-af63-302dc9a60d44",
+     "synthesis_steps": [
+      {
+       "sequence": 9,
+       "outcome": "success",
+       "duration_ms": 15149,
+       "detail": "Validated and persisted 6 source citation(s)."
+      }
+     ]
+    },
+    {
+     "order": 3,
+     "exit": 0,
+     "ms": 47345,
+     "outcome": "grounded",
+     "run_id": "3c484108-1670-4e45-9348-47eee42694d9",
+     "synthesis_steps": [
+      {
+       "sequence": 10,
+       "outcome": "success",
+       "duration_ms": 17520,
+       "detail": "Validated and persisted 6 source citation(s). Left out Steelcase Gesture Chair: another listing of the Steelcase Gesture, ranked lower by its search."
+      }
+     ]
+    },
+    {
+     "order": 4,
+     "exit": 0,
+     "ms": 48699,
+     "outcome": "grounded",
+     "run_id": "c01cfd48-c2ff-4365-be0f-7fb8c0b1b2ee",
+     "synthesis_steps": [
+      {
+       "sequence": 9,
+       "outcome": "success",
+       "duration_ms": 14755,
+       "detail": "Validated and persisted 6 source citation(s)."
+      }
+     ]
+    },
+    {
+     "order": 5,
+     "exit": 0,
+     "ms": 91985,
+     "outcome": "grounded",
+     "run_id": "6843483d-bb95-4b01-b598-8d0102284136",
+     "synthesis_steps": [
+      {
+       "sequence": 9,
+       "outcome": "error",
+       "duration_ms": 41300,
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: passage 10 cites nothing but quotes record 6; quote only the records it cites, or mark it unsupported"
+      },
+      {
+       "sequence": 10,
+       "outcome": "success",
+       "duration_ms": 14181,
+       "detail": "Validated and persisted 6 source citation(s)."
+      }
+     ]
+    },
+    {
+     "order": 6,
+     "exit": 0,
+     "ms": 42356,
+     "outcome": "grounded",
+     "run_id": "9385e9fd-c44b-4091-afaf-e2a7d102eb99",
+     "synthesis_steps": [
+      {
+       "sequence": 9,
+       "outcome": "success",
+       "duration_ms": 15480,
+       "detail": "Validated and persisted 6 source citation(s)."
+      }
+     ]
+    },
+    {
+     "order": 7,
+     "exit": 0,
+     "ms": 42905,
+     "outcome": "grounded",
+     "run_id": "f6956a11-bea0-4fd9-be02-1feb404d3a1e",
+     "synthesis_steps": [
+      {
+       "sequence": 9,
+       "outcome": "success",
+       "duration_ms": 14827,
+       "detail": "Validated and persisted 6 source citation(s)."
+      }
+     ]
+    },
+    {
+     "order": 8,
+     "exit": 0,
+     "ms": 55343,
+     "outcome": "grounded",
+     "run_id": "efc35823-86dd-4427-af29-ecda90140323",
+     "synthesis_steps": [
+      {
+       "sequence": 9,
+       "outcome": "success",
+       "duration_ms": 23453,
+       "detail": "Validated and persisted 6 source citation(s)."
+      }
+     ]
+    }
+   ],
+   "note": "The committed code; runtime version 7. grade_setup_run.py then printed Lab 3 exercise: PASS."
+  },
+  "final_followup": {
+   "requests": 4,
+   "grounded": 4,
+   "failed": 0,
+   "grounded_ms_median": 43432.5,
+   "grounded_ms_range": [
+    29484,
+    86065
+   ],
+   "recorded_synthesis_calls": 7,
+   "refused_synthesis_calls": 3,
+   "runs": [
+    {
+     "order": 1,
+     "exit": 0,
+     "ms": 86065,
+     "outcome": "grounded",
+     "run_id": "fbb249f1-711c-4c4f-bfa2-0d10d2dda79f",
+     "synthesis_steps": [
+      {
+       "sequence": 4,
+       "outcome": "error",
+       "duration_ms": 30757,
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: passage 3: Passage carries no citation, and it makes a factual claim about what the sources do and do not state, which is not backed by any cited record.; remove the unsupported claim or cite evidence "
+      },
+      {
+       "sequence": 5,
+       "outcome": "error",
+       "duration_ms": 15408,
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: passage 2: The passage cites no record, so the product-based comparison of 90W to 100W has no cited evidence.; remove the unsupported claim or cite evidence that supports it"
+      },
+      {
+       "sequence": 6,
+       "outcome": "success",
+       "duration_ms": 13354,
+       "detail": "Validated and persisted 2 source citation(s)."
+      }
+     ]
+    },
+    {
+     "order": 2,
+     "exit": 0,
+     "ms": 51714,
+     "outcome": "grounded",
+     "run_id": "49f05b43-ff39-4765-ad14-0ec057e719d2",
+     "synthesis_steps": [
+      {
+       "sequence": 4,
+       "outcome": "error",
+       "duration_ms": 14867,
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: passage 4: The passage cites no evidence. It also asserts a limit of the sources without a cited record to back it.; remove the unsupported claim or cite evidence that supports it"
+      },
+      {
+       "sequence": 5,
+       "outcome": "success",
+       "duration_ms": 19777,
+       "detail": "Validated and persisted 2 source citation(s)."
+      }
+     ]
+    },
+    {
+     "order": 3,
+     "exit": 0,
+     "ms": 29484,
+     "outcome": "grounded",
+     "run_id": "efd891bc-8ed0-4bfb-9fe3-2e0627f21c09",
+     "synthesis_steps": [
+      {
+       "sequence": 4,
+       "outcome": "success",
+       "duration_ms": 14152,
+       "detail": "Validated and persisted 2 source citation(s)."
+      }
+     ]
+    },
+    {
+     "order": 4,
+     "exit": 0,
+     "ms": 35151,
+     "outcome": "grounded",
+     "run_id": "b1242c5a-31ee-471d-922b-631263ed2e6f",
+     "synthesis_steps": [
+      {
+       "sequence": 4,
+       "outcome": "success",
+       "duration_ms": 20817,
+       "detail": "Validated and persisted 2 source citation(s)."
+      }
+     ]
+    }
+   ]
+  }
+ }
+}
