@@ -2,7 +2,7 @@
   "schema_version": 1,
   "procedure_sha256": "ae09d1b216bc7f4cf6a04ba841512db07106955fb7d4bd8a9be9725703daa3ea",
   "environment": {
-    "server_version_num": "180003",
+    "server_version_num": "180006",
     "encoding": "UTF8",
     "simple_dictionaries": [
       [

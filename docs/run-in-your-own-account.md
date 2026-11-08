@@ -16,7 +16,7 @@ in the CloudFormation templates under `deploy/cloudformation/`.
 
 | What | Detail |
 |---|---|
-| Amazon Aurora PostgreSQL | A new encrypted cluster, engine version 18.3, with one writer instance, `db.r8g.2xlarge` by default (`db.r8g.xlarge` and `db.r8g.4xlarge` are also allowed). It holds the catalog, vectors and audit records. |
+| Amazon Aurora PostgreSQL | A new encrypted cluster, engine version 18.6, with one writer instance, `db.r8g.2xlarge` by default (`db.r8g.xlarge` and `db.r8g.4xlarge` are also allowed). It holds the catalog, vectors and audit records. |
 | Code Editor host | One `c6g.2xlarge` EC2 instance by default with a 50 GB volume, in a private subnet with no public IP. It runs Code Editor, the Mosaic API and the storefront. An editor launcher (a Lambda function) tries other allowed instance types and zones if the first has no capacity. |
 | Networking | A new VPC with public and private subnets and one NAT gateway, so the host can reach AWS APIs and download packages. |
 | Amazon CloudFront | Two distributions, one for Code Editor and one for Mosaic, reaching the host through CloudFront VPC origins. In `us-east-1` an AWS WAF web ACL is attached to them. Other Regions get no web ACL, because CloudFront-scoped WAF resources exist only in `us-east-1`. |

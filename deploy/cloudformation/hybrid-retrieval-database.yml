@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'Mosaic workshop - fresh encrypted Aurora PostgreSQL 18.3 cluster'
+Description: 'Mosaic workshop - fresh encrypted Aurora PostgreSQL 18.6 cluster'
 
 Parameters:
   TemplateName:
@@ -154,7 +154,7 @@ Resources:
     UpdateReplacePolicy: Delete
     Properties:
       Engine: aurora-postgresql
-      EngineVersion: '18.3'
+      EngineVersion: '18.6'
       # Standard mode is the free tier that replaced the Performance Insights
       # console; the writer keeps the 7-day retention and the stack's key.
       DatabaseInsightsMode: standard
@@ -227,7 +227,7 @@ Outputs:
 
   DBEngineVersion:
     Description: Aurora PostgreSQL version for Mosaic
-    Value: '18.3'
+    Value: '18.6'
 
   EncryptionKeyArn:
     Description: Account-local KMS key used by Aurora and Database Insights

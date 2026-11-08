@@ -13,7 +13,7 @@ the [parking lot](mosaic-parking-lot.md). They are not additional required labs.
 
 ## Current workshop catalog
 
-- 553,911 real source products on Aurora PostgreSQL 18.3 with 1,024-dimension
+- 553,911 real source products on Aurora PostgreSQL 18.6 with 1,024-dimension
   Cohere Embed v4 vectors;
 - SQL-owned full-text, `pg_trgm`, HNSW, filtering, unweighted served RRF,
   weighted Advanced comparison, and retrieval-diagnostics paths;

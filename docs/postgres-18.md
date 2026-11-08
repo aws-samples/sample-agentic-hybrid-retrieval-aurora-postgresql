@@ -9,8 +9,8 @@ nobody has measured.
 
 | Fact | Value | Where it is reported |
 |---|---|---|
-| Engine | Aurora PostgreSQL 18.3 | `GET /api/readiness`, `database.server_version` |
-| Vector extension | pgvector 0.8.1 | `GET /api/readiness`, `database.vector_version` |
+| Engine | Aurora PostgreSQL 18.6 | `GET /api/readiness`, `database.server_version` |
+| Vector extension | pgvector 0.8.2 | `GET /api/readiness`, `database.vector_version` |
 | Products | 553,911 | `database.product_count` |
 | Product embeddings | 553,911 | `database.embedded_product_count` |
 | Embedding shape | Cohere Embed v4, 1,024 dimensions | `database.embedding_dimensions`, `database.embedding_model_ids` |
