@@ -360,3 +360,52 @@ class Progress:
 
     def _print(self, line: str) -> None:
         print(line, file=self.stream, flush=True)
+
+
+class Waiting:
+    """One line redrawn in place, ending in the time waited, for a wait nothing can time.
+
+    For a terminal only: check `can_redraw` first. Anything printed meanwhile lands above
+    the line, and `show` changes what the line says without restarting the clock.
+
+    Args:
+        stream: The terminal the line is drawn on.
+        now: The clock, for tests.
+        interval: Seconds between redraws; `None` redraws only on demand, for tests.
+    """
+
+    def __init__(
+        self,
+        stream: TextIO,
+        *,
+        now: Callable[[], float] = time.monotonic,
+        interval: float | None = REDRAW_SECONDS,
+    ) -> None:
+        self.now = now
+        self._began = now()
+        self._head = ""
+        self._live: _Live | None = None
+        self._stream, self._interval = stream, interval
+
+    def show(self, head: str) -> None:
+        """Say `head` on the line from now on, starting the line at the first call."""
+        self._head = head
+        if self._live is None:
+            self._live = _Live(self._stream, self._render, self._interval)
+            self._live.start()
+        elif self._live.drawn:
+            self._live.draw()
+
+    def stop(self) -> None:
+        """Erase the line and hand stdout and stderr back. Safe to call twice."""
+        if self._live is not None:
+            self._live.stop()
+            self._live = None
+
+    def _render(self, width: int) -> str:
+        waited = clock(self.now() - self._began)
+        room = width - 1 - len(waited) - 2
+        head = self._head
+        if len(head) > room:
+            head = head[: max(0, room - 1)] + "…"
+        return f"{head}  {waited}"

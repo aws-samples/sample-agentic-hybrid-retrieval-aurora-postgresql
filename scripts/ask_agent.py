@@ -4,7 +4,9 @@
 
 The question goes through the same streaming API route as Ask Mosaic, so it reaches your
 Retrieval agent on AgentCore Runtime; while you wait, a bar shows each stage the run reaches
-and each tool call prints as the Retrieval agent makes it.
+and each tool call prints as the Retrieval agent makes it. On a terminal the bar is one line
+redrawn in place with the time waited, and the answer prints as the API delivers it, after
+its checks have passed.
 The output shows the answer, the searches the Retrieval agent planned with the
 filters it chose, the tool trace, the products, each citation's type, product, source
 and quote, the outcome, any decline reason and the run ID. The trace names each catalog
@@ -25,13 +27,13 @@ import sys
 import time
 from collections.abc import Iterable, Iterator
 from pathlib import Path
-from typing import Any
+from typing import Any, TextIO
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from scripts.progress import bar
+from scripts.progress import Waiting, bar, can_redraw
 from scripts.prove_lab import LabValidationError, error_detail
 from scripts.terminal_text import fill_words, wrap_words
 from service.config import get_settings
@@ -49,6 +51,11 @@ RESPONSE_MARGIN_SECONDS = 60
 STREAM_PATH = "/api/agent/answer/stream"
 # The stages the streaming route reports, in order; a follow-up skips retrieval.
 STAGES = ("understand", "retrieve", "rank", "answer")
+# What the waiting line says while a tool runs, where the tool's name says too little: this
+# call is most of a run's wait, and the answer is held back until every check passes.
+WAITING_ON = {
+    "synthesize_cited_answer": "drafting, then checking every claim against its source",
+}
 
 
 def _section(title: str, lines: list[str]) -> list[str]:
@@ -205,19 +212,27 @@ def _workspace_digest() -> str | None:
         return None
 
 
-def render(response: dict[str, Any]) -> str:
-    """The answer of record as plain text: answer, trace, products, citations, outcome."""
-    answer = [
+def _answer_lines(text: str) -> list[str]:
+    return [
         "  " + line
-        for paragraph in response["answer"].splitlines()
+        for paragraph in text.splitlines()
         for line in (wrap_words(paragraph, 86) or [""])
     ]
+
+
+def render(response: dict[str, Any], *, answer: bool = True) -> str:
+    """The answer of record as plain text: answer, trace, products, citations, outcome.
+
+    Args:
+        response: The saved run.
+        answer: `False` when the answer is already on screen, printed as it arrived.
+    """
     products = []
     for item in response["recommendations"]:
         lead = f"  {item['product_id']}  "
         products.append(lead + _clip(item["title"], LINE_CHARS - len(lead)))
     lines = [
-        *_section("ANSWER", answer),
+        *(_section("ANSWER", _answer_lines(response["answer"])) if answer else []),
         *_section("PLAN", _plan(response)),
         *_section("TOOL TRACE", _trace(response, _workspace_digest())),
         *_section("PRODUCTS", products),
@@ -245,11 +260,119 @@ def _events(lines: Iterable[bytes]) -> Iterator[tuple[str, dict[str, Any]]]:
             event, data = "message", []
 
 
-def ask(base_url: str, question: str, *, timeout: float) -> dict[str, Any]:
-    """Ask through Ask Mosaic's streaming route; print each stage the run reaches.
+class _Run:
+    """One run's progress on screen.
+
+    In a log every stage and tool call is a line. On a terminal the tool calls are lines
+    and the stage is one line redrawn in place; the answer then prints as the API
+    delivers it, which it does only after the answer's checks have passed.
+    """
+
+    def __init__(self, stream: TextIO) -> None:
+        self.started, self.reached, self.title = time.monotonic(), -1, ""
+        self.live = Waiting(stream) if can_redraw(stream) else None
+        self.answer_shown, self._pending, self._doing = False, "", ""
+
+    def _elapsed(self) -> int:
+        return int(time.monotonic() - self.started)
+
+    def _waiting(self) -> None:
+        if self.live:
+            head = f"{bar(self.reached, len(STAGES))}  {self.title}"
+            self.live.show(f"{head}: {self._doing}" if self._doing else head)
+
+    def stage(self, data: dict[str, Any]) -> None:
+        """Move to a later stage; a run that searches again never moves the bar back."""
+        stage = data.get("id")
+        if stage not in STAGES or STAGES.index(stage) <= self.reached:
+            return
+        self.reached, self.title = STAGES.index(stage), data["title"]
+        if self.live:
+            self._waiting()
+        else:
+            print(
+                f"{bar(self.reached, len(STAGES))}  {self.title}, {self._elapsed()} s",
+                flush=True,
+            )
+
+    def tool(self, name: str) -> None:
+        # The route names a tool before the stage that tool opens, so the stage keeps it.
+        print(f"      tool call  {name}, {self._elapsed()} s", flush=True)
+        self._doing = WAITING_ON.get(name, name)
+        self._waiting()
+
+    def _answered(self) -> None:
+        self.close()
+        print(f"{bar(1, 1)}  answered in {self._elapsed()} s\n", flush=True)
+
+    def answer_start(self) -> None:
+        if self.live:
+            self._answered()
+            print("ANSWER", flush=True)
+            self.answer_shown = True
+
+    def answer_delta(self, delta: str) -> None:
+        """Print each paragraph once it is whole, wrapped as the saved answer is."""
+        if not self.answer_shown:
+            return
+        *whole, self._pending = (self._pending + delta).split("\n")
+        for paragraph in whole:
+            print("\n".join(_answer_lines(paragraph) or ["  "]), flush=True)
+
+    def complete(self) -> None:
+        if not self.answer_shown:
+            self._answered()
+        elif self._pending:
+            print("\n".join(_answer_lines(self._pending)), flush=True)
+
+    def close(self) -> None:
+        """Take the waiting line down, whatever ended the run."""
+        if self.live:
+            self.live.stop()
+            self.live = None
+
+
+def _follow(events: Iterator[tuple[str, dict[str, Any]]], run: _Run) -> dict[str, Any]:
+    """Show each event of a run and return its saved response."""
+    for event, data in events:
+        if event == "stage":
+            run.stage(data)
+        elif event == "tool":
+            run.tool(data["name"])
+        elif event == "notice":
+            note = fill_words(
+                f"NOTE  {data.get('detail', '')}",
+                LINE_CHARS,
+                subsequent_indent="      ",
+            )
+            print(f"{note}\n", flush=True)
+        elif event == "answer_start":
+            run.answer_start()
+        elif event == "answer_delta":
+            run.answer_delta(data.get("delta", ""))
+        elif event == "complete":
+            run.complete()
+            return data["response"]
+        elif event == "error":
+            run_id = data.get("agent_run_id")
+            raise LabValidationError(
+                f"{STREAM_PATH} stopped: {data.get('detail', 'no reason given')}"
+                + (f" Run ID: {run_id}" if run_id else "")
+            )
+    raise LabValidationError(
+        f"{STREAM_PATH} closed before the answer; fix: run the command again, and if "
+        "it happens twice, give this message to your facilitator"
+    )
+
+
+def ask(base_url: str, question: str, *, timeout: float) -> tuple[dict[str, Any], bool]:
+    """Ask through Ask Mosaic's streaming route; show each stage the run reaches.
 
     The bar counts stages reached, not time. A run can return to retrieval after
     reading evidence, so it shows the furthest stage and never moves backward.
+
+    Returns:
+        The saved response, and whether its answer is already on screen.
     """
     headers = {"Content-Type": "application/json", "Accept": "text/event-stream"}
     # The same shared origin secret `_request` presents on this loopback call.
@@ -262,36 +385,10 @@ def ask(base_url: str, question: str, *, timeout: float) -> dict[str, Any]:
         headers=headers,
         method="POST",
     )
-    started, reached = time.monotonic(), -1
+    run = _Run(sys.stdout)
     try:
         with urlopen(request, timeout=timeout) as response:
-            for event, data in _events(response):
-                elapsed = int(time.monotonic() - started)
-                stage = data.get("id") if event == "stage" else None
-                if stage in STAGES and STAGES.index(stage) > reached:
-                    reached = STAGES.index(stage)
-                    print(
-                        f"{bar(reached, len(STAGES))}  {data['title']}, {elapsed} s",
-                        flush=True,
-                    )
-                elif event == "tool":
-                    print(f"      tool call  {data['name']}, {elapsed} s", flush=True)
-                elif event == "notice":
-                    note = fill_words(
-                        f"NOTE  {data.get('detail', '')}",
-                        LINE_CHARS,
-                        subsequent_indent="      ",
-                    )
-                    print(f"{note}\n", flush=True)
-                elif event == "complete":
-                    print(f"{bar(1, 1)}  answered in {elapsed} s\n", flush=True)
-                    return data["response"]
-                elif event == "error":
-                    run_id = data.get("agent_run_id")
-                    raise LabValidationError(
-                        f"{STREAM_PATH} stopped: {data.get('detail', 'no reason given')}"
-                        + (f" Run ID: {run_id}" if run_id else "")
-                    )
+            return _follow(_events(response), run), run.answer_shown
     except TimeoutError as error:
         raise LabValidationError(
             f"{STREAM_PATH} sent no response within {timeout:.0f} s; fix: run the command "
@@ -316,10 +413,8 @@ def ask(base_url: str, question: str, *, timeout: float) -> dict[str, Any]:
             "Retrieval agent may still have saved this run. Fix: run the command "
             "again, and if it happens twice, give this message to your facilitator"
         ) from error
-    raise LabValidationError(
-        f"{STREAM_PATH} closed before the answer; fix: run the command again, and if "
-        "it happens twice, give this message to your facilitator"
-    )
+    finally:
+        run.close()
 
 
 def response_timeout() -> float:
@@ -340,7 +435,9 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 2
     try:
-        response = ask(args.api_url, args.question, timeout=response_timeout())
+        response, answer_shown = ask(
+            args.api_url, args.question, timeout=response_timeout()
+        )
     except LabValidationError as error:
         print(f"Retrieval agent request failed: {error}", file=sys.stderr)
         return 1
@@ -352,7 +449,7 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 130
-    print(render(response))
+    print(render(response, answer=not answer_shown))
     return 0
 
 

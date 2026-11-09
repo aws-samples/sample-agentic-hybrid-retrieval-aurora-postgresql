@@ -13,7 +13,16 @@ import sys
 import pytest
 
 from scripts import progress as progress_module
-from scripts.progress import CLEAR_LINE, Progress, bar, clock, fit, status, toward
+from scripts.progress import (
+    CLEAR_LINE,
+    Progress,
+    Waiting,
+    bar,
+    clock,
+    fit,
+    status,
+    toward,
+)
 
 
 class Clock:
@@ -190,3 +199,42 @@ def test_a_start_line_too_wide_for_the_terminal_puts_its_label_on_its_own_line(
     assert lines[0] == f"{bar(0, 6)}  step 1/2  {command} (usually about 0:05)"
     assert lines[2:] == [f"{bar(5, 6)}  step 2/2, usually about 0:01", f"    {command}"]
     assert all(len(line) < 97 for line in lines[1:])
+
+
+def test_a_waiting_line_redraws_in_place_with_the_time_waited() -> None:
+    now, out = Clock(), Terminal()
+    waiting = Waiting(out, now=now, interval=None)
+    waiting.show("Compose cited answer")
+    now.seconds += 65
+    waiting.show("Compose cited answer: drafting")
+
+    assert _last_frame(out.getvalue()) == "Compose cited answer: drafting  1:05"
+    assert "\n" not in out.getvalue()
+
+
+def test_a_waiting_line_is_erased_and_hands_the_streams_back() -> None:
+    before = (sys.stdout, sys.stderr)
+    out = Terminal()
+    waiting = Waiting(out, now=Clock(), interval=None)
+    waiting.show("Retrieve evidence")
+    assert sys.stdout is not before[0]
+
+    waiting.stop()
+    waiting.stop()
+
+    assert (sys.stdout, sys.stderr) == before
+    assert out.getvalue().endswith(CLEAR_LINE)
+
+
+def test_a_waiting_line_too_wide_keeps_its_time_whole(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(progress_module, "columns", lambda: 30)
+    now, out = Clock(), Terminal()
+    waiting = Waiting(out, now=now, interval=None)
+    now.seconds += 7
+    waiting.show("Compose cited answer: drafting, then checking every claim")
+    waiting.stop()
+
+    frame = out.getvalue().split(CLEAR_LINE)[1]
+    assert frame.endswith("…  0:07") and len(frame) < 30

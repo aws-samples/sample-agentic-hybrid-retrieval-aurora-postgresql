@@ -238,6 +238,112 @@ def test_main_streams_the_question_through_the_ask_mosaic_route(monkeypatch, cap
     assert "OUTCOME: declined" in out
 
 
+class FakeWaiting:
+    """The waiting line's seam: what it was told to say, and that it was taken down."""
+
+    def __init__(self, _stream):
+        self.said, self.stopped = [], False
+        FakeWaiting.last = self
+
+    def show(self, head):
+        self.said.append(head)
+
+    def stop(self):
+        self.stopped = True
+
+
+def on_a_terminal(monkeypatch):
+    monkeypatch.setattr(ask_agent, "can_redraw", lambda _stream: True)
+    monkeypatch.setattr(ask_agent, "Waiting", FakeWaiting)
+
+
+def answered_in_pieces(run, size=7):
+    """The route's last events: the checked answer in pieces, then the saved run."""
+    answer = run["answer"]
+    pieces = [answer[index : index + size] for index in range(0, len(answer), size)]
+    return (
+        ("answer_start", {"response": {**run, "answer": ""}}),
+        *(("answer_delta", {"delta": piece}) for piece in pieces),
+        ("complete", {"response": run}),
+    )
+
+
+def test_on_a_terminal_the_stages_share_one_line_and_tool_calls_stay(
+    monkeypatch, capsys
+):
+    on_a_terminal(monkeypatch)
+    monkeypatch.setattr(
+        ask_agent,
+        "urlopen",
+        lambda *_a, **_k: FakeStream(
+            stage("understand", "Interpret request"),
+            ("tool", {"name": "search_products"}),
+            stage("retrieve", "Retrieve evidence"),
+            ("tool", {"name": "synthesize_cited_answer"}),
+            stage("answer", "Compose cited answer"),
+            *answered_in_pieces(grounded()),
+        ),
+    )
+    assert ask_agent.main(["Find headphones for calls"]) == 0
+    out = capsys.readouterr().out
+
+    assert "Interpret request" not in out and "Retrieve evidence" not in out
+    assert [line.split(",")[0].strip() for line in out.splitlines()[:2]] == [
+        "tool call  search_products",
+        "tool call  synthesize_cited_answer",
+    ]
+    # The route names each tool before the stage it opens; the line keeps the tool.
+    assert FakeWaiting.last.said == [
+        f"{bar(0, 4)}  Interpret request",
+        f"{bar(0, 4)}  Interpret request: search_products",
+        f"{bar(1, 4)}  Retrieve evidence: search_products",
+        f"{bar(1, 4)}  Retrieve evidence: {ask_agent.WAITING_ON['synthesize_cited_answer']}",
+        f"{bar(3, 4)}  Compose cited answer: "
+        + ask_agent.WAITING_ON["synthesize_cited_answer"],
+    ]
+    assert FakeWaiting.last.stopped
+
+
+def test_on_a_terminal_the_answer_arrives_once_and_reads_as_the_saved_run(
+    monkeypatch, capsys
+):
+    """Printed as it arrives or printed whole, the report is the same text."""
+    on_a_terminal(monkeypatch)
+    run = grounded()
+    run["answer"] = (
+        "First paragraph with a claim [1].\n\n- A point that cites [2].\nLast line."
+    )
+    monkeypatch.setattr(
+        ask_agent,
+        "urlopen",
+        lambda *_a, **_k: FakeStream(
+            stage("understand", "Interpret request"), *answered_in_pieces(run)
+        ),
+    )
+    assert ask_agent.main(["Find headphones for calls"]) == 0
+    out = capsys.readouterr().out
+
+    progress, report = out.split("\n\n", 1)
+    assert progress.startswith(f"{bar(1, 1)}  answered in ")
+    assert report == ask_agent.render(run) + "\n"
+    assert out.count("ANSWER") == 1
+
+
+def test_on_a_terminal_a_stopped_run_takes_the_waiting_line_down(monkeypatch, capsys):
+    on_a_terminal(monkeypatch)
+    monkeypatch.setattr(
+        ask_agent,
+        "urlopen",
+        lambda *_a, **_k: FakeStream(
+            stage("understand", "Interpret request"),
+            ("error", {"detail": "The Retrieval agent stopped."}),
+        ),
+    )
+    assert ask_agent.main(["Find headphones for calls"]) == 1
+    assert FakeWaiting.last.stopped
+    assert "The Retrieval agent stopped." in capsys.readouterr().err
+
+
 def test_the_reference_agent_notice_is_printed_before_the_progress(monkeypatch, capsys):
     detail = (
         "This answer comes from the reference Retrieval agent this account was prepared "
