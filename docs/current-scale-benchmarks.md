@@ -1,9 +1,10 @@
 # Mosaic scale benchmarks
 
-Measured on 3 October 2026 (19:01 to 19:18 UTC) against Mosaic's served
-catalog on the development Aurora cluster: **553,911 real source products with
-their saved Cohere Embed v4 vectors (1,024 dimensions)**, catalog identity
-`c4d5913f8905…`, source revision `725b97a` with a clean worktree. Query
+Measured on 9 November 2026 (14:51 to 15:10 UTC) against Mosaic's served
+catalog on the development Aurora cluster, on Aurora PostgreSQL 18.6 with
+pgvector 0.8.2: **553,911 real source products with their saved Cohere Embed v4
+vectors (1,024 dimensions)**, catalog identity `c4d5913f8905…`, source revision
+`5f9bd956` with a clean worktree. Query
 vectors are the stored embeddings of the **73 anchors** in
 `data/benchmarks/hnsw_anchors.json` (anchor-set hash `99e31e05b239…`): the
 eighteen lab products plus a category-stratified hash sample of 55 (ten each
@@ -18,9 +19,15 @@ the network. The client was a workstation outside AWS, so each client
 wall-clock time includes an internet round trip of about 40 ms; those times
 stay in the artifact but are not tabulated here.
 
-This replaces the 26 September measurement over the earlier 70-anchor set
-(`af84d6ab2763…`, revision `2efb0be`, an EC2 client in the cluster's VPC),
-which stays in the git history of the artifact. That set predates the three
+This replaces the 3 October measurement on Aurora PostgreSQL 18.3 with
+pgvector 0.8.1 (revision `725b97a`), which stays in the git history of the
+artifact. The cluster was upgraded in place on 8 November and its indexes were
+not rebuilt. Across both runs all 486 recall, row-count, buffer-hit and plan-node
+values are identical; only the server times moved. Of 200 server timings, 179
+were slower, by a median of 8% and at most 48% (a tail percentile), and 21 were
+faster, by up to 8%. The 3 October run itself replaced the 26 September
+measurement over the earlier 70-anchor set (`af84d6ab2763…`, revision `2efb0be`,
+an EC2 client in the cluster's VPC). That set predates the three
 Logitech Zone 900 listings the labs now use, and the 27 September
 reclassification changed three of its sampled anchors; 67 anchors are common to
 both sets.
@@ -38,17 +45,19 @@ its `provenance`.
 |---|---|
 | Index | `mosaic_search.product_search_vector_idx`, HNSW, `m=16`, `ef_construction=200`, cosine, total (no `WHERE`) |
 | Size | 4,535,148,544 bytes for 553,911 vectors, 8,188 bytes per vector, 2.0× the 4,096-byte fp32 payload |
-| Instance | `db.r8g.2xlarge`, Aurora PostgreSQL 18.3, pgvector 0.8.1, `work_mem` 4 MB, `shared_buffers` 41.5 GB |
-| Exact baseline | Sequential scan with index and bitmap paths disabled, timed on 5 anchors after the cache was warm: 2,446 ms server (median), 2,508,454 shared buffer hits |
+| Instance | `db.r8g.2xlarge`, Aurora PostgreSQL 18.6, pgvector 0.8.2, `work_mem` 4 MB, `shared_buffers` 41.5 GB |
+| Exact baseline | Sequential scan with index and bitmap paths disabled, timed on 5 anchors after the cache was warm: 2,911 ms server (median), 2,508,454 shared buffer hits |
 
 Every index is slightly larger than on 26 September (this one by 524,288
-bytes). The 27 September reclassification rewrote 51,248 rows of
-the listings table without HOT updates, and the 50,776 dead row versions it
-left had not been vacuumed when this ran. No vector changed. The same
-relabelling is why `Monitors only` now matches 8,205 rows instead of 8,229.
+bytes) and byte for byte the size it was on 3 October. The 27 September
+reclassification rewrote 51,248 rows of the listings table without HOT updates
+and left 50,776 dead row versions, which had not been vacuumed on 3 October.
+The engine upgrade reset the table's statistics counters, so whether they
+remained on 9 November is not known. No vector changed. The same relabelling is
+why `Monitors only` matches 8,205 rows instead of 8,229.
 
 The served index is total, so the query without `embedding IS NOT NULL` still
-ran as an index scan at 1.23 ms. The slowdown that predicate avoided on the
+ran as an index scan at 1.43 ms. The slowdown that predicate avoided on the
 legacy catalog's partial index does not exist here; the artifact records that
 as `missing_predicate.applies = false` instead of restating the old figure.
 
@@ -61,11 +70,11 @@ mode:
 
 | ef_search | Recall@10 | Server p50 | Server p95 | Server p99 | Buffer hits |
 |---:|---:|---:|---:|---:|---:|
-| 40 | 96.71% | 0.663 ms | 0.883 ms | 1.043 ms | 738 |
-| 80 | 98.63% | 0.916 ms | 1.291 ms | 1.405 ms | 1,103 |
-| **100 (served)** | **98.63%** | **1.047 ms** | **1.497 ms** | **1.574 ms** | **1,265** |
-| 200 | 98.63% | 1.816 ms | 2.689 ms | 2.781 ms | 2,032 |
-| 400 | 100% | 3.092 ms | 4.837 ms | 5.077 ms | 3,368 |
+| 40 | 96.71% | 0.712 ms | 0.941 ms | 1.084 ms | 738 |
+| 80 | 98.63% | 1.041 ms | 1.495 ms | 1.523 ms | 1,103 |
+| **100 (served)** | **98.63%** | **1.177 ms** | **1.617 ms** | **1.707 ms** | **1,265** |
+| 200 | 98.63% | 2.024 ms | 2.854 ms | 2.962 ms | 2,032 |
+| 400 | 100% | 3.131 ms | 4.912 ms | 5.128 ms | 3,368 |
 
 Recall reaches 98.63% at ef_search 80 and does not move again until 400, which
 returns every exact neighbour and spends 2.7× the buffers of the served point.
@@ -84,12 +93,12 @@ anchor had 10 exact neighbours under every preset.
 
 | Preset (matching rows, selectivity) | Off: rows, recall, p50 | Strict 8 MB: rows, recall, p50 | Relaxed 8 MB: rows, recall, p50 |
 |---|---|---|---|
-| No filter (553,911, 100%) | 10.0, 98.6%, 0.97 ms | 10.0, 98.6%, 1.13 ms | 10.0, 98.6%, 1.02 ms |
-| Rating ≥ 4.5 (195,951, 35.4%) | 9.41, 92.2%, 1.13 ms | 10.0, 97.8%, 1.09 ms | 10.0, 98.0%, 1.23 ms |
-| Home office only (117,878, 21.3%) | 3.25, 31.1%, 1.07 ms | 10.0, 71.4%, 32.8 ms | 10.0, 76.3%, 30.9 ms |
-| Monitors only (8,205, 1.48%) | 2.15, 21.5%, 1.12 ms | 4.84, 32.0%, 48.8 ms | 4.84, 34.1%, 48.6 ms |
-| One brand: Dell (3,320, 0.60%) | 0.90, 9.0%, 1.12 ms | 4.96, 41.6%, 49.2 ms | 4.96, 42.6%, 51.7 ms |
-| Bose, rating ≥ 4.5 (95, 0.02%) | 0.29, 2.9%, 1.11 ms | 2.82, 23.8%, 55.5 ms | 2.82, 23.8%, 55.1 ms |
+| No filter (553,911, 100%) | 10.0, 98.6%, 1.13 ms | 10.0, 98.6%, 1.20 ms | 10.0, 98.6%, 1.20 ms |
+| Rating ≥ 4.5 (195,951, 35.4%) | 9.41, 92.2%, 1.13 ms | 10.0, 97.8%, 1.20 ms | 10.0, 98.0%, 1.21 ms |
+| Home office only (117,878, 21.3%) | 3.25, 31.1%, 1.07 ms | 10.0, 71.4%, 31.1 ms | 10.0, 76.3%, 30.7 ms |
+| Monitors only (8,205, 1.48%) | 2.15, 21.5%, 1.06 ms | 4.84, 32.0%, 51.4 ms | 4.84, 34.1%, 58.6 ms |
+| One brand: Dell (3,320, 0.60%) | 0.90, 9.0%, 1.21 ms | 4.96, 41.6%, 56.8 ms | 4.96, 42.6%, 58.0 ms |
+| Bose, rating ≥ 4.5 (95, 0.02%) | 0.29, 2.9%, 1.31 ms | 2.82, 23.8%, 58.7 ms | 2.82, 23.8%, 68.2 ms |
 
 What the table establishes:
 
@@ -98,24 +107,25 @@ What the table establishes:
   home-office filter keeps 21% and returns 3.25 rows of 10 with the scan off,
   because the anchors are mostly electronics and their neighbours are too.
 - **Iterative scans recover rows at a price.** Relaxed ordering fills the
-  home-office shortlist and lifts recall to 76.3% at 30.9 ms, about thirty
-  times the unfiltered cost. Under the three narrowest presets it never fills
+  home-office shortlist and lifts recall to 76.3% at 30.7 ms, about
+  twenty-five times the unfiltered cost. Under the three narrowest presets it never fills
   the shortlist and stops with 2.8 to 5.0 rows.
 - **The memory budget matters less than the tuple limit here.** Doubling the
   scan memory from 4 MB to 8 MB moved home office from 9.79 to 10 rows and the
   three narrow presets by 0.3 to 0.6 rows, while their relaxed p50 rose from
-  33–46 ms to 49–55 ms. The served `max_scan_tuples` is the main limit for
+  37–54 ms to 58–68 ms. The served `max_scan_tuples` is the main limit for
   those presets on this catalog. This is the opposite of what the legacy
   catalog showed, and the artifact carries the rows that say so rather than a
   remembered rule.
 - **Rows returned is the first thing to read.** Off returned 0.29 rows per
-  query under the Bose filter at 1.11 ms and looked fast. Ninety-five products
+  query under the Bose filter at 1.31 ms and looked fast. Ninety-five products
   match that filter; too few rows returned is the signal.
 - **The rows are deterministic; only the timings carry noise.** On
   26 September two sweeps of the earlier 70-anchor set, at `3f5a379` and
-  `2efb0be`, returned the same recall and rows to four decimals. The graph, the
-  anchors and the ground truth are fixed, so a rerun changes milliseconds, not
-  results. This 73-anchor set was measured once.
+  `2efb0be`, returned the same recall and rows to four decimals. This 73-anchor
+  set did the same across an engine upgrade: 3 October on 18.3 and 9 November on
+  18.6 agree on every recall, row and buffer value. The graph, the anchors and
+  the ground truth are fixed, so a rerun changes milliseconds, not results.
 
 Every plan node in the matrix is an index scan on `product_search_vector_idx`;
 no preset made the planner leave the index for a filtered exact scan on this
@@ -142,21 +152,21 @@ fp32 column before the top 10 is taken.
 
 | Representation | Index size | Bytes per vector | Recall@10 | Server p50 | Server p95 | Server p99 | Buffer hits |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| fp32, `product_search_vector_idx` | 4,535,148,544 | 8,188 | 98.63% | 1.134 ms | 1.581 ms | 1.611 ms | 1,265 |
-| halfvec, `product_search_vector_halfvec_idx` | 1,511,833,600 | 2,729 | 98.63% | 1.750 ms | 2.568 ms | 2.670 ms | 1,281 |
-| binary, rescore 10, `product_search_vector_binary_idx` | 240,500,736 | 434 | 76.58% | 1.339 ms | 2.023 ms | 2.900 ms | 1,669 |
-| binary, rescore 20 | 240,500,736 | 434 | 89.18% | 1.448 ms | 2.101 ms | 2.849 ms | 1,766 |
-| binary, rescore 50 | 240,500,736 | 434 | 97.53% | 1.633 ms | 2.290 ms | 3.117 ms | 2,055 |
-| binary, rescore 100 | 240,500,736 | 434 | 99.18% | 2.118 ms | 2.897 ms | 3.650 ms | 2,539 |
-| binary, rescore 200 | 240,500,736 | 434 | 99.73% | 4.041 ms | 5.418 ms | 5.673 ms | 4,459 |
+| fp32, `product_search_vector_idx` | 4,535,148,544 | 8,188 | 98.63% | 1.347 ms | 1.878 ms | 2.052 ms | 1,265 |
+| halfvec, `product_search_vector_halfvec_idx` | 1,511,833,600 | 2,729 | 98.63% | 1.971 ms | 2.870 ms | 3.224 ms | 1,281 |
+| binary, rescore 10, `product_search_vector_binary_idx` | 240,500,736 | 434 | 76.58% | 1.554 ms | 2.379 ms | 3.281 ms | 1,669 |
+| binary, rescore 20 | 240,500,736 | 434 | 89.18% | 1.555 ms | 2.336 ms | 3.021 ms | 1,766 |
+| binary, rescore 50 | 240,500,736 | 434 | 97.53% | 2.051 ms | 2.764 ms | 3.670 ms | 2,055 |
+| binary, rescore 100 | 240,500,736 | 434 | 99.18% | 2.571 ms | 3.322 ms | 4.006 ms | 2,539 |
+| binary, rescore 200 | 240,500,736 | 434 | 99.73% | 4.639 ms | 5.763 ms | 6.299 ms | 4,459 |
 
 Deeper operating points, same anchors and truth:
 
 | Configuration | Recall@10 | Server p50 | Server p95 | Server p99 | Buffer hits |
 |---|---:|---:|---:|---:|---:|
-| fp32, ef_search 800 | 100% | 5.40 ms | 8.27 ms | 8.78 ms | 5,679 |
-| binary, ef_search 800, rescore 1,400 | 100% | 24.1 ms | 30.1 ms | 31.1 ms | 25,372 |
-| binary, ef_search 800, rescore 3,000 | 100% | 46.4 ms | 56.3 ms | 57.9 ms | 47,744 |
+| fp32, ef_search 800 | 100% | 5.75 ms | 8.87 ms | 9.53 ms | 5,679 |
+| binary, ef_search 800, rescore 1,400 | 100% | 26.6 ms | 33.8 ms | 35.2 ms | 25,372 |
+| binary, ef_search 800, rescore 3,000 | 100% | 60.3 ms | 71.1 ms | 79.1 ms | 47,744 |
 
 What the tables establish:
 
@@ -165,21 +175,21 @@ What the tables establish:
   26 September, over the 70-anchor set, it returned 99.3% against 98.0%; that
   gap belonged to those anchors and a differently built graph, not to half
   precision, and it did not recur here. Its served p50 was 0.6 ms slower in
-  both runs.
+  all three runs.
 - **Binary codes trade recall for a 5% footprint, and rescoring buys it
   back.** The Hamming index alone is unusable for a ten-row shortlist (76.6%
-  at rescore 10). A 50-row rescore reaches 97.5% at 1.63 ms and a 100-row
-  rescore passes the fp32 index (99.2% against 98.6%) at 2.12 ms, with twice
+  at rescore 10). A 50-row rescore reaches 97.5% at 2.05 ms and a 100-row
+  rescore passes the fp32 index (99.2% against 98.6%) at 2.57 ms, with twice
   the buffer reads of the fp32 query.
 - **Both paths can reach exact recall, at a cost.** At ef_search 800 the fp32
-  index returns every exact neighbour at 5.4 ms; the binary index with a
-  1,400-row rescore does too, at 24.1 ms and 25,372 buffers, about four and a
+  index returns every exact neighbour at 5.75 ms; the binary index with a
+  1,400-row rescore does too, at 26.6 ms and 25,372 buffers, about four and a
   half times the fp32 cost at the same search effort.
 - **Small timing gaps are not rankings.** The same unfiltered fp32 query at the
-  served settings measured 1.017 ms in the filter matrix, 1.047 ms in the
-  sweep and 1.134 ms in this comparison, minutes apart on the shared cluster.
-  Binary at rescore 10 to 50 sits within 0.5 ms of fp32. halfvec's 0.6 ms gap
-  is larger than that 0.12 ms spread and repeated across both runs, but no
+  served settings measured 1.177 ms in the sweep, 1.204 ms in the filter matrix
+  and 1.347 ms in this comparison, minutes apart on the shared cluster.
+  Binary at rescore 10 to 50 sits within 0.71 ms of fp32. halfvec's 0.62 ms gap
+  is larger than that 0.17 ms spread and repeated across all three runs, but no
   trial was repeated within a run.
 
 ## Index build
@@ -209,7 +219,7 @@ no source file differed from revision `3f5a379` (first build) or `7bea92f`
 
 ## What this measures
 
-- Aurora PostgreSQL 18.3, pgvector 0.8.1, `db.r8g.2xlarge` in `us-east-1`,
+- Aurora PostgreSQL 18.6, pgvector 0.8.2, `db.r8g.2xlarge` in `us-east-1`,
   writer `agenticretrievalcorestack-aurorapostgresretrievalc-5wdg4dpl2bg2`.
 - Exact ground truth was seeded once by `make db-seed-exact-neighbors`: for
   each batch of ten anchors one pass computes every vector's cosine distance
@@ -228,8 +238,7 @@ no source file differed from revision `3f5a379` (first build) or `7bea92f`
   stored separately. These results do not measure cold cache, concurrent
   users, reranking, agent reasoning or end-to-end Shop response time. No
   database setting or index was changed persistently. Background activity on
-  the shared development cluster was not controlled, and the dead row
-  versions described above were present.
+  the shared development cluster was not controlled.
 
 ## Results and rerunning
 
@@ -252,7 +261,7 @@ With `DATABASE_URL` pointing at the served catalog and a clean checkout:
 make select-hnsw-anchors         # once per catalog; commit the file
 make db-seed-exact-neighbors     # 22 minutes for the 73 anchors on 3 October
 make db-index-quantized-catalog  # halfvec and binary indexes, about two minutes
-make benchmark-hnsw AURORA_INSTANCE_CLASS=db.r8g.2xlarge  # 17 minutes from outside AWS
+make benchmark-hnsw AURORA_INSTANCE_CLASS=db.r8g.2xlarge  # 19 minutes from outside AWS
 make simulate                    # re-baselines the scale projection
 ```
 
