@@ -64,6 +64,22 @@ never answers stops both the reranking and the embedding call with the sentence 
 failed when its part of the change was reverted (reranking or embedding on the model client,
 the classifier without the pass-through, the raw body printed, the wait back at 60 s).
 
+## The scorecard, remeasured
+
+`service/bedrock.py`, `service/rerank.py` and `service/embeddings.py` are in the retrieval
+fingerprint, as `service/bedrock.py` already was when prompt caching changed it (`d1c23de6`),
+so the Playground showed the canonical scorecard as measured elsewhere. Both artifacts were
+remeasured on the development cluster (Aurora PostgreSQL 18.6, pgvector 0.8.2,
+db.r8g.2xlarge) from clean commits:
+
+- The canonical scorecard (`5282d139`): every metric is unchanged. G-022 ("Quick Acess to ANC
+  and Bluetoth") keeps its judged product first; its 10th result changes. G-007's saved query
+  vector is the one Bedrock returned this time; its results are unchanged.
+- The stage ablation (`caff6c6b`): the semantic, fuzzy, full-text and served arms are
+  unchanged. Without reranking, G-022's judged product moves from second to third, so that
+  arm's nDCG@10 is 0.574 (was 0.588) and its MRR 0.537 (was 0.556). That commit's message
+  says the arm loses the hit; it moves one place.
+
 ## Not proven here
 
 - A real unanswered Bedrock call on an event: it cannot be caused on demand. The next test
