@@ -138,6 +138,11 @@ The commands you use most:
 A successful deploy or a plausible answer is not completion: each lab ends with the
 guide's checks against the same request, run on the state you applied or deployed.
 
+Every search calls Amazon Bedrock twice, for the query embedding and for reranking, and
+waits 10 seconds for each attempt. If no attempt answers, the command stops with `This
+search stopped: Amazon Bedrock's reranking call did not answer within 10 seconds, even after
+retrying.` Run the same command again; nothing in your lab changed.
+
 Facilitators check every event account before the event with
 `uv run scripts/event_readiness.py --accounts DIR`, one Ops credential file per account.
 Each box records its own readiness when bootstrap ends; see

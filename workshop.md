@@ -279,6 +279,10 @@ CloudWatch log names the cause, such as Bedrock throttling.
   and runs the lab's checks; Lab 3 stops at deploy, so the participant still asks and completes.
 - A file edit does not update Aurora or Runtime. If results are stale, use the
   guide's apply/deploy command, repeat the request and inspect the new record.
+- `This search stopped: Amazon Bedrock's reranking call did not answer within 10 seconds,
+  even after retrying.` (or `embedding call`) means Bedrock left every attempt of one search
+  call unanswered, about a minute in all. The participant runs the same command again;
+  nothing in the lab changed. Twice in a row is an environment failure.
 - Environment failures go to room support with the failing command and redacted
   error. Use the facilitator runbook; do not improvise infrastructure at the table.
 - Before the event, read every account's readiness record with
