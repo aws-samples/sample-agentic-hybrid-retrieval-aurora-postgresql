@@ -215,10 +215,11 @@ The workshop runs one app for one person. These measurements and us-east-1 list 
   section 1 of the own-account guide explains when Standard costs less. Aurora
   serverless suits idle or spiky traffic: at $0.16 per ACU-hour it costs less than the
   `db.r8g.2xlarge` writer only while it averages under about 9 ACUs.
-- **Agent cost.** Every round of tool calls resends the agent's instructions and tool
-  definitions, so Bedrock prompt caching is the first lever. Mosaic does not turn it on
-  today. Amazon Bedrock Model Distillation is not currently available for Anthropic
-  models.
+- **Agent cost.** Every round of tool calls resends the agent's instructions, tool
+  definitions and earlier results. Mosaic turns on Bedrock prompt caching for the agent loop
+  and the cited answer's fixed prompt, which cut input cost by 40% over six measured turns
+  ([evidence](docs/evidence/agent-prompt-caching-2026-11-09.md)). Amazon Bedrock Model
+  Distillation is not currently available for Anthropic models.
 - **Security and operations.** Add sign-in, per-user quotas and a retention policy for
   search records and memory. See [security boundaries](docs/security-boundaries.md) and
   the [production checklist](docs/production-readiness.md).

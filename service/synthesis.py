@@ -10,7 +10,12 @@ from dataclasses import dataclass
 from typing import Any
 
 from service.answerability import SynthesisDeclined, assess_answerability
-from service.bedrock import converse, get_bedrock_client, thinking_off_fields
+from service.bedrock import (
+    cached_system,
+    converse,
+    get_bedrock_client,
+    thinking_off_fields,
+)
 from service.claim_review import ClaimReviewError, assess_claim_support
 from service.config import Settings, get_settings
 from service.models import (
@@ -1883,7 +1888,7 @@ def synthesize_cited_answer(
     ]
     request = {
         "modelId": settings.synthesis_model_id,
-        "system": [{"text": SYSTEM_PROMPT}],
+        "system": cached_system(settings.synthesis_model_id, SYSTEM_PROMPT),
         "inferenceConfig": {"maxTokens": 1_400},
         "requestMetadata": {"application": "catalog-hybrid-retrieval-workshop"},
     }

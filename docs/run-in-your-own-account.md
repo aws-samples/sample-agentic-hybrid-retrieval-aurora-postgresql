@@ -68,9 +68,13 @@ at the rates on their pricing pages.
 calls. Embedding a 20-token request costs $0.0000024. Reranking is one search unit, $0.002,
 or two when long listings split past 100 documents. So 1,000 searches cost about $2 to $4 in
 model calls, almost all of it reranking. An agent turn is billed by its Claude tokens: $0.02
-per 10,000 input tokens and $0.01 per 1,000 output tokens. Each run records its own token
-counts (`input_tokens` and `output_tokens` in the agent's run record), so measure your turns
-rather than estimating them. Reranking every search is the line to watch at high volume.
+per 10,000 input tokens and $0.01 per 1,000 output tokens. Mosaic caches the agent's prompt
+between tool rounds and the cited answer's fixed prompt: a cache read costs $0.10 and a
+five-minute cache write $2.50 per million tokens. Over six measured turns that cut input cost
+by 40% ([evidence](evidence/agent-prompt-caching-2026-11-09.md)). Each run records its own
+token counts (`input_tokens`, `output_tokens`, `cache_read_input_tokens` and
+`cache_write_input_tokens` in the agent's run record), so measure your turns rather than
+estimating them. Reranking every search is the line to watch at high volume.
 
 **Aurora I/O-Optimized or Aurora Standard.** Both Mosaic clusters use Aurora I/O-Optimized.
 It costs more per hour ($1.436 against $1.104 for `db.r8g.2xlarge`) and per GB-month ($0.225

@@ -14,7 +14,8 @@ from botocore.exceptions import ClientError
 from claim_review_helpers import supported_review
 from fastapi.testclient import TestClient
 
-from service import agent_tools
+from service import agent as agent_module
+from service import agent_tools, synthesis
 from service.agent import (
     AgentTurnDeadlineExceeded,
     GroundingContractError,
@@ -1640,6 +1641,73 @@ def test_synthesis_uses_the_dedicated_model_override(model_id, thinking_off):
             }
         else:
             assert "additionalModelRequestFields" not in request
+
+
+@pytest.mark.parametrize(
+    "model_id,cached",
+    [
+        ("global.anthropic.claude-sonnet-5-5", True),
+        ("global.anthropic.claude-opus-5", True),
+        ("amazon.nova-pro-v1:0", False),
+    ],
+)
+def test_the_cited_answer_caches_its_fixed_system_prompt(model_id, cached):
+    settings = replace(get_settings(), synthesis_model_id=model_id)
+    client = FakeSynthesisClient(
+        "Summary\nChoose this option [1].\n\n"
+        "Recommendations\n- AuriLogic Flight ANC is quiet [1].\n\n"
+        "Trade-offs\nBattery life is not specified [1]."
+    )
+
+    synthesize_cited_answer(
+        "Which option should I choose?",
+        [product()],
+        [evidence()],
+        settings=settings,
+        client=client,
+    )
+
+    system = client.request["system"]
+    assert system[0] == {"text": synthesis.SYSTEM_PROMPT}
+    assert system[1:] == ([{"cachePoint": {"type": "default"}}] if cached else [])
+
+
+def test_the_agent_model_caches_each_round(monkeypatch):
+    from strands.models import CacheConfig
+
+    captured: dict[str, object] = {}
+
+    class CapturingModel:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+    monkeypatch.setattr("service.agent.RetryingBedrockModel", CapturingModel)
+    monkeypatch.setattr("service.agent._models", {})
+
+    agent_module._bedrock_model("global.anthropic.claude-sonnet-5-5", "us-east-1")
+
+    assert captured["cache_config"] == CacheConfig(strategy="auto")
+
+
+def test_agent_usage_keeps_the_cache_tokens():
+    class Metrics:
+        def get_summary(self):
+            return {
+                "total_cycles": 3,
+                "accumulated_usage": {
+                    "inputTokens": 900,
+                    "outputTokens": 120,
+                    "totalTokens": 5_020,
+                    "cacheReadInputTokens": 3_600,
+                    "cacheWriteInputTokens": 400,
+                },
+            }
+
+    usage = agent_module._usage(Mock(metrics=Metrics()))
+
+    assert usage["cache_read_input_tokens"] == 3_600
+    assert usage["cache_write_input_tokens"] == 400
+    assert usage["input_tokens"] == 900
 
 
 def test_agent_tool_filters_cannot_widen_request_filters():

@@ -54,6 +54,26 @@ def get_bedrock_client(service_name: str, region: str | None = None):
     return client
 
 
+def cached_system(model_id: str, text: str) -> list[dict[str, Any]]:
+    """A Converse system block, with a cache point after it for a Claude model.
+
+    Bedrock caches the prompt before a cache point once it reaches the model's minimum
+    (512 tokens on Claude Sonnet 5.5), and later calls within five minutes read it at
+    a twentieth of the input price. Other model families keep the plain block.
+
+    Args:
+        model_id: Bedrock model or inference profile ID.
+        text: The fixed system prompt.
+
+    Returns:
+        The system content blocks for a Converse request.
+    """
+    blocks: list[dict[str, Any]] = [{"text": text}]
+    if "anthropic.claude" in model_id.lower():
+        blocks.append({"cachePoint": {"type": "default"}})
+    return blocks
+
+
 # How each Claude 5-family model runs a single-decision route without thinking.
 # Sonnet 5.5 rejects "disabled" with a 400 and names "between_tools" as its
 # lowest setting, accepted at its default effort (measured 20 October 2026).

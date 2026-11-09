@@ -14,7 +14,7 @@ from typing import Any
 from botocore.exceptions import ClientError
 from strands import Agent
 from strands.hooks import AfterToolCallEvent, BeforeToolCallEvent, HookRegistry
-from strands.models import BedrockModel
+from strands.models import BedrockModel, CacheConfig
 from strands.types.exceptions import ModelThrottledException
 
 from service import agent_tools
@@ -397,6 +397,10 @@ def _bedrock_model(model_id: str, region: str) -> BedrockModel:
                 # Sonnet 5.5 uses the output budget for thinking and tool calls.
                 # Leave room for both, while keeping a bounded reservation.
                 max_tokens=16_000,
+                # A cache point closes each round's latest message, so the next
+                # round reads the instructions, tools and earlier results from
+                # Bedrock's cache instead of paying full input price for them.
+                cache_config=CacheConfig(strategy="auto"),
             )
             _models[key] = model
     return model
@@ -509,6 +513,8 @@ def _usage(result: Any) -> dict[str, Any]:
         "input_tokens": accumulated.get("inputTokens"),
         "output_tokens": accumulated.get("outputTokens"),
         "total_tokens": accumulated.get("totalTokens"),
+        "cache_read_input_tokens": accumulated.get("cacheReadInputTokens", 0),
+        "cache_write_input_tokens": accumulated.get("cacheWriteInputTokens", 0),
     }
 
 
