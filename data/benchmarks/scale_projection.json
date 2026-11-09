@@ -2,10 +2,10 @@
   "warning": "PROJECTED beyond 553,911. The 553,911 row is measured; every larger row is extrapolated from it by the stated growth assumptions. Baseline read from data/benchmarks/hnsw_measured.json.",
   "assumptions": {
     "measured_source": "data/benchmarks/hnsw_measured.json",
-    "measured_captured_at": "2026-10-03T19:18:10.453289+00:00",
-    "measured_source_revision": "725b97abf3ccabe550c421123fd68b5f04313518",
+    "measured_captured_at": "2026-11-09T15:10:42.864954+00:00",
+    "measured_source_revision": "5f9bd95616de38e2117ba29d0e62d0c8aced3c2b",
     "measured_instance_class": "db.r8g.2xlarge",
-    "baseline_latency_p95_ms": 1.497,
+    "baseline_latency_p95_ms": 1.617,
     "baseline_recall": 0.9863,
     "bytes_per_vector": 8188,
     "dimensions": 1024,
@@ -21,7 +21,7 @@
     {
       "scale": 553911,
       "projection_kind": "simulated_calibrated",
-      "p95_latency_ms": 1.5,
+      "p95_latency_ms": 1.62,
       "recall_at_10": 0.9863,
       "index_size_gb": 4.54,
       "dimensions": 1024,
@@ -31,7 +31,7 @@
     {
       "scale": 1000000,
       "projection_kind": "simulated_calibrated",
-      "p95_latency_ms": 1.59,
+      "p95_latency_ms": 1.71,
       "recall_at_10": 0.9842,
       "index_size_gb": 8.19,
       "dimensions": 1024,
@@ -41,7 +41,7 @@
     {
       "scale": 5000000,
       "projection_kind": "simulated_calibrated",
-      "p95_latency_ms": 1.84,
+      "p95_latency_ms": 1.99,
       "recall_at_10": 0.9787,
       "index_size_gb": 40.94,
       "dimensions": 1024,
@@ -51,7 +51,7 @@
     {
       "scale": 10000000,
       "projection_kind": "simulated_calibrated",
-      "p95_latency_ms": 1.95,
+      "p95_latency_ms": 2.11,
       "recall_at_10": 0.9762,
       "index_size_gb": 81.88,
       "dimensions": 1024,
@@ -61,7 +61,7 @@
     {
       "scale": 100000000,
       "projection_kind": "simulated_calibrated",
-      "p95_latency_ms": 2.34,
+      "p95_latency_ms": 2.53,
       "recall_at_10": 0.9682,
       "index_size_gb": 818.8,
       "dimensions": 1024,
