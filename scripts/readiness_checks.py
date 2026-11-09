@@ -316,7 +316,27 @@ def connect(ctx: Context):
     )
 
 
+DATABASE_TEMPLATE = Path("deploy/cloudformation/hybrid-retrieval-database.yml")
+# Aurora installs each extension at the version its engine minor ships, so these move
+# with the template's EngineVersion, in the same change. Observed on Aurora
+# PostgreSQL 18.6 on the 8 and 9 November 2026 events.
+EXTENSION_VERSIONS = {"vector": "0.8.2", "pg_trgm": "1.6"}
+
+
+def pinned_engine_version(repo: Path) -> str:
+    """The engine major and minor the database template deploys, such as '18.6'."""
+    template = (repo / DATABASE_TEMPLATE).read_text(encoding="utf-8")
+    found = re.search(r"^ +EngineVersion: '(\d+\.\d+)'$", template, re.MULTILINE)
+    if not found:
+        raise CheckError(
+            f"{DATABASE_TEMPLATE} pins no EngineVersion such as '18.6'; fix: restore "
+            "the cluster's full engine pin"
+        )
+    return found.group(1)
+
+
 def check_aurora(ctx: Context) -> list[Line]:
+    """The cluster runs the pinned engine minor and the extension versions it ships."""
     name = "Aurora and extensions"
     with connect(ctx) as connection:
         server, vector, trigram = connection.execute(
@@ -325,12 +345,19 @@ def check_aurora(ctx: Context) -> list[Line]:
             " (SELECT extversion FROM pg_extension WHERE extname = 'pg_trgm')"
         ).fetchone()
     detail = f"PostgreSQL {server}, pgvector {vector}, pg_trgm {trigram}"
+    engine = pinned_engine_version(ctx.repo)
+    wrong = []
     if not server or server.split(".")[0] != ctx.pin("psql_major"):
-        return [
-            failed(name, f"{detail}; the engine major is not {ctx.pin('psql_major')}")
-        ]
-    if vector is None or trigram is None:
-        return [failed(name, f"{detail}; an extension the labs use is missing")]
+        wrong.append(f"the engine major is not psql's {ctx.pin('psql_major')}")
+    if ".".join(str(server).split(".")[:2]) != engine:
+        wrong.append(f"the engine is not the template's {engine}")
+    for extension, found in (("vector", vector), ("pg_trgm", trigram)):
+        if found != EXTENSION_VERSIONS[extension]:
+            wrong.append(
+                f"{extension} is {found or 'missing'}, not {EXTENSION_VERSIONS[extension]}"
+            )
+    if wrong:
+        return [failed(name, f"{detail}; {'; '.join(wrong)}")]
     return [passed(name, detail)]
 
 

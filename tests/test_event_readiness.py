@@ -281,6 +281,61 @@ def test_fuzzy_control_passes_when_it_finds_the_logitech(monkeypatch):
     assert lines[0].status == "PASS"
 
 
+class VersionRow:
+    def __init__(self, row):
+        self.row = row
+
+    def fetchone(self):
+        return self.row
+
+
+class VersionConnection(Connection):
+    def execute(self, *_):
+        return VersionRow(self.rows)
+
+
+def aurora_line(monkeypatch, row, psql_major="18"):
+    repo = Path(checks.__file__).resolve().parents[1]
+    monkeypatch.setattr(checks, "connect", lambda _ctx: VersionConnection(row))
+    ctx = checks.Context(repo=repo, env={}, expected={"psql_major": psql_major})
+    return checks.check_aurora(ctx)[0]
+
+
+def test_aurora_check_passes_on_the_pinned_engine_and_extensions(monkeypatch):
+    engine = checks.pinned_engine_version(Path(checks.__file__).resolve().parents[1])
+    line = aurora_line(monkeypatch, (engine, "0.8.2", "1.6"))
+    assert line.status == "PASS", line.detail
+    assert engine == "18.6", (
+        "the extension pins name 18.6's versions; move them together"
+    )
+
+
+@pytest.mark.parametrize(
+    ("row", "psql_major", "named"),
+    [
+        (("18.3", "0.8.2", "1.6"), "18", "not the template's 18.6"),
+        (("17.6", "0.8.2", "1.6"), "18", "not psql's 18"),
+        (("18.6", "0.8.1", "1.6"), "18", "vector is 0.8.1, not 0.8.2"),
+        (("18.6", None, "1.6"), "18", "vector is missing"),
+        (("18.6", "0.8.2", "1.5"), "18", "pg_trgm is 1.5, not 1.6"),
+        (("18.6", "0.8.2", None), "18", "pg_trgm is missing"),
+    ],
+)
+def test_aurora_check_names_each_version_off_its_pin(
+    monkeypatch, row, psql_major, named
+):
+    line = aurora_line(monkeypatch, row, psql_major)
+    assert line.status == "FAIL"
+    assert named in line.detail
+
+
+def test_a_template_without_a_full_engine_pin_is_an_error(tmp_path):
+    (tmp_path / checks.DATABASE_TEMPLATE).parent.mkdir(parents=True)
+    (tmp_path / checks.DATABASE_TEMPLATE).write_text("      EngineVersion: '18'\n")
+    with pytest.raises(checks.CheckError, match="pins no EngineVersion"):
+        checks.pinned_engine_version(tmp_path)
+
+
 def test_lab_state_after_a_start_is_information_not_a_failure(monkeypatch):
     from scripts import lab_entry
 
