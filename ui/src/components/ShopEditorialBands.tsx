@@ -17,7 +17,7 @@ const bands = [
     height: 1200,
     alt: "Graphite headphones beside a laptop on Alex’s desk",
     title: "Find his focus.",
-    description: "Headphones for clearer calls and deep work.",
+    description: "Headphones for quiet focus and deep work.",
   },
   {
     topic: "Monitors",

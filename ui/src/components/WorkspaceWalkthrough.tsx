@@ -12,8 +12,8 @@ const visionImage = "/assets/images/mosaic/alex-workspace-after.jpg";
 
 const guidance: Record<string, { title: string; detail: string; action: string; focus: string }> = {
   Headphones: {
-    title: "Help him be heard.",
-    detail: "Search for clearer calls, then check the microphone details in the results.",
+    title: "Help him focus.",
+    detail: "Home isn’t always quiet. Find headphones for focus, then compare noise cancellation and comfort.",
     action: "Find headphones",
     focus: "headphones",
   },
@@ -52,8 +52,8 @@ export function WorkspaceWalkthrough({ real }: { real: boolean }) {
     ...needs,
     {
       label: "The vision", title: "Now, help Alex make it his.",
-      detail: "Find a match, compare the details, then ask Mosaic to explain the choice. Start with his headphones.",
-      focus: "", action: "Start with clearer calls", href: needs[0].href,
+      detail: "Find a match, compare the details, then ask Mosaic to explain the choice.",
+      focus: "", action: "Start with his headphones", href: needs[0].href,
     },
   ];
   const [step, setStep] = useState(0);

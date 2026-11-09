@@ -68,15 +68,15 @@ describe("WorkspaceWalkthrough", () => {
     advance(OPENING_DWELL_MS - 1);
     expect(screen.getByRole("heading", { name: "Desk. Laptop. A place to start." })).toBeTruthy();
     advance(1);
-    expect(screen.getByRole("heading", { name: "Help him be heard." })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Help him focus." })).toBeTruthy();
     advance(STEP_DURATION_MS - 1);
-    expect(screen.getByRole("heading", { name: "Help him be heard." })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Help him focus." })).toBeTruthy();
     advance(1);
     expect(screen.getByRole("heading", { name: "Make long days comfortable." })).toBeTruthy();
     advance(STEP_DURATION_MS);
     expect(screen.getByRole("heading", { name: "Put code and docs side by side." })).toBeTruthy();
     advance(STEP_DURATION_MS);
-    expect(screen.getByRole("link", { name: "Start with clearer calls" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Start with his headphones" })).toBeTruthy();
     advance(60_000);
     expect(screen.getByLabelText("Step 5 of 5")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Pause walkthrough" })).toBeNull();
