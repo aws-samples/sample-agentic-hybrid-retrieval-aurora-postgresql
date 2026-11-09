@@ -1,12 +1,12 @@
 {
   "aurora_configuration": {
-    "database_version": "18.3",
+    "database_version": "18.6",
     "engine": "aurora-postgresql",
     "instance_class": "db.r8g.2xlarge",
-    "vector_extension_version": "0.8.1"
+    "vector_extension_version": "0.8.2"
   },
   "canonical_query_count": 10,
-  "database_instance_id": "hybrid-retrieval-main-databasesta-dbinstancewriter-7ekb3f54mwyb",
+  "database_instance_id": "agenticretrievalcorestack-aurorapostgresretrievalc-5wdg4dpl2bg2",
   "dataset_manifest_sha256": "9029570fea95d7356b6c4653eb666ba2ebf6c43af37c0ce6cec912dc1500ea51",
   "deterministic_release_checks": [
     {
@@ -34,7 +34,7 @@
     "scan_mem_multiplier": 2.0
   },
   "k": 10,
-  "measured_at": "2026-11-07T18:45:16.198413+00:00",
+  "measured_at": "2026-11-09T19:39:25.292970+00:00",
   "metrics": {
     "mrr": 0.7592592592592592,
     "ndcg@10": 0.8032961425511451,
@@ -121,9 +121,9 @@
   "product_retrieval_query_count": 9,
   "query_set": "data/evals/canonical_queries.jsonl",
   "query_set_sha256": "337b8158e378c31a09e7d8292b7d85ed09d24721e6ff0fd5399683bdfe15c8d1",
-  "query_vectors_sha256": "27f91a652ed06b9ccdc1fdd1b70e372dff581c651f78c870c04261d5e6a8a01f",
-  "ranked_result_sha256": "6c6d7f2122bcb576b678632cd288cf88047d70ba1476396068f593a64301a202",
-  "retrieval_fingerprint": "dd20e4a46b0f5f25cc83e01546930d069a06a801f672dd27e94292858ccedb07",
+  "query_vectors_sha256": "e82c422faa936408320f5e053ec4ba4fb6d95f4b9ab00a819908f51c13174ac2",
+  "ranked_result_sha256": "5d6c5929a8472574c847a66a1caf4a2a846c2902f3474fcea15ef1828e09ccca",
+  "retrieval_fingerprint": "214adcdc1dfa7ccf7279d9c006dc00c5794e91152f40fa767638cf19c2042d7c",
   "retrieval_profile": {
     "authorized_limit": 10,
     "ef_search": 100,
@@ -145,7 +145,7 @@
   "scorecard_methodology_sha256": "389361d99cfea09d51ff1ec8d62cd069c5a2814882f6b54541177bf7b8793598",
   "scored_query_set_sha256": "952f034619dec9b0964e7dd3dac061619894f7ce315dfdef9ac28ccaf6c7b06d",
   "source": {
-    "revision": "9a83f8883675894b014818db3c63b785abdfeee1",
+    "revision": "d5dff4ff4a7a413cea86679f1dad209f87e78011",
     "worktree_dirty": false
   },
   "strategy": "rrf_fusion+rerank+exact_sku_preservation"
