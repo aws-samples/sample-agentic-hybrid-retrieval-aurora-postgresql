@@ -1,0 +1,366 @@
+{
+  "date": "2026-11-08",
+  "source_before": "28c000d78f4468491c948689458e12898b6e2816",
+  "model": "global.anthropic.claude-sonnet-5-5",
+  "method": "synthesize_cited_answer called directly against the development cluster's catalog with fixed records; one run is one synthesis call (one draft and up to two reviews). The production agent retries a refused call with the refusal as feedback. The released arm's quotes are the claim check's rejections; the final arm's also list scope quotes that sat beside the record's own words and were accepted.",
+  "records": {
+    "followup": [
+      140,
+      155
+    ],
+    "setup": [
+      521482,
+      521488,
+      140,
+      155,
+      64,
+      79
+    ]
+  },
+  "arms": {
+    "followup_released": [
+      {
+        "run": 0,
+        "outcome": "SynthesisOutputError",
+        "detail": "claim support: passage 3: The passage cites no record, so its factual claim about what the sources state is not backed by a cited source.; remove the unsupported claim or cite evidence that supports it",
+        "seconds": 29.0,
+        "quotes_not_in_title_or_text": []
+      },
+      {
+        "run": 1,
+        "outcome": "answered",
+        "detail": "",
+        "seconds": 12.8,
+        "quotes_not_in_title_or_text": []
+      },
+      {
+        "run": 2,
+        "outcome": "SynthesisOutputError",
+        "detail": "claim support: passage 7: the quote is not in record 1; copy the record's exact text",
+        "seconds": 16.1,
+        "quotes_not_in_title_or_text": [
+          "Historical parent-product listing. Confirm exact variant and current offer separately.",
+          "Historical parent-product listing. Confirm exact variant and current offer separately."
+        ]
+      },
+      {
+        "run": 3,
+        "outcome": "SynthesisOutputError",
+        "detail": "claim support: passage 7: the quote is not in record 1; copy the record's exact text",
+        "seconds": 18.0,
+        "quotes_not_in_title_or_text": [
+          "One customer's experience of the recorded variant; it does not establish another variant's specifications.",
+          "Historical parent-product listing. Confirm exact variant and current offer separately."
+        ]
+      },
+      {
+        "run": 4,
+        "outcome": "SynthesisOutputError",
+        "detail": "Synthesized sentence contains unsupported numeric claim or availability claim ['100W'] for product 1551237: - If 100W is firm, plan on a separate charger for the laptop. Cite the record that states it in this sentence. Use the cited measurement's original meaning, value and unit. If the sources do n",
+        "seconds": 7.3,
+        "quotes_not_in_title_or_text": []
+      },
+      {
+        "run": 5,
+        "outcome": "SynthesisOutputError",
+        "detail": "claim support: passage 6: the quote is not in record 1; copy the record's exact text",
+        "seconds": 16.1,
+        "quotes_not_in_title_or_text": [
+          "Historical parent-product listing. Confirm exact variant and current offer separately.",
+          "Historical parent-product listing. Confirm exact variant and current offer separately."
+        ]
+      },
+      {
+        "run": 6,
+        "outcome": "SynthesisOutputError",
+        "detail": "Synthesized claim naming product 1551237 does not cite evidence for that product: It does not establish 100W charging for the ViewSonic VG2756-4K. Cite that product's evidence in the same sentence, even when it says a source does not state something.",
+        "seconds": 17.8,
+        "quotes_not_in_title_or_text": []
+      },
+      {
+        "run": 7,
+        "outcome": "answered",
+        "detail": "",
+        "seconds": 11.3,
+        "quotes_not_in_title_or_text": []
+      },
+      {
+        "run": 8,
+        "outcome": "answered",
+        "detail": "",
+        "seconds": 9.2,
+        "quotes_not_in_title_or_text": []
+      },
+      {
+        "run": 9,
+        "outcome": "SynthesisOutputError",
+        "detail": "claim support: passage 6: the quote is not in record 1; copy the record's exact text",
+        "seconds": 19.7,
+        "quotes_not_in_title_or_text": [
+          "Historical parent-product listing. Confirm exact variant and current offer separately.",
+          "Historical parent-product listing. Confirm exact variant and current offer separately."
+        ]
+      },
+      {
+        "run": 10,
+        "outcome": "answered",
+        "detail": "",
+        "seconds": 9.8,
+        "quotes_not_in_title_or_text": []
+      },
+      {
+        "run": 11,
+        "outcome": "SynthesisOutputError",
+        "detail": "Synthesized sentence contains unsupported numeric claim or availability claim ['10W'] for product 1551237: The ViewSonic VG2756-4K is listed with 90W charging over one cable, which is 10W below the 100W your laptop needs, so its records do not show it meets that requirement [1]. Use the cited measur",
+        "seconds": 7.9,
+        "quotes_not_in_title_or_text": []
+      }
+    ],
+    "followup_final": [
+      {
+        "run": 0,
+        "outcome": "SynthesisOutputError",
+        "detail": "claim support: passage 2: Conclusion about meeting the requirement is uncited; it is a factual assessment with no cited record.; remove the unsupported claim or cite evidence that supports it",
+        "seconds": 19.5,
+        "quotes_not_in_title_or_text": []
+      },
+      {
+        "run": 1,
+        "outcome": "SynthesisOutputError",
+        "detail": "claim support: passage 7: The passage cites nothing, and the claim that the monitor falls short of 100W is a factual claim that depends on the uncited 90W figure.; remove the unsupported claim or cite evidence that supports it",
+        "seconds": 23.8,
+        "quotes_not_in_title_or_text": []
+      },
+      {
+        "run": 2,
+        "outcome": "answered",
+        "detail": "",
+        "seconds": 15.9,
+        "quotes_not_in_title_or_text": []
+      },
+      {
+        "run": 3,
+        "outcome": "answered",
+        "detail": "",
+        "seconds": 16.8,
+        "quotes_not_in_title_or_text": [
+          "Historical parent-product listing. Confirm exact variant and current offer separately.",
+          "Historical parent-product listing. Confirm exact variant and current offer separately."
+        ]
+      },
+      {
+        "run": 4,
+        "outcome": "SynthesisOutputError",
+        "detail": "Synthesized claim naming product 1551237 does not cite evidence for that product: - Ask ViewSonic whether a laptop needing 100W would charge fully or only partially from this monitor. Cite that product's evidence in the same sentence, even ",
+        "seconds": 7.9,
+        "quotes_not_in_title_or_text": []
+      },
+      {
+        "run": 5,
+        "outcome": "SynthesisOutputError",
+        "detail": "claim support: passage 8: This factual statement about what the sources do and do not say is uncited, so it cannot be treated as supported or as a non-claim.; remove the unsupported claim or cite evidence that supports it",
+        "seconds": 31.4,
+        "quotes_not_in_title_or_text": []
+      },
+      {
+        "run": 6,
+        "outcome": "SynthesisOutputError",
+        "detail": "claim support: passage 2: The review concerns VG2755-2K/VG2756-2K models, not the VG2756-4K, so attributing it to this monitor is not supported.; remove the unsupported claim or cite evidence that supports it",
+        "seconds": 12.3,
+        "quotes_not_in_title_or_text": []
+      },
+      {
+        "run": 7,
+        "outcome": "SynthesisOutputError",
+        "detail": "Synthesized sentence contains unsupported numeric claim or availability claim ['10W'] for product 1551237: The ViewSonic VG2756-4K is listed with 90W charging over one cable [1], which is 10W below the 100W you need, so the records do not s",
+        "seconds": 9.7,
+        "quotes_not_in_title_or_text": []
+      },
+      {
+        "run": 8,
+        "outcome": "answered",
+        "detail": "",
+        "seconds": 18.7,
+        "quotes_not_in_title_or_text": []
+      },
+      {
+        "run": 9,
+        "outcome": "answered",
+        "detail": "",
+        "seconds": 31.2,
+        "quotes_not_in_title_or_text": [
+          "Historical parent-product listing. Confirm exact variant and current offer separately.",
+          "Historical parent-product listing. Confirm exact variant and current offer separately."
+        ]
+      },
+      {
+        "run": 10,
+        "outcome": "SynthesisOutputError",
+        "detail": "claim support: passage 8 rests on record 1's scope note, \"Historical parent-product listing. Confirm exact variant and current offer separately.\", which is Mosaic's note on what the record can establish, not its words; write that caveat as ",
+        "seconds": 14.1,
+        "quotes_not_in_title_or_text": [
+          "One customer's experience of the recorded variant",
+          "One customer's experience of the recorded variant",
+          "Historical parent-product listing. Confirm exact variant and current offer separately.",
+          "Historical parent-product listing. Confirm exact variant and current offer separately."
+        ]
+      },
+      {
+        "run": 11,
+        "outcome": "answered",
+        "detail": "",
+        "seconds": 12.2,
+        "quotes_not_in_title_or_text": []
+      }
+    ],
+    "setup_released": [
+      {
+        "run": 0,
+        "outcome": "answered",
+        "detail": "",
+        "seconds": 17.2,
+        "quotes_not_in_title_or_text": []
+      },
+      {
+        "run": 1,
+        "outcome": "SynthesisOutputError",
+        "detail": "Synthesized claim naming product 1551237 does not cite evidence for that product: The ViewSonic VG2756-4K is your display. Cite that product's evidence in the same sentence, even when it says a source does not state something.",
+        "seconds": 27.2,
+        "quotes_not_in_title_or_text": []
+      },
+      {
+        "run": 2,
+        "outcome": "answered",
+        "detail": "",
+        "seconds": 15.0,
+        "quotes_not_in_title_or_text": []
+      },
+      {
+        "run": 3,
+        "outcome": "answered",
+        "detail": "",
+        "seconds": 22.2,
+        "quotes_not_in_title_or_text": [
+          "Great work monitor, especially for laptops with USB-C connection"
+        ]
+      },
+      {
+        "run": 4,
+        "outcome": "SynthesisOutputError",
+        "detail": "claim support: passage 4: The reviewer said no one complains about THEIR audio. Passage generalizes to 'people never complain about their audio', misstating the claim.; remove the unsupported claim or cite evidence that supports it",
+        "seconds": 15.1,
+        "quotes_not_in_title_or_text": []
+      },
+      {
+        "run": 5,
+        "outcome": "SynthesisOutputError",
+        "detail": "claim support: passage 9: Passage cites no record, so the claim that no record states how the products relate is uncited.; remove the unsupported claim or cite evidence that supports it",
+        "seconds": 30.8,
+        "quotes_not_in_title_or_text": []
+      },
+      {
+        "run": 6,
+        "outcome": "answered",
+        "detail": "",
+        "seconds": 16.3,
+        "quotes_not_in_title_or_text": []
+      },
+      {
+        "run": 7,
+        "outcome": "SynthesisOutputError",
+        "detail": "claim support: passage 7: The review concerns VG2755-2K/VG2756-2K models, not the VG2756-4K, so it does not establish this monitor's USB-C video and charging experience.; remove the unsupported claim or cite evidence that supports it",
+        "seconds": 16.7,
+        "quotes_not_in_title_or_text": []
+      },
+      {
+        "run": 8,
+        "outcome": "answered",
+        "detail": "",
+        "seconds": 18.3,
+        "quotes_not_in_title_or_text": []
+      },
+      {
+        "run": 9,
+        "outcome": "answered",
+        "detail": "",
+        "seconds": 15.3,
+        "quotes_not_in_title_or_text": []
+      }
+    ],
+    "setup_final": [
+      {
+        "run": 0,
+        "outcome": "answered",
+        "detail": "",
+        "seconds": 24.9,
+        "quotes_not_in_title_or_text": []
+      },
+      {
+        "run": 1,
+        "outcome": "answered",
+        "detail": "",
+        "seconds": 13.6,
+        "quotes_not_in_title_or_text": []
+      },
+      {
+        "run": 2,
+        "outcome": "answered",
+        "detail": "",
+        "seconds": 32.8,
+        "quotes_not_in_title_or_text": [
+          "Headset is highly adjustable in varying angles.",
+          "Headset is highly adjustable in varying angles."
+        ]
+      },
+      {
+        "run": 3,
+        "outcome": "answered",
+        "detail": "",
+        "seconds": 21.0,
+        "quotes_not_in_title_or_text": []
+      },
+      {
+        "run": 4,
+        "outcome": "answered",
+        "detail": "",
+        "seconds": 24.7,
+        "quotes_not_in_title_or_text": []
+      },
+      {
+        "run": 5,
+        "outcome": "answered",
+        "detail": "",
+        "seconds": 16.8,
+        "quotes_not_in_title_or_text": []
+      },
+      {
+        "run": 6,
+        "outcome": "answered",
+        "detail": "",
+        "seconds": 14.5,
+        "quotes_not_in_title_or_text": []
+      },
+      {
+        "run": 7,
+        "outcome": "answered",
+        "detail": "",
+        "seconds": 29.3,
+        "quotes_not_in_title_or_text": []
+      },
+      {
+        "run": 8,
+        "outcome": "answered",
+        "detail": "",
+        "seconds": 16.6,
+        "quotes_not_in_title_or_text": []
+      },
+      {
+        "run": 9,
+        "outcome": "answered",
+        "detail": "",
+        "seconds": 30.2,
+        "quotes_not_in_title_or_text": []
+      }
+    ]
+  }
+}

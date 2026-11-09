@@ -1,6 +1,7 @@
 """False claims must fail even when their citations resolve to the right product."""
 
 import json
+import re
 
 import pytest
 from test_synthesis_claims import evidence, product, validate
@@ -69,6 +70,68 @@ def test_review_must_cover_the_draft_and_quote_its_citations(decisions):
             "Battery life 48 hours [1].",
             [evidence("Battery life 48 hours.")],
         )
+
+
+SCOPE = "Historical parent-product listing. Confirm exact variant and current offer separately."
+
+
+def quoting(quote: str) -> ClaimReview:
+    return ClaimReview.model_validate(
+        {"passages": [support_decision(support=[{"number": 1, "quote": quote}])]}
+    )
+
+
+def test_a_quote_from_a_review_title_counts():
+    # A review's title is the reviewer's words but not part of its text.
+    record = evidence("Battery life 48 hours.", title="Great battery for travel")
+    validate_review(
+        quoting("Great battery for travel"), "Battery life 48 hours [1].", [record]
+    )
+
+
+def scoped(**metadata):
+    return evidence("Battery life 48 hours.").model_copy(update={"metadata": metadata})
+
+
+def test_a_passage_resting_on_the_scope_note_is_the_drafts_fault():
+    # Measured on the 100W follow-up, 8 November: the review quoted the scope note it
+    # is shown beside the listing, which the listing a reader opens does not say.
+    with pytest.raises(
+        ClaimReviewError, match=re.escape("passage 1 rests on record 1's scope note")
+    ) as refused:
+        validate_review(
+            quoting(SCOPE), "Battery life 48 hours [1].", [scoped(scope=SCOPE)]
+        )
+    assert refused.value.verdict
+    assert "write that caveat as a plain step without a citation" in str(refused.value)
+
+
+def test_a_scope_quote_beside_the_records_own_words_adds_nothing():
+    review = ClaimReview.model_validate(
+        {
+            "passages": [
+                support_decision(
+                    support=[
+                        {"number": 1, "quote": "Battery life 48 hours."},
+                        {"number": 1, "quote": SCOPE},
+                    ]
+                )
+            ]
+        }
+    )
+    validate_review(review, "Battery life 48 hours [1].", [scoped(scope=SCOPE)])
+
+
+def test_a_quote_from_other_metadata_breaks_the_review_and_names_the_quote():
+    hint = "At least one query term matches this review."
+    with pytest.raises(
+        ClaimReviewError,
+        match=re.escape(f'passage 1: the quote is not in record 1: "{hint}"'),
+    ) as refused:
+        validate_review(
+            quoting(hint), "Battery life 48 hours [1].", [scoped(retrieval_match=hint)]
+        )
+    assert not refused.value.verdict
 
 
 def test_valid_review_is_independent_of_unrelated_evidence():
