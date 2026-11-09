@@ -38,7 +38,7 @@ Repeat the identical request:
 uv run python scripts/lab_request.py send --lab 1 --phase after
 ```
 
-## Check the exact ID and his description, then hand off
+## Check the exact ID and its description, then hand off
 
 ```bash
 uv run python scripts/lab_state.py advance --lab 1
