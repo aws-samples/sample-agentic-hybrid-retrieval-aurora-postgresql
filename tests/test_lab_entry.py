@@ -35,6 +35,7 @@ class Boundaries:
         self.applied: dict[int, str] = {1: "applied", 2: "stale"}
         self.applies = 0
         self.captures = 0
+        self.phases: list[tuple[int, str]] = []
         self.fail_apply = False
         self.fail_capture = False
         # When set, an apply makes Aurora run the saved files: a SQL lab then
@@ -79,10 +80,13 @@ def aurora(monkeypatch) -> Boundaries:
         if state.fail_capture:
             raise RuntimeError("API restarting")
         state.captures += 1
+        state.phases.append((lab, phase))
         output.mkdir(parents=True, exist_ok=True)
         (output / f"{phase}-state.json").write_text(
             json.dumps({"run_id": f"run-{lab}"})
         )
+        # Every saved search writes the context the guide's psql step loads.
+        (output / "context.psql").write_text(f"-- {phase} run-{lab}\n")
         return output / "context.psql"
 
     monkeypatch.setattr(lab_entry, "assert_workshop_database", lambda _dsn: None)
@@ -238,13 +242,72 @@ def test_a_failed_capture_is_retried_without_repeating_earlier_steps(
 
 def test_an_already_applied_lab_2_repair_saves_no_failing_run(repo, aurora) -> None:
     aurora.applied[2] = "applied"
+
+    record = _start(2, repo)
+
+    assert record["steps"]["evidence"]["note"].startswith("repair already applied")
+    assert aurora.phases == [(2, "after")], "the search as it is now, never a Before"
+    assert (repo / ".local/lab-2/context.psql").exists()
+
+
+@pytest.mark.parametrize("applied", ["applied", "stale"])
+def test_lab_1_start_always_leaves_the_psql_context(repo, aurora, applied) -> None:
+    # psql skips a missing PSQLRC file silently, so Lab 1's first psql step would
+    # open without Alex's request. A repair applied before the start saves no
+    # failing run; the context then comes from the search as it is now.
+    set_lab_state(1, solved=applied == "applied", repo=repo)
+    aurora.applied[1] = applied
+
+    record = _start(1, repo)
+
+    phase = "after" if applied == "applied" else "before"
+    assert aurora.phases == [(1, phase)]
+    assert record.get("completed_at")
+    assert (repo / ".local/lab-1/context.psql").read_text() == f"-- {phase} run-1\n"
+
+
+def test_a_repeated_start_saves_a_missing_context_and_keeps_an_existing_one(
+    repo, aurora
+) -> None:
+    aurora.applied[1] = "applied"
+    lab_entry._save(
+        1,
+        repo,
+        {
+            "version": 1,
+            "lab": 1,
+            "steps": {
+                "evidence": {
+                    "state": "done",
+                    "note": "repair already applied; no failing run saved",
+                }
+            },
+            "completed_at": "2026-11-09T05:00:00+00:00",
+        },
+    )
     said: list[str] = []
 
-    record = _start(2, repo, said)
+    _start(1, repo, said)
+    _start(1, repo, said)
 
-    assert aurora.captures == 0
-    assert record["steps"]["evidence"]["note"].startswith("repair already applied")
-    assert any("already applied" in line for line in said)
+    assert aurora.phases == [(1, "after")], "saved once, then left alone"
+    assert (repo / ".local/lab-1/context.psql").exists()
+    assert all("your edits are unchanged" in line for line in said)
+
+
+def test_a_failed_context_save_keeps_the_start_recorded_for_a_retry(
+    repo, aurora
+) -> None:
+    aurora.applied[1] = "applied"
+    aurora.fail_capture = True
+
+    with pytest.raises(RuntimeError, match="API restarting"):
+        _start(1, repo)
+
+    assert lab_entry.load_record(1, repo)["completed_at"]
+    aurora.fail_capture = False
+    _start(1, repo)
+    assert aurora.phases == [(1, "after")]
 
 
 @pytest.mark.parametrize(

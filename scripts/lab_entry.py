@@ -41,7 +41,6 @@ from service.participant_commands import (
     APPLY_SQL,
     DEPLOY_AGENT,
     grade_setup_run_command,
-    prove_lab_command,
     reset_command,
     start_command,
     validate_applied_command,
@@ -258,10 +257,8 @@ def _failing_search_evidence(
 ) -> dict[str, Any]:
     """Save the lab's failing search, or record why no failing search exists."""
     if applied.state == "applied":
-        say(
-            f"Your Lab {lab} repair is already applied, so no failing run was saved "
-            f"and there is no Before to compare. Next: {prove_lab_command(lab)}"
-        )
+        # The context the guide's psql step loads is saved once the start is
+        # recorded, from the search as it is now (_save_missing_context).
         return {"state": "done", "note": "repair already applied; no failing run saved"}
     from scripts.lab_request import AlreadyRepaired, prepare
 
@@ -312,6 +309,25 @@ def _capture(
     _save(lab, repo, record)
 
 
+def _save_missing_context(lab: int, api_url: str, repo: Path) -> None:
+    """Leave the psql context a SQL lab's guide loads, even when no failing run was saved.
+
+    Only a saved search writes `.local/lab-N/context.psql`, and psql skips a missing
+    `PSQLRC` file without a word. A start that finds the repair already applied, or an
+    already-repaired search, saves no failing run; the context then comes from the
+    search as it is now, as the lab's repeat-request command saves it. It runs after
+    the start is recorded, because that command refuses a lab that has not started.
+    """
+    if lab not in (1, 2):
+        return
+    output = repo / ".local" / f"lab-{lab}"
+    if (output / "context.psql").exists():
+        return
+    from scripts.lab_request import prepare
+
+    prepare(lab, "after", api_url, output)
+
+
 def start(
     lab: int, *, api_url: str, dsn: str | None, repo: Path = REPO, say: Say = print
 ) -> dict[str, Any]:
@@ -330,6 +346,7 @@ def start(
             f"Lab {lab} was started at {started_clock(record['completed_at'])}; "
             "your edits are unchanged."
         )
+        _save_missing_context(lab, api_url, repo)
         return record
     if lab not in FAULT_AT_ENTRY and (missing := missing_file_problem(lab, repo)):
         raise LabEntryError(missing.line)
@@ -351,6 +368,7 @@ def start(
         _capture(lab, api_url, repo, record, connection, say)
     record["completed_at"] = datetime.now(UTC).isoformat()
     _save(lab, repo, record)
+    _save_missing_context(lab, api_url, repo)
     return record
 
 
