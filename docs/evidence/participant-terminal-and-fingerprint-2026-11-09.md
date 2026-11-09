@@ -62,8 +62,19 @@ PostgreSQL 18.6, pgvector 0.8.2, `db.r8g.2xlarge`) at `9b4898ff`.
 
 The clean checkout's fingerprint is now `0228f731`.
 
+## A refused draft, as it happens
+
+The first version of this note said the streaming route sends nothing between a tool call's
+start and the run's answer. That was wrong. The route sends a `partial` event each time the
+run's trace grows, and a draft the answer checks refuse is a trace step
+(`synthesize_cited_answer`, outcome `error`); the agent's next draft is a new tool call with
+its own `tool` event. `ask_agent.py` now reads the trace in each `partial` and prints the
+refusal's reason once, in the words the tool trace uses at the end of the run, followed by
+"the agent drafts again".
+
+This is proven by a test that replays the route's events. It has not been seen on an event:
+the trial run's first draft passed.
+
 ## Not done
 
-- The line cannot say that a draft was refused and is being rewritten: the streaming route
-  sends an event when a tool call starts and nothing more until the run's answer.
 - The guide's screenshots of these commands show the earlier output.

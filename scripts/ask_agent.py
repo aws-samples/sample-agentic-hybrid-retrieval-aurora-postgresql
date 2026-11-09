@@ -4,7 +4,8 @@
 
 The question goes through the same streaming API route as Ask Mosaic, so it reaches your
 Retrieval agent on AgentCore Runtime; while you wait, a bar shows each stage the run reaches
-and each tool call prints as the Retrieval agent makes it. On a terminal the bar is one line
+and each tool call prints as the Retrieval agent makes it. A draft the answer checks refuse
+prints its reason at once, before the agent drafts again. On a terminal the bar is one line
 redrawn in place with the time waited, and the answer prints as the API delivers it, after
 its checks have passed.
 The output shows the answer, the searches the Retrieval agent planned with the
@@ -272,6 +273,7 @@ class _Run:
         self.started, self.reached, self.title = time.monotonic(), -1, ""
         self.live = Waiting(stream) if can_redraw(stream) else None
         self.answer_shown, self._pending, self._doing = False, "", ""
+        self._refused = 0
 
     def _elapsed(self) -> int:
         return int(time.monotonic() - self.started)
@@ -300,6 +302,22 @@ class _Run:
         print(f"      tool call  {name}, {self._elapsed()} s", flush=True)
         self._doing = WAITING_ON.get(name, name)
         self._waiting()
+
+    def partial(self, trace: list[dict[str, Any]]) -> None:
+        """Say why a draft was refused as soon as the run records it.
+
+        The agent drafts again after a refusal, so the wait is longer; the reason is
+        the same line the tool trace prints once the run ends.
+        """
+        refusals = [
+            step.get("detail") or ""
+            for step in trace
+            if step.get("tool") == "synthesize_cited_answer"
+            and step.get("outcome") == "error"
+        ]
+        for detail in refusals[self._refused :]:
+            print(f"      {_refusal(detail)}; the agent drafts again", flush=True)
+        self._refused = max(self._refused, len(refusals))
 
     def _answered(self) -> None:
         self.close()
@@ -339,6 +357,8 @@ def _follow(events: Iterator[tuple[str, dict[str, Any]]], run: _Run) -> dict[str
             run.stage(data)
         elif event == "tool":
             run.tool(data["name"])
+        elif event == "partial":
+            run.partial((data.get("partial") or {}).get("trace") or [])
         elif event == "notice":
             note = fill_words(
                 f"NOTE  {data.get('detail', '')}",

@@ -329,6 +329,44 @@ def test_on_a_terminal_the_answer_arrives_once_and_reads_as_the_saved_run(
     assert out.count("ANSWER") == 1
 
 
+def refused_draft(sequence):
+    return {
+        "sequence": sequence,
+        "tool": "synthesize_cited_answer",
+        "outcome": "error",
+        "detail": "Synthesis failed with SynthesisTruncated: the draft was cut off",
+    }
+
+
+def test_a_refused_draft_is_named_when_it_happens_and_only_once(monkeypatch, capsys):
+    """Each partial carries the whole trace so far; a refusal already shown stays shown."""
+    first, search = refused_draft(2), {"sequence": 1, "tool": "search_products"}
+    monkeypatch.setattr(
+        ask_agent,
+        "urlopen",
+        lambda *_a, **_k: FakeStream(
+            stage("understand", "Interpret request"),
+            ("tool", {"name": "synthesize_cited_answer"}),
+            ("partial", {"partial": {"trace": [search, first]}}),
+            ("tool", {"name": "synthesize_cited_answer"}),
+            ("partial", {"partial": {"trace": [search, first]}}),
+            ("partial", {"partial": {"trace": [search, first, refused_draft(3)]}}),
+            ("partial", {"partial": {}}),
+            ("complete", {"response": declined()}),
+        ),
+    )
+    assert ask_agent.main(["Find headphones for calls"]) == 0
+    lines = capsys.readouterr().out.split("answered in")[0].splitlines()
+
+    said = (
+        "      draft refused: it was cut off before it finished; the agent drafts again"
+    )
+    assert [line for line in lines if "draft refused" in line] == [said, said]
+    assert lines.index(said) < len(lines) - 1 - lines[::-1].index(
+        next(line for line in lines[::-1] if "tool call" in line)
+    )
+
+
 def test_on_a_terminal_a_stopped_run_takes_the_waiting_line_down(monkeypatch, capsys):
     on_a_terminal(monkeypatch)
     monkeypatch.setattr(

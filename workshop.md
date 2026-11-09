@@ -202,7 +202,8 @@ After the deploy, participants ask Alex's setup request from the terminal with
 `uv run python scripts/ask_agent.py "..."`, copied from the guide so it matches
 the request completion checks word for word. While they wait, one line redraws in
 place with the stage, the running tool and the time waited, and each tool call
-stays as its own line. The answer then prints paragraph by paragraph as the API
+stays as its own line. A draft the answer checks refuse prints its reason at once,
+and the agent drafts again. The answer then prints paragraph by paragraph as the API
 delivers it, which it does only after the answer's checks pass, followed by the plan,
 the tool trace with the search SQL Aurora ran, the products, each citation with its
 quote, the outcome and the **Run ID**. They ask the 100W follow-up the same way;
