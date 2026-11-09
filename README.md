@@ -137,6 +137,8 @@ The commands you use most:
 
 A successful deploy or a plausible answer is not completion: each lab ends with the
 guide's checks against the same request, run on the state you applied or deployed.
+On a terminal each check's verdict is coloured: `PASS` green, `FAIL` red and
+`CANNOT GRADE` yellow. The word always prints, and a log or pipe gets the plain line.
 
 Every search calls Amazon Bedrock twice, for the query embedding and for reranking, and
 waits 10 seconds for each attempt. If no attempt answers, the command stops with `This

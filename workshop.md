@@ -156,6 +156,11 @@ without a saved Before shows the search alone. Shop shows symptoms before
 diagnosis and does not credit pre-start searches as repairs.
 Its ordering control sorts the same displayed products; Playground holds the
 full candidate pool.
+Playground's measured comparison of the searches (**Compare searches**, and one
+sentence in its Rank step) describes the reference lab SQL. While a participant's lab
+SQL differs from it, during a lab or after a repair written another way, Playground
+says the comparison is not shown and that the results on the page are live. Comments
+and spacing do not count as a difference.
 
 ### Lab 2: contributions and admission to reranking
 
@@ -195,8 +200,11 @@ long is left.
 
 After the deploy, participants ask Alex's setup request from the terminal with
 `uv run python scripts/ask_agent.py "..."`, copied from the guide so it matches
-the request completion checks word for word. It prints the answer, the plan, the
-tool trace with the search SQL Aurora ran, the products, each citation with its
+the request completion checks word for word. While they wait, one line redraws in
+place with the stage, the running tool and the time waited, and each tool call
+stays as its own line. The answer then prints paragraph by paragraph as the API
+delivers it, which it does only after the answer's checks pass, followed by the plan,
+the tool trace with the search SQL Aurora ran, the products, each citation with its
 quote, the outcome and the **Run ID**. They ask the 100W follow-up the same way;
 each call is its own run. When the answer check refuses a draft, an errored
 `synthesize_cited_answer` step prints `draft refused: <reason>` on the next line;

@@ -171,7 +171,10 @@ complete `create_agent` in `labs/lab3_reason/agent.py`, add one source-aware ins
 and run `uv run python scripts/deploy_agentcore.py deploy`. The managed services and networking are prepared.
 
 Show the deployment message, then ask Alex's setup request from the terminal
-with `uv run python scripts/ask_agent.py "..."`, copied from the guide. Its
+with `uv run python scripts/ask_agent.py "..."`, copied from the guide. One line
+shows the stage, the running tool and the time waited; while the cited answer is
+written it says the answer is drafted, then every claim checked against its source,
+which is most of the wait. The answer prints once those checks pass. The rest of the
 output shows the plan, the tool trace, the products, each citation with its
 quote, the outcome and the **Run ID**; completion finds the newest setup run itself.
 The Retrieval agent searches for Alex's missing chair and brings it together with his Logitech
