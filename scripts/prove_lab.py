@@ -52,6 +52,15 @@ def _require(condition: bool, message: str) -> None:
         raise LabValidationError(message)
 
 
+def error_detail(body: str) -> str:
+    """The API's own sentence when it sent one, so a refusal reads as its reason and Next step."""
+    try:
+        detail = json.loads(body).get("detail")
+    except (ValueError, AttributeError):
+        return body
+    return detail if isinstance(detail, str) else body
+
+
 def _request(
     base_url: str,
     path: str,
@@ -84,7 +93,7 @@ def _request(
             "again, and if it times out twice, give this message to your facilitator"
         ) from error
     except HTTPError as error:
-        detail = error.read().decode("utf-8", errors="replace")
+        detail = error_detail(error.read().decode("utf-8", errors="replace"))
         raise LabValidationError(
             f"{path} returned HTTP {error.code}: {detail}"
         ) from error

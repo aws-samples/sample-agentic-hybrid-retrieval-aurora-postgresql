@@ -100,6 +100,15 @@ attempts, which these settings do not bound. Only one Bedrock call is ever in
 flight per turn (Strands's loop is sequential), so this is a per-turn ceiling
 on background work, not one that accumulates across calls.
 
+Those are the model calls' settings. A search's query embedding and reranking
+calls wait `read_timeout=10s` per attempt instead (`SEARCH_READ_TIMEOUT_SECONDS`
+in `service/bedrock.py`), with the same attempts and backoff. When no attempt
+answers, the search fails closed: `POST /api/search` returns HTTP 503 with
+`This search stopped: Amazon Bedrock's reranking call did not answer within 10
+seconds, even after retrying. Nothing is wrong with your work. Run the same
+command or search again.` (or `embedding call` for the query embedding), and the
+lab commands print that sentence after `/api/search returned HTTP 503:`.
+
 ## Session and memory
 
 `GET /api/session-memory/identity` initializes an opaque, HttpOnly browser cookie.

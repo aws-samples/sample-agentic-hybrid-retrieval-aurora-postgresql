@@ -31,6 +31,10 @@ class ModelRuntimeError(RuntimeError):
     """A safe, actionable failure from the configured model runtime."""
 
 
+class BedrockTimeoutError(ModelRuntimeError):
+    """A search's Bedrock call never answered; its message tells the participant to rerun."""
+
+
 def _causes(error: BaseException) -> Iterator[BaseException]:
     """Yield an exception and its explicit causal chain once each."""
     seen: set[int] = set()
@@ -57,6 +61,9 @@ def model_error_code(error: BaseException) -> str | None:
 
 def model_runtime_error(error: BaseException) -> ModelRuntimeError | None:
     """Convert a model-runtime failure into a bounded participant-facing error."""
+    for cause in _causes(error):
+        if isinstance(cause, BedrockTimeoutError):
+            return cause
     code = model_error_code(error)
     if code in _AUTHENTICATION_MESSAGES:
         return ModelRuntimeError(_AUTHENTICATION_MESSAGES[code])

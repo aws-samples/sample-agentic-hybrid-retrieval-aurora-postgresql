@@ -32,7 +32,7 @@ from urllib.request import Request, urlopen
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scripts.progress import bar
-from scripts.prove_lab import LabValidationError
+from scripts.prove_lab import LabValidationError, error_detail
 from scripts.terminal_text import fill_words, wrap_words
 from service.config import get_settings
 from service.lab_validation_receipt import participant_sql_digest
@@ -298,7 +298,7 @@ def ask(base_url: str, question: str, *, timeout: float) -> dict[str, Any]:
             "again, and if it times out twice, give this message to your facilitator"
         ) from error
     except HTTPError as error:
-        detail = _error_detail(error.read().decode("utf-8", errors="replace"))
+        detail = error_detail(error.read().decode("utf-8", errors="replace"))
         raise LabValidationError(
             f"{STREAM_PATH} returned HTTP {error.code}: {detail}"
         ) from error
@@ -320,15 +320,6 @@ def ask(base_url: str, question: str, *, timeout: float) -> dict[str, Any]:
         f"{STREAM_PATH} closed before the answer; fix: run the command again, and if "
         "it happens twice, give this message to your facilitator"
     )
-
-
-def _error_detail(body: str) -> str:
-    """The API's own sentence when it sent one, so a refusal reads as its reason and Next step."""
-    try:
-        detail = json.loads(body).get("detail")
-    except (ValueError, AttributeError):
-        return body
-    return detail if isinstance(detail, str) else body
 
 
 def response_timeout() -> float:

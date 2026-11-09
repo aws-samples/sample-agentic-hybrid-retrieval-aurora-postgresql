@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import json
 from collections.abc import Sequence
-from typing import Protocol
+from typing import Any, Protocol
 
-from service.bedrock import get_bedrock_client
+from service.bedrock import get_bedrock_client, search_call_timeout
 from service.config import Settings, get_settings
 
 
@@ -53,13 +53,19 @@ class BedrockEmbeddingProvider:
         self.model_id = settings.embedding_model_id
         self.dimensions = settings.vector_dimension
         self.client = get_bedrock_client("bedrock-runtime", settings.aws_region)
+        # A search waits for its query embedding; a catalog build's batches may take longer.
+        self.query_client = get_bedrock_client(
+            "bedrock-runtime", settings.aws_region, search_step=True
+        )
 
-    def _embed(self, texts: Sequence[str], input_type: str) -> list[list[float]]:
+    def _embed(
+        self, texts: Sequence[str], input_type: str, client: Any
+    ) -> list[list[float]]:
         if not texts:
             return []
         if "cohere.embed" in self.model_id:
             body = _cohere_request(texts, self.dimensions, input_type)
-            response = self.client.invoke_model(
+            response = client.invoke_model(
                 modelId=self.model_id,
                 body=json.dumps(body),
                 accept="application/json",
@@ -69,7 +75,7 @@ class BedrockEmbeddingProvider:
         else:
             vectors = []
             for text in texts:
-                response = self.client.invoke_model(
+                response = client.invoke_model(
                     modelId=self.model_id,
                     body=json.dumps(
                         {
@@ -96,10 +102,11 @@ class BedrockEmbeddingProvider:
         return vectors
 
     def embed_query(self, text: str) -> list[float]:
-        return self._embed([text], "search_query")[0]
+        with search_call_timeout("embedding"):
+            return self._embed([text], "search_query", self.query_client)[0]
 
     def embed_documents(self, texts: Sequence[str]) -> list[list[float]]:
-        return self._embed(texts, "search_document")
+        return self._embed(texts, "search_document", self.client)
 
 
 def get_embedding_provider() -> EmbeddingProvider:

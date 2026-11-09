@@ -710,10 +710,13 @@ def test_scorecard_import_closure_is_covered_or_explicitly_excluded():
     # paths only say which files the manifest hashes, and moving one already
     # changes the fingerprint through the hashed paths. The search SQL list
     # names files the manifest already hashes, and its applied-SQL record is
-    # read back for display; neither changes what a search returns.
+    # read back for display; neither changes what a search returns. Model-runtime
+    # error classification only words a failed Bedrock call; a search that returns
+    # results never reads it.
     excluded = {
         "service/config.py",
         "service/db.py",
+        "service/model_runtime.py",
         "service/product_specs.py",
         "service/lab_files.py",
         "service/search_sql.py",

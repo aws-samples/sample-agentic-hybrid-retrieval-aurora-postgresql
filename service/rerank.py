@@ -7,7 +7,7 @@ from math import isfinite
 from numbers import Real
 from typing import Any, Protocol
 
-from service.bedrock import get_bedrock_client
+from service.bedrock import get_bedrock_client, search_call_timeout
 from service.config import Settings, get_settings
 
 
@@ -86,7 +86,9 @@ class BedrockReranker:
         settings = settings or get_settings()
         self.model_id = settings.rerank_model_id
         self.region = settings.aws_region
-        self.client = get_bedrock_client("bedrock-agent-runtime", self.region)
+        self.client = get_bedrock_client(
+            "bedrock-agent-runtime", self.region, search_step=True
+        )
         self.model_arn = (
             self.model_id
             if self.model_id.startswith("arn:")
@@ -111,17 +113,18 @@ class BedrockReranker:
             }
             for document in documents
         ]
-        response = self.client.rerank(
-            queries=[{"type": "TEXT", "textQuery": {"text": query}}],
-            sources=sources,
-            rerankingConfiguration={
-                "type": "BEDROCK_RERANKING_MODEL",
-                "bedrockRerankingConfiguration": {
-                    "modelConfiguration": {"modelArn": self.model_arn},
-                    "numberOfResults": min(top_n, len(documents)),
+        with search_call_timeout("reranking"):
+            response = self.client.rerank(
+                queries=[{"type": "TEXT", "textQuery": {"text": query}}],
+                sources=sources,
+                rerankingConfiguration={
+                    "type": "BEDROCK_RERANKING_MODEL",
+                    "bedrockRerankingConfiguration": {
+                        "modelConfiguration": {"modelArn": self.model_arn},
+                        "numberOfResults": min(top_n, len(documents)),
+                    },
                 },
-            },
-        )
+            )
         raw_results = response.get("results")
         if not isinstance(raw_results, list):
             raise RerankResponseError(
