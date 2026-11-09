@@ -1,37 +1,34 @@
 {
   "kind": "measured",
-  "measured_at": "2026-09-26T16:24:42.564655+00:00",
-  "label": "workers7-mwm8g",
+  "measured_at": "2026-11-09T15:21:13.712884+00:00",
+  "label": "session-defaults",
   "provenance": {
-    "source_revision": "7bea92fe5bc4c244fb02dc0827606acbe9832ef7",
-    "source_worktree_dirty": true,
+    "source_revision": "357af1ddc2ac927366173c7a0276966067c00936",
+    "source_worktree_dirty": false,
     "dataset_id": "reviews-2023-v2",
     "dataset_manifest_sha256": "c4d5913f89050332f71512baf2a0351331208ab94eac0621be9ac63e653cfa00",
     "instance_class": "db.r8g.2xlarge",
     "database_instance_id": "agenticretrievalcorestack-aurorapostgresretrievalc-5wdg4dpl2bg2",
-    "database_version": "18.3",
-    "vector_extension_version": "0.8.1",
+    "database_version": "18.6",
+    "vector_extension_version": "0.8.2",
     "vector_count": 553911,
-    "command": "scripts/benchmark_index_build.py --workers 7 --maintenance-work-mem 8GB --repeat 1 --label workers7-mwm8g",
-    "method": "one plain CREATE INDEX per run on the served catalog's physical table, benchmark-owned name, production m and ef_construction, session settings read back from pg_settings; the serving index is untouched; wall clock measured from the client",
-    "relabelled": {
-      "note": "Relabelled on 2026-10-13 to the catalog's current index, table and schema names, without re-measuring. Those were catalog-only renames (ALTER INDEX/TABLE ... RENAME, SET SCHEMA) of the same index and table; docs/current-scale-benchmarks.md lists them."
-    }
+    "command": "scripts/bench/benchmark_index_build.py --repeat 1 --label session-defaults",
+    "method": "one plain CREATE INDEX per run on the served catalog's physical table, benchmark-owned name, production m and ef_construction, session settings read back from pg_settings; the serving index is untouched; wall clock measured from the client"
   },
   "runs": [
     {
       "index": "mosaic_search.product_search_vector_idx_bench",
       "statement": "CREATE INDEX \"product_search_vector_idx_bench\" ON \"mosaic_search\".\"product_listing\" USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 200)",
-      "started_at": "2026-09-26T16:23:04.306684+00:00",
-      "seconds": 98.07,
-      "size_bytes": 4534632448,
+      "started_at": "2026-11-09T15:11:22.416274+00:00",
+      "seconds": 590.22,
+      "size_bytes": 4534624256,
       "settings": {
         "maintenance_work_mem": {
-          "setting": "8388608",
+          "setting": "1057792",
           "unit": "kB"
         },
         "max_parallel_maintenance_workers": {
-          "setting": "7",
+          "setting": "2",
           "unit": null
         },
         "max_parallel_workers": {
@@ -51,8 +48,7 @@
           "unit": "kB"
         }
       },
-      "kept": false,
-      "settings_note": "captured as concatenated setting+unit strings and split into pairs afterwards; shared_buffers is in 8 kB pages"
+      "kept": false
     }
   ],
   "history": [
@@ -87,6 +83,64 @@
             },
             "max_parallel_maintenance_workers": {
               "setting": "2",
+              "unit": null
+            },
+            "max_parallel_workers": {
+              "setting": "8",
+              "unit": null
+            },
+            "max_worker_processes": {
+              "setting": "16",
+              "unit": null
+            },
+            "shared_buffers": {
+              "setting": "5443689",
+              "unit": "8kB"
+            },
+            "work_mem": {
+              "setting": "4096",
+              "unit": "kB"
+            }
+          },
+          "kept": false,
+          "settings_note": "captured as concatenated setting+unit strings and split into pairs afterwards; shared_buffers is in 8 kB pages"
+        }
+      ]
+    },
+    {
+      "kind": "measured",
+      "measured_at": "2026-09-26T16:24:42.564655+00:00",
+      "label": "workers7-mwm8g",
+      "provenance": {
+        "source_revision": "7bea92fe5bc4c244fb02dc0827606acbe9832ef7",
+        "source_worktree_dirty": true,
+        "dataset_id": "reviews-2023-v2",
+        "dataset_manifest_sha256": "c4d5913f89050332f71512baf2a0351331208ab94eac0621be9ac63e653cfa00",
+        "instance_class": "db.r8g.2xlarge",
+        "database_instance_id": "agenticretrievalcorestack-aurorapostgresretrievalc-5wdg4dpl2bg2",
+        "database_version": "18.3",
+        "vector_extension_version": "0.8.1",
+        "vector_count": 553911,
+        "command": "scripts/benchmark_index_build.py --workers 7 --maintenance-work-mem 8GB --repeat 1 --label workers7-mwm8g",
+        "method": "one plain CREATE INDEX per run on the served catalog's physical table, benchmark-owned name, production m and ef_construction, session settings read back from pg_settings; the serving index is untouched; wall clock measured from the client",
+        "relabelled": {
+          "note": "Relabelled on 2026-10-13 to the catalog's current index, table and schema names, without re-measuring. Those were catalog-only renames (ALTER INDEX/TABLE ... RENAME, SET SCHEMA) of the same index and table; docs/current-scale-benchmarks.md lists them."
+        }
+      },
+      "runs": [
+        {
+          "index": "mosaic_search.product_search_vector_idx_bench",
+          "statement": "CREATE INDEX \"product_search_vector_idx_bench\" ON \"mosaic_search\".\"product_listing\" USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 200)",
+          "started_at": "2026-09-26T16:23:04.306684+00:00",
+          "seconds": 98.07,
+          "size_bytes": 4534632448,
+          "settings": {
+            "maintenance_work_mem": {
+              "setting": "8388608",
+              "unit": "kB"
+            },
+            "max_parallel_maintenance_workers": {
+              "setting": "7",
               "unit": null
             },
             "max_parallel_workers": {
