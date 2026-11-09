@@ -21,7 +21,7 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
 from scripts.progress import Progress
-from scripts.terminal_text import fill_words
+from scripts.terminal_text import fill_words, paint
 from service.agent_setup import AGENT_NOT_BUILT
 from service.catalog_runtime import search_schema
 from service.lab_files import (
@@ -260,10 +260,6 @@ def _outside_markers(source: str, blocks: list[Block]) -> tuple[list[str], list[
     return [lines[index] for index in kept], [index + 1 for index in kept]
 
 
-def _paint(line: str, code: str, color: bool) -> str:
-    return f"\033[{code}m{line}\033[0m" if color else line
-
-
 # Commands sit on their own lines under a short label, so a long line never wraps
 # mid-word in a terminal and each command copies whole.
 COMMAND_INDENT = "      "
@@ -380,7 +376,7 @@ def lab_diff(
         report += ["", f"{where}:"]
         for name, lines, code in versions:
             report.append(f"  {name}:" if lines else f"  {name}: (nothing here)")
-            report += [_paint(f"      {line[indent:]}", code, color) for line in lines]
+            report += [paint(f"      {line[indent:]}", code, color) for line in lines]
     footer = _diff_footer(
         lab, block_differs=bool(inside), outside_differs=bool(outside), answer=answer
     )

@@ -17,6 +17,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from scripts.terminal_text import verdict
 from service.catalog import get_evidence_record, get_product_summaries
 from service.catalog_runtime import active_dataset
 from service.db import connect
@@ -81,7 +82,7 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 2
-    print(("PASS: " if passed else "BLOCKED: ") + detail)
+    print(verdict(("PASS: " if passed else "BLOCKED: ") + detail))
     return 0 if passed else 1
 
 

@@ -30,6 +30,7 @@ from scripts.lab_entry import (
     load_record,
 )
 from scripts.lab_state import LabProblem, explain_problems
+from scripts.terminal_text import verdict
 from service import lab_checks
 from service.config import get_settings
 from service.lab_checks import AgentEvidence, LabCheck, RetrievalReceipt
@@ -468,13 +469,18 @@ def main() -> int:
 
         entered = entry_check(args.lab, REPO)
         if not entered.passed:
-            raise SystemExit(f"Lab {args.lab}: FAIL. {entered.detail}")
+            raise SystemExit(
+                verdict(f"Lab {args.lab}: FAIL. {entered.detail}", sys.stderr)
+            )
     if args.lab in {1, 2}:
         problem = applied_sql_problem(args.lab)
         if problem is not None:
             raise SystemExit(
-                explain_problems(
-                    f"Lab {args.lab}: FAIL", [problem], prove_lab_command(args.lab)
+                verdict(
+                    explain_problems(
+                        f"Lab {args.lab}: FAIL", [problem], prove_lab_command(args.lab)
+                    ),
+                    sys.stderr,
                 )
             )
     events: list[str] = []
@@ -489,9 +495,11 @@ def main() -> int:
             else validator(args.api_url, events)
         )
     except LabValidationError as error:
-        raise SystemExit(f"Lab {args.lab}: FAIL. {error}") from error
+        raise SystemExit(
+            verdict(f"Lab {args.lab}: FAIL. {error}", sys.stderr)
+        ) from error
     for check in checks:
-        print(f"PASS: {check}")
+        print(verdict(f"PASS: {check}"))
     if args.reference:
         print(
             f"Lab {args.lab}: the reference answer passed; this is a maintainer "

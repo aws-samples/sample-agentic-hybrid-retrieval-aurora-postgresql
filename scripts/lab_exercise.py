@@ -36,7 +36,7 @@ sys.path.insert(0, str(REPO))
 from psycopg.rows import dict_row
 
 from scripts import lab2_tuning, lab_state
-from scripts.terminal_text import fill_words, wrap_words
+from scripts.terminal_text import fill_words, verdict, wrap_words
 from service.catalog_runtime import LIVE_INDEXES
 from service.lab_files import LAB2_SQL
 from service.participant_commands import (
@@ -744,7 +744,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         report = grade(args.lab, work)
     except ExerciseError as error:
-        print(f"Lab {args.lab} exercise: CANNOT GRADE - {error}")
+        print(verdict(f"Lab {args.lab} exercise: CANNOT GRADE - {error}"))
         return 2
     {1: _print_lab1, 2: _print_lab2, 3: _print_lab3}[args.lab](report)
     report.update(
@@ -764,8 +764,12 @@ def main(argv: list[str] | None = None) -> int:
     receipt.parent.mkdir(parents=True, exist_ok=True)
     receipt.write_text(json.dumps(report, indent=2, default=str) + "\n")
     for failure in report["failures"]:
-        print(failure_lines(failure))
-    print(f"Lab {args.lab} exercise: {report['verdict']} ({receipt.relative_to(REPO)})")
+        print(verdict(failure_lines(failure)))
+    print(
+        verdict(
+            f"Lab {args.lab} exercise: {report['verdict']} ({receipt.relative_to(REPO)})"
+        )
+    )
     return 1 if report["failures"] else 0
 
 

@@ -15,13 +15,13 @@ changed.
 from __future__ import annotations
 
 import argparse
-import os
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scripts.lab_state import LABS, REPO, lab_diff
+from scripts.terminal_text import use_color
 
 
 def lab_for(name: str) -> int:
@@ -65,7 +65,7 @@ def main() -> int:
         "--answer", action="store_true", help="also print the reference answer's lines"
     )
     args = parser.parse_args()
-    color = sys.stdout.isatty() and "NO_COLOR" not in os.environ
+    color = use_color(sys.stdout)
     try:
         print(report(args.file, color=color, answer=args.answer))
     except ValueError as error:

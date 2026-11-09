@@ -29,6 +29,7 @@ from dotenv import load_dotenv
 
 from scripts import lab_exercise
 from scripts.lab_request import sql_context
+from scripts.terminal_text import verdict
 
 # Runs are compared in Python, with the completion check's own rule for "the same
 # request"; a participant asks a handful, so a bounded window holds them all.
@@ -126,8 +127,10 @@ def _pick_run() -> UUID | None:
             else f"found no run of Alex's setup request{since}"
         )
         print(
-            f"Lab 3 exercise: CANNOT GRADE - {found}. "
-            f"Next: ask it with\n{ask_setup_command()}\nthen run this command again."
+            verdict(
+                f"Lab 3 exercise: CANNOT GRADE - {found}. "
+                f"Next: ask it with\n{ask_setup_command()}\nthen run this command again."
+            )
         )
         return None
     print(_choice(pick))
@@ -145,14 +148,16 @@ def main() -> int:
         run_id = args.run_id or _pick_run()
     except RuntimeError as error:
         # An unreadable Lab 3 start record names its own fix.
-        print(f"Lab 3 exercise: CANNOT GRADE - {error}")
+        print(verdict(f"Lab 3 exercise: CANNOT GRADE - {error}"))
         return 2
     except psycopg.Error as error:
         print(
-            "Lab 3 exercise: CANNOT GRADE - Aurora did not answer "
-            f"({type(error).__name__}). Next: open a new terminal from the Terminal "
-            "menu, which loads the workshop settings, and run this command again; if it "
-            "repeats, tell your facilitator."
+            verdict(
+                "Lab 3 exercise: CANNOT GRADE - Aurora did not answer "
+                f"({type(error).__name__}). Next: open a new terminal from the Terminal "
+                "menu, which loads the workshop settings, and run this command again; if "
+                "it repeats, tell your facilitator."
+            )
         )
         return 2
     if run_id is None:

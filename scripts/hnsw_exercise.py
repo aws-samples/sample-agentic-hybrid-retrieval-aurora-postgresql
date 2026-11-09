@@ -34,6 +34,7 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
 from scripts.lab_exercise import ExerciseError, _connect, interpolate
+from scripts.terminal_text import verdict
 
 INDEX_WORK = Path(".local/hnsw/index.sql")
 SEARCH_WORK = Path(".local/hnsw/search.sql")
@@ -269,7 +270,7 @@ def main() -> int:
             )
         report = grade(index, search)
     except ExerciseError as error:
-        print(f"Shrink it: CANNOT GRADE - {error}")
+        print(verdict(f"Shrink it: CANNOT GRADE - {error}"))
         return 2
     for number, build in enumerate(report["builds"], start=1):
         print(
@@ -282,7 +283,7 @@ def main() -> int:
         f"yours is {report['size_ratio_vs_full_precision']:.0%} of it"
     )
     for failure in report["failures"]:
-        print(f"FAIL: {failure}")
+        print(verdict(f"FAIL: {failure}"))
     tier = (
         "FAST AND SMALL" if report["small"] else "FAST" if report["fast"] else "NOT YET"
     )

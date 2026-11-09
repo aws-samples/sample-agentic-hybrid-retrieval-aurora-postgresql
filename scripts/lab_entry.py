@@ -35,6 +35,7 @@ from scripts.lab_state import (
     set_lab_state,
     source_problem,
 )
+from scripts.terminal_text import verdict
 from service.participant_commands import (
     ADVANCE_TO_LAB_2,
     ADVANCE_TO_LAB_3,
@@ -480,7 +481,7 @@ def _advance_lab_2(
     )
     checks = prove_lab_2(api_url, events, rerun=ADVANCE_TO_LAB_3)
     for check in checks:
-        say(f"PASS: {check}")
+        say(verdict(f"PASS: {check}"))
     record_completion(2, checks, events, repo)
     say("Lab 2: production-path validation passed. Passing evidence saved.")
     say("Preparing Lab 3: install the Retrieval agent's starting code once.")
@@ -549,7 +550,7 @@ def _advance_lab_1(
         )
         checks = prove_lab_1(api_url, events, rerun=ADVANCE_TO_LAB_2)
         for check in checks:
-            say(f"PASS: {check}")
+            say(verdict(f"PASS: {check}"))
         record_completion(1, checks, events, repo)
         saved = {"binding": binding, "checks": checks, "search_event_ids": events}
         path.parent.mkdir(parents=True, exist_ok=True)
