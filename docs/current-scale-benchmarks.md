@@ -195,26 +195,29 @@ What the tables establish:
 ## Index build
 
 Measured separately by `make benchmark-index-build` on the same cluster and
-table right after the first retrieval run, each as one plain `CREATE INDEX`
-of a benchmark-owned index with the production `m=16, ef_construction=200`;
-the serving index was never dropped. Settings are the values the server
-reported from `pg_settings` for that session.
+table on 9 November, right after the retrieval run, on Aurora PostgreSQL 18.6
+with pgvector 0.8.2. Each is one plain `CREATE INDEX` of a benchmark-owned index
+with the production `m=16, ef_construction=200`; the serving index was never
+dropped, and no benchmark index remained afterwards. Settings are the values
+the server reported from `pg_settings` for that session.
 
-| Session settings | Build time | Index size |
-|---|---:|---:|
-| Aurora defaults: `maintenance_work_mem` 1,057,792 kB (about 1 GiB), `max_parallel_maintenance_workers` 2 | 567.4 s | 4,534,632,448 bytes |
-| `maintenance_work_mem` 8 GB, `max_parallel_maintenance_workers` 7 | 98.1 s | 4,534,632,448 bytes |
+| Session settings | Build time, 18.6 | Build time, 18.3 (26 September) | Index size |
+|---|---:|---:|---:|
+| Aurora defaults: `maintenance_work_mem` 1,057,792 kB (about 1 GiB), `max_parallel_maintenance_workers` 2 | 590.2 s | 567.4 s | 4,534,624,256 bytes |
+| `maintenance_work_mem` 8 GB, `max_parallel_maintenance_workers` 7 | 95.8 s and 120.5 s | 98.1 s | 4,534,632,448 bytes |
 
 The memory setting is the lever on this catalog: with 1 GiB the graph no
-longer fits in maintenance memory and pgvector builds it in passes. For
-context only, the catalog's own projection log recorded 552 s for the
-serving index with seven workers and the default memory on 25 September; it
-is an earlier build's log line, not part of this measurement.
+longer fits in maintenance memory and pgvector builds it in passes, five to six
+times slower. The two 8 GB builds on 9 November, minutes apart, differed by a
+quarter, so a single build time is not a ranking between engine versions. For
+context only, the catalog's own projection log recorded 552 s for the serving
+index with seven workers and the default memory on 25 September; it is an
+earlier build's log line, not part of this measurement.
 
-Both build records carry `source_worktree_dirty: true` because the retrieval
-artifact written a step earlier sat untracked in the checkout while they ran;
-no source file differed from revision `3f5a379` (first build) or `7bea92f`
-(second build). The artifact is
+The 120.5 s record carries `source_worktree_dirty: true` because this document
+was being edited in the checkout while it ran; the 95.8 s rerun and the
+default-settings build ran from clean checkouts (`417a92d7` and `357af1dd`). Every
+run, including the 18.3 records, stays in the artifact's history:
 [`hnsw_index_build.json`](../data/benchmarks/hnsw_index_build.json).
 
 ## What this measures
