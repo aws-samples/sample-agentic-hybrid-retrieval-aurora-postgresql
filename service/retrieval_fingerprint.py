@@ -44,6 +44,19 @@ Manifest, and why each entry earns its place
   inline (a ``judgments`` key per row), covering both the query population
   and the grades.
 
+The two lab SQL files are hashed by their SQL, not their bytes
+---------------------------------------------------------------
+Every other manifest file contributes the sha256 of its bytes. The two lab SQL
+files are the ones a participant edits, and a correct repair is rarely
+byte-identical to the reference: the 9 November 2026 test event's Lab 2 fix
+changed the one wrong term, kept the exercise's two ``TODO`` comment lines, and
+moved the fingerprint (``214adcdc`` measured, ``490c2104`` running), so the
+Playground withheld its measured stage comparison from a participant whose SQL
+ran exactly as measured. `lab_sql_tokens` therefore reads those two files as
+PostgreSQL does: comments and whitespace separate tokens and are otherwise
+discarded, and string literals and quoted identifiers are kept verbatim. Any
+edit to a token still moves the fingerprint.
+
 Added to the manifest specified by the request, and why
 ---------------------------------------------------------
 - ``data/evals/mosaic_labs_missions.json``: ``scripts/evals/eval_contract.py``'s
@@ -204,6 +217,87 @@ class RetrievalFingerprintError(RuntimeError):
 def explain(found: str, fix: str) -> str:
     """Render a failure in the house style: offending value, then nearest fix."""
     return f"found {found}; fix: {fix}"
+
+
+def _quoted_end(text: str, start: int, quote: str) -> int:
+    """Index just past the literal or quoted identifier opening at `start`.
+
+    A doubled quote is an escaped quote. An unterminated one runs to the end of
+    the text, so a file caught mid-edit still hashes, and differs from the
+    reference.
+    """
+    index = start + 1
+    while index < len(text):
+        if text[index] == quote:
+            if text[index + 1 : index + 2] != quote:
+                return index + 1
+            index += 1
+        index += 1
+    return len(text)
+
+
+def _block_comment_end(text: str, start: int) -> int:
+    """Index just past the block comment opening at `start`; PostgreSQL nests them."""
+    depth, index = 1, start + 2
+    while index < len(text) and depth:
+        pair = text[index : index + 2]
+        if pair == "/*":
+            depth, index = depth + 1, index + 2
+        elif pair == "*/":
+            depth, index = depth - 1, index + 2
+        else:
+            index += 1
+    return index
+
+
+def _word_end(text: str, start: int) -> int:
+    index = start
+    while index < len(text) and (text[index].isalnum() or text[index] == "_"):
+        index += 1
+    return index
+
+
+def lab_sql_tokens(text: str) -> list[str]:
+    """The tokens of a lab SQL file, without its comments and whitespace.
+
+    Dollar-quote delimiters are ordinary tokens, so the body of a
+    ``LANGUAGE sql`` function is read as SQL too: the lab exercises sit inside
+    one. Words, quoted strings and quoted identifiers are one token each, and
+    every other character is its own token.
+    """
+    tokens: list[str] = []
+    index = 0
+    while index < len(text):
+        char = text[index]
+        pair = text[index : index + 2]
+        if char.isspace():
+            index += 1
+        elif pair == "--":
+            newline = text.find("\n", index)
+            index = len(text) if newline == -1 else newline
+        elif pair == "/*":
+            index = _block_comment_end(text, index)
+        else:
+            if char in "'\"":
+                end = _quoted_end(text, index, char)
+            elif char.isalnum() or char == "_":
+                end = _word_end(text, index)
+            else:
+                end = index + 1
+            tokens.append(text[index:end])
+            index = end
+    return tokens
+
+
+def _lab_sql_sha256(path: Path) -> str:
+    tokens = lab_sql_tokens(path.read_text(encoding="utf-8"))
+    return hashlib.sha256("\n".join(tokens).encode("utf-8")).hexdigest()
+
+
+def _manifest_sha256(path: Path, lab_sql: frozenset[Path]) -> str:
+    if path in lab_sql:
+        return _lab_sql_sha256(path)
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def _category_files(repo_root: Path) -> dict[str, tuple[Path, ...]]:
@@ -474,15 +568,17 @@ def compute_retrieval_fingerprint(repo_root: Path | None = None) -> str:
 
     Each file contributes one ``relative/posix/path:sha256\\n`` line; the
     fingerprint is the sha256 of the concatenation of those lines, in
-    path-sorted order. Deterministic across machines and checkouts: paths are
-    always POSIX-normalized and relative to `repo_root`, never absolute, so
-    the fingerprint does not change just because the repository was cloned to
-    a different directory.
+    path-sorted order. The sha256 is over the file's bytes, except for the two
+    lab SQL files, which contribute the sha256 of `lab_sql_tokens`.
+    Deterministic across machines and checkouts: paths are always
+    POSIX-normalized and relative to `repo_root`, never absolute, so the
+    fingerprint does not change just because the repository was cloned to a
+    different directory.
     """
     root = repo_root or REPO
+    lab_sql = frozenset({root / LAB1_SQL, root / LAB2_SQL})
     lines = [
-        f"{path.relative_to(root).as_posix()}:"
-        f"{hashlib.sha256(path.read_bytes()).hexdigest()}\n"
+        f"{path.relative_to(root).as_posix()}:{_manifest_sha256(path, lab_sql)}\n"
         for path in manifest_files(root)
     ]
     return hashlib.sha256("".join(lines).encode("utf-8")).hexdigest()

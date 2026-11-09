@@ -34,6 +34,7 @@ from service.retrieval_fingerprint import (
     compute_retrieval_fingerprint,
     compute_retrieval_settings_sha256,
     compute_scorecard_methodology_sha256,
+    lab_sql_tokens,
     manifest_files,
     retrieval_settings_payload,
 )
@@ -205,6 +206,97 @@ def test_fingerprint_is_deterministic_and_path_independent(tmp_path):
 
     assert first == second
     assert first == compute_retrieval_fingerprint(repo_root=first_root)
+
+
+# --- Lab SQL is fingerprinted by its tokens --------------------------------
+
+_LAB2 = Path("labs") / "lab2_rank" / "rrf_contribution.sql"
+_LAB2_REFERENCE = (
+    "CREATE FUNCTION f(source_rank bigint, rrf_k integer) AS $$\n"
+    "-- LAB2_EDIT_START\n"
+    "SELECT\n"
+    "    1.0::double precision\n"
+    "    / (\n"
+    "        rrf_k::double precision\n"
+    "        + source_rank::double precision\n"
+    "    )\n"
+    "-- LAB2_EDIT_END\n"
+    "$$;\n"
+)
+
+
+def _lab2_fingerprint(root: Path, sql: str) -> str:
+    _write(root / _LAB2, sql)
+    return compute_retrieval_fingerprint(repo_root=root)
+
+
+def test_a_correct_repair_that_keeps_the_exercise_comments_matches_the_reference(
+    fake_repo,
+):
+    """The 9 November 2026 test event's Lab 2 fix: the one wrong term changed,
+    the two TODO lines kept. Aurora runs the same SQL as the reference."""
+    reference = _lab2_fingerprint(fake_repo, _LAB2_REFERENCE)
+    kept_comments = _LAB2_REFERENCE.replace(
+        "-- LAB2_EDIT_START\n",
+        "-- LAB2_EDIT_START\n"
+        "-- TODO(Lab 2): replace the SELECT below so each position earns its own score.\n"
+        "-- Keep the signature, the double precision result and the configured rrf_k.\n",
+    )
+
+    assert _lab2_fingerprint(fake_repo, kept_comments) == reference
+
+
+def test_reformatting_a_lab_repair_matches_the_reference(fake_repo):
+    reference = _lab2_fingerprint(fake_repo, _LAB2_REFERENCE)
+    one_line = (
+        "CREATE FUNCTION f(source_rank bigint,rrf_k integer) AS $$ /* mine */\n"
+        "SELECT 1.0::double precision/(rrf_k::double precision+source_rank::double precision)\n"
+        "$$;"
+    )
+
+    assert _lab2_fingerprint(fake_repo, one_line) == reference
+
+
+def test_the_lab_2_fault_still_moves_the_fingerprint(fake_repo):
+    reference = _lab2_fingerprint(fake_repo, _LAB2_REFERENCE)
+    faulted = _LAB2_REFERENCE.replace("+ source_rank::", "+ 1.0::")
+
+    assert _lab2_fingerprint(fake_repo, faulted) != reference
+
+
+def test_a_comment_edit_outside_the_lab_files_still_moves_the_fingerprint(fake_repo):
+    """Only the two files a participant edits are read by token."""
+    baseline = compute_retrieval_fingerprint(repo_root=fake_repo)
+
+    _write(fake_repo / "db" / "sql" / "install.sql", "-- a different comment\n")
+
+    assert compute_retrieval_fingerprint(repo_root=fake_repo) != baseline
+
+
+@pytest.mark.parametrize(
+    ("sql", "tokens"),
+    [
+        ("SELECT 'a -- b' -- c\n", ["SELECT", "'a -- b'"]),
+        ("SELECT 'it''s  two'", ["SELECT", "'it''s  two'"]),
+        ('SELECT "My  Col"', ["SELECT", '"My  Col"']),
+        ("a /* b /* c */ d */ e", ["a", "e"]),
+        ("a- -b", ["a", "-", "-", "b"]),
+        ("x::double", ["x", ":", ":", "double"]),
+    ],
+)
+def test_lab_sql_tokens_follow_postgresql_comments_and_quotes(sql, tokens):
+    assert lab_sql_tokens(sql) == tokens
+
+
+def test_a_changed_string_literal_moves_the_tokens():
+    assert lab_sql_tokens("SELECT 'fuzzy'") != lab_sql_tokens("SELECT 'fuzzy '")
+
+
+@pytest.mark.parametrize(
+    "sql", ["SELECT 'never closed", "a /* never closed", 'a "open']
+)
+def test_a_file_caught_mid_edit_still_hashes(sql):
+    assert lab_sql_tokens(sql)[0] in {"SELECT", "a"}
 
 
 # --- The five owner-specified behavioral proofs -----------------------------
