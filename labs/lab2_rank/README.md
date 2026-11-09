@@ -44,17 +44,19 @@ Run Alex's request with reranking off, then on, and compare the two pages of
 uv run python labs/lab2_rank/rerank_off_on.py
 ```
 
-## Compare settings, then hand off
+## Test whether changing k helps, then hand off to Lab 3
 
-Compare candidate admission under three settings on judged queries:
+Test whether changing `k` lets more judged right answers reach reranking:
 
 ```bash
 uv run python scripts/lab_exercise.py compare --lab 2
 ```
 
-The comparison leaves served settings unchanged and calls no reranker.
-Nominate a setting to test next; final relevance, latency and actual cost need
-separate measurement before shipping.
+The comparison leaves served settings unchanged and calls no reranker. The
+`k = 120` and `k = 30` rows keep the same search lists and shortlist of 50; decide
+whether they justify changing `k = 60`, and keeping it is a valid choice. The
+shortlist of 75 is optional reading: final relevance, latency and actual cost need
+separate measurement before shipping a longer shortlist.
 
 The handoff repeats Alex's request and two Dell
 requests that must still work, saves the passing evidence, then installs the
