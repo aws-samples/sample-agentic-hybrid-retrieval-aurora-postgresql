@@ -505,11 +505,11 @@ it("prints what each arm alone scores from the measured artifact and counts this
   expect(screen.getByText(/reranking moved the ordering score by \+0\.04 on average, inside the spread/)).toBeTruthy();
 });
 
-it("says the measured comparison is waiting when the artifact is not attributed to this build", async () => {
+it("says why the measured comparison is not shown when the lab SQL differs from the measured SQL", async () => {
   vi.spyOn(api, "scorecard").mockResolvedValue({ stage_ablation: { ...measuredAblation, attributed: false } } as unknown as RetrievalScorecardResponse);
   render(<PlaygroundPage />);
   openDetail(DETAILS.retrieve);
-  expect(await screen.findByText("The measured comparison is waiting for a re-measure on this build.")).toBeTruthy();
+  expect((await screen.findAllByText(/Your lab SQL differs from it right now/)).length).toBeGreaterThan(0);
   expect(screen.queryByRole("table", { name: "Scores for each search" })).toBeNull();
 });
 

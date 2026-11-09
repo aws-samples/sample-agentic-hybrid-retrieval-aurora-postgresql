@@ -32,6 +32,9 @@ export function stageGainSentence(ablation: ScorecardStageAblation): string | nu
   return `${combining}; ${rerank}.`;
 }
 
+/** Shown in place of a measured comparison when the lab SQL on this box is not the SQL that was measured. */
+export const UNMEASURED_SQL_NOTE = "These measurements were taken with the reference lab SQL. Your lab SQL differs from it right now, so the measured comparison is not shown. The search results on this page are live.";
+
 /** The measured reranking step, for the Rank section's own sentence. */
 export function rerankStep(ablation: ScorecardStageAblation | null | undefined) {
   return ablation?.attributed ? ablation.paired_comparisons.find((step) => step.to_key === "rrf_fused_reranked") : undefined;
@@ -60,6 +63,6 @@ export function MethodComparison({ ablation }: { response?: SearchResponse; abla
         <caption>Measured on {ablation.scored_query_count} judged searches against this catalog.</caption>
       </table>
       {gain ? <p>{gain}</p> : null}
-    </> : <p>{ablation ? "The measured comparison is waiting for a re-measure on this build." : "Loading the measured comparison…"}</p>}
+    </> : <p>{ablation ? UNMEASURED_SQL_NOTE : "Loading the measured comparison…"}</p>}
   </div></details>;
 }

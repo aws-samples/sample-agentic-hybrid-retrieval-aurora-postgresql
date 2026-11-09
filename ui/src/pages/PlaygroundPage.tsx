@@ -27,7 +27,7 @@ import { RACE_ROWS, RankRace } from "../components/playground/RankRace";
 import { RunSteps, agentChips, searchChips, searchingChips } from "../components/playground/RunSteps";
 import { ReturnedProducts } from "../components/playground/ReturnedProducts";
 import { RunSummary } from "../components/playground/RunSummary";
-import { MethodComparison, modelName, rerankStep, signedScore } from "../components/playground/RetrievalPath";
+import { MethodComparison, modelName, rerankStep, signedScore, UNMEASURED_SQL_NOTE } from "../components/playground/RetrievalPath";
 import { formatPriceCompact, withoutBreakTags } from "../format";
 import { armLabel, armLanguage } from "../retrievalLanguage";
 import { coreMosaicLabs, mosaicLabManifest, pipelineRequests, type MosaicLabMission } from "../labMissions";
@@ -144,7 +144,7 @@ function RankBody({ response, receiptProduct, ablation, stopped, images, onSelec
           <span>The selected product’s position before and after reranking.</span>
         </p> : null}
         <p>Reranking: <strong>{response.diagnostics?.rerank_status ?? "not reported"}</strong>. #1 is the highest rank. Combined and reranker scores use different scales; a higher score is better within each step.</p>
-        {step ? <p>Measured on {ablation?.scored_query_count} judged searches: reranking moved the ordering score by {signedScore(step.mean_difference)} on average, {step.separable ? "more than" : "inside"} the spread of the per-search differences.</p> : null}
+        {step ? <p>Measured on {ablation?.scored_query_count} judged searches: reranking moved the ordering score by {signedScore(step.mean_difference)} on average, {step.separable ? "more than" : "inside"} the spread of the per-search differences.</p> : ablation ? <p>{UNMEASURED_SQL_NOTE}</p> : null}
       </div>
     </div>
     <h3 className="pg-subhead">Everything it returned.</h3>
