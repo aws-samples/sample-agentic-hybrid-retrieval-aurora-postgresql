@@ -330,7 +330,7 @@ def test_verify_refuses_a_gateway_search_that_ran_other_sql(monkeypatch, tmp_pat
 def test_deploy_shows_each_phase_with_its_usual_time_and_what_is_left(
     monkeypatch, capsys
 ):
-    from scripts.progress import bar, clock
+    from scripts.progress import bar, bounds, span, total, usually
     from service.participant_commands import DEPLOY_PHASE_SECONDS
 
     control = Mock()
@@ -348,22 +348,29 @@ def test_deploy_shows_each_phase_with_its_usual_time_and_what_is_left(
 
     output = capsys.readouterr().out
     usual = DEPLOY_PHASE_SECONDS
+    longest = [bounds(step)[1] for step in usual]
     shown = [
-        f"Deploying your Retrieval agent: 5 steps, usually about {clock(sum(usual))}"
+        f"Deploying your Retrieval agent: 5 steps, usually {span(*total(usual))} in all."
     ]
     for index, (label, done) in enumerate(deploy.DEPLOY_PHASES):
         number = f"{index + 1}/{len(usual)}"
         shown.append(
-            f"{bar(sum(usual[:index]), sum(usual))}  {number}  {label} "
-            f"(usually about {clock(usual[index])})"
+            f"{bar(sum(longest[:index]), sum(longest))}  {number}  {label} "
+            f"({usually(usual[index])})"
         )
-        left = sum(usual[index + 1 :])
+        low, high = total(usual[index + 1 :])
         shown.append(
-            f"  {number}  {done}" + (f", about {clock(left)} left" if left else "")
+            f"  {number}  {done}" + (f", {span(low, high)} left" if high else "")
         )
     shown.append("  Done in ")
     positions = [output.index(line) for line in shown]
     assert positions == sorted(positions)
+    # Verification is the one step whose measured time varies, so it and the totals that
+    # include it show the shortest and longest; the steps that never varied keep one figure.
+    assert "5 steps, usually 1:11 to 1:25 in all." in output
+    assert "2/5  Update the tools runtime (usually about 0:16)" in output
+    assert "5/5  Verify the deployment (usually 0:13 to 0:27)" in output
+    assert "3/5  Updated the Retrieval agent runtime, 0:34 to 0:48 left" in output
 
 
 def test_a_failed_phase_says_so_before_the_failure(monkeypatch, capsys):

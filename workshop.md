@@ -192,8 +192,8 @@ Discover Gateway tools, then complete `create_agent` inside `LAB3_EDIT` in
 rules and hooks, and add one instruction of their own. Deploy using the guide.
 
 Use the deployment wait to predict the 100W answer. The resource tour is
-optional. The deploy shows each of its five steps against its usual time, about
-1:11 in all, and says when a step is still working past it. Seek room support
+optional. The deploy shows each of its five steps against its usual time, 1:11
+to 1:25 in all, and says when a step is still working past it. Seek room support
 after five minutes without completion; this is a support cue, not a deployment
 timeout. `finish` and `skip-to` show the same: each step's usual time and how
 long is left.

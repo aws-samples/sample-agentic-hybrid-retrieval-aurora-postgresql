@@ -160,9 +160,18 @@ def proof_steps_text(lab: int) -> str:
 # How long each command `finish` and `skip-to` run usually takes, in seconds, rounded up:
 # measured on a Workshop Studio event on 25 October 2026, where `finish --lab 3` from a fresh
 # account took 1:41. A later lab's start only reads its record, because the previous
-# hand-off started that lab. The deploy is the sum of its phases.
-DEPLOY_PHASE_SECONDS = (5, 16, 16, 21, 13)
-USUAL_SECONDS: dict[str, float] = {
+# hand-off started that lab. The deploy is the sum of its phases. A pair is the shortest and
+# longest measured where a step's time varies: the deploy's verification took 13 s on a
+# participant's first deploy and 26 to 27 s on seven later ones on the 10 November 2026 event,
+# while its other steps took the same time on all eight.
+DEPLOY_PHASE_SECONDS: tuple[float | tuple[float, float], ...] = (
+    5,
+    16,
+    16,
+    21,
+    (13, 27),
+)
+USUAL_SECONDS: dict[str, float | tuple[float, float]] = {
     start_command(1): 5,
     apply_solution_command(1): 1,
     APPLY_SQL: 1,
@@ -176,5 +185,8 @@ USUAL_SECONDS: dict[str, float] = {
     start_command(3): 1,
     apply_solution_command(3): 1,
     LIST_TOOLS: 2,
-    DEPLOY_AGENT: sum(DEPLOY_PHASE_SECONDS),
+    DEPLOY_AGENT: (
+        sum(p[0] if isinstance(p, tuple) else p for p in DEPLOY_PHASE_SECONDS),
+        sum(p[1] if isinstance(p, tuple) else p for p in DEPLOY_PHASE_SECONDS),
+    ),
 }

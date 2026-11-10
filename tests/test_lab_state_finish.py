@@ -7,7 +7,8 @@ import pytest
 
 from scripts import lab_state
 from scripts import progress as progress_module
-from scripts.progress import bar, clock
+from scripts.progress import bar, span, usually
+from scripts.progress import total as total_usual
 from service.participant_commands import (
     ADVANCE_TO_LAB_2,
     ADVANCE_TO_LAB_3,
@@ -89,13 +90,11 @@ def test_finish_runs_every_step_in_order_and_names_each(monkeypatch, capsys, lab
     assert all(command[0] == sys.executable for command in ran)
     assert run_by == [f"Finish Lab {lab}"] * len(steps)
     total = len(steps)
-    usual = sum(USUAL_SECONDS[step] for step in steps)
-    assert (
-        f"Finish Lab {lab}: {total} steps, usually about {clock(usual)} in all." in out
-    )
+    usual = span(*total_usual([USUAL_SECONDS[step] for step in steps]))
+    assert f"Finish Lab {lab}: {total} steps, usually {usual} in all." in out
     for index, step in enumerate(steps):
         number = f"step {index + 1}/{total}"
-        typical = f"usually about {clock(USUAL_SECONDS[step])}"
+        typical = usually(USUAL_SECONDS[step])
         assert f"{number}, {typical}\n    {step}\n" in out
         assert f"{number}  done" in out
     # A named tracker's ending names itself, apart from a deploy's own "Done in".
@@ -111,7 +110,7 @@ def test_every_step_puts_its_command_on_its_own_line_at_any_width(
     _code, _ran, out, _run_by = run_finish(monkeypatch, capsys, 1)
 
     for index, step in enumerate(finish_steps(1)):
-        typical = f"usually about {clock(USUAL_SECONDS[step])}"
+        typical = usually(USUAL_SECONDS[step])
         assert f"step {index + 1}/5, {typical}\n    {step}\n" in out
     step_lines = [
         line for line in out.splitlines() if "step " in line or "    uv " in line

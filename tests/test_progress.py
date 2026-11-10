@@ -72,6 +72,40 @@ def test_an_overrun_says_it_is_still_working() -> None:
     assert status(84, 60) == "1:24, still working"
 
 
+def test_a_step_whose_measured_times_differ_shows_the_shortest_and_longest():
+    """One figure would be invented for such a step; a step that never varied keeps one."""
+    assert status(5, (13, 27)) == "0:05, usually 0:13 to 0:27"
+    assert status(20, (13, 27)) == "0:20, usually 0:13 to 0:27", (
+        "still inside the range"
+    )
+    assert status(28, (13, 27)) == "0:28, still working"
+    assert status(5, (16, 16)) == "0:05, usually about 0:16"
+    assert toward(27, (13, 27)).count("█") == 19, (
+        "the bar fills toward the longest time"
+    )
+    assert toward(13, (13, 27)).count("█") < 19
+
+
+def test_a_plan_with_a_range_carries_it_into_the_heading_and_what_is_left():
+    stream, clock_ = io.StringIO(), Clock()
+    progress = Progress("Deploying", stream=stream, now=clock_, interval=None)
+    progress.plan([16, (13, 27)])
+    progress.begin("Update the runtime", typical=16, done="Updated the runtime")
+    clock_.seconds += 16
+    progress.begin("Verify", typical=(13, 27), done="Verified")
+    clock_.seconds += 20
+    progress.finish()
+
+    assert stream.getvalue().splitlines() == [
+        "Deploying: 2 steps, usually 0:29 to 0:43 in all.",
+        f"{bar(0, 43)}  1/2  Update the runtime (usually about 0:16)",
+        "  + 0:16  1/2  Updated the runtime, 0:13 to 0:27 left",
+        f"{bar(16, 43)}  2/2  Verify (usually 0:13 to 0:27)",
+        "  + 0:20  2/2  Verified",
+        "  Done in 0:36.",
+    ]
+
+
 def test_off_a_terminal_a_planned_run_prints_its_total_each_start_and_what_is_left() -> (
     None
 ):

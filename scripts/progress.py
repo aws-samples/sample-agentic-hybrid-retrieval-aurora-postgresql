@@ -2,7 +2,8 @@
 
 Nothing these commands wait on reports a percentage, so a bar claims only what is known: the
 steps finished, how long the running step has taken, and how long each step usually takes,
-measured on test events. Within a step the bar fills toward that usual time and never reaches
+measured on test events. A step whose measured times differ gives the shortest and the longest,
+and its bar fills toward the longest. Within a step the bar fills toward that usual time and never reaches
 the end before the step does; past it, the line says the step is still working. Each finished
 step leaves one line with how long it took and, when the steps' usual times are planned, about
 how long is left.
@@ -41,6 +42,32 @@ REDRAW_SECONDS = 0.5
 GRACE_SECONDS = 1.0
 CLEAR_LINE = "\r\x1b[K"
 
+#: A step's usual duration in seconds: one figure, or the shortest and longest measured.
+Usual = float | tuple[float, float]
+
+
+def bounds(typical: Usual) -> tuple[float, float]:
+    """The shortest and longest usual duration; the same figure twice for a single one."""
+    if isinstance(typical, tuple):
+        return typical
+    return typical, typical
+
+
+def span(low: float, high: float) -> str:
+    """`about 0:16` for one figure, `0:13 to 0:27` for a measured range."""
+    return f"about {clock(low)}" if low == high else f"{clock(low)} to {clock(high)}"
+
+
+def usually(typical: Usual) -> str:
+    """How a step's usual time reads: `usually about 0:16` or `usually 0:13 to 0:27`."""
+    return f"usually {span(*bounds(typical))}"
+
+
+def total(typicals: Sequence[Usual]) -> tuple[float, float]:
+    """The shortest and longest usual time of several steps together."""
+    pairs = [bounds(typical) for typical in typicals]
+    return sum(low for low, _ in pairs), sum(high for _, high in pairs)
+
 
 def bar(done: float, total: float) -> str:
     """Render finished work as a bar and a percentage, such as `[██████████░░░░░░░░░░]  50%`.
@@ -59,18 +86,19 @@ def clock(seconds: float) -> str:
     return f"{whole // 60}:{whole % 60:02d}"
 
 
-def status(elapsed: float, typical: float) -> str:
+def status(elapsed: float, typical: Usual) -> str:
     """How a running step stands against its usual duration."""
-    if elapsed <= typical:
-        return f"{clock(elapsed)}, usually about {clock(typical)}"
+    if elapsed <= bounds(typical)[1]:
+        return f"{clock(elapsed)}, {usually(typical)}"
     return f"{clock(elapsed)}, still working"
 
 
 def toward(
-    elapsed: float, typical: float, blocks: str = "█░", width: int = WIDTH
+    elapsed: float, typical: Usual, blocks: str = "█░", width: int = WIDTH
 ) -> str:
-    """A bar filled toward `typical`, never full: only the step's end completes it."""
-    fraction = MOST_OF_THE_BAR * min(1.0, elapsed / typical) if typical > 0 else 0.0
+    """A bar filled toward `typical`'s longest time, never full: only the step's end completes it."""
+    longest = bounds(typical)[1]
+    fraction = MOST_OF_THE_BAR * min(1.0, elapsed / longest) if longest > 0 else 0.0
     filled = min(width - 1, round(width * fraction))
     return blocks[0] * filled + blocks[1] * (width - filled)
 
@@ -78,7 +106,7 @@ def toward(
 def fit(
     head: str,
     elapsed: float,
-    typical: float,
+    typical: Usual,
     state: str,
     *,
     columns: int,
@@ -231,7 +259,7 @@ class Progress:
         self.name, self.commands = name, commands
         self.total: int | None = None
         self.number = 0
-        self._planned: list[float] = []
+        self._planned: list[Usual] = []
         self._began = 0.0
         self._step: dict | None = None
         self._live: _Live | None = None
@@ -244,7 +272,7 @@ class Progress:
             self._stream = sys.stdout
         return self._stream
 
-    def plan(self, typicals: Sequence[float]) -> None:
+    def plan(self, typicals: Sequence[Usual]) -> None:
         """Set every step's usual duration, in order, so the lines can say how long is left."""
         self._planned = list(typicals)
         self.total = len(self._planned)
@@ -261,7 +289,7 @@ class Progress:
         self,
         label: str,
         *,
-        typical: float | None = None,
+        typical: Usual | None = None,
         done: str | None = None,
         animate: bool = True,
         number: int | None = None,
@@ -270,8 +298,9 @@ class Progress:
 
         Args:
             label: What the step is doing, as its bar or start line shows it.
-            typical: Its usual duration in seconds, from measured runs. Leave it out for a
-                step nobody has measured: its line then shows only the time waited.
+            typical: Its usual duration in seconds, from measured runs: one figure, or the
+                shortest and longest when they differ. Leave it out for a step nobody has
+                measured: its line then shows only the time waited.
             done: The line it leaves when it ends; defaults to `label`.
             animate: `False` for a step whose own child process prints to the terminal,
                 which a redrawn line would collide with: it prints a start line instead.
@@ -299,8 +328,8 @@ class Progress:
         """End the running step: its line says what it did, how long it took and what is left."""
         step = self._close()
         if step:
-            left = sum(self._planned[self.number :]) if self._planned else 0
-            remains = f", about {clock(left)} left" if left else ""
+            low, high = total(self._planned[self.number :])
+            remains = f", {span(low, high)} left" if high else ""
             self._print(
                 f"  + {clock(self.now() - step['started'])}  {self.counter()}  "
                 f"{done or step['done']}{remains}"
@@ -332,7 +361,7 @@ class Progress:
                 else f"  Done in {took}."
             )
 
-    def _start_line(self, label: str, typical: float | None) -> str:
+    def _start_line(self, label: str, typical: Usual | None) -> str:
         """The step's counter, label and usual time; with a plan, the share finished first.
 
         A command, or any label too wide for the terminal, goes on a line of its own, so
@@ -340,11 +369,11 @@ class Progress:
         """
         head = f"  - {self.counter()}"
         if self._planned:
-            finished = sum(self._planned[: self.number - 1])
-            head = f"{bar(finished, sum(self._planned))}  {self.counter()}"
+            finished = total(self._planned[: self.number - 1])[1]
+            head = f"{bar(finished, total(self._planned)[1])}  {self.counter()}"
         if typical is None:
             return f"{head}  {label}"
-        usual = f"usually about {clock(typical)}"
+        usual = usually(typical)
         line = f"{head}  {label} ({usual})"
         if not self.commands and len(line) < columns():
             return line
@@ -354,8 +383,8 @@ class Progress:
         if not self._planned:
             return self.title
         return (
-            f"{self.title}: {len(self._planned)} steps, usually about "
-            f"{clock(sum(self._planned))} in all."
+            f"{self.title}: {len(self._planned)} steps, "
+            f"usually {span(*total(self._planned))} in all."
         )
 
     def _close(self) -> dict | None:
