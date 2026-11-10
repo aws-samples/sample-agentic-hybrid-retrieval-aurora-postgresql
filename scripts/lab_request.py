@@ -11,6 +11,7 @@ import re
 import sys
 import time
 from pathlib import Path
+from typing import TextIO
 from urllib.error import HTTPError, URLError
 from urllib.request import urlopen
 from uuid import UUID
@@ -21,7 +22,7 @@ sys.path.insert(0, str(ROOT))
 from scripts.investigate_lab import paired_searches
 from scripts.lab_state import lab_ready_step
 from scripts.prove_lab import LabValidationError, _request, _require, _search
-from scripts.terminal_text import next_on_failure, next_step, tidy
+from scripts.terminal_text import GREEN, RED, next_on_failure, next_step, tidy, tint
 from service import lab_checks
 from service.lab_checks import FACILITATOR
 from service.participant_commands import (
@@ -202,6 +203,20 @@ def before_after_lines(event: dict, mission: dict) -> list[str]:
         "Before: not on the shortlist.",
         f"After:  {target_position(event, mission)}",
     ]
+
+
+def target_found(event: dict, mission: dict) -> bool:
+    """Whether the lab's target is among the saved candidates."""
+    target = mission["target_product_ids"][0]
+    return any(row["product_id"] == target for row in event.get("candidates", []))
+
+
+def result_lines(event: dict, mission: dict, stream: TextIO | None = None) -> list[str]:
+    """`before_after_lines` as a terminal shows them: the after line is the repeated
+    request's result, so it reads green when the target is back and red when it is not."""
+    *shown, after = before_after_lines(event, mission)
+    color = GREEN if target_found(event, mission) else RED
+    return [*shown, tint(after, color, stream)]
 
 
 def require_broken_search(event: dict, mission: dict) -> None:
@@ -411,7 +426,7 @@ def prepare(
         # Without the titles the target line belongs under the request, as one part.
         gap = "" if handoff else "\n"
         if before:
-            print(gap + "\n".join(before_after_lines(event, mission)))
+            print(gap + "\n".join(result_lines(event, mission)))
         else:
             print(gap + target_summary(event, mission))
         run_id = response["search_event_id"]

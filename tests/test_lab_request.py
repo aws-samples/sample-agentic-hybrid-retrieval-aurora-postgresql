@@ -1,5 +1,6 @@
 """Reject misleading run identities and executable context values."""
 
+import io
 import json
 from contextlib import contextmanager
 from pathlib import Path
@@ -9,7 +10,13 @@ import pytest
 
 from scripts import lab_request
 from scripts.prove_lab import LabValidationError
+from scripts.terminal_text import GREEN, RED
 from service import lab_checks
+
+
+class Terminal(io.StringIO):
+    def isatty(self) -> bool:
+        return True
 
 
 @pytest.mark.parametrize("stage", ["retrieve", "rank", "reason"])
@@ -273,6 +280,36 @@ def test_before_and_after_name_the_target_once_and_fit_a_laptop_terminal(name):
         {"candidates": [{"product_id": 1}] * 50}, mission
     )
     assert max(len(line) for line in [*lines, missing]) <= 95
+
+
+def test_the_after_line_is_green_when_the_target_is_back_and_red_when_it_is_not(
+    monkeypatch,
+):
+    monkeypatch.setenv("TERM", "xterm-256color")
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    mission = lab_checks.load_mission("retrieve")
+    target = {
+        "product_id": mission["target_product_ids"][0],
+        "fused_rank": 1,
+        "result_rank": 1,
+        "fts_rank": None,
+        "fuzzy_rank": 1,
+        "semantic_rank": None,
+    }
+    back = {"candidates": [target]}
+    still_missing = {"candidates": [{"product_id": 1}]}
+
+    found = lab_request.result_lines(back, mission, Terminal())
+    missing = lab_request.result_lines(still_missing, mission, Terminal())
+    piped = lab_request.result_lines(back, mission, io.StringIO())
+
+    after = (
+        "After:  combined position 1, final position 1; found by fuzzy matching rank 1."
+    )
+    assert found[-1] == f"\033[{GREEN}m{after}\033[0m"
+    assert missing[-1].startswith(f"\033[{RED}mAfter:  not on the shortlist")
+    assert "\033" not in "".join(found[:-1])
+    assert piped == lab_request.before_after_lines(back, mission)
 
 
 def test_target_summary_names_positions_and_only_the_methods_that_found_it():
