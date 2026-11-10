@@ -950,7 +950,7 @@ def test_a_failed_request_ends_with_a_next_that_asks_again(monkeypatch, capsys):
     assert ask_agent.main(["Find headphones for calls"]) == 1
 
     assert capsys.readouterr().err.endswith(
-        "\n\nNext: do what the message above says, then run\n"
+        "\n\nNext: fix what the message above names, then run this again:\n"
         'uv run python scripts/ask_agent.py "Find headphones for calls"\n'
     )
 

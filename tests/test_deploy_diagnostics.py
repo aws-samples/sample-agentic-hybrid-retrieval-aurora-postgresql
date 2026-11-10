@@ -591,5 +591,5 @@ def test_a_failed_action_ends_with_a_next_that_names_the_retry(monkeypatch, caps
 
     err = capsys.readouterr().err
     assert err.endswith(
-        f"\n\nNext: do what the message above says, then run\n{VERIFY_AGENT}\n"
+        f"\n\nNext: fix what the message above names, then run this again:\n{VERIFY_AGENT}\n"
     )

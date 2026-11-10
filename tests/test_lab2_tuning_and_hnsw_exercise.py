@@ -416,6 +416,8 @@ def test_the_grader_shows_each_step_with_the_time_waited_not_an_invented_usual_t
         "  - 4/4  Build your index (2 of 2) and run its five queries",
     ]
     assert "usually" not in out
+    assert "  1/4  Ran the exact plan for the five queries" in out
+    assert "  4/4  Built your index (2 of 2) and ran its five queries" in out
 
 
 def test_the_grader_redraws_one_line_with_the_time_waited_on_a_terminal(
@@ -491,9 +493,9 @@ def test_grade_starts_its_steps_in_the_order_it_does_the_work(monkeypatch):
         progress,
     )
 
-    assert [call.args[0] for call in progress.begin.call_args_list] == list(
-        hnsw_exercise.GRADE_STEPS
-    )
+    assert [
+        (call.args[0], call.kwargs["done"]) for call in progress.begin.call_args_list
+    ] == list(hnsw_exercise.GRADE_STEPS)
 
 
 def test_a_failed_grade_names_the_step_that_failed_before_the_verdict(

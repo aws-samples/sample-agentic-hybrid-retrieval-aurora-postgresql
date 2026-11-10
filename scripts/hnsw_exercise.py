@@ -175,12 +175,22 @@ def measure_build(cur: Any, search: str, vectors: list[str], exact: list[set]) -
     }, uses_index
 
 
-#: The grader's steps, none timed on a measured run, so the line shows only the time waited.
+#: The grader's steps, each as it reads while running and once done. None was timed on a
+#: measured run, so the line shows only the time waited.
 GRADE_STEPS = (
-    "Run the exact plan for the five queries",
-    "Build a full-precision reference index to measure its size",
+    (
+        "Run the exact plan for the five queries",
+        "Ran the exact plan for the five queries",
+    ),
+    (
+        "Build a full-precision reference index to measure its size",
+        "Built a full-precision reference index and measured its size",
+    ),
     *(
-        f"Build your index ({number} of {BUILDS}) and run its five queries"
+        (
+            f"Build your index ({number} of {BUILDS}) and run its five queries",
+            f"Built your index ({number} of {BUILDS}) and ran its five queries",
+        )
         for number in (1, 2)
     ),
 )
@@ -189,7 +199,8 @@ GRADE_STEPS = (
 def start_step(progress: Progress | None, number: int) -> None:
     """Begin the grader's `number`th step (counting from 1) when progress is shown."""
     if progress is not None:
-        progress.begin(GRADE_STEPS[number - 1], number=number)
+        label, done = GRADE_STEPS[number - 1]
+        progress.begin(label, done=done, number=number)
 
 
 def grade(

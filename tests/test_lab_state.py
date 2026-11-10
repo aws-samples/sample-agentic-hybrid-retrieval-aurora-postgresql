@@ -496,7 +496,7 @@ def test_a_failed_lab_check_during_entry_is_a_clean_exit_not_a_traceback(
 
     assert str(exit_info.value) == (
         "/api/search is unavailable; fix: tell your facilitator\n\n"
-        "Next: do what the message above says, then run\n"
+        "Next: fix what the message above names, then run this again:\n"
         f"uv run python scripts/lab_state.py {action} --lab 1"
     )
 
@@ -1138,7 +1138,7 @@ def test_a_dataset_mismatch_during_entry_is_a_clean_exit_that_says_nothing_was_a
     assert str(exit_info.value) == (
         "Lab catalog rule: found dataset 'other'; fix: select the workshop\n"
         "Nothing was applied: Aurora still runs its previous functions.\n\n"
-        "Next: do what the message above says, then run\n"
+        "Next: fix what the message above names, then run this again:\n"
         f"uv run python scripts/lab_state.py {action} --lab 1"
     )
 

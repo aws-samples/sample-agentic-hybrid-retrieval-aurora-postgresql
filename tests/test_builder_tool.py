@@ -263,6 +263,6 @@ def test_a_failing_tool_ends_with_a_next_that_checks_it_again(
         _run_checker(monkeypatch, ["--module", str(starter)])
 
     err = capsys.readouterr().err
-    assert "\n\nNext: do what the message above says, then run\n" in err
+    assert "\n\nNext: fix what the message above names, then run this again:\n" in err
     assert err.rstrip("\n").endswith(check_builder_tool_command(str(starter)))
     assert err.startswith("Build check failed: ")

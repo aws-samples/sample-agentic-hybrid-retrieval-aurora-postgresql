@@ -211,7 +211,7 @@ def test_a_failed_send_ends_with_a_next_that_repeats_it(
     message = str(stopped.value)
     assert message.splitlines()[-3:] == [
         "",
-        "Next: do what the message above says, then run",
+        "Next: fix what the message above names, then run this again:",
         repeat_request_command(1),
     ]
 
@@ -681,7 +681,7 @@ def test_a_failing_proof_ends_with_the_proof_again_not_the_hand_off(
     message = str(stopped.value)
     assert message.splitlines()[-3:] == [
         "",
-        "Next: do what the message above says, then run",
+        "Next: fix what the message above names, then run this again:",
         prove_lab_command(1),
     ]
 

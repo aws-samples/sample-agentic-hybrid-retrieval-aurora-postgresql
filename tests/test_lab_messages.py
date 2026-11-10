@@ -211,7 +211,7 @@ def test_the_terminal_exits_with_the_lab_and_no_traceback(monkeypatch, tmp_path)
 
     assert str(stopped.value) == (
         "Lab 2: the search returned no candidates\n\n"
-        "Next: do what the message above says, then run\n"
+        "Next: fix what the message above names, then run this again:\n"
         "uv run python scripts/lab_request.py send --lab 2 --phase after"
     )
 

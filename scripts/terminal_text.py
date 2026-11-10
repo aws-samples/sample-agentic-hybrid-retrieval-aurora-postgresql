@@ -133,7 +133,7 @@ def separate_next(message: str, rerun: str | None = None) -> str:
         return _INLINE_NEXT.sub("\n\n", message, count=1)
     if rerun is None:
         return message
-    return f"{message}\n\nNext: do what the message above says, then run\n{rerun}"
+    return f"{message}\n\nNext: fix what the message above names, then run this again:\n{rerun}"
 
 
 @contextmanager
