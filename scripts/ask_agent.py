@@ -100,8 +100,15 @@ def _plan(response: dict[str, Any]) -> list[str]:
 
 ROUTES = {"gateway": "through AgentCore Gateway", "in_process": "without Gateway"}
 # A tool call that worked is good, one that failed is bad, and one the application refused
-# (a draft its checks denied) needs the participant's attention.
-OUTCOME_WORD_COLORS = {"success": GREEN, "error": RED, "denied": YELLOW}
+# needs the participant's attention. A draft the answer checks refused is the checks working,
+# not a failure: about four runs in ten have one and still end grounded, so it reads
+# `refused` in yellow, never a red `error`.
+OUTCOME_WORD_COLORS = {
+    "success": GREEN,
+    "error": RED,
+    "denied": YELLOW,
+    "refused": YELLOW,
+}
 
 
 def _search_sql(applied: str | None, workspace: str | None) -> str:
@@ -138,12 +145,25 @@ def _trace(response: dict[str, Any], workspace: str | None) -> list[str]:
         if step.get("origin") == "controller_fallback":
             notes.append("run by the application")
         noted = f"   {', '.join(notes)}" if notes else ""
-        outcome = tint(step["outcome"], OUTCOME_WORD_COLORS.get(step["outcome"], ""))
+        drafted = step["tool"] == "synthesize_cited_answer"
+        reason = (
+            _refusal(step.get("detail") or "")
+            if drafted and step["outcome"] == "error"
+            else ""
+        )
+        word = "refused" if reason.startswith(REFUSED) else step["outcome"]
+        if word == "refused" and any(
+            later["tool"] == "synthesize_cited_answer"
+            and later["sequence"] > step["sequence"]
+            for later in response["trace"]
+        ):
+            noted = "   the agent drafted again"
+        outcome = tint(word, OUTCOME_WORD_COLORS.get(word, ""))
         lines.append(
             f"  {step['sequence']}  {step['tool']:<23}  {outcome}{took}{noted}"
         )
-        if step["tool"] == "synthesize_cited_answer" and step["outcome"] == "error":
-            lines.append(f"     {_refusal(step.get('detail') or '')}")
+        if reason:
+            lines.append(f"     {reason}")
         if step["tool"] == "search_products" and step.get("route"):
             lines.append(
                 f"     {_search_sql(step.get('search_sql_sha256'), workspace)}"
@@ -340,7 +360,10 @@ class _Run:
             and step.get("outcome") == "error"
         ]
         for detail in refusals[self._refused :]:
-            print(f"      {_refusal(detail)}; the agent drafts again", flush=True)
+            reason = _refusal(detail)
+            # Yellow, not red: a refused draft is the answer check working.
+            shown = tint(reason, YELLOW) if reason.startswith(REFUSED) else reason
+            print(f"      {shown}; the agent drafts again", flush=True)
         self._refused = max(self._refused, len(refusals))
 
     def _answered(self) -> None:

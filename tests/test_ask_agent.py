@@ -819,7 +819,10 @@ def test_a_refused_draft_says_in_plain_words_why_it_was_refused(detail, said):
     step = next(
         i for i, line in enumerate(lines) if "2  synthesize_cited_answer" in line
     )
-    assert "error" in lines[step]
+    refused = said.startswith("draft refused")
+    assert ("refused" if refused else "error") in lines[step]
+    assert ("error" in lines[step]) is not refused, "a refused draft is not an error"
+    assert lines[step].endswith("the agent drafted again") is refused
     assert lines[step + 1].strip() == said
     assert "SynthesisOutputError" not in text and "Synthesis failed" not in text
     assert max(len(line) for line in lines) <= ask_agent.LINE_CHARS
@@ -969,14 +972,22 @@ def test_the_tool_trace_and_outcome_are_coloured_on_a_terminal(
     from scripts.terminal_text import GREEN, RED, YELLOW
 
     run = grounded()
-    run["trace"][1] = {**run["trace"][1], "outcome": "error"}
+    run["trace"][0] = {**run["trace"][0], "outcome": "error"}
     monkeypatch.setattr(sys, "stdout", Terminal())
 
     grounded_text = ask_agent.render(run)
     declined_text = ask_agent.render(declined())
+    refused_text = ask_agent.render(
+        refused_then_grounded(
+            "Synthesis failed with SynthesisTruncated: the model stopped at max_tokens."
+        )
+    )
 
     assert f"\033[{GREEN}msuccess\033[0m" in grounded_text
     assert f"\033[{RED}merror\033[0m" in grounded_text
+    # A refused draft is the answer check working: yellow, and never a red error.
+    assert f"\033[{YELLOW}mrefused\033[0m" in refused_text
+    assert f"\033[{RED}m" not in refused_text
     assert f"\033[{GREEN}mOUTCOME: grounded\033[0m" in grounded_text
     assert f"\033[{YELLOW}mOUTCOME: declined\033[0m" in declined_text
     assert f"\033[{YELLOW}mdenied\033[0m" in declined_text

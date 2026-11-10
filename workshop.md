@@ -208,9 +208,11 @@ delivers it, which it does only after the answer's checks pass, followed by the 
 the tool trace with the search SQL Aurora ran, the products, each citation with its
 quote, the outcome and the **Run ID**, each under its own heading after a blank line, and
 a closing `Next:` line that names the 100W follow-up. They ask the 100W follow-up the same way;
-each call is its own run. When the answer check refuses a draft, an errored
-`synthesize_cited_answer` step prints `draft refused: <reason>` on the next line;
-the agent then drafts again. A step the model or the service failed prints
+each call is its own run. When the answer check refuses a draft, that
+`synthesize_cited_answer` step reads `refused` in yellow, not `error`, with
+`draft refused: <reason>` on the next line; the agent then drafts again. About four
+runs in ten have a refused draft and still end grounded, so it is the check
+working, not a failure. A step the model or the service failed prints
 `draft step failed (<error>), not refused by a check` instead. `uv run python scripts/grade_setup_run.py` then checks the
 newest run of the setup request since Lab 3 started that opened its own conversation,
 and says which run it chose; `--run-id` selects a particular setup run. The same
