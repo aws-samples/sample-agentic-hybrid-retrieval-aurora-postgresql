@@ -8,7 +8,11 @@ from test_synthesis_claims import evidence, product
 
 from service import agent_tools
 from service.models import AgentCitation
-from service.synthesis import lead_with_better_rated, recommendations_in_answer_order
+from service.synthesis import (
+    DRAFT_REPAIRS,
+    lead_with_better_rated,
+    recommendations_in_answer_order,
+)
 
 
 @pytest.fixture
@@ -457,7 +461,7 @@ def test_an_answer_that_keeps_the_lower_rated_lead_after_repair_is_refused():
     picks = [_rated(2, 4.0, name="Sierra NC-2"), _rated(1, 1.8, name="Vibe VS-888")]
 
     with pytest.raises(SynthesisOutputError, match="leads with Vibe VS-888"):
-        _write(picks, [VIBE_FIRST, VIBE_FIRST])
+        _write(picks, [VIBE_FIRST] * (DRAFT_REPAIRS + 1))
 
 
 @pytest.mark.parametrize(

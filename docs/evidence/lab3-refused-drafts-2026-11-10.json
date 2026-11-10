@@ -1,0 +1,2435 @@
+{
+ "stats": {
+  "fisher_two_sided": {
+   "setup: release against five_rules_one_repair": 0.1813,
+   "setup: release against two_rules_one_repair": 0.1813,
+   "setup: release against two_rules_two_repairs": 0.0077,
+   "followup: release against five_rules_one_repair": 1.0,
+   "followup: release against two_rules_one_repair": 0.6749,
+   "followup: release against two_rules_two_repairs": 1.0
+  }
+ },
+ "arms": {
+  "release": {
+   "batches": [
+    "baseline"
+   ],
+   "requests": {
+    "setup": {
+     "runs": 10,
+     "answered": 10,
+     "runs_with_a_refused_draft": 4,
+     "runs_repaired_inside_the_call": 3,
+     "runs_first_draft_accepted": 3,
+     "synthesis_calls": 14,
+     "refused_synthesis_calls": 4,
+     "seconds_median": 61.9,
+     "seconds_range": [
+      42.4,
+      80.2
+     ]
+    },
+    "followup": {
+     "runs": 10,
+     "answered": 10,
+     "runs_with_a_refused_draft": 2,
+     "runs_repaired_inside_the_call": 2,
+     "runs_first_draft_accepted": 6,
+     "synthesis_calls": 12,
+     "refused_synthesis_calls": 2,
+     "seconds_median": 36.4,
+     "seconds_range": [
+      28.7,
+      62.4
+     ]
+    }
+   },
+   "runs": [
+    {
+     "batch": "baseline",
+     "run_id": "2461af74-6283-4be9-905f-12b524b44643",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T14:29:13Z",
+     "review_calls": 2,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 15139
+      }
+     ]
+    },
+    {
+     "batch": "baseline",
+     "run_id": "db6058ad-5ca0-4d19-b678-5b321273a41d",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T14:29:13Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 14306
+      }
+     ]
+    },
+    {
+     "batch": "baseline",
+     "run_id": "41f8d0a9-9d86-44f3-bf0d-bee9d1537ecc",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T14:29:13Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: passage 8: The listing and review support the adjustable headrest and its discomfort for shorter people. However, the review is about a different variant, and the listing is a parent-product record that must be confirmed per variant. The answer does not say this.; remove the unsupported claim or cite evidence that supports it",
+       "outcome": "error",
+       "duration_ms": 25335
+      },
+      {
+       "detail": "Validated and persisted 6 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 17061
+      }
+     ]
+    },
+    {
+     "batch": "baseline",
+     "run_id": "ea846dbc-5d5c-44d1-b000-b3c7b81eeeb6",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T14:29:14Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: passage 8 cites [1][2][3][4][5][6] but states no product fact: \"Sources: [1][2] headset, [3][4] monitor, [5][6] chair.\"; write advice, checks and headings without citations, or state the fact the record gives",
+       "outcome": "error",
+       "duration_ms": 16742
+      },
+      {
+       "detail": "Citation-bounded synthesis after model orchestration completed without calling its required final tool. Left out Steelcase Gesture Chair: another listing of the Steelcase Gesture, ranked lower by its search.",
+       "outcome": "success",
+       "duration_ms": 15746
+      }
+     ]
+    },
+    {
+     "batch": "baseline",
+     "run_id": "d294406b-2f1e-471c-8b2f-f3d7fe6e8c3d",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T14:29:42Z",
+     "review_calls": 3,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 6 source citation(s). Left out Steelcase Gesture Chair: another listing of the Steelcase Gesture, ranked lower by its search.",
+       "outcome": "success",
+       "duration_ms": 31520
+      }
+     ]
+    },
+    {
+     "batch": "baseline",
+     "run_id": "1c27f445-4c80-4a30-b60b-a3eb0e7512f0",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T14:29:49Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 9744
+      }
+     ]
+    },
+    {
+     "batch": "baseline",
+     "run_id": "e85b01f3-b3a5-4c29-be2c-12132f74bb34",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T14:30:20Z",
+     "review_calls": 2,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 6 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 21716
+      }
+     ]
+    },
+    {
+     "batch": "baseline",
+     "run_id": "12a47639-daa5-4ff2-ba3b-2bfe9693f0c8",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T14:30:30Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Synthesis failed with SynthesisOutputError: Synthesized sentence contains unsupported numeric claim or availability claim ['90W'] for product 1551237: If your laptop can charge on 90W, the single-cable setup the reviewer describes [2] may work. Use the cited measurement's original meaning, value and unit. If the sources do not state it, say so without writing the number.",
+       "outcome": "error",
+       "duration_ms": 10239
+      },
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 10933
+      }
+     ]
+    },
+    {
+     "batch": "baseline",
+     "run_id": "031aa07c-b811-4991-9a31-f6bb5035d9fa",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T14:30:31Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 6 source citation(s). Left out Steelcase Gesture Chair: another listing of the Steelcase Gesture, ranked lower by its search.",
+       "outcome": "success",
+       "duration_ms": 17334
+      }
+     ]
+    },
+    {
+     "batch": "baseline",
+     "run_id": "80ff04d4-500a-4158-8a1a-4be74c206dda",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T14:30:52Z",
+     "review_calls": 2,
+     "synthesis_steps": [
+      {
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: passage 2: Makes a factual claim about what the records do or do not state but cites no record.; remove the unsupported claim or cite evidence that supports it",
+       "outcome": "error",
+       "duration_ms": 18966
+      },
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 20428
+      }
+     ]
+    },
+    {
+     "batch": "baseline",
+     "run_id": "cb06782b-ab32-4c21-8c91-d298c7b4ea02",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T14:31:15Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 6 source citation(s). Left out Steelcase Gesture Chair: another listing of the Steelcase Gesture, ranked lower by its search.",
+       "outcome": "success",
+       "duration_ms": 12569
+      }
+     ]
+    },
+    {
+     "batch": "baseline",
+     "run_id": "75056307-2515-4ea7-bc62-bef4155b92d8",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T14:31:17Z",
+     "review_calls": 3,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 20533
+      }
+     ]
+    },
+    {
+     "batch": "baseline",
+     "run_id": "5466aab1-1513-4234-8f55-0491f955b739",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T14:31:26Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 6 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 13949
+      }
+     ]
+    },
+    {
+     "batch": "baseline",
+     "run_id": "f933db4c-cb7f-4772-9162-9e560e242471",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T14:31:54Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 14476
+      }
+     ]
+    },
+    {
+     "batch": "baseline",
+     "run_id": "9e1a3431-8ea2-40da-bf66-4f2cefbdbde0",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T14:31:58Z",
+     "review_calls": 2,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 6 source citation(s). Left out Steelcase Gesture Chair: another listing of the Steelcase Gesture, ranked lower by its search.",
+       "outcome": "success",
+       "duration_ms": 22075
+      }
+     ]
+    },
+    {
+     "batch": "baseline",
+     "run_id": "8ceef87a-fbca-4f93-ac2d-9cbd28bc45f1",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T14:32:08Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 10417
+      }
+     ]
+    },
+    {
+     "batch": "baseline",
+     "run_id": "dfe6cc9a-ce47-48ef-9483-5917d84e6351",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T14:32:19Z",
+     "review_calls": 3,
+     "synthesis_steps": [
+      {
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: passage 1: The features are supported, but 'the right chair to add' is an unsupported claim of suitability for the user's setup; no source relates the chair to the other products.; remove the unsupported claim or cite evidence that supports it",
+       "outcome": "error",
+       "duration_ms": 17558
+      },
+      {
+       "detail": "Validated and persisted 6 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 29275
+      }
+     ]
+    },
+    {
+     "batch": "baseline",
+     "run_id": "70edd4fb-7cfb-4551-a24f-10089cbb246f",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T14:32:30Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 11521
+      }
+     ]
+    },
+    {
+     "batch": "baseline",
+     "run_id": "62b57130-9667-4316-852d-386814f1da2d",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T14:32:43Z",
+     "review_calls": 2,
+     "synthesis_steps": [
+      {
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: passage 5: Claim about what the sources do not state cites no record, so it is an uncited factual claim.; remove the unsupported claim or cite evidence that supports it",
+       "outcome": "error",
+       "duration_ms": 26232
+      },
+      {
+       "detail": "Validated and persisted 6 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 20675
+      }
+     ]
+    },
+    {
+     "batch": "baseline",
+     "run_id": "94103078-bf22-4bd0-8a2b-16776ef3b0cc",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T14:32:55Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 11975
+      }
+     ]
+    }
+   ]
+  },
+  "five_rules_one_repair": {
+   "batches": [
+    "v1",
+    "v1b"
+   ],
+   "requests": {
+    "setup": {
+     "runs": 20,
+     "answered": 20,
+     "runs_with_a_refused_draft": 3,
+     "runs_repaired_inside_the_call": 9,
+     "runs_first_draft_accepted": 8,
+     "synthesis_calls": 23,
+     "refused_synthesis_calls": 3,
+     "seconds_median": 57.8,
+     "seconds_range": [
+      37.8,
+      114.9
+     ]
+    },
+    "followup": {
+     "runs": 20,
+     "answered": 20,
+     "runs_with_a_refused_draft": 5,
+     "runs_repaired_inside_the_call": 7,
+     "runs_first_draft_accepted": 8,
+     "synthesis_calls": 28,
+     "refused_synthesis_calls": 8,
+     "seconds_median": 44.8,
+     "seconds_range": [
+      26.1,
+      99.4
+     ]
+    }
+   },
+   "runs": [
+    {
+     "batch": "v1",
+     "run_id": "d5959810-d5f7-4ea7-865c-cfe3c93dc554",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T14:45:23Z",
+     "review_calls": 3,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 6 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 35605
+      }
+     ]
+    },
+    {
+     "batch": "v1",
+     "run_id": "39cd1a1a-d20b-4e37-a0e6-7a805a6b5f9b",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T14:45:23Z",
+     "review_calls": 3,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 26609
+      }
+     ]
+    },
+    {
+     "batch": "v1",
+     "run_id": "8fe8369b-85f4-4495-99dd-65ca5b2e8d63",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T14:45:23Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 13293
+      }
+     ]
+    },
+    {
+     "batch": "v1",
+     "run_id": "b0ead09d-4aba-4504-9d7f-e860745b67af",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T14:45:23Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 6 source citation(s). Left out Steelcase Gesture Chair: another listing of the Steelcase Gesture, ranked lower by its search.",
+       "outcome": "success",
+       "duration_ms": 25720
+      }
+     ]
+    },
+    {
+     "batch": "v1",
+     "run_id": "b193f222-72ec-419c-855f-3e9abec09042",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T14:45:51Z",
+     "review_calls": 3,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 6 source citation(s). Left out Steelcase Gesture Chair: another listing of the Steelcase Gesture, ranked lower by its search.",
+       "outcome": "success",
+       "duration_ms": 34194
+      }
+     ]
+    },
+    {
+     "batch": "v1",
+     "run_id": "6d5524cd-ac1d-4503-9b60-324891471bca",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T14:46:16Z",
+     "review_calls": 2,
+     "synthesis_steps": [
+      {
+       "detail": "Synthesis failed with SynthesisOutputError: Synthesized sentence contains unsupported numeric claim or availability claim ['10W'] for product 1551237: That is 10W below your requirement. Cite the record that states it in this sentence. Use the cited measurement's original meaning, value and unit. If the sources do not state it, say so without writing the number.",
+       "outcome": "error",
+       "duration_ms": 9531
+      },
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 15865
+      }
+     ]
+    },
+    {
+     "batch": "v1",
+     "run_id": "e2cbc16f-881d-41b3-97d4-03bfea19b65b",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T14:46:25Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 6 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 13677
+      }
+     ]
+    },
+    {
+     "batch": "v1",
+     "run_id": "fd9dcfe9-3e40-4b6a-9635-f865c3cce5e1",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T14:46:27Z",
+     "review_calls": 2,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 17033
+      }
+     ]
+    },
+    {
+     "batch": "v1",
+     "run_id": "500ef9ad-62dd-46ef-91ad-5d896b6f3f4a",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T14:47:04Z",
+     "review_calls": 2,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 6 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 19849
+      }
+     ]
+    },
+    {
+     "batch": "v1",
+     "run_id": "f1fd38df-fe8e-4a6f-a03f-ac9c19d0ca55",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T14:47:12Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 10269
+      }
+     ]
+    },
+    {
+     "batch": "v1",
+     "run_id": "8aaa45ed-c9d5-4329-81d6-be7a083165d3",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T14:47:14Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 6 source citation(s). Left out Steelcase Gesture Chair: another listing of the Steelcase Gesture, ranked lower by its search.",
+       "outcome": "success",
+       "duration_ms": 20285
+      }
+     ]
+    },
+    {
+     "batch": "v1",
+     "run_id": "451f5ad0-8aa2-49fe-9404-856428116c6e",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T14:47:17Z",
+     "review_calls": 3,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 26199
+      }
+     ]
+    },
+    {
+     "batch": "v1",
+     "run_id": "526cbcda-ad0b-4832-9b89-e8e280b1792f",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T14:47:45Z",
+     "review_calls": 3,
+     "synthesis_steps": [
+      {
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: passage 8 is marked supported without a source quote; quote the cited record that supports it",
+       "outcome": "error",
+       "duration_ms": 29965
+      },
+      {
+       "detail": "Citation-bounded synthesis after model orchestration completed without calling its required final tool. Left out Steelcase Gesture Chair: another listing of the Steelcase Gesture, ranked lower by its search.",
+       "outcome": "success",
+       "duration_ms": 27883
+      }
+     ]
+    },
+    {
+     "batch": "v1",
+     "run_id": "4298973f-cb78-44da-8493-53961df0dee2",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T14:47:53Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 10437
+      }
+     ]
+    },
+    {
+     "batch": "v1",
+     "run_id": "7d279a7c-dc0e-4944-9c4b-8dc4857fa65d",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T14:48:09Z",
+     "review_calls": 4,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 6 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 41536
+      }
+     ]
+    },
+    {
+     "batch": "v1",
+     "run_id": "a8d55851-1390-4bcc-8dcb-d19001aaea3c",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T14:48:14Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 12775
+      }
+     ]
+    },
+    {
+     "batch": "v1",
+     "run_id": "3d7d4fb5-9066-4114-bdd6-866b1c2b2617",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T14:48:34Z",
+     "review_calls": 4,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 6 source citation(s). Left out Steelcase Gesture Chair: another listing of the Steelcase Gesture, ranked lower by its search.",
+       "outcome": "success",
+       "duration_ms": 45629
+      }
+     ]
+    },
+    {
+     "batch": "v1",
+     "run_id": "97b53413-c2e7-4dd4-82b0-a5cd6039f7d9",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T14:48:50Z",
+     "review_calls": 2,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 17534
+      }
+     ]
+    },
+    {
+     "batch": "v1",
+     "run_id": "9e2574a4-c607-4d67-9ee5-e230c87f7994",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T14:49:24Z",
+     "review_calls": 3,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 6 source citation(s). Left out Steelcase Gesture Chair: another listing of the Steelcase Gesture, ranked lower by its search.",
+       "outcome": "success",
+       "duration_ms": 28870
+      }
+     ]
+    },
+    {
+     "batch": "v1",
+     "run_id": "342107fe-7a86-49bf-816e-8c049de8d104",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T14:49:25Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 10388
+      }
+     ]
+    },
+    {
+     "batch": "v1b",
+     "run_id": "a4287844-9aa9-40ab-9138-840db7e6903a",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T14:54:13Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: passage 8: The reviewer is returning the chair for the Gesture model without a headrest, so the answer's 'returned that version' misstates the exchange and isn't supported as written.; remove the unsupported claim or cite evidence that supports it",
+       "outcome": "error",
+       "duration_ms": 25463
+      },
+      {
+       "detail": "Citation-bounded synthesis after model orchestration completed without calling its required final tool. Left out Steelcase Gesture Chair: another listing of the Steelcase Gesture, ranked lower by its search.",
+       "outcome": "success",
+       "duration_ms": 15895
+      }
+     ]
+    },
+    {
+     "batch": "v1b",
+     "run_id": "38c41b85-7f65-4825-b2cc-92366932618a",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T14:54:13Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 6 source citation(s). Left out Steelcase Gesture Chair: another listing of the Steelcase Gesture, ranked lower by its search.",
+       "outcome": "success",
+       "duration_ms": 14065
+      }
+     ]
+    },
+    {
+     "batch": "v1b",
+     "run_id": "d42f77e1-8333-4d66-80a7-d8dae2b059c8",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T14:54:13Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 11111
+      }
+     ]
+    },
+    {
+     "batch": "v1b",
+     "run_id": "78a787e1-9b7d-4708-b759-5a4a2648f561",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T14:54:13Z",
+     "review_calls": 2,
+     "synthesis_steps": [
+      {
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: passage 10: Passage cites no record, yet it asserts that the monitor's single-cable USB-C setup may work for a laptop that accepts 90W, which is a compatibility claim.; remove the unsupported claim or cite evidence that supports it",
+       "outcome": "error",
+       "duration_ms": 19060
+      },
+      {
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: passage 5: Passage cites no record, yet states the listing is a historical parent-product record, a fact taken from the scope note.; remove the unsupported claim or cite evidence that supports it",
+       "outcome": "error",
+       "duration_ms": 15504
+      },
+      {
+       "detail": "Synthesis failed with SynthesisOutputError: unsupported compatibility claim \"works with your laptop's charging requirements\" in: The sources do not state that it supplies 100W, or that it works with your laptop's charging requirements [1][2]. Cite a source that states that relationship, or say the sources do not state it.",
+       "outcome": "error",
+       "duration_ms": 9349
+      },
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 16896
+      }
+     ]
+    },
+    {
+     "batch": "v1b",
+     "run_id": "4340cc8d-b659-4584-a675-f17d84343fe6",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T14:54:42Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 6 source citation(s). Left out Steelcase Gesture Chair: another listing of the Steelcase Gesture, ranked lower by its search.",
+       "outcome": "success",
+       "duration_ms": 17362
+      }
+     ]
+    },
+    {
+     "batch": "v1b",
+     "run_id": "3af9bd76-b86e-4bff-99c5-cd4e97a8fd2e",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T14:55:04Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: passage 6 cites nothing but quotes record 1; quote only the records it cites, or mark it unsupported",
+       "outcome": "error",
+       "duration_ms": 26455
+      },
+      {
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: passage 8: The passage cites no record, yet it states a factual claim that the records come from a historical listing.; remove the unsupported claim or cite evidence that supports it",
+       "outcome": "error",
+       "duration_ms": 27577
+      },
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 10863
+      }
+     ]
+    },
+    {
+     "batch": "v1b",
+     "run_id": "b8e5bb39-df7d-4372-8912-f1a9cad9fe65",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T14:55:22Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 6 source citation(s). Left out Steelcase Gesture Chair: another listing of the Steelcase Gesture, ranked lower by its search.",
+       "outcome": "success",
+       "duration_ms": 15961
+      }
+     ]
+    },
+    {
+     "batch": "v1b",
+     "run_id": "dda7d64f-6f1e-49c4-8954-4bc66203d17e",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T14:55:40Z",
+     "review_calls": 3,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 21728
+      }
+     ]
+    },
+    {
+     "batch": "v1b",
+     "run_id": "e106bb4e-4568-4973-a37d-3840dd891670",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T14:55:45Z",
+     "review_calls": 2,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 6 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 20790
+      }
+     ]
+    },
+    {
+     "batch": "v1b",
+     "run_id": "12a7e0ae-f791-4054-8eed-930acc737d1b",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T14:56:08Z",
+     "review_calls": 2,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 18697
+      }
+     ]
+    },
+    {
+     "batch": "v1b",
+     "run_id": "0fcf6904-26cc-4e3b-93f0-c64d23e9cac8",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T14:56:28Z",
+     "review_calls": 2,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 6 source citation(s). Left out Steelcase Gesture Chair: another listing of the Steelcase Gesture, ranked lower by its search.",
+       "outcome": "success",
+       "duration_ms": 24187
+      }
+     ]
+    },
+    {
+     "batch": "v1b",
+     "run_id": "0d02d09e-a5c8-44bb-a3f2-5aa731455bb4",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T14:56:40Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 11699
+      }
+     ]
+    },
+    {
+     "batch": "v1b",
+     "run_id": "ae2001ad-c0b0-45ec-9bd7-7596d139e509",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T14:56:43Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 6 source citation(s). Left out Steelcase Gesture Chair: another listing of the Steelcase Gesture, ranked lower by its search.",
+       "outcome": "success",
+       "duration_ms": 15954
+      }
+     ]
+    },
+    {
+     "batch": "v1b",
+     "run_id": "823e59f7-dbcc-4a9a-a043-b06a98429289",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T14:56:45Z",
+     "review_calls": 3,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 22295
+      }
+     ]
+    },
+    {
+     "batch": "v1b",
+     "run_id": "19f12fcc-fd6e-4f61-8eb5-fa66dae52254",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T14:57:23Z",
+     "review_calls": 2,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 5 source citation(s). Left out Steelcase Gesture Chair: another listing of the Steelcase Gesture, ranked lower by its search.",
+       "outcome": "success",
+       "duration_ms": 23863
+      }
+     ]
+    },
+    {
+     "batch": "v1b",
+     "run_id": "cf701c94-dd14-4a29-b36a-6d749f79b41d",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T14:57:24Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: passage 3: The passage makes a factual claim about the review's content (that it gives no wattage) without citing any record, so it cannot be treated as supported.; remove the unsupported claim or cite evidence that supports it",
+       "outcome": "error",
+       "duration_ms": 25982
+      },
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 9983
+      }
+     ]
+    },
+    {
+     "batch": "v1b",
+     "run_id": "da77b30c-b15b-4099-a468-bfee667487f0",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T14:57:30Z",
+     "review_calls": 4,
+     "synthesis_steps": [
+      {
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: passage 7 is marked supported without a source quote; quote the cited record that supports it",
+       "outcome": "error",
+       "duration_ms": 38507
+      },
+      {
+       "detail": "Validated and persisted 6 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 37688
+      }
+     ]
+    },
+    {
+     "batch": "v1b",
+     "run_id": "bf994ef1-d123-4757-b710-85b75e92aa2e",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T14:57:34Z",
+     "review_calls": 2,
+     "synthesis_steps": [
+      {
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: passage 3: The passage has no citation of its own. It makes a claim about the review's content and scope that the answer does not cite.; remove the unsupported claim or cite evidence that supports it",
+       "outcome": "error",
+       "duration_ms": 31367
+      },
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 21053
+      }
+     ]
+    },
+    {
+     "batch": "v1b",
+     "run_id": "f542e065-ceb4-4b0c-ba81-0ca7d6c65e54",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T14:58:14Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 6 source citation(s). Left out Steelcase Gesture Office Chair: another listing of the Steelcase Gesture, ranked lower by its search.",
+       "outcome": "success",
+       "duration_ms": 14241
+      }
+     ]
+    },
+    {
+     "batch": "v1b",
+     "run_id": "28c6a7e9-e1d4-463c-b469-e50cd934c4f4",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T14:58:27Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 13099
+      }
+     ]
+    }
+   ]
+  },
+  "two_rules_one_repair": {
+   "batches": [
+    "v2",
+    "v2b"
+   ],
+   "requests": {
+    "setup": {
+     "runs": 20,
+     "answered": 20,
+     "runs_with_a_refused_draft": 3,
+     "runs_repaired_inside_the_call": 8,
+     "runs_first_draft_accepted": 9,
+     "synthesis_calls": 23,
+     "refused_synthesis_calls": 3,
+     "seconds_median": 48.7,
+     "seconds_range": [
+      40.6,
+      74.1
+     ]
+    },
+    "followup": {
+     "runs": 20,
+     "answered": 20,
+     "runs_with_a_refused_draft": 7,
+     "runs_repaired_inside_the_call": 3,
+     "runs_first_draft_accepted": 10,
+     "synthesis_calls": 29,
+     "refused_synthesis_calls": 9,
+     "seconds_median": 42.0,
+     "seconds_range": [
+      24.1,
+      98.0
+     ]
+    }
+   },
+   "runs": [
+    {
+     "batch": "v2",
+     "run_id": "2db83777-b842-4f81-98ef-d5808aaa1f58",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:03:04Z",
+     "review_calls": 2,
+     "synthesis_steps": [
+      {
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: passage 3 rests on record 2's scope note, \"One customer's experience of the recorded variant\", which is Mosaic's note on what the record can establish, not its words; write that caveat as a plain step without a citation",
+       "outcome": "error",
+       "duration_ms": 15746
+      },
+      {
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: passage 5: The passage cites no record, so its claim about the review is uncited.; remove the unsupported claim or cite evidence that supports it",
+       "outcome": "error",
+       "duration_ms": 32956
+      },
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 16959
+      }
+     ]
+    },
+    {
+     "batch": "v2",
+     "run_id": "15630c13-8079-431e-bd96-8a65a9195a2c",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:03:04Z",
+     "review_calls": 2,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 6 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 24060
+      }
+     ]
+    },
+    {
+     "batch": "v2",
+     "run_id": "436bdacc-0990-441b-b43b-b6cd34b7da4c",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:03:04Z",
+     "review_calls": 2,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 6 source citation(s). Left out Steelcase Gesture Chair: another listing of the Steelcase Gesture, ranked lower by its search.",
+       "outcome": "success",
+       "duration_ms": 21646
+      }
+     ]
+    },
+    {
+     "batch": "v2",
+     "run_id": "4598a3be-6975-44fa-a5de-cf3b099a686a",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:03:04Z",
+     "review_calls": 2,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 18630
+      }
+     ]
+    },
+    {
+     "batch": "v2",
+     "run_id": "1d543d39-fdfa-4f13-8f23-98171adfc77d",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:03:44Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 5 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 14855
+      }
+     ]
+    },
+    {
+     "batch": "v2",
+     "run_id": "7ae0d159-8eeb-4ca6-a636-037859e0c7c9",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:03:51Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 11851
+      }
+     ]
+    },
+    {
+     "batch": "v2",
+     "run_id": "f64e692a-abdc-4c05-b1fa-f9d56d098c91",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:04:07Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 6 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 13599
+      }
+     ]
+    },
+    {
+     "batch": "v2",
+     "run_id": "5de99fb6-880b-4e72-b5e5-8e155bc058d5",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:04:31Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 12130
+      }
+     ]
+    },
+    {
+     "batch": "v2",
+     "run_id": "29cf39be-aca9-40bf-a279-cfec0c5a27bc",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:04:33Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 6 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 18396
+      }
+     ]
+    },
+    {
+     "batch": "v2",
+     "run_id": "1dc470b7-893e-45cc-b559-cd257015f1db",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:04:35Z",
+     "review_calls": 3,
+     "synthesis_steps": [
+      {
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: passage 7 rests on record 1's scope note, \"Historical parent-product listing. Confirm exact variant and current offer separately.\", which is Mosaic's note on what the record can establish, not its words; write that caveat as a plain step without a citation",
+       "outcome": "error",
+       "duration_ms": 19635
+      },
+      {
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: passage 5: The record does not show that a laptop can charge at lower power or that the setup would work; this is an unsupported compatibility claim.; remove the unsupported claim or cite evidence that supports it",
+       "outcome": "error",
+       "duration_ms": 12828
+      },
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 21656
+      }
+     ]
+    },
+    {
+     "batch": "v2",
+     "run_id": "b6ff7970-0609-47d7-9b77-a2a16d68d342",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:04:57Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: passage 8: The passage cites no evidence, yet it asserts product facts about carpet casters and dimensions.; remove the unsupported claim or cite evidence that supports it",
+       "outcome": "error",
+       "duration_ms": 23910
+      },
+      {
+       "detail": "Validated and persisted 6 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 14456
+      }
+     ]
+    },
+    {
+     "batch": "v2",
+     "run_id": "8c729efa-dc9c-437b-ae6a-7502019703ca",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:05:05Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 11913
+      }
+     ]
+    },
+    {
+     "batch": "v2",
+     "run_id": "67392e81-1fa4-4795-8c46-e04867f5c882",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:05:17Z",
+     "review_calls": 2,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 6 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 21280
+      }
+     ]
+    },
+    {
+     "batch": "v2",
+     "run_id": "e374eee1-fb02-4dd9-896f-69a2f327a28f",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:05:45Z",
+     "review_calls": 2,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 14337
+      }
+     ]
+    },
+    {
+     "batch": "v2",
+     "run_id": "4e3f5cf6-a916-4a68-8374-86eb222fe0b8",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:06:00Z",
+     "review_calls": 2,
+     "synthesis_steps": [
+      {
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: passage 9: the quote is not in record 6: \"This model includes an adjustable headrest\"; copy the exact words of the record's title or text",
+       "outcome": "error",
+       "duration_ms": 22254
+      },
+      {
+       "detail": "Validated and persisted 6 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 19876
+      }
+     ]
+    },
+    {
+     "batch": "v2",
+     "run_id": "d48e640a-8b5c-42c3-bd31-b6fd866388d9",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:06:01Z",
+     "review_calls": 3,
+     "synthesis_steps": [
+      {
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: passage 7 rests on record 1's scope note, \"Historical parent-product listing. Confirm exact variant and current offer separately.\", which is Mosaic's note on what the record can establish, not its words; write that caveat as a plain step without a citation",
+       "outcome": "error",
+       "duration_ms": 11118
+      },
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 23756
+      }
+     ]
+    },
+    {
+     "batch": "v2",
+     "run_id": "3c369baf-257f-4a11-b845-e88e37a76fca",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:06:10Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 6 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 11616
+      }
+     ]
+    },
+    {
+     "batch": "v2",
+     "run_id": "0b2e03b3-13d8-4192-8294-257f9e0e9e81",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:06:15Z",
+     "review_calls": 4,
+     "synthesis_steps": [
+      {
+       "detail": "Synthesis failed with SynthesisOutputError: Synthesized claim naming product 1551237 does not cite evidence for that product: The sources do not state any other charging figure for the ViewSonic VG2756-4K, and no record identifies your laptop or confirms how it would behave on this monitor's USB-C port. Cite that product's evidence in the same sentence, even when it says a source does not state something.",
+       "outcome": "error",
+       "duration_ms": 8112
+      },
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 24691
+      }
+     ]
+    },
+    {
+     "batch": "v2",
+     "run_id": "e7ec6b97-a222-4433-a112-dedd2175937a",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:06:55Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 6 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 15713
+      }
+     ]
+    },
+    {
+     "batch": "v2",
+     "run_id": "e7c53d1d-31f6-47d8-81f8-08f737b47562",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:06:56Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 12590
+      }
+     ]
+    },
+    {
+     "batch": "v2b",
+     "run_id": "0ca827dc-6e03-446a-9570-3ee3a6c213c3",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:08:27Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 6 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 14599
+      }
+     ]
+    },
+    {
+     "batch": "v2b",
+     "run_id": "bc5cb8cd-1c54-45f5-b201-6f68be8ca438",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:08:27Z",
+     "review_calls": 2,
+     "synthesis_steps": [
+      {
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: passage 2: The passage cites no record, and it makes a product-fact conclusion that the monitor does not meet the need.; remove the unsupported claim or cite evidence that supports it",
+       "outcome": "error",
+       "duration_ms": 25752
+      },
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 18144
+      }
+     ]
+    },
+    {
+     "batch": "v2b",
+     "run_id": "03f6cbab-b18d-49cd-8519-9ff982013259",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:08:27Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 6 source citation(s). Left out Steelcase Gesture Chair: another listing of the Steelcase Gesture, ranked lower by its search.",
+       "outcome": "success",
+       "duration_ms": 16108
+      }
+     ]
+    },
+    {
+     "batch": "v2b",
+     "run_id": "b2f7632c-7f56-49f7-a797-93f2f25db070",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:08:27Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 9201
+      }
+     ]
+    },
+    {
+     "batch": "v2b",
+     "run_id": "bff6bac2-9a4a-490f-be58-53bcdfe27ec7",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:08:51Z",
+     "review_calls": 2,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 6 source citation(s). Left out Steelcase Gesture Office Chair: another listing of the Steelcase Gesture, ranked lower by its search.",
+       "outcome": "success",
+       "duration_ms": 22242
+      }
+     ]
+    },
+    {
+     "batch": "v2b",
+     "run_id": "f66c767f-c33f-4d68-ad51-9c96ab6578f5",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:09:07Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: passage 7 rests on record 1's scope note, \"Historical parent-product listing. Confirm exact variant and current offer separately.\", which is Mosaic's note on what the record can establish, not its words; write that caveat as a plain step without a citation",
+       "outcome": "error",
+       "duration_ms": 10459
+      },
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 11621
+      }
+     ]
+    },
+    {
+     "batch": "v2b",
+     "run_id": "17e97b5c-3f6f-40c5-9b1a-392683d026be",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:09:09Z",
+     "review_calls": 2,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 6 source citation(s). Left out Steelcase Gesture Chair: another listing of the Steelcase Gesture, ranked lower by its search.",
+       "outcome": "success",
+       "duration_ms": 21863
+      }
+     ]
+    },
+    {
+     "batch": "v2b",
+     "run_id": "869e1eb7-08e3-434f-b185-88a508feaa50",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:09:34Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 8779
+      }
+     ]
+    },
+    {
+     "batch": "v2b",
+     "run_id": "5cbc4406-457b-4c6e-9c91-6617ad96b43e",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:09:38Z",
+     "review_calls": 2,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 6 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 21616
+      }
+     ]
+    },
+    {
+     "batch": "v2b",
+     "run_id": "d0774afe-cdbb-47c4-bc6c-20f0bf6ec22f",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:09:53Z",
+     "review_calls": 2,
+     "synthesis_steps": [
+      {
+       "detail": "Synthesis failed with SynthesisOutputError: Synthesized sentence contains unsupported numeric claim or availability claim ['$10.00'] for product 1551237: The ViewSonic VG2756-4K does not clearly meet a 100W requirement: its listing describes 90W charging over one cable [1], which is $10W$ below what you need, and its sources state no higher output [1]. Use the cited measurement's original meaning, value and unit. If ",
+       "outcome": "error",
+       "duration_ms": 7509
+      },
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 18505
+      }
+     ]
+    },
+    {
+     "batch": "v2b",
+     "run_id": "772d1e78-5331-442a-acfa-e8c892fbbe8c",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:09:59Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 6 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 12290
+      }
+     ]
+    },
+    {
+     "batch": "v2b",
+     "run_id": "af878687-05de-49a7-a73e-005cd0531703",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:10:01Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 8611
+      }
+     ]
+    },
+    {
+     "batch": "v2b",
+     "run_id": "117972f9-082d-492d-a140-1e9e7eb0072a",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:10:24Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: passage 8: The passage cites no record. It makes uncited claims about the chair's listed dimensions and about what the records do or do not state.; remove the unsupported claim or cite evidence that supports it",
+       "outcome": "error",
+       "duration_ms": 20508
+      },
+      {
+       "detail": "Validated and persisted 6 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 11784
+      }
+     ]
+    },
+    {
+     "batch": "v2b",
+     "run_id": "f743d0b6-a9b0-4198-a022-ae7d39523011",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:10:31Z",
+     "review_calls": 3,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 20923
+      }
+     ]
+    },
+    {
+     "batch": "v2b",
+     "run_id": "d1c86dfb-184e-4980-b29e-3fc4714601d0",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:10:41Z",
+     "review_calls": 3,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 6 source citation(s). Left out Steelcase Gesture Chair: another listing of the Steelcase Gesture, ranked lower by its search.",
+       "outcome": "success",
+       "duration_ms": 31349
+      }
+     ]
+    },
+    {
+     "batch": "v2b",
+     "run_id": "f09bc88b-41e5-46c8-9935-db4f9b9ed25a",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:10:43Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 13838
+      }
+     ]
+    },
+    {
+     "batch": "v2b",
+     "run_id": "544fee9a-4e8b-4a1b-9be7-ce5cd86fe57b",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:11:14Z",
+     "review_calls": 3,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 6 source citation(s). Left out Steelcase Gesture Chair: another listing of the Steelcase Gesture, ranked lower by its search.",
+       "outcome": "success",
+       "duration_ms": 30659
+      }
+     ]
+    },
+    {
+     "batch": "v2b",
+     "run_id": "c5ba892a-c761-4f15-8ed1-cc3c3eea1e2e",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:11:24Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 13117
+      }
+     ]
+    },
+    {
+     "batch": "v2b",
+     "run_id": "ac3e7d44-ea33-4dd1-a959-42eb6f79ac46",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:11:25Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 6 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 14072
+      }
+     ]
+    },
+    {
+     "batch": "v2b",
+     "run_id": "60307d75-2d36-417b-8ba8-b9938a35acb8",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:11:48Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 11008
+      }
+     ]
+    }
+   ]
+  },
+  "two_rules_two_repairs": {
+   "batches": [
+    "v3",
+    "v3b"
+   ],
+   "requests": {
+    "setup": {
+     "runs": 20,
+     "answered": 20,
+     "runs_with_a_refused_draft": 0,
+     "runs_repaired_inside_the_call": 13,
+     "runs_first_draft_accepted": 7,
+     "synthesis_calls": 20,
+     "refused_synthesis_calls": 0,
+     "seconds_median": 53.0,
+     "seconds_range": [
+      43.7,
+      79.7
+     ]
+    },
+    "followup": {
+     "runs": 20,
+     "answered": 20,
+     "runs_with_a_refused_draft": 5,
+     "runs_repaired_inside_the_call": 9,
+     "runs_first_draft_accepted": 6,
+     "synthesis_calls": 25,
+     "refused_synthesis_calls": 5,
+     "seconds_median": 47.0,
+     "seconds_range": [
+      31.3,
+      86.2
+     ]
+    }
+   },
+   "runs": [
+    {
+     "batch": "v3",
+     "run_id": "ee7b3a87-df10-4101-b5cb-a560475fc0ad",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:14:54Z",
+     "review_calls": 3,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 23541
+      }
+     ]
+    },
+    {
+     "batch": "v3",
+     "run_id": "0fbfa6b1-1444-4ce7-8e58-054498ad649e",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:14:54Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 5 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 12699
+      }
+     ]
+    },
+    {
+     "batch": "v3",
+     "run_id": "b25f4087-719a-4bc1-be72-03cd3cd19e86",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:14:54Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 8420
+      }
+     ]
+    },
+    {
+     "batch": "v3",
+     "run_id": "2ba8daec-a44a-4418-ba17-1a34cc7085bc",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:14:54Z",
+     "review_calls": 2,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 6 source citation(s). Left out Steelcase Gesture Chair: another listing of the Steelcase Gesture, ranked lower by its search.",
+       "outcome": "success",
+       "duration_ms": 26587
+      }
+     ]
+    },
+    {
+     "batch": "v3",
+     "run_id": "b1daa045-c905-409c-bd85-09006a308488",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:15:30Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 6 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 12963
+      }
+     ]
+    },
+    {
+     "batch": "v3",
+     "run_id": "3763a644-7fb7-4e2e-8800-c1705aa74b50",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:15:42Z",
+     "review_calls": 3,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 19650
+      }
+     ]
+    },
+    {
+     "batch": "v3",
+     "run_id": "68d93980-7249-4c37-904a-9f8a782481ef",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:15:45Z",
+     "review_calls": 2,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 6 source citation(s). Left out Steelcase Gesture Chair: another listing of the Steelcase Gesture, ranked lower by its search.",
+       "outcome": "success",
+       "duration_ms": 19429
+      }
+     ]
+    },
+    {
+     "batch": "v3",
+     "run_id": "aa1a8cde-8569-45aa-b6e3-7ee6aec5d7d4",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:15:45Z",
+     "review_calls": 3,
+     "synthesis_steps": [
+      {
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: passage 7: The passage cites no record, yet asserts that the charging figure comes from a listing record, which is a factual claim.; remove the unsupported claim or cite evidence that supports it",
+       "outcome": "error",
+       "duration_ms": 30534
+      },
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 25075
+      }
+     ]
+    },
+    {
+     "batch": "v3",
+     "run_id": "d19e8ebe-ef96-4f25-8237-5b2d5fb06154",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:16:13Z",
+     "review_calls": 2,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 6 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 18785
+      }
+     ]
+    },
+    {
+     "batch": "v3",
+     "run_id": "7da54746-741a-4a79-899d-8d0b15bd880b",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:16:21Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: passage 3: This passage carries no citation of its own, and it states a factual conclusion about the monitor that is not tied to any cited record.; remove the unsupported claim or cite evidence that supports it",
+       "outcome": "error",
+       "duration_ms": 31987
+      },
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 9898
+      }
+     ]
+    },
+    {
+     "batch": "v3",
+     "run_id": "9d7507b3-6bfc-4bc4-957a-558adec07144",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:16:49Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 6 source citation(s). Left out Steelcase Gesture Chair: another listing of the Steelcase Gesture, ranked lower by its search.",
+       "outcome": "success",
+       "duration_ms": 12484
+      }
+     ]
+    },
+    {
+     "batch": "v3",
+     "run_id": "3317b331-fb87-4c8a-892f-a8423157b570",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:17:03Z",
+     "review_calls": 4,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 32321
+      }
+     ]
+    },
+    {
+     "batch": "v3",
+     "run_id": "40a0c83a-3650-4e80-9c02-b6501b69bb51",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:17:12Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 6 source citation(s). Left out Steelcase Gesture Chair: another listing of the Steelcase Gesture, ranked lower by its search.",
+       "outcome": "success",
+       "duration_ms": 13512
+      }
+     ]
+    },
+    {
+     "batch": "v3",
+     "run_id": "09f12445-c45a-41f6-83ac-31dc2e274272",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:17:32Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 14656
+      }
+     ]
+    },
+    {
+     "batch": "v3",
+     "run_id": "49e5b891-4078-49e5-a237-9eafddd5faf8",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:17:43Z",
+     "review_calls": 3,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 6 source citation(s). Left out Steelcase Gesture Chair: another listing of the Steelcase Gesture, ranked lower by its search.",
+       "outcome": "success",
+       "duration_ms": 29135
+      }
+     ]
+    },
+    {
+     "batch": "v3",
+     "run_id": "c31aab11-a308-496a-942f-d1707f6a0e71",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:17:58Z",
+     "review_calls": 6,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 36608
+      }
+     ]
+    },
+    {
+     "batch": "v3",
+     "run_id": "485bebce-598c-49a7-b0bb-64c7b9745a82",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:17:59Z",
+     "review_calls": 2,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 6 source citation(s). Left out Steelcase Gesture Chair: another listing of the Steelcase Gesture, ranked lower by its search.",
+       "outcome": "success",
+       "duration_ms": 25014
+      }
+     ]
+    },
+    {
+     "batch": "v3",
+     "run_id": "09729647-4104-49bf-a757-b3fbfe5ce9f8",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:18:16Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: passage 8 rests on record 1's scope note, \"Historical parent-product listing. Confirm exact variant and current offer separately.\", which is Mosaic's note on what the record can establish, not its words; write that caveat as a plain step without a citation",
+       "outcome": "error",
+       "duration_ms": 18463
+      },
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 13389
+      }
+     ]
+    },
+    {
+     "batch": "v3",
+     "run_id": "7bb36f19-b569-4359-b95f-9e047d51f990",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:18:44Z",
+     "review_calls": 2,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 6 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 22912
+      }
+     ]
+    },
+    {
+     "batch": "v3",
+     "run_id": "91d579a8-bad8-4de0-a849-0046a5e3f776",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:19:00Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 10412
+      }
+     ]
+    },
+    {
+     "batch": "v3b",
+     "run_id": "dc3a2ed0-e7a9-4fad-af2c-567c01a6092a",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:20:32Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 10594
+      }
+     ]
+    },
+    {
+     "batch": "v3b",
+     "run_id": "f87ece09-a815-43fb-af92-ecd27cc49fd6",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:20:32Z",
+     "review_calls": 2,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 6 source citation(s). Left out Steelcase Gesture Chair: another listing of the Steelcase Gesture, ranked lower by its search.",
+       "outcome": "success",
+       "duration_ms": 21428
+      }
+     ]
+    },
+    {
+     "batch": "v3b",
+     "run_id": "5a601b98-83e4-4b0a-a3dc-680014933f0e",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:20:33Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 12513
+      }
+     ]
+    },
+    {
+     "batch": "v3b",
+     "run_id": "46c2c2bb-b2ab-40f6-9606-a2adcbf1df4c",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:20:33Z",
+     "review_calls": 2,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 6 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 21025
+      }
+     ]
+    },
+    {
+     "batch": "v3b",
+     "run_id": "be886f90-f125-4949-b5b1-1191b806d74c",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:21:04Z",
+     "review_calls": 2,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 6 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 21805
+      }
+     ]
+    },
+    {
+     "batch": "v3b",
+     "run_id": "7e5091c0-2760-43a0-b7c7-1967cee6fa84",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:21:09Z",
+     "review_calls": 2,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 17190
+      }
+     ]
+    },
+    {
+     "batch": "v3b",
+     "run_id": "60a7b641-a334-467d-9d20-4ae17a2a0f93",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:21:21Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 6 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 14096
+      }
+     ]
+    },
+    {
+     "batch": "v3b",
+     "run_id": "6605e62c-c1c7-4397-bd2c-15c73b60de63",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:21:27Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Synthesis failed with SynthesisOutputError: claim support: passage 4 is marked supported without a source quote; quote the cited record that supports it",
+       "outcome": "error",
+       "duration_ms": 21446
+      },
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 11573
+      }
+     ]
+    },
+    {
+     "batch": "v3b",
+     "run_id": "580f4f34-23fe-41e3-9332-c9784288852f",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:21:49Z",
+     "review_calls": 2,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 6 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 20416
+      }
+     ]
+    },
+    {
+     "batch": "v3b",
+     "run_id": "849be7ef-d612-4a56-9473-3baadfbf041d",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:21:59Z",
+     "review_calls": 3,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 22774
+      }
+     ]
+    },
+    {
+     "batch": "v3b",
+     "run_id": "f1029156-ddd3-4b40-8fe6-8fa3ba52fb47",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:22:13Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 6 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 14888
+      }
+     ]
+    },
+    {
+     "batch": "v3b",
+     "run_id": "7a76e203-10a0-46d2-912e-7b34a5cdfe4a",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:22:33Z",
+     "review_calls": 2,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 16488
+      }
+     ]
+    },
+    {
+     "batch": "v3b",
+     "run_id": "6ac99445-7707-42a9-a788-0b951bf4d402",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:22:36Z",
+     "review_calls": 3,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 6 source citation(s). Left out Steelcase Gesture Chair: another listing of the Steelcase Gesture, ranked lower by its search.",
+       "outcome": "success",
+       "duration_ms": 32826
+      }
+     ]
+    },
+    {
+     "batch": "v3b",
+     "run_id": "8b3ef7c7-e45c-44d1-a204-cb5e9f71719a",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:22:36Z",
+     "review_calls": 3,
+     "synthesis_steps": [
+      {
+       "detail": "Synthesis failed with SynthesisOutputError: unsupported compatibility claim \"work with the monitor's listed wattage\" in: - If your laptop cannot work with the monitor's listed wattage, keep its own charger connected. Cite a source that states that relationship, or say the sources do not state it.",
+       "outcome": "error",
+       "duration_ms": 9079
+      },
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 24524
+      }
+     ]
+    },
+    {
+     "batch": "v3b",
+     "run_id": "3672ec7b-b338-457f-b308-0e126e0f6993",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:22:58Z",
+     "review_calls": 5,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 6 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 40573
+      }
+     ]
+    },
+    {
+     "batch": "v3b",
+     "run_id": "d4f10640-5f1c-49d0-a2e7-735e6c4397d7",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:23:11Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 13147
+      }
+     ]
+    },
+    {
+     "batch": "v3b",
+     "run_id": "49e081fa-ad6c-420b-9733-40c9c03d2b18",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:23:35Z",
+     "review_calls": 1,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 6 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 16378
+      }
+     ]
+    },
+    {
+     "batch": "v3b",
+     "run_id": "7042d7a7-985e-4f5a-8bca-d4120c482da0",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:23:40Z",
+     "review_calls": 2,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 14786
+      }
+     ]
+    },
+    {
+     "batch": "v3b",
+     "run_id": "c2150f2e-71ca-4f5b-8e2f-675cb96747a6",
+     "request": "setup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:23:53Z",
+     "review_calls": 3,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 6 source citation(s). Left out Steelcase Gesture Chair: another listing of the Steelcase Gesture, ranked lower by its search.",
+       "outcome": "success",
+       "duration_ms": 31858
+      }
+     ]
+    },
+    {
+     "batch": "v3b",
+     "run_id": "69a02c68-604c-4162-a6bc-d22747ad319b",
+     "request": "followup",
+     "answered": true,
+     "asked_at": "2026-11-10T15:24:18Z",
+     "review_calls": 6,
+     "synthesis_steps": [
+      {
+       "detail": "Validated and persisted 2 source citation(s).",
+       "outcome": "success",
+       "duration_ms": 38753
+      }
+     ]
+    }
+   ]
+  }
+ }
+}

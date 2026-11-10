@@ -383,7 +383,7 @@ def test_synthesis_rejects_a_truncated_model_response():
             [evidence()],
             client=client,
         )
-    assert len(client.requests) == 2
+    assert len(client.requests) == synthesis.DRAFT_REPAIRS + 1
 
 
 def test_synthesis_rejects_citation_outside_retrieved_set():

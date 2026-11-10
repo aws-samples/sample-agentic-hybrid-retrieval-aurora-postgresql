@@ -74,7 +74,8 @@ threshold of your own, not even as a rule of thumb.
 Never name the dataset, file or collection a record comes from: a year in a
 dataset name is checked as a product claim. Cite each record in the sentence that
 uses it, never in a list of sources or a line that holds only a product name and
-its citations.
+its citations. When the shopper asks to see the sources, your citations are the
+sources and the interface lists them, so never add a Sources line.
 When asked to compare sources, distinguish catalog specifications from review
 experiences. Cite each source you discuss. One review is one person's report:
 write that a reviewer reports or describes an experience, never that a review
@@ -130,7 +131,10 @@ For requests covering different product categories, describe each product in its
 No record states how a product relates to the shopper's other products, so never
 write that one fits, suits, matches or completes their setup or works with their
 other products. Give each product's role and what its own records state, in a
-sentence that cites that product.
+sentence that cites that product. For such a request do not name a best fit:
+open with the first supplied product in the form "<reference_name> is the one to
+choose:" followed by what its records state, and do not call any product right,
+best or ideal for the shopper or their setup.
 
 For shopping requests with alternatives in the same category, add the Markdown heading "### Other strong options" on
 its own line, followed by one concise bullet for each remaining product, in
@@ -1732,6 +1736,12 @@ def with_limit_notes(answer: str, limits: ReportedLimits) -> str:
     return "\n\n".join([answer, *notes])
 
 
+# How many times one call rewrites a draft its checks refused before the caller is told.
+# A refusal the caller sees costs the agent a turn and a new call. Measured on the
+# 10 November 2026 event (docs/evidence/lab3-refused-drafts-2026-11-10.md): with one
+# repair Alex's setup request had a refused draft in 3 of 20 runs, with two in 0 of 20.
+DRAFT_REPAIRS = 2
+
 # The newest refusals a retry is told about, and the length kept of each.
 EARLIER_REFUSALS_SHOWN = 3
 EARLIER_REFUSAL_CHARS = 400
@@ -1923,48 +1933,36 @@ def synthesize_cited_answer(
         claim_usage.append({"usage": used})
         return answer, citations
 
-    responses = [
-        converse(
-            runtime,
-            **request,
-            messages=messages,
-        )
-    ]
-    try:
-        answer, citations = validated(responses[-1])
-    except (SynthesisOutputError, SynthesisTruncated) as error:
-        draft = _text(responses[-1])
-        responses.append(
-            converse(
-                runtime,
-                **request,
-                messages=[
-                    *messages,
-                    {
-                        "role": "assistant",
-                        "content": [{"text": draft}],
-                    },
-                    {
-                        "role": "user",
-                        "content": [
-                            {
-                                "text": (
-                                    "Replace the previous draft completely. It "
-                                    f"failed validation because: {error}. "
-                                    "Follow the required product citation map, "
-                                    "keep every citation in the same sentence as "
-                                    "its product claim, stay under 150 words, use "
-                                    "natural shopping prose without Summary or "
-                                    "Recommendations headings, and finish the "
-                                    "final sentence."
-                                )
-                            }
-                        ],
-                    },
-                ],
-            )
-        )
-        answer, citations = validated(responses[-1])
+    conversation = list(messages)
+    responses = [converse(runtime, **request, messages=conversation)]
+    for repair in range(DRAFT_REPAIRS + 1):
+        try:
+            answer, citations = validated(responses[-1])
+            break
+        except (SynthesisOutputError, SynthesisTruncated) as error:
+            if repair == DRAFT_REPAIRS:
+                raise
+            conversation += [
+                {"role": "assistant", "content": [{"text": _text(responses[-1])}]},
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "text": (
+                                "Replace the previous draft completely. It "
+                                f"failed validation because: {error}. "
+                                "Follow the required product citation map, "
+                                "keep every citation in the same sentence as "
+                                "its product claim, stay under 150 words, use "
+                                "natural shopping prose without Summary or "
+                                "Recommendations headings, and finish the "
+                                "final sentence."
+                            )
+                        }
+                    ],
+                },
+            ]
+            responses.append(converse(runtime, **request, messages=conversation))
     answer = with_limit_notes(_without_empty_alternatives(answer), limits)
     usage = _combined_usage(responses)
     checked_usage: dict[str, Any] = {}

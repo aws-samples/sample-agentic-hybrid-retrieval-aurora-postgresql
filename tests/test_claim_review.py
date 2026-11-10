@@ -7,7 +7,11 @@ import pytest
 from test_synthesis_claims import evidence, product, validate
 
 from service.claim_review import ClaimReview, ClaimReviewError, validate_review
-from service.synthesis import SynthesisOutputError, synthesize_cited_answer
+from service.synthesis import (
+    DRAFT_REPAIRS,
+    SynthesisOutputError,
+    synthesize_cited_answer,
+)
 
 
 @pytest.mark.parametrize(
@@ -287,7 +291,7 @@ def test_finished_draft_must_pass_semantic_support_review(source, claim):
             client=client,
             settings=SimpleNamespace(synthesis_model_id="test", aws_region="us-east-1"),
         )
-    assert len(client.reviews) == 2, (
-        "both the draft and its replacement must be reviewed"
+    assert len(client.reviews) == DRAFT_REPAIRS + 1, (
+        "the draft and each replacement must be reviewed"
     )
     assert all(client.answer in str(review["passages"]) for review in client.reviews)

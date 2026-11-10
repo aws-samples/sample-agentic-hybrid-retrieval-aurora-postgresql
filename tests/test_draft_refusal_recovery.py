@@ -19,7 +19,11 @@ from test_synthesis_claims import evidence, product
 
 from service import agent_tools
 from service.claim_review import ClaimReviewError, assess_claim_support
-from service.synthesis import SynthesisOutputError, synthesize_cited_answer
+from service.synthesis import (
+    DRAFT_REPAIRS,
+    SynthesisOutputError,
+    synthesize_cited_answer,
+)
 
 ANSWER = "AuriLogic Flight ANC has 48 hours of battery life [1]."
 RECORDS = [evidence("Battery life 48 hours."), evidence("Unrelated 100 Hz display.")]
@@ -198,8 +202,8 @@ def draft_text(request):
     return "\n".join(block["text"] for block in request["messages"][0]["content"])
 
 
-def test_earlier_refusals_reach_the_first_draft_and_its_repair():
-    client = Reviewer(unsupported, faults=REVIEW_CALLS + 1)
+def test_earlier_refusals_reach_the_first_draft_and_its_repairs():
+    client = Reviewer(unsupported, faults=DRAFT_REPAIRS + 1)
     refusal = (
         "Synthesized claim naming product 1 does not cite evidence for that product"
     )
@@ -213,11 +217,34 @@ def test_earlier_refusals_reach_the_first_draft_and_its_repair():
             earlier_refusals=[refusal, refusal],
         )
 
-    assert len(client.drafts) == 2
+    assert len(client.drafts) == DRAFT_REPAIRS + 1
     for request in client.drafts:
         assert draft_text(request).count(refusal) == 1, "each reason is named once"
     first = client.drafts[0]["messages"][0]["content"]
     assert json.loads(first[0]["text"].split("Numbered evidence records:\n")[1])
+
+
+def test_a_draft_refused_twice_is_repaired_inside_the_same_call():
+    """A refusal the caller sees costs the agent a turn; two repairs come first."""
+    client = Reviewer(unsupported, faults=DRAFT_REPAIRS)
+
+    answer, _, usage = synthesize_cited_answer(
+        "What is the battery life?",
+        [product()],
+        RECORDS[:1],
+        client=client,
+        settings=SETTINGS,
+    )
+
+    assert answer == ANSWER
+    assert len(client.drafts) == DRAFT_REPAIRS + 1
+    assert usage["claim_review_usage"]["reviewCalls"] == DRAFT_REPAIRS + 1
+    roles = [message["role"] for message in client.drafts[-1]["messages"]]
+    assert roles == ["user", "assistant", "user", "assistant", "user"]
+    assert (
+        "The record says 24 hours"
+        in client.drafts[-1]["messages"][-1]["content"][0]["text"]
+    )
 
 
 def test_a_first_draft_without_earlier_refusals_is_unchanged():

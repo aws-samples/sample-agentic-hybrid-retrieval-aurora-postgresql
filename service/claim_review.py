@@ -75,9 +75,15 @@ experience proves neither all-day comfort for everyone nor compatibility with an
 laptop. Specifications and customer experiences are different sources of authority.
 Words such as supports, fits, works with, and suitable for can assert compatibility;
 require evidence of the actual relationship, not merely a connector or wattage.
+Naming a pick, as in 'is the one to choose', is the answer's choice and adds no product
+fact: judge the facts given as its reasons. Calling a product right, best or a fit for
+the shopper's setup or other products is a claim.
 Reject invented benefits, guarantees, and claims contradicted by the cited record.
 Honest statements that a requested fact is absent may cite the record being inspected;
 quote its relevant available facts and explain the limit. Unknown stays unknown.
+A scope note limits what a record establishes about variant, price and current offer.
+It does not make a claim that the record's own words support unsupported, and an answer
+need not repeat it.
 
 Use non_claim only for headings, shopper requirements, conditional advice, questions,
 or preference-based recommendations that add no product facts. It is never an escape
