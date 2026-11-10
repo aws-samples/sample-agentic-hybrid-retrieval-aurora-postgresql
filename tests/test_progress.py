@@ -169,7 +169,9 @@ def test_a_failed_step_on_a_terminal_restores_both_streams() -> None:
     progress.fail()
 
     assert (sys.stdout, sys.stderr) == before
-    assert out.getvalue().endswith("  x 0:20  1  Verify the deployment: failed\n")
+    assert out.getvalue().endswith(
+        "  x 0:20  1  Verify the deployment: \033[1;31mfailed\033[0m\n"
+    )
 
 
 @pytest.mark.parametrize("width", [40, 60, 68, 100])
@@ -238,3 +240,64 @@ def test_a_waiting_line_too_wide_keeps_its_time_whole(
 
     frame = out.getvalue().split(CLEAR_LINE)[1]
     assert frame.endswith("…  0:07") and len(frame) < 30
+
+
+def test_a_failed_step_names_failed_in_red_on_a_terminal_only() -> None:
+    painted, plain = Terminal(), io.StringIO()
+    for stream in (painted, plain):
+        progress = Progress(stream=stream, now=Clock(), interval=None)
+        progress.begin("Verify the deployment", typical=13, animate=False)
+        progress.fail()
+
+    assert painted.getvalue().endswith(
+        "Verify the deployment: \033[1;31mfailed\033[0m\n"
+    )
+    assert plain.getvalue().endswith("Verify the deployment: failed\n")
+
+
+def test_a_step_without_a_usual_time_shows_only_the_time_waited_on_a_terminal() -> None:
+    now, out = Clock(), Terminal()
+    progress = Progress("Grading", stream=out, now=now, interval=None)
+    progress.count(3)
+    progress.begin("Build your index", done="Built your index")
+    now.seconds += 12
+
+    assert _last_frame(out.getvalue()).strip() == "[1/3] Build your index  0:00"
+    progress._live.draw()
+    assert _last_frame(out.getvalue()).strip() == "[1/3] Build your index  0:12"
+    assert "usually" not in out.getvalue()
+
+    progress.end()
+    assert out.getvalue().endswith("  + 0:12  1/3  Built your index\n")
+
+
+def test_a_step_without_a_usual_time_prints_plain_start_and_end_lines_when_piped() -> (
+    None
+):
+    now, out = Clock(), io.StringIO()
+    progress = Progress("Grading", stream=out, now=now, interval=None)
+    progress.count(2)
+    progress.begin("Build the first index")
+    now.seconds += 20
+    progress.begin("Build the second index")
+    now.seconds += 5
+    progress.finish()
+
+    assert out.getvalue().splitlines() == [
+        "Grading",
+        "  - 1/2  Build the first index",
+        "  + 0:20  1/2  Build the first index",
+        "  - 2/2  Build the second index",
+        "  + 0:05  2/2  Build the second index",
+        "  Done in 0:25.",
+    ]
+
+
+def test_an_untimed_line_never_wraps_and_keeps_its_time_whole() -> None:
+    now, out = Clock(), Terminal()
+    progress = Progress(stream=out, now=now, interval=None)
+    progress.begin("A very long label " * 10)
+    now.seconds += 61
+
+    assert len(progress._render(60)) < 60
+    assert progress._render(60).endswith("  1:01")

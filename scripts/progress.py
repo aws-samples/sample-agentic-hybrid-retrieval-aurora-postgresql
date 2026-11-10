@@ -30,6 +30,8 @@ import time
 from collections.abc import Callable, Sequence
 from typing import TextIO
 
+from scripts.terminal_text import RED, tint
+
 WIDTH = 20
 NARROWEST_BAR = 8
 # A step's bar stops short of full until the step really ends.
@@ -94,6 +96,15 @@ def fit(
     return f"{head}  {toward(elapsed, typical, blocks, width)}  {state}"[
         : max(1, columns - 1)
     ]
+
+
+def _waited(head: str, elapsed: float, width: int) -> str:
+    """`head` and the time waited in fewer than `width` characters, shortening the head."""
+    waited = clock(elapsed)
+    room = width - 1 - len(waited) - 2
+    if len(head) > room:
+        head = head[: max(0, room - 1)] + "…"
+    return f"{head}  {waited}"
 
 
 def columns() -> int:
@@ -238,6 +249,10 @@ class Progress:
         self._planned = list(typicals)
         self.total = len(self._planned)
 
+    def count(self, total: int) -> None:
+        """Say how many steps there will be, for a run whose steps have no usual time."""
+        self.total = total
+
     def counter(self) -> str:
         count = f"{self.number}/{self.total}" if self.total else str(self.number)
         return f"{self.name} {count}" if self.name else count
@@ -246,7 +261,7 @@ class Progress:
         self,
         label: str,
         *,
-        typical: float,
+        typical: float | None = None,
         done: str | None = None,
         animate: bool = True,
         number: int | None = None,
@@ -255,7 +270,8 @@ class Progress:
 
         Args:
             label: What the step is doing, as its bar or start line shows it.
-            typical: Its usual duration in seconds, from measured runs.
+            typical: Its usual duration in seconds, from measured runs. Leave it out for a
+                step nobody has measured: its line then shows only the time waited.
             done: The line it leaves when it ends; defaults to `label`.
             animate: `False` for a step whose own child process prints to the terminal,
                 which a redrawn line would collide with: it prints a start line instead.
@@ -294,9 +310,10 @@ class Progress:
         """End the running step as failed; the caller reports why."""
         step = self._close()
         if step:
+            failed = tint("failed", RED, self.stream)
             self._print(
                 f"  x {clock(self.now() - step['started'])}  {self.counter()}  "
-                f"{step['label']}: failed"
+                f"{step['label']}: {failed}"
             )
 
     def finish(self) -> None:
@@ -315,7 +332,7 @@ class Progress:
                 else f"  Done in {took}."
             )
 
-    def _start_line(self, label: str, typical: float) -> str:
+    def _start_line(self, label: str, typical: float | None) -> str:
         """The step's counter, label and usual time; with a plan, the share finished first.
 
         A command, or any label too wide for the terminal, goes on a line of its own, so
@@ -325,6 +342,8 @@ class Progress:
         if self._planned:
             finished = sum(self._planned[: self.number - 1])
             head = f"{bar(finished, sum(self._planned))}  {self.counter()}"
+        if typical is None:
+            return f"{head}  {label}"
         usual = f"usually about {clock(typical)}"
         line = f"{head}  {label} ({usual})"
         if not self.commands and len(line) < columns():
@@ -349,6 +368,8 @@ class Progress:
     def _render(self, width: int) -> str:
         step = self._step or {"label": "", "typical": 0.0, "started": self.now()}
         elapsed = self.now() - step["started"]
+        if step["typical"] is None:
+            return _waited(f"  [{self.counter()}] {step['label']}", elapsed, width)
         return fit(
             f"  [{self.counter()}] {step['label']}",
             elapsed,
@@ -403,9 +424,4 @@ class Waiting:
             self._live = None
 
     def _render(self, width: int) -> str:
-        waited = clock(self.now() - self._began)
-        room = width - 1 - len(waited) - 2
-        head = self._head
-        if len(head) > room:
-            head = head[: max(0, room - 1)] + "…"
-        return f"{head}  {waited}"
+        return _waited(self._head, self.now() - self._began, width)

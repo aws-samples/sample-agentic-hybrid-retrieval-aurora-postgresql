@@ -1,5 +1,6 @@
 """Deployment must narrate long waits and name the cause and next command on failure."""
 
+import io
 import subprocess
 import sys
 from unittest.mock import Mock
@@ -434,3 +435,154 @@ def test_the_tool_list_wraps_long_descriptions_at_word_boundaries():
         f"mosaic___search_products: {description}"
     )
     assert lines[2] == "mosaic___explain_retrieval: Read a saved search."
+
+
+# ---------------------------------------------------------------- layout, Next and colour
+
+
+class Terminal(io.StringIO):
+    encoding = "utf-8"
+
+    def isatty(self) -> bool:
+        return True
+
+
+@pytest.fixture
+def colour_capable(monkeypatch):
+    monkeypatch.setenv("TERM", "xterm-256color")
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    monkeypatch.delenv("MOSAIC_RUN_BY", raising=False)
+
+
+def _deploy_with_passing_checks(monkeypatch, stream):
+    """`deploy` end to end with the image, AWS and the verification substituted."""
+    control = Mock()
+    gateway_environment(monkeypatch, control, [{"status": "READY"}])
+    monkeypatch.setattr(sys, "argv", ["deploy_agentcore.py", "deploy"])
+    monkeypatch.setattr("scripts.lab_state.lab_source_is_repaired", lambda lab: True)
+    monkeypatch.setattr(
+        deploy,
+        "publish_image_storing_dsn_at_bootstrap",
+        lambda: "example.ecr/repo@sha256:" + "a" * 64,
+    )
+
+    def verified():
+        print(
+            "A search through Gateway ran your Lab 1 and Lab 2 SQL in Aurora "
+            "(cccccccccccc): passed"
+        )
+        print(
+            "Runtime code, Gateway discovery, Aurora search and scoped evidence: passed"
+        )
+
+    monkeypatch.setattr(deploy, "verify", verified)
+    monkeypatch.setattr(sys, "stdout", stream)
+    assert deploy.main() == 0
+    return stream.getvalue()
+
+
+def test_deploy_puts_a_blank_line_before_its_closing_summary_and_next(monkeypatch):
+    from service.participant_commands import ask_setup_command
+
+    output = _deploy_with_passing_checks(monkeypatch, io.StringIO())
+
+    parts = output.rstrip("\n").split("\n\n")
+    assert not output.startswith("\n") and "\n\n\n" not in output
+    assert parts[-2] == (
+        "Your Retrieval agent is deployed and its SQL tools are connected through Gateway."
+    )
+    assert parts[-1] == f"Next: ask Alex's setup request:\n{ask_setup_command()}"
+    assert parts[-3].splitlines()[-1].startswith("  Done in ")
+
+
+def test_deploy_colours_its_ready_lines_checks_and_summary_on_a_terminal(
+    colour_capable, monkeypatch
+):
+    from scripts.terminal_text import GREEN
+
+    painted = _deploy_with_passing_checks(monkeypatch, Terminal())
+
+    assert f"\033[{GREEN}mReady:\033[0m tools runtime version 2" in painted
+    assert f"\033[{GREEN}mReady:\033[0m Retrieval agent runtime version 2" in painted
+    assert (
+        f"\033[{GREEN}mYour Retrieval agent is deployed and its SQL tools are "
+        "connected through Gateway.\033[0m"
+    ) in painted
+
+
+def test_deploy_prints_no_colour_when_piped(colour_capable, monkeypatch):
+    plain = _deploy_with_passing_checks(monkeypatch, io.StringIO())
+
+    assert "\033" not in plain
+    assert "Ready: tools runtime version 2" in plain
+
+
+def test_verify_colours_each_passed_on_a_terminal_only(
+    colour_capable, monkeypatch, tmp_path
+):
+    from scripts.terminal_text import GREEN
+
+    _gateway_verify(monkeypatch, tmp_path, "c" * 64)
+    outputs = {}
+    for name, stream in (("tty", Terminal()), ("pipe", io.StringIO())):
+        monkeypatch.setattr(sys, "stdout", stream)
+        deploy.verify()
+        outputs[name] = stream.getvalue()
+
+    assert outputs["tty"].count(f"\033[{GREEN}mpassed\033[0m") == 2
+    assert "\033" not in outputs["pipe"]
+    assert outputs["pipe"].count(": passed") == 2
+
+
+def test_verify_alone_ends_with_asking_the_setup_request(monkeypatch, capsys):
+    from service.participant_commands import ask_setup_command
+
+    monkeypatch.setattr(sys, "argv", ["deploy_agentcore.py", "verify"])
+    monkeypatch.setattr(deploy, "verify", lambda: print("Runtime code: passed"))
+
+    assert deploy.main() == 0
+
+    assert capsys.readouterr().out == (
+        f"Runtime code: passed\n\nNext: ask Alex's setup request:\n{ask_setup_command()}\n"
+    )
+
+
+def test_tools_ends_with_connecting_them_in_the_editor(monkeypatch, capsys):
+    monkeypatch.setattr(sys, "argv", ["deploy_agentcore.py", "tools"])
+    monkeypatch.setattr(
+        deploy.gateway_tools,
+        "rpc",
+        lambda *_: {
+            "tools": [{"name": "mosaic___search_products", "description": "x"}]
+        },
+    )
+
+    assert deploy.main() == 0
+
+    out = capsys.readouterr().out
+    assert out.startswith("mosaic___search_products: x")
+    assert out.endswith(
+        "\n\nNext: open labs/lab3_reason/agent.py and connect these SQL tools to your "
+        "Retrieval agent.\n"
+    )
+
+
+def test_resources_puts_a_blank_line_before_its_next(monkeypatch, capsys):
+    monkeypatch.setattr(sys, "argv", ["deploy_agentcore.py", "resources"])
+    monkeypatch.setattr(deploy, "client", lambda _service: Mock())
+    for name in ("_runtime_lines", "_gateway_lines", "_memory_lines"):
+        monkeypatch.setattr(deploy, name, lambda _control: ["  a line"])
+
+    assert deploy.main() == 0
+
+    out = capsys.readouterr().out
+    assert "  a line\n\nNext: when your deploy finishes, run this again" in out
+
+
+def test_a_failed_action_ends_with_a_next_that_names_the_retry(monkeypatch, capsys):
+    run_main(monkeypatch, "verify", RuntimeError("Gateway sync rule: it broke"))
+
+    err = capsys.readouterr().err
+    assert err.endswith(
+        f"\n\nNext: do what the message above says, then run\n{VERIFY_AGENT}\n"
+    )

@@ -24,7 +24,17 @@ sys.path.insert(0, str(ROOT))
 from scripts.checks.rehearsal import redact
 from scripts.package_agentcore import package
 from scripts.progress import Progress
-from scripts.terminal_text import fill_words, wrap_words
+from scripts.terminal_text import (
+    GREEN,
+    STEP_COLORS,
+    fill_words,
+    next_step,
+    separate_next,
+    tidy,
+    tint,
+    verdict,
+    wrap_words,
+)
 from service import agentcore_transport, gateway_tools
 from service.agent_deploys import record_deploy
 from service.agent_setup import AGENT_NOT_BUILT, agent_code_message
@@ -439,7 +449,10 @@ def update(image_uri: str, progress: Progress, application_sha256: str) -> None:
         control.update_agent_runtime(**payload)
         print(f"Updating the {label}; AWS replaces its running version.", flush=True)
         deployed = wait_runtime(control, runtime_id, label)
-        print(f"Ready: {label} version {deployed['agentRuntimeVersion']}", flush=True)
+        print(
+            f"{tint('Ready:', GREEN)} {label} version {deployed['agentRuntimeVersion']}",
+            flush=True,
+        )
         if setting == "MOSAIC_AGENTCORE_RUNTIME_ARN":
             record_deploy(str(deployed["agentRuntimeVersion"]), application_sha256)
     phase(progress, 3)
@@ -577,10 +590,18 @@ def verify() -> dict:
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_text(json.dumps(receipt, indent=2) + "\n")
     print(
-        "A search through Gateway ran your Lab 1 and Lab 2 SQL in Aurora "
-        f"({workspace_sql[:12]}): passed"
+        verdict(
+            "A search through Gateway ran your Lab 1 and Lab 2 SQL in Aurora "
+            f"({workspace_sql[:12]}): passed",
+            words=STEP_COLORS,
+        )
     )
-    print("Runtime code, Gateway discovery, Aurora search and scoped evidence: passed")
+    print(
+        verdict(
+            "Runtime code, Gateway discovery, Aurora search and scoped evidence: passed",
+            words=STEP_COLORS,
+        )
+    )
     return receipt
 
 
@@ -685,7 +706,8 @@ def resources() -> None:
     print("AgentCore resources in this event (read-only):")
     print("\n".join(lines))
     print(
-        fill_words(
+        "\n"
+        + fill_words(
             "Next: when your deploy finishes, run this again; the Retrieval agent runtime "
             "shows a new version and update time.",
             LINE_CHARS,
@@ -793,6 +815,12 @@ def tool_lines(tools: list[dict]) -> list[str]:
     return lines
 
 
+def _verified_next() -> None:
+    """Print the step after a deployment that verified: ask Alex's setup request."""
+    next_step("ask Alex's setup request:", ask_setup_command())
+
+
+@tidy
 def main() -> int:
     from dotenv import load_dotenv
 
@@ -851,9 +879,14 @@ def main() -> int:
                 raise
             progress.finish()
             print(
-                "Your Retrieval agent is deployed and its SQL tools are connected through "
-                f"Gateway.\nNext: ask Alex's setup request:\n{ask_setup_command()}"
+                "\n"
+                + tint(
+                    "Your Retrieval agent is deployed and its SQL tools are connected "
+                    "through Gateway.",
+                    GREEN,
+                )
             )
+            _verified_next()
         elif args.action == "resources":
             resources()
         elif args.action == "tools":
@@ -862,11 +895,13 @@ def main() -> int:
                     tool_lines(gateway_tools.rpc("tools/list", {}).get("tools", []))
                 )
             )
-            print(
-                "Next: open labs/lab3_reason/agent.py and connect these SQL tools to your Retrieval agent."
+            next_step(
+                "open labs/lab3_reason/agent.py and connect these SQL tools to your "
+                "Retrieval agent."
             )
         else:
             verify()
+            _verified_next()
         return 0
     except (
         OSError,
@@ -877,7 +912,8 @@ def main() -> int:
         RuntimeError,
         TimeoutError,
     ) as error:
-        print(explain_failure(error, retry_command(args.action)), file=sys.stderr)
+        retry = retry_command(args.action)
+        print(separate_next(explain_failure(error, retry), retry), file=sys.stderr)
         return 1
 
 
