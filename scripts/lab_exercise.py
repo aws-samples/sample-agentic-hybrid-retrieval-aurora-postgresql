@@ -702,7 +702,13 @@ def _grade_next(lab: int, passed: bool) -> None:
                 grade_exercise_command(1),
             )
     elif lab == 2:
-        if passed:
+        if passed and lab_state.handed_off(2):
+            # A recheck after the hand-off: the reranking comparison is long done.
+            next_step(
+                "Lab 2 has already handed off. Recheck Lab 3 as well:",
+                grade_exercise_command(3),
+            )
+        elif passed:
             next_step(
                 "see what reranking changes, as the guide's next section does:",
                 RERANK_OFF_ON,

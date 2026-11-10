@@ -451,6 +451,24 @@ def test_status_names_the_command_for_the_first_unsolved_lab(
     assert_ends_with_next(capsys.readouterr().out, command)
 
 
+def test_status_prints_the_next_step_once_and_last(monkeypatch, capsys) -> None:
+    lines = {
+        1: "Lab 1: SOLVED",
+        2: "Lab 2: SOLVED",
+        3: f"Lab 3: REPAIRED, NOT DEPLOYED. Next: deploy with {DEPLOY_AGENT}.",
+    }
+    monkeypatch.setattr(lab_state, "status_line", lambda lab: lines[lab])
+    monkeypatch.setattr("sys.argv", ["lab_state.py", "status"])
+
+    lab_state.main()
+
+    out = capsys.readouterr().out
+    paragraphs = assert_well_laid_out(out)
+    assert paragraphs[0].splitlines()[-1] == "Lab 3: REPAIRED, NOT DEPLOYED"
+    assert out.count("Next: ") == 1
+    assert_ends_with_next(out, DEPLOY_AGENT)
+
+
 # ---------------------------------------------------------------- the lab 2 grade
 
 
@@ -510,6 +528,19 @@ def test_the_lab_2_grade_ends_with_the_reranking_comparison_the_guide_gives_next
     _, out = _grade(monkeypatch, tmp_path, 2, _lab_2_report(wrong=False), io.StringIO())
 
     assert_ends_with_next(out, RERANK_OFF_ON)
+
+
+def test_a_lab_2_grade_after_the_hand_off_points_at_the_lab_3_recheck(
+    monkeypatch, tmp_path
+) -> None:
+    from service.participant_commands import RERANK_OFF_ON, grade_exercise_command
+
+    monkeypatch.setattr(lab_state, "handed_off", lambda lab: lab == 2)
+
+    _, out = _grade(monkeypatch, tmp_path, 2, _lab_2_report(wrong=False), io.StringIO())
+
+    last = assert_ends_with_next(out, grade_exercise_command(3))
+    assert RERANK_OFF_ON not in last
 
 
 def test_a_failed_lab_2_grade_ends_with_the_way_back_not_the_happy_path(

@@ -1184,6 +1184,11 @@ def lab_ready_step(lab: int) -> None:
     )
 
 
+def handed_off(lab: int) -> bool:
+    """True once this lab's hand-off started the lab after it."""
+    return _entered(lab + 1)
+
+
 def _entered(lab: int) -> bool:
     """True once a lab's start finished; the previous lab's handoff starts it."""
     from scripts.lab_entry import load_record
@@ -1337,7 +1342,9 @@ def _run_action(args: argparse.Namespace) -> int:
     if args.action == "status":
         lines = [status_line(lab) for lab in LABS]
         for line in lines:
-            print(verdict(line, words=STATE_COLORS))
+            # The step after the report prints once, last; a line keeps only its state.
+            state, _, _ = line.partition(". Next: ")
+            print(verdict(state, words=STATE_COLORS))
         _status_next(lines)
         return 0
     if args.action == "finish":
