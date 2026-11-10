@@ -16,6 +16,11 @@ AGENTCORE_RESOURCES = "uv run python scripts/deploy_agentcore.py resources"
 COMPARE_SETTINGS = "uv run python scripts/lab_exercise.py compare --lab 2"
 RERANK_OFF_ON = "uv run python labs/lab2_rank/rerank_off_on.py"
 HNSW_GRADE = "uv run python scripts/hnsw_exercise.py grade"
+# The guide's Lab 3 follow-up, after Alex's setup request and before the completion check.
+ASK_100W_QUESTION = (
+    "My laptop needs 100W charging. Does the ViewSonic VG2756-4K monitor still meet that "
+    "need? Use its product records and explain what I would need to check."
+)
 
 
 def check_claim_command(product_id: int, sentence: str) -> str:
@@ -31,6 +36,34 @@ def ask_setup_command() -> str:
     from service.lab_checks import mission_for_lab
 
     return ask_agent_command(mission_for_lab(3)["query"])
+
+
+def ask_100w_command() -> str:
+    """Lab 3's follow-up: whether the ViewSonic still meets a need for 100W charging."""
+    return ask_agent_command(ASK_100W_QUESTION)
+
+
+def open_psql_command(lab: int) -> str:
+    """Open `psql` with a lab's saved request, from the terminal."""
+    return f"PSQLRC=.local/lab-{lab}/context.psql psql"
+
+
+def load_context_command(lab: int) -> str:
+    """Load a lab's saved request into a `psql` that is already open."""
+    return rf"\i .local/lab-{lab}/context.psql"
+
+
+def check_builder_tool_command(module: str) -> str:
+    """Check the Retrieval tool exercise's file with two brands."""
+    return f"uv run python -m scripts.check_builder_tool --module {module}"
+
+
+def call_headphones_agent_command(module: str) -> str:
+    """Let the Retrieval agent call the tool in the exercise's file."""
+    return (
+        f"PYTHONPATH=. uv run python {module} --agent "
+        '--query "Headphones for video calls from home" --brand Bose'
+    )
 
 
 def start_command(lab: int) -> str:
