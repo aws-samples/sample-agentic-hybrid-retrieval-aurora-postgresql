@@ -60,6 +60,10 @@ function Turn({ turn }: { turn: Omit<ShopperSession["turns"][number], "created_a
   </article>;
 }
 
+function waitClock(seconds: number): string {
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+}
+
 export function SessionMemoryPage() {
   const [data, setData] = useState<SessionMemoryResponse | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
@@ -89,6 +93,17 @@ export function SessionMemoryPage() {
   const mounted = useRef(true);
   const refreshSequence = useRef(0);
   const abort = useRef<AbortController | null>(null);
+  const answerRegion = useRef<HTMLDivElement | null>(null);
+  const [waited, setWaited] = useState(0);
+  useEffect(() => {
+    if (!pending) return;
+    setWaited(0);
+    // The answer renders below the composer; bring it into view so nobody hunts for it.
+    answerRegion.current?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+    const started = Date.now();
+    const timer = window.setInterval(() => setWaited(Math.floor((Date.now() - started) / 1000)), 1000);
+    return () => window.clearInterval(timer);
+  }, [pending]);
   const strategy = strategies.find((item) => item.type === type)!;
   const configured = data?.configuration?.strategies.find((item) => item.type === type);
   const session = data?.sessions.find((item) => item.agent_session_id === selected);
@@ -245,11 +260,14 @@ export function SessionMemoryPage() {
           {useMemory && !connected && <p className="memory-empty">Memory is not connected. Reconnect AgentCore Memory, or turn off “Use AgentCore Memory for this request” to ask without it.</p>}
           {askError && <div className="memory-error memory-ask-error" role="alert"><strong>Mosaic could not finish this request.</strong><p>{askError}</p><p>{recoveryStep(askError)} Your question is still here.</p></div>}
           {answerNotice && <p className="memory-empty" role="status">{answerNotice}</p>}
+          <section ref={answerRegion} className="memory-answer-region" aria-labelledby="memory-answer-heading">
+            <h3 id="memory-answer-heading">Mosaic’s answer</h3>
+            {agentNotice && <AgentNoticeNote notice={agentNotice} />}
+            {pending && <p className="memory-progress" role="status"><PulseDot /><span>{stage}</span><span className="memory-progress-clock">{waitClock(waited)}</span><span className="memory-progress-usual">An answer usually takes about a minute and appears here.</span></p>}{answer && !currentTurn && <div className="memory-answer-copy"><Markdown>{answer}</Markdown></div>}
+            {currentTurn && <div className="memory-current-answer"><Turn turn={currentTurn} /></div>}
+            {!pending && !answer && !currentTurn && !askError && <p className="memory-empty">Choose Ask Mosaic to run the question above. The answer appears here. Saving a message or finding memories does not generate an answer.</p>}
+          </section>
           {recalled !== null && <div className="memory-recall-results" aria-live="polite"><h3>{recalled.length} relevant memor{recalled.length === 1 ? "y" : "ies"} returned</h3><Records records={recalled} />{!recalled.length && <p>No saved memories matched this request.</p>}</div>}
-          {agentNotice && <AgentNoticeNote notice={agentNotice} />}
-          {pending && <p className="memory-progress" role="status"><PulseDot />{stage}</p>}{answer && !currentTurn && <div className="memory-answer-copy"><Markdown>{answer}</Markdown></div>}
-          {currentTurn && <div className="memory-current-answer"><Turn turn={currentTurn} /></div>}
-          {!pending && !answer && !currentTurn && !askError && <p className="memory-empty">Choose Ask Mosaic to run the question above. Saving a message or finding memories does not generate an answer.</p>}
           {earlierTurns.length > 0 && <details key={selected} className="memory-history"><summary>Earlier answers · {earlierTurns.length}</summary>{earlierTurns.map((turn) => <Turn key={turn.run_id} turn={turn} />)}</details>}
         </div>
       </section>

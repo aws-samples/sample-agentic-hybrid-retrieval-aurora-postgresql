@@ -296,3 +296,26 @@ it("clears the notice and the failure when Alex is reset", async () => {
   await screen.findByText(/A fresh start for Alex/);
   expectCleared();
 });
+it("brings the answer into view when a request starts, with the time waited, above the recalled memories", async () => {
+  const scroll = vi.fn();
+  Element.prototype.scrollIntoView = scroll;
+  vi.spyOn(api, "recallMemory").mockResolvedValue({ records: [{ id: "record-1", strategy_id: "USER_PREFERENCE", text: "Prefers a 27-inch monitor", namespaces: ["/mosaic/alex/"], created_at: "2026-09-09T10:00:00Z", score: .8 }] });
+  let finish = () => {};
+  vi.spyOn(api, "agentStream").mockImplementation(async (_q, _f, onEvent) => {
+    onEvent({ type: "stage", id: "answer" } as never);
+    await new Promise<void>((resolve) => { finish = resolve; });
+  });
+  render(<SessionMemoryPage />);
+  fireEvent.click(await screen.findByRole("button", { name: "Find relevant memories" }));
+  const memory = await screen.findByText("Prefers a 27-inch monitor", { selector: "p" });
+  expect(scroll).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
+  const progress = await screen.findByText(/An answer usually takes about a minute and appears here/);
+  expect(progress.parentElement?.textContent).toMatch(/^Preparing the answer0:0\d/);
+  const region = screen.getByRole("region", { name: "Mosaic’s answer" });
+  expect(scroll).toHaveBeenCalledOnce();
+  expect(scroll.mock.instances[0]).toBe(region);
+  expect(region.compareDocumentPosition(memory) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  finish();
+  await waitFor(() => expect(screen.queryByText(/An answer usually takes about a minute/)).toBeNull());
+});

@@ -106,6 +106,10 @@
 .memory-search-links { display: flex; flex-wrap: wrap; gap: 12px 24px; }
 .memory-search-links a { display: flex; align-items: center; gap: 8px; }
 .memory-progress, .memory-loading { display: flex; gap: 10px; align-items: center; color: var(--maroon-800); }
+.memory-progress { flex-wrap: wrap; }
+.memory-progress-clock { font-variant-numeric: tabular-nums; }
+.memory-progress-usual { flex-basis: 100%; color: var(--ink-soft); font-size: 14px; }
+.memory-answer-region { scroll-margin-top: 84px; margin-top: 8px; }
 .memory-error { color: var(--danger); padding: 12px 0; }
 .memory-beyond { border-top: 1px solid var(--line-strong); margin: 48px 0 40px; padding-top: 12px; }
 .memory-beyond > div { max-width: 75ch; font-size: 15px; }
