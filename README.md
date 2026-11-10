@@ -137,9 +137,10 @@ The commands you use most:
 
 A successful deploy or a plausible answer is not completion: each lab ends with the
 guide's checks against the same request, run on the state you applied or deployed.
-On a terminal each result is coloured: green for good (`PASS`, `passed`, `grounded`),
-red for bad (`FAIL`, `failed`, `error`) and yellow for needs attention (`CANNOT GRADE`,
-`declined`). The word always prints, and a log or pipe gets the plain line. Each command
+On a terminal each result is coloured: green for good (`PASS`, `passed`, `grounded`, a
+repaired request's `After:` line), red for bad (`FAIL`, `failed`, `error`) and yellow for
+needs attention (`CANNOT GRADE`, `declined`, a `refused` draft). The word always prints,
+and a log or pipe gets the plain line. Each command
 ends with a blank line and a `Next:` line naming the step after it.
 
 Every search calls Amazon Bedrock twice, for the query embedding and for reranking, and

@@ -203,16 +203,20 @@ After the deploy, participants ask Alex's setup request from the terminal with
 the request completion checks word for word. While they wait, one line redraws in
 place with the stage, the running tool and the time waited, and each tool call
 stays as its own line. A draft the answer checks refuse prints its reason at once,
-and the agent drafts again. The answer then prints paragraph by paragraph as the API
+then a line saying the agent is told why and drafts again. The answer then prints paragraph by paragraph as the API
 delivers it, which it does only after the answer's checks pass, followed by the plan,
 the tool trace with the search SQL Aurora ran, the products, each citation with its
 quote, the outcome and the **Run ID**, each under its own heading after a blank line, and
 a closing `Next:` line that names the 100W follow-up. They ask the 100W follow-up the same way;
-each call is its own run. When the answer check refuses a draft, that
+each call is its own run. One drafting call rewrites a draft its checks refuse up to
+twice before the agent hears of it. When a call still ends refused, that
 `synthesize_cited_answer` step reads `refused` in yellow, not `error`, with
-`draft refused: <reason>` on the next line; the agent then drafts again. About four
-runs in ten have a refused draft and still end grounded, so it is the check
-working, not a failure. A step the model or the service failed prints
+`draft refused: <reason>` under it, wrapped to the terminal's width; the reason is the
+check's own, such as a claim that no cited record supports. The agent is told the reason
+and drafts again. On the 10 November test event the setup request had no refused draft
+in 20 runs and the 100W follow-up had one in 5 of 20; all 40 ended grounded
+([record](docs/evidence/lab3-refused-drafts-2026-11-10.md)). A model's drafts differ
+from run to run, so a refused draft is the check working, not a failure. A step the model or the service failed prints
 `draft step failed (<error>), not refused by a check` instead. `uv run python scripts/grade_setup_run.py` then checks the
 newest run of the setup request since Lab 3 started that opened its own conversation,
 and says which run it chose; `--run-id` selects a particular setup run. The same
@@ -235,7 +239,8 @@ copy; Gateway and Runtime faults still show as errors.
 Ask Mosaic is optional. Its **Complete my setup** suggested question sends the same
 request and passes completion only as the first message of a fresh chat (use
 **New conversation**); its **Show tool calls** switch, on by default, shows the full run
-ID, recorded steps and per-search ranks under each answer. The suggested question runs on its own filters and shows "Shop filters
+ID, recorded steps and per-search ranks under each answer. When an answer has finished
+arriving, the panel returns to the answer's start, with those steps below it. The suggested question runs on its own filters and shows "Shop filters
 were cleared for this lab request." when it replaces filters a participant had
 set. After the request, Shop shows the terminal command that checks that run,
 with its run ID filled in.
