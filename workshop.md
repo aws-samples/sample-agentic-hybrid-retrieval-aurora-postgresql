@@ -206,7 +206,8 @@ stays as its own line. A draft the answer checks refuse prints its reason at onc
 and the agent drafts again. The answer then prints paragraph by paragraph as the API
 delivers it, which it does only after the answer's checks pass, followed by the plan,
 the tool trace with the search SQL Aurora ran, the products, each citation with its
-quote, the outcome and the **Run ID**. They ask the 100W follow-up the same way;
+quote, the outcome and the **Run ID**, each under its own heading after a blank line, and
+a closing `Next:` line that names the 100W follow-up. They ask the 100W follow-up the same way;
 each call is its own run. When the answer check refuses a draft, an errored
 `synthesize_cited_answer` step prints `draft refused: <reason>` on the next line;
 the agent then drafts again. A step the model or the service failed prints

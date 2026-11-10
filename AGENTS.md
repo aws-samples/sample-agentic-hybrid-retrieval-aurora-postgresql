@@ -107,6 +107,10 @@ The Makefile wraps them for maintainers only.
 | Grade the participant's newest setup run since Lab 3 started (or one named with `--run-id <run-id>`) | `uv run python scripts/grade_setup_run.py` |
 | Inspect the diff for whitespace errors | `git diff --check` |
 
+Each command above ends with a blank line and a `Next:` line that names the step after it
+(on a failure, the recovery step), so point a participant to that line before the guide.
+Output is coloured only on a terminal; a pipe or `NO_COLOR` gets the same words plain.
+
 A SQL file edit alone does not update Aurora; an agent edit alone does not
 update Runtime. Proof must use the newly applied/deployed state. From Lab 3's start,
 questions and completion also need a deploy made since that start, even when the code

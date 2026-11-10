@@ -849,3 +849,108 @@ def test_diff_ends_with_what_to_do_with_the_lines_it_named(
     paragraphs = assert_well_laid_out(out)
     assert paragraphs[0] == f"At line 5 of lab {lab}"
     assert_ends_with_next(out, command)
+
+
+# ---------------------------------------------------------------- start, advance, reset, finish
+
+
+@pytest.mark.parametrize(
+    ("action", "lab", "snippets"),
+    [
+        ("start", 1, [open_psql_command(1), load_context_command(1)]),
+        ("reset", 1, [open_psql_command(1)]),
+        ("start", 2, [open_psql_command(2), load_context_command(2)]),
+        ("advance", 1, [open_psql_command(2)]),
+        ("advance", 2, [LIST_TOOLS, "labs/lab3_reason/agent.py"]),
+        ("start", 3, [LIST_TOOLS, "labs/lab3_reason/agent.py"]),
+        ("reset", 3, [LIST_TOOLS]),
+    ],
+)
+def test_start_advance_and_reset_end_with_the_first_step_of_the_lab_they_prepared(
+    monkeypatch, capsys, action, lab, snippets
+) -> None:
+    for name in ("start", "advance", "restart"):
+        monkeypatch.setattr(lab_entry, name, lambda *_a, **_k: print("done"))
+    monkeypatch.setattr("sys.argv", ["lab_state.py", action, "--lab", str(lab)])
+
+    assert lab_state.main() == 0
+
+    last = assert_ends_with_next(capsys.readouterr().out, *snippets)
+    assert last.count("Next: ") == 1
+
+
+def test_finish_ends_with_the_first_step_of_the_lab_it_handed_off_to(
+    monkeypatch, capsys
+) -> None:
+    monkeypatch.setattr(lab_state, "_run_steps", lambda *_a, **_k: 0)
+    monkeypatch.setattr(lab_state, "_earlier_labs_to_finish", lambda _lab: [])
+
+    monkeypatch.setattr("sys.argv", ["lab_state.py", "finish", "--lab", "1"])
+    assert lab_state.main() == 0
+
+    out = capsys.readouterr().out
+    paragraphs = assert_well_laid_out(out)
+    assert paragraphs[0] == "Lab 1: finished with the reference answer."
+    assert_ends_with_next(out, open_psql_command(2))
+
+
+def test_finish_lab_3_ends_with_asking_the_setup_request(monkeypatch, capsys) -> None:
+    from service.participant_commands import ask_setup_command, grade_setup_run_command
+
+    monkeypatch.setattr(lab_state, "_run_steps", lambda *_a, **_k: 0)
+    monkeypatch.setattr(lab_state, "_earlier_labs_to_finish", lambda _lab: [])
+
+    monkeypatch.setattr("sys.argv", ["lab_state.py", "finish", "--lab", "3"])
+    lab_state.main()
+
+    out = capsys.readouterr().out
+    assert out.startswith("Lab 3: the reference Retrieval agent is deployed.\n\nNext: ")
+    assert_ends_with_next(out, ask_setup_command(), grade_setup_run_command())
+
+
+def test_skip_to_ends_with_the_first_step_of_the_lab_it_started(
+    monkeypatch, capsys
+) -> None:
+    monkeypatch.setattr(lab_state, "_run_steps", lambda *_a, **_k: 0)
+    monkeypatch.setattr(lab_state, "_earlier_labs_to_finish", lambda _lab: [])
+
+    monkeypatch.setattr("sys.argv", ["lab_state.py", "skip-to", "--lab", "2"])
+    assert lab_state.main() == 0
+
+    out = capsys.readouterr().out
+    assert out.startswith("Lab 2: ready. Continue with Lab 2 in the guide.\n\nNext: ")
+    assert_ends_with_next(out, open_psql_command(2))
+
+
+def test_a_stopped_finish_ends_with_running_it_again_not_the_happy_path(
+    monkeypatch, capsys
+) -> None:
+    import subprocess
+
+    from service.participant_commands import finish_command
+
+    monkeypatch.setattr(lab_state, "_earlier_labs_to_finish", lambda _lab: [])
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda *_a, **_k: type("Result", (), {"returncode": 1})(),
+    )
+
+    assert lab_state.finish_lab(1) == 1
+
+    out = capsys.readouterr().out
+    last = assert_ends_with_next(out, finish_command(1))
+    assert "psql" not in last and "stopped at: " in out
+
+
+def test_a_step_run_by_finish_leaves_the_next_step_to_finish(
+    monkeypatch, capsys
+) -> None:
+    monkeypatch.setenv("MOSAIC_RUN_BY", "Finish Lab 1")
+    for name in ("start", "advance", "restart"):
+        monkeypatch.setattr(lab_entry, name, lambda *_a, **_k: print("done"))
+    monkeypatch.setattr("sys.argv", ["lab_state.py", "advance", "--lab", "1"])
+
+    assert lab_state.main() == 0
+
+    assert capsys.readouterr().out == "done\n"
