@@ -391,6 +391,7 @@ def test_status_colours_its_words_and_names_the_first_unsolved_lab(
     lines = {1: "Lab 1: SOLVED", 2: "Lab 2: BROKEN", 3: "Lab 3: NOT STARTED"}
     monkeypatch.setattr(lab_state, "status_line", lambda lab: lines[lab])
     monkeypatch.setattr("sys.argv", ["lab_state.py", "status"])
+    monkeypatch.setattr(lab_state, "_entered", lambda lab: True)
     outputs = {}
     for name, stream in (("tty", Terminal()), ("pipe", io.StringIO())):
         monkeypatch.setattr(sys, "stdout", stream)
@@ -402,7 +403,9 @@ def test_status_colours_its_words_and_names_the_first_unsolved_lab(
     assert "\033" not in outputs["pipe"]
     paragraphs = assert_well_laid_out(outputs["pipe"])
     assert paragraphs[0] == "\n".join(lines.values())
-    assert paragraphs[-1].startswith("Next: fix the marked block in Lab 2's file")
+    assert paragraphs[-1].startswith(
+        "Next: open psql with Alex's saved request for Lab 2"
+    )
 
 
 def test_status_when_nothing_has_started_points_at_the_first_start(
@@ -412,10 +415,29 @@ def test_status_when_nothing_has_started_points_at_the_first_start(
     monkeypatch.setattr(lab_state, "status_line", lambda lab: lines[lab])
     monkeypatch.setattr("sys.argv", ["lab_state.py", "status"])
 
+    monkeypatch.setattr(lab_state, "_entered", lambda lab: False)
+
     lab_state.main()
 
-    last = assert_ends_with_next(capsys.readouterr().out)
-    assert "Lab 1" in last
+    last = assert_ends_with_next(capsys.readouterr().out, lab_state.start_command(1))
+    assert last.startswith("Next: save Alex's request for Lab 1")
+    assert "fix" not in last and "apply" not in last
+
+
+def test_status_on_a_started_broken_lab_points_at_its_diagnosis_not_the_fix(
+    monkeypatch, capsys
+) -> None:
+    lines = {1: "Lab 1: BROKEN", 2: "Lab 2: NOT STARTED", 3: "Lab 3: NOT STARTED"}
+    monkeypatch.setattr(lab_state, "status_line", lambda lab: lines[lab])
+    monkeypatch.setattr(lab_state, "_entered", lambda lab: lab == 1)
+    monkeypatch.setattr("sys.argv", ["lab_state.py", "status"])
+
+    lab_state.main()
+
+    last = assert_ends_with_next(
+        capsys.readouterr().out, "PSQLRC=.local/lab-1/context.psql psql"
+    )
+    assert "fix the marked block" not in last
 
 
 def test_status_when_every_lab_is_solved_points_at_the_wrap_up(

@@ -1305,12 +1305,14 @@ def _status_next(lines: list[str]) -> None:
                 "then deploy it:",
                 DEPLOY_AGENT,
             )
-        else:
+        elif not _entered(lab):
+            # Lab 1's fault ships installed, so it reads BROKEN before its start has run.
             next_step(
-                f"fix the marked block in Lab {lab}'s file in Code Editor, save it, then "
-                "apply it:",
-                APPLY_SQL,
+                f"save Alex's request for Lab {lab}, which the lab starts from:",
+                start_command(lab),
             )
+        else:
+            lab_ready_step(lab)
         return
     next_step("the guide's Wrap-up. All three labs are solved.")
 
