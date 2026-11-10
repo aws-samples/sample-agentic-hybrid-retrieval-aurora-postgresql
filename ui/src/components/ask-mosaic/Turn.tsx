@@ -152,7 +152,10 @@ interface AnswerBodyProps extends Pick<
   durationMs?: number;
   rows: ComparisonRow[];
   answerId: string;
-  /** The first pick leads in a card, unless the last answer already led with it. */
+  /**
+   * The first pick leads in a card, unless the last answer already led with it or the
+   * picks are different kinds of product.
+   */
   leadsWithCard: boolean;
   text: string;
   /** The whole answer so far, unrevealed, which citations are matched against. */
@@ -180,6 +183,15 @@ function pickProps(product: ProductSummary, picks: ProductSummary[], props: Answ
 }
 
 /**
+ * Whether the picks are alternatives of one kind. Headphones, a monitor and a chair are
+ * parts of one setup, not rivals, so none of them is the top pick and the rest are not
+ * "other" picks: Alex's setup request names the headset he already owns first.
+ */
+export function sameKind(picks: ProductSummary[]): boolean {
+  return new Set(picks.map((pick) => pick.category_key)).size <= 1;
+}
+
+/**
  * The picks after the lead card. They wait below the prose until it has been
  * read out, so their arrival never pushes the sentence being read down the panel.
  */
@@ -187,7 +199,11 @@ function OtherPicks({ picks, props }: { picks: ProductSummary[]; props: AnswerBo
   const rest = props.leadsWithCard ? picks.slice(1) : picks;
   if (!props.settled || !rest.length) return null;
   return (
-    <section className="ask-picks ask-arrive" style={arrival(0)} aria-label="Other picks">
+    <section
+      className="ask-picks ask-arrive"
+      style={arrival(0)}
+      aria-label={props.leadsWithCard ? "Other picks" : "Picks"}
+    >
       <h4>{props.leadsWithCard ? "Other picks" : "Picks"}</h4>
       <ul>{rest.map((product) => <PickRow key={product.product_id} {...pickProps(product, picks, props)} />)}</ul>
     </section>
@@ -340,7 +356,9 @@ export function Turn(props: TurnProps) {
               durationMs={reportedDuration(turn.durationMs, trace)}
               rows={rows}
               answerId={answerId}
-              leadsWithCard={Boolean(picks[0]) && picks[0].product_id !== previousBestPickId}
+              leadsWithCard={
+                Boolean(picks[0]) && sameKind(picks) && picks[0].product_id !== previousBestPickId
+              }
               text={declined ? "" : reveal.text}
               answerText={turn.streamed || response.answer}
               chunks={reveal.chunks}

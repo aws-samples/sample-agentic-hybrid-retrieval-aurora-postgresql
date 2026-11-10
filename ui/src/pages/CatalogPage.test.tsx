@@ -234,9 +234,12 @@ function rankedProduct(product: ProductSummary, finalRank: number): ProductSumma
   };
 }
 
+// The fixture question compares keyboards, so both picks are one kind of product:
+// Ask Mosaic names a top pick only among alternatives of one kind.
 const recommendations = catalog.products
   .slice(0, 2)
-  .map((product, index) => rankedProduct(product, index + 1));
+  .map((product, index) =>
+    rankedProduct({ ...product, category_key: catalog.products[0].category_key }, index + 1));
 
 /**
  * A real `search_event_id` shape, because the Shop hand-off now carries it: the

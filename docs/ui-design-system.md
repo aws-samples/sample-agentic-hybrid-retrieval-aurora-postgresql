@@ -692,7 +692,10 @@ name, a neutral "Top pick" pill that claims only its position, up to two quoted
 facts with citation pills, and a stated requirement judged against the listing),
 then the answer prose, then the other picks as compact rows, a hairline Sources
 list (number pill, product, Listing or Review pill, the reviewer's stars, title,
-quote), "Still unknown", and up to three follow-ups as clear pills. A pick's
+quote), "Still unknown", and up to three follow-ups as clear pills. When the
+picks are different kinds of product, such as the headset, monitor and chair of
+Alex's setup request, none is a top pick: the prose comes first and every pick is
+a compact row under "Picks". A pick's
 facts quote a review only when its reviewer gave four stars or more: the answer
 may cite a lower-rated review as a caveat, and on the card, without that
 sentence, it would read as a reason for the pick.

@@ -438,6 +438,31 @@ describe("AskMosaic header and Builder view", () => {
     expect(screen.queryByText(/Best fit/)).toBeNull();
   });
 
+  it("names no top pick when the picks are different kinds of product", () => {
+    // Alex's setup request: a headset and a monitor he already has, and a chair.
+    const monitor = { ...first, product_id: first.product_id + 1, category_key: "monitor",
+      title: "Vista 27 4K Monitor", brand: "Vista", model: "V27" };
+    const chair = { ...first, product_id: first.product_id + 2, category_key: "chair",
+      title: "Perch Task Chair", brand: "Perch", model: "T1" };
+    renderAskMosaic({ ...groundedResponse(), recommendations: [first, monitor, chair] });
+
+    expect(screen.queryByLabelText(/Top pick/)).toBeNull();
+    expect(screen.queryByText("Top pick")).toBeNull();
+    expect(screen.queryByText("Other picks")).toBeNull();
+    const picks = screen.getByRole("region", { name: "Picks" });
+    expect(within(picks).getAllByRole("listitem")).toHaveLength(3);
+  });
+
+  it("keeps the top pick when the picks are alternatives of one kind", () => {
+    const second = { ...first, product_id: first.product_id + 1, title: "Another of the kind",
+      brand: "Other", model: "O2" };
+    renderAskMosaic({ ...groundedResponse(), recommendations: [first, second] });
+
+    expect(screen.getByLabelText(/Top pick/)).toBeTruthy();
+    const others = screen.getByRole("region", { name: "Other picks" });
+    expect(within(others).getAllByRole("listitem")).toHaveLength(1);
+  });
+
   it("turns a citation number in the answer into a chip that names its source", () => {
     renderAskMosaic(groundedResponse());
 
