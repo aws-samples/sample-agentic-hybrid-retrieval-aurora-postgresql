@@ -24,31 +24,35 @@ accepted call needed more than one claim review (`claim_review_usage.reviewCalls
 
 ## Results
 
-All 140 runs ended grounded.
+All 180 runs ended grounded.
 
 | Arm | Setup: refused draft | Setup: median time | Follow-up: refused draft | Follow-up: median time |
 |---|---|---|---|---|
 | Release code (`c88e6b7f`), one repair | 4 of 10 | 61.9 s | 2 of 10 | 36.4 s |
 | Five drafting rules, one repair | 3 of 20 | 57.8 s | 5 of 20 | 44.8 s |
 | Two drafting rules, one repair | 3 of 20 | 48.7 s | 7 of 20 | 42.0 s |
-| This commit: two drafting rules, two repairs | 0 of 20 | 53.0 s | 5 of 20 | 47.0 s |
+| Commit `cb18e3d5`: two drafting rules, two repairs | 0 of 20 | 53.0 s | 5 of 20 | 47.0 s |
+| Shipped: the order rule in place of the opener, two repairs | 0 of 20 | 49.3 s | 3 of 20 | 47.7 s |
 
-Fisher's exact test, two-sided. Setup request, release code against this commit, 4/10
-against 0/20: p = 0.008. Follow-up, 2/10 against 5/20: p = 1.0. Both requests, 6/20 against
-5/40: p = 0.16. So the setup request, the one Lab 3's completion check grades, shows a
-reduction; the follow-up shows none, and the two requests together are not distinguishable
-from the release code at this sample size.
+Fisher's exact test, two-sided, release code against the shipped code. Setup request,
+4/10 against 0/20: p = 0.008. Follow-up, 2/10 against 3/20: p = 1.0. Both requests, 6/20
+against 3/40: p = 0.049. So the setup request, the one Lab 3's completion check grades,
+shows a reduction and the follow-up shows none. The two requests together sit at the usual
+0.05 threshold, one of several comparisons made here, so treat that figure as weak.
+Commit `cb18e3d5` against the release code gave the same setup result and 6/20 against
+5/40, p = 0.16, for both requests.
 
 With one repair, the drafting rules alone did not change the rate measurably: 18 of 80 runs
 against 6 of 20 (p = 0.56).
 
-On this commit the first draft was accepted outright in 7 of 20 setup runs and 6 of 20
-follow-ups. The repairs inside the call absorb the rest of the setup request's refusals and
-not the follow-up's, where later drafts fail for the same kinds of reason as the first.
+On commit `cb18e3d5` the first draft was accepted outright in 7 of 20 setup runs and 6 of
+20 follow-ups; on the shipped code, in 15 of 20 and 7 of 20. The repairs inside the call
+absorb the rest of the setup request's refusals and not the follow-up's, where later
+drafts fail for the same kinds of reason as the first.
 
 ## What refused the drafts
 
-34 refused calls across the 140 runs:
+34 refused calls across the first 140 runs:
 
 | Cause | Calls | Setup | Follow-up | At fault |
 |---|---|---|---|---|
@@ -61,6 +65,10 @@ not the follow-up's, where later drafts fail for the same kinds of reason as the
 | The pick called the right chair for, or a fit with, the setup | 1 | 1 | 0 | the draft |
 | A "Sources:" line of citations | 1 | 1 | 0 | the draft |
 | A product named without its citation | 1 | 0 | 1 | the draft |
+
+The shipped code's 40 runs added 4 refused calls, all in follow-ups: two cited a caveat to
+Mosaic's scope note, one stated what the sources say with no citation, and one generalized
+a reviewer's experience.
 
 The participant walk's two refusals, outside these batches, were a fit phrase ("the chair for
 your setup") and a cited scope note. The fit phrase and the "Sources:" line each appeared on
@@ -75,8 +83,10 @@ the release code and not after the drafting rules that name them.
   product fact, or a review that could not confirm the draft.
 - `service/synthesis.py`: one call rewrites a refused draft twice before it reports a
   refusal (`DRAFT_REPAIRS`). For a request covering different product categories the
-  drafting prompt gives the opening sentence's form and forbids calling a product right,
-  best or ideal for the shopper's setup; it also forbids a Sources line.
+  drafting prompt picks no product, takes the products in the order the shopper named
+  them, and forbids calling a product right, best, ideal or the one to choose for the
+  shopper's setup; it also forbids a Sources line. The opening form first committed for
+  such a request was replaced the same day (see the correction below).
 - `service/claim_review.py`: the review prompt says that naming a pick adds no product
   fact while calling a product a fit for the setup is a claim, and that a scope note does
   not make a claim the record's own words support unsupported.
@@ -94,11 +104,29 @@ did not fall: write a figure only beside the record that states it, cite every s
 about what the records do not state, and never cite a record's scope note. With the last
 one, drafts stated the scope note without a citation and were refused for that instead.
 
+## Correction the same day: the opening sentence
+
+Commit `cb18e3d5` told the drafter to open a request covering different product
+categories with the first supplied product in the form "<reference_name> is the one to
+choose:". The first supplied product is the agent's first search, which varies by run.
+Alex's setup request names headphones and a monitor he already has and asks about a chair,
+so when the headset came first the answer opened "Logitech Zone 900 is the one to choose".
+The measurement above counted refused drafts and did not read the opening against the
+request. The opener showed in the Playground screenshot taken for the guide.
+
+The shipped rule picks no product for such a request. It takes the products in the order
+the shopper named them, or in supplied order when the request names none, and begins each
+product's first sentence with its `reference_name` and what its records state. It also
+forbids calling a product the one to choose. All 20 setup answers in the last arm open
+"Logitech Zone 900's listing describes", go on to the ViewSonic and then the Steelcase
+Gesture, and contain none of "the one to choose", "best fit", "is the right" or "ideal
+for". `tests/test_synthesis_claims.py` keeps the old opener out of the prompt.
+
 ## Limits
 
-These are 140 requests on one event in us-east-1 with `global.anthropic.claude-sonnet-5-5`,
+These are 180 requests on one event in us-east-1 with `global.anthropic.claude-sonnet-5-5`,
 four at a time. They do not measure a full room's concurrency, other Regions or other
 models, and answers vary between runs. Zero refused drafts in 20 setup requests bounds the
-rate below about 14% at 95% confidence, not at zero. The committed code differs from the
-last arm's measured code only in a comment and in line wrapping. It has not been through
+rate below about 14% at 95% confidence, not at zero. The committed code is the last
+arm's measured code. It has not been through
 the Aurora-backed evaluation gates, which need the development cluster.

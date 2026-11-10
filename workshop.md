@@ -214,7 +214,7 @@ twice before the agent hears of it. When a call still ends refused, that
 `draft refused: <reason>` under it, wrapped to the terminal's width; the reason is the
 check's own, such as a claim that no cited record supports. The agent is told the reason
 and drafts again. On the 10 November test event the setup request had no refused draft
-in 20 runs and the 100W follow-up had one in 5 of 20; all 40 ended grounded
+in 20 runs and the 100W follow-up had one in 3 of 20; all 40 ended grounded
 ([record](docs/evidence/lab3-refused-drafts-2026-11-10.md)). A model's drafts differ
 from run to run, so a refused draft is the check working, not a failure. A step the model or the service failed prints
 `draft step failed (<error>), not refused by a check` instead. `uv run python scripts/grade_setup_run.py` then checks the

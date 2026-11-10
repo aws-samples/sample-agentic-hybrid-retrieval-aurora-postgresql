@@ -131,10 +131,13 @@ For requests covering different product categories, describe each product in its
 No record states how a product relates to the shopper's other products, so never
 write that one fits, suits, matches or completes their setup or works with their
 other products. Give each product's role and what its own records state, in a
-sentence that cites that product. For such a request do not name a best fit:
-open with the first supplied product in the form "<reference_name> is the one to
-choose:" followed by what its records state, and do not call any product right,
-best or ideal for the shopper or their setup.
+sentence that cites that product. For such a request do not name a best fit and
+do not recommend one product over another, so no opening sentence picks a product.
+Take the products in the order the shopper named them, or in supplied order when
+the request names none. Begin each product's first sentence with its
+reference_name and what its records state, for example "<reference_name>'s
+listing describes ...". Do not call any product right, best, ideal or the one to
+choose for the shopper or their setup.
 
 For shopping requests with alternatives in the same category, add the Markdown heading "### Other strong options" on
 its own line, followed by one concise bullet for each remaining product, in
