@@ -8,11 +8,11 @@
 -- recover. The marked block in `channels` is Lab 1's edit; README.md beside this
 -- file has the task, the commands and the reference answer.
 
--- Unit D added the `fuzzy_threshold` parameter. `CREATE OR REPLACE` cannot
--- change a signature, so on an already-deployed cluster it creates an OVERLOAD
--- and leaves the 9-argument version live. A caller passing 9 positional
--- arguments then silently binds the old body. Dropping the previous signature
--- explicitly is the only way the replacement is a replacement.
+-- Earlier versions of this function are dropped before it is created again.
+-- `CREATE OR REPLACE` cannot change a function's parameter list: given a new
+-- list it adds a second function beside the old one, and a caller passing
+-- the old arguments would keep running the old code. Dropping the earlier
+-- parameter lists first makes sure only this version exists.
 DROP FUNCTION IF EXISTS mosaic_search.search_hybrid_rrf(
     text, vector, jsonb, integer, integer, integer, integer, integer, real
 );
@@ -29,11 +29,11 @@ CREATE OR REPLACE FUNCTION mosaic_search.search_hybrid_rrf(
     fuzzy_limit integer DEFAULT 80,
     semantic_limit integer DEFAULT 150,
     result_limit integer DEFAULT 50,
-    -- Threaded through rather than hardcoded at the call site below. A
-    -- positional literal there was invisible to scripts/checks/config_tripwire.py,
-    -- whose rule 1 only sees assignment-shaped declarations; as a named
-    -- parameter it is an exempted default that the tripwire pins to
-    -- candidate_generation.fuzzy_threshold and asserts equal.
+    -- The lowest similarity score fuzzy matching keeps; this function passes
+    -- it on to search_fuzzy. It is a named parameter so the search settings
+    -- can set it: the value comes from candidate_generation.fuzzy_threshold in
+    -- db/config/retrieval.yaml, and a check (scripts/checks/config_tripwire.py)
+    -- keeps this default equal to that setting.
     fuzzy_threshold real DEFAULT 0.20
 )
 RETURNS TABLE (

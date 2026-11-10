@@ -78,12 +78,15 @@ def cache_source_sha256(repo: Path = REPO) -> str:
     """Fingerprint the reference search SQL as Aurora runs it.
 
     Reference lab files keep this identity stable while participants edit their
-    exercise seams.
+    exercise seams. The SQL is hashed by its tokens, as `lab_sql_tokens` reads it:
+    rewording a comment changes nothing Aurora runs, so it does not ask for a
+    rebuild against Aurora, and any change to a token still does.
     """
+    from service.retrieval_fingerprint import lab_sql_tokens
     from service.search_sql import search_sql, without_psql_lines
 
     rendered = without_psql_lines(search_sql(repo, solutions=True))
-    return hashlib.sha256(rendered.encode()).hexdigest()
+    return hashlib.sha256("\n".join(lab_sql_tokens(rendered)).encode()).hexdigest()
 
 
 def cache_path(repo: Path = REPO) -> Path:

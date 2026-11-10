@@ -101,6 +101,31 @@ def test_cache_covers_every_judged_query_at_the_served_limits():
     assert len(cache["chair_controls"]) == 4
 
 
+def test_the_cache_source_ignores_comments_but_not_sql(monkeypatch):
+    """A reworded comment must not ask for a rebuild against Aurora; changed SQL must."""
+    sql = (
+        "CREATE FUNCTION f() RETURNS int LANGUAGE sql AS $$\n"
+        "-- why this returns one\nSELECT 1\n$$;\n"
+    )
+    renders = iter(
+        [
+            sql,
+            sql.replace("why this returns one", "the same reason, reworded"),
+            sql.replace("SELECT 1", "SELECT 2"),
+        ]
+    )
+    monkeypatch.setattr(
+        "service.search_sql.search_sql", lambda *_args, **_kwargs: next(renders)
+    )
+
+    original, reworded, changed = (
+        cache_lab2_arms.cache_source_sha256() for _ in range(3)
+    )
+
+    assert original == reworded
+    assert changed != original
+
+
 def test_bundled_cache_matches_the_rendered_reference_search():
     cache = json.loads((ROOT / "data/evals/lab2_search_cache.json").read_text())
     assert cache.get("source_sha256") == cache_lab2_arms.cache_source_sha256(), (
