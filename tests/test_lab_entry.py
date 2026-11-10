@@ -76,7 +76,7 @@ def aurora(monkeypatch) -> Boundaries:
         say("Applied it to Aurora.")
         return "sha"
 
-    def prepare(lab, phase, _api_url, output):
+    def prepare(lab, phase, _api_url, output, *, results=True):
         if state.fail_capture:
             raise RuntimeError("API restarting")
         state.captures += 1

@@ -285,11 +285,15 @@ def test_advance_lab_1_puts_a_blank_line_between_its_parts(
         "Lab 1: production-path validation passed. Passing evidence saved.",
         "Preparing Lab 2: install its fault once and save the starting request.",
     ]
-    assert starts[6].startswith("Lab 2: prepared. Continue with the saved failure")
-    assert starts[7].startswith("Next: ")
-    assert starts[3].startswith("Alex's request: ")
-    assert starts[4].startswith("Target ")
-    assert starts[5].startswith("Saved the application response. In psql:")
+    assert starts[5].startswith("Lab 2: prepared. Continue with the saved failure")
+    assert starts[6].startswith("Next: ")
+    # The hand-off leaves out Lab 2's result titles, so its checks, the request and the
+    # Next step fit one maximized terminal: the request and its target are one part.
+    request = paragraphs[3].splitlines()
+    assert request[0].startswith("Alex's request: ")
+    assert request[1].startswith("Target ") and len(request) == 2
+    assert "Sony WH-1000XM5" not in "\n".join(paragraphs)
+    assert starts[4].startswith("Saved the application response. In psql:")
     assert "Installed Lab 2's fault" in paragraphs[2]
     assert "Applied it to Aurora." in paragraphs[2]
 

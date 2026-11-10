@@ -197,7 +197,7 @@ def test_lab_3_has_no_before_and_after_pair(tmp_path):
 
 
 def test_the_terminal_exits_with_the_lab_and_no_traceback(monkeypatch, tmp_path):
-    def refuse(*_args):
+    def refuse(*_args, **_kwargs):
         raise LabValidationError("the search returned no candidates")
 
     monkeypatch.setattr(lab_request, "prepare", refuse)
@@ -229,7 +229,7 @@ def test_a_start_whose_search_already_works_finishes_and_says_why(repo, monkeypa
     said: list[str] = []
     detail = "Aurora runs a different LAB1_EDIT block from the one saved."
 
-    def already_working(*_args):
+    def already_working(*_args, **_kwargs):
         raise lab_request.AlreadyRepaired(
             "the search already finds product 1 among its 50 candidates, so there "
             "is no failing request to save"

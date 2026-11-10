@@ -277,8 +277,14 @@ def _without_before(lab: int, output: Path) -> str:
     )
 
 
-def prepare(lab: int, phase: str, api_url: str, output: Path) -> Path:
-    """Save a production response and a small psql context; never repair a lab."""
+def prepare(
+    lab: int, phase: str, api_url: str, output: Path, *, results: bool = True
+) -> Path:
+    """Save a production response and a small psql context; never repair a lab.
+
+    Args:
+        results: Print the response's result titles under the request.
+    """
     from service.catalog_runtime import active_dataset
     from service.db import connect
 
@@ -398,12 +404,15 @@ def prepare(lab: int, phase: str, api_url: str, output: Path) -> Path:
         for key, value in event["run"]["retrieval_profile"].items():
             if isinstance(value, (int, float, str)):
                 values[f"lab_{key}"] = str(value)
-        for product in response["results"]:
-            print(f"{product['signals']['final_rank']:>2}. {product['title'][:88]}")
+        if results:
+            for product in response["results"]:
+                print(f"{product['signals']['final_rank']:>2}. {product['title'][:88]}")
+        # Without the titles the target line belongs under the request, as one part.
+        gap = "\n" if results else ""
         if before:
-            print("\n" + "\n".join(before_after_lines(event, mission)))
+            print(gap + "\n".join(before_after_lines(event, mission)))
         else:
-            print("\n" + target_summary(event, mission))
+            print(gap + target_summary(event, mission))
         run_id = response["search_event_id"]
     else:
         with connect() as connection:

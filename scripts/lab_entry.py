@@ -254,7 +254,13 @@ def _apply_sql(dsn: str | None, repo: Path, record: dict[str, Any], say: Say) ->
 
 
 def _failing_search_evidence(
-    lab: int, applied: LabDatabaseState, api_url: str, repo: Path, say: Say
+    lab: int,
+    applied: LabDatabaseState,
+    api_url: str,
+    repo: Path,
+    say: Say,
+    *,
+    results: bool = True,
 ) -> dict[str, Any]:
     """Save the lab's failing search, or record why no failing search exists."""
     if applied.state == "applied":
@@ -265,7 +271,7 @@ def _failing_search_evidence(
 
     output = repo / ".local" / f"lab-{lab}"
     try:
-        prepare(lab, "before", api_url, output)
+        prepare(lab, "before", api_url, output, results=results)
     except AlreadyRepaired as repaired:
         # The live search works while the saved block does not count as
         # applied, so no failing request exists; the state says why.
@@ -288,6 +294,8 @@ def _capture(
     record: dict[str, Any],
     connection: Any,
     say: Say,
+    *,
+    results: bool = True,
 ) -> None:
     if record["steps"].get("evidence", {}).get("state") == "done":
         return
@@ -305,7 +313,9 @@ def _capture(
         )
     else:
         applied = read_applied_sql_state(lab, connection, repo=repo)
-        evidence = _failing_search_evidence(lab, applied, api_url, repo, say)
+        evidence = _failing_search_evidence(
+            lab, applied, api_url, repo, say, results=results
+        )
     record["steps"]["evidence"] = evidence
     _save(lab, repo, record)
 
@@ -330,9 +340,19 @@ def _save_missing_context(lab: int, api_url: str, repo: Path) -> None:
 
 
 def start(
-    lab: int, *, api_url: str, dsn: str | None, repo: Path = REPO, say: Say = print
+    lab: int,
+    *,
+    api_url: str,
+    dsn: str | None,
+    repo: Path = REPO,
+    say: Say = print,
+    results: bool = True,
 ) -> dict[str, Any]:
     """Prepare one lab, or finish an interrupted preparation, and return its record.
+
+    Args:
+        results: Print the failing search's result titles. A hand-off leaves them out so
+            its checks, the next lab's request and its `Next:` step fit one terminal screen.
 
     Raises:
         LabEntryError: A prerequisite is unmet or the record is unreadable.
@@ -366,7 +386,7 @@ def start(
     if lab == 2:
         _apply_sql(dsn, repo, record, say)
     with _connect(dsn) as connection:
-        _capture(lab, api_url, repo, record, connection, say)
+        _capture(lab, api_url, repo, record, connection, say, results=results)
     record["completed_at"] = datetime.now(UTC).isoformat()
     _save(lab, repo, record)
     _save_missing_context(lab, api_url, repo)
@@ -564,7 +584,7 @@ def _advance_lab_1(
         )
     resumed = bool((load_record(2, repo) or {}).get("completed_at"))
     say("\nPreparing Lab 2: install its fault once and save the starting request.")
-    record = start(2, api_url=api_url, dsn=dsn, repo=repo, say=say)
+    record = start(2, api_url=api_url, dsn=dsn, repo=repo, say=say, results=False)
     say(
         "\nLab 2: already prepared; continue where you left off in the Lab 2 guide. "
         "Your existing edits are preserved."
