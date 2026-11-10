@@ -35,7 +35,7 @@ from scripts.lab_state import (
     set_lab_state,
     source_problem,
 )
-from scripts.terminal_text import verdict
+from scripts.terminal_text import GREEN, tint, verdict
 from service.participant_commands import (
     ADVANCE_TO_LAB_2,
     ADVANCE_TO_LAB_3,
@@ -260,7 +260,7 @@ def _failing_search_evidence(
     repo: Path,
     say: Say,
     *,
-    results: bool = True,
+    handoff: bool = False,
 ) -> dict[str, Any]:
     """Save the lab's failing search, or record why no failing search exists."""
     if applied.state == "applied":
@@ -271,7 +271,7 @@ def _failing_search_evidence(
 
     output = repo / ".local" / f"lab-{lab}"
     try:
-        prepare(lab, "before", api_url, output, results=results)
+        prepare(lab, "before", api_url, output, handoff=handoff)
     except AlreadyRepaired as repaired:
         # The live search works while the saved block does not count as
         # applied, so no failing request exists; the state says why.
@@ -295,7 +295,7 @@ def _capture(
     connection: Any,
     say: Say,
     *,
-    results: bool = True,
+    handoff: bool = False,
 ) -> None:
     if record["steps"].get("evidence", {}).get("state") == "done":
         return
@@ -314,7 +314,7 @@ def _capture(
     else:
         applied = read_applied_sql_state(lab, connection, repo=repo)
         evidence = _failing_search_evidence(
-            lab, applied, api_url, repo, say, results=results
+            lab, applied, api_url, repo, say, handoff=handoff
         )
     record["steps"]["evidence"] = evidence
     _save(lab, repo, record)
@@ -346,13 +346,14 @@ def start(
     dsn: str | None,
     repo: Path = REPO,
     say: Say = print,
-    results: bool = True,
+    handoff: bool = False,
 ) -> dict[str, Any]:
     """Prepare one lab, or finish an interrupted preparation, and return its record.
 
     Args:
-        results: Print the failing search's result titles. A hand-off leaves them out so
-            its checks, the next lab's request and its `Next:` step fit one terminal screen.
+        handoff: The previous lab's hand-off is starting this lab. It prints only the
+            request and its target, so the checks and the `Next:` step fit one terminal
+            screen beside the guide; the `Next:` step names the saved context itself.
 
     Raises:
         LabEntryError: A prerequisite is unmet or the record is unreadable.
@@ -386,7 +387,7 @@ def start(
     if lab == 2:
         _apply_sql(dsn, repo, record, say)
     with _connect(dsn) as connection:
-        _capture(lab, api_url, repo, record, connection, say, results=results)
+        _capture(lab, api_url, repo, record, connection, say, handoff=handoff)
     record["completed_at"] = datetime.now(UTC).isoformat()
     _save(lab, repo, record)
     _save_missing_context(lab, api_url, repo)
@@ -450,6 +451,12 @@ def _handoff_mismatch(
     )
 
 
+def _passed(lab: int, count: int) -> str:
+    """The hand-off's verdict in one green line, which stays in view when PASS lines scroll."""
+    passed = tint(f"all {count} checks passed", GREEN)
+    return f"Lab {lab}: {passed}. Passing evidence saved."
+
+
 def advance(
     lab: int, *, api_url: str, dsn: str | None, repo: Path = REPO, say: Say = print
 ) -> dict[str, Any]:
@@ -503,7 +510,7 @@ def _advance_lab_2(
     for check in checks:
         say(verdict(f"PASS: {check}"))
     record_completion(2, checks, events, repo)
-    say("\nLab 2: production-path validation passed. Passing evidence saved.")
+    say("\n" + _passed(2, len(checks)))
     say("\nPreparing Lab 3: install the Retrieval agent's starting code once.")
     record = start(3, api_url=api_url, dsn=dsn, repo=repo, say=say)
     say(
@@ -577,14 +584,14 @@ def _advance_lab_1(
         temporary = path.with_suffix(".tmp")
         temporary.write_text(json.dumps(saved, indent=2) + "\n")
         temporary.replace(path)
-        say("\nLab 1: production-path validation passed. Passing evidence saved.")
+        say("\n" + _passed(1, len(checks)))
     else:
         say(
             "Lab 1: using saved handoff validation; not repeating it under Lab 2's ranking fault."
         )
     resumed = bool((load_record(2, repo) or {}).get("completed_at"))
     say("\nPreparing Lab 2: install its fault once and save the starting request.")
-    record = start(2, api_url=api_url, dsn=dsn, repo=repo, say=say, results=False)
+    record = start(2, api_url=api_url, dsn=dsn, repo=repo, say=say, handoff=True)
     say(
         "\nLab 2: already prepared; continue where you left off in the Lab 2 guide. "
         "Your existing edits are preserved."

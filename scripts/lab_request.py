@@ -278,12 +278,13 @@ def _without_before(lab: int, output: Path) -> str:
 
 
 def prepare(
-    lab: int, phase: str, api_url: str, output: Path, *, results: bool = True
+    lab: int, phase: str, api_url: str, output: Path, *, handoff: bool = False
 ) -> Path:
     """Save a production response and a small psql context; never repair a lab.
 
     Args:
-        results: Print the response's result titles under the request.
+        handoff: A hand-off is starting this lab: print only the request and its target,
+            without the result titles or the saved context's path, which its `Next:` names.
     """
     from service.catalog_runtime import active_dataset
     from service.db import connect
@@ -404,11 +405,11 @@ def prepare(
         for key, value in event["run"]["retrieval_profile"].items():
             if isinstance(value, (int, float, str)):
                 values[f"lab_{key}"] = str(value)
-        if results:
+        if not handoff:
             for product in response["results"]:
                 print(f"{product['signals']['final_rank']:>2}. {product['title'][:88]}")
         # Without the titles the target line belongs under the request, as one part.
-        gap = "\n" if results else ""
+        gap = "" if handoff else "\n"
         if before:
             print(gap + "\n".join(before_after_lines(event, mission)))
         else:
@@ -475,7 +476,8 @@ def prepare(
     # query is graded against the run they inspected, not a fresh one.
     (output / "context.json").write_text(json.dumps(values, indent=2) + "\n")
     (output / f"{phase}-context.psql").write_text(rendered_context)
-    print(f"\nSaved the application response. In psql:\n\\i {context}")
+    if not handoff:
+        print(f"\nSaved the application response. In psql:\n\\i {context}")
     return context
 
 

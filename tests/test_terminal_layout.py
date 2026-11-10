@@ -282,18 +282,20 @@ def test_advance_lab_1_puts_a_blank_line_between_its_parts(
     assert starts[0].startswith("Validating Lab 1 in Aurora")
     assert paragraphs[0].count("\nPASS: ") == 2
     assert starts[1:3] == [
-        "Lab 1: production-path validation passed. Passing evidence saved.",
+        "Lab 1: all 2 checks passed. Passing evidence saved.",
         "Preparing Lab 2: install its fault once and save the starting request.",
     ]
-    assert starts[5].startswith("Lab 2: prepared. Continue with the saved failure")
-    assert starts[6].startswith("Next: ")
+    assert starts[4].startswith("Lab 2: prepared. Continue with the saved failure")
+    assert starts[5].startswith("Next: ")
     # The hand-off leaves out Lab 2's result titles, so its checks, the request and the
     # Next step fit one maximized terminal: the request and its target are one part.
     request = paragraphs[3].splitlines()
     assert request[0].startswith("Alex's request: ")
     assert request[1].startswith("Target ") and len(request) == 2
     assert "Sony WH-1000XM5" not in "\n".join(paragraphs)
-    assert starts[4].startswith("Saved the application response. In psql:")
+    # Its Next step names the saved context, so the hand-off does not print the path twice.
+    assert "Saved the application response" not in "\n".join(paragraphs)
+    assert "\\i .local/lab-2/context.psql" in paragraphs[-1]
     assert "Installed Lab 2's fault" in paragraphs[2]
     assert "Applied it to Aurora." in paragraphs[2]
 
@@ -1011,3 +1013,19 @@ def test_a_step_run_by_finish_leaves_the_next_step_to_finish(
     assert lab_state.main() == 0
 
     assert capsys.readouterr().out == "done\n"
+
+
+def test_a_hand_off_states_its_verdict_in_one_green_line(monkeypatch) -> None:
+    """The PASS lines can scroll off a small terminal; this line near the end cannot."""
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    monkeypatch.setenv("TERM", "xterm-256color")
+    monkeypatch.setattr(sys, "stdout", Terminal())
+    coloured = lab_entry._passed(1, 10)
+    monkeypatch.setattr(sys, "stdout", io.StringIO())
+    plain = lab_entry._passed(1, 10)
+
+    assert plain == "Lab 1: all 10 checks passed. Passing evidence saved."
+    assert coloured == plain.replace(
+        "all 10 checks passed", f"\033[{GREEN}mall 10 checks passed\033[0m"
+    )
+    assert len(plain) <= 66, "one line beside the guide"

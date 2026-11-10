@@ -8,6 +8,7 @@ the prerequisite logic run as shipped, on a copy of the checkout.
 from __future__ import annotations
 
 import json
+import re
 from contextlib import contextmanager
 from pathlib import Path
 from shutil import copy2
@@ -76,7 +77,7 @@ def aurora(monkeypatch) -> Boundaries:
         say("Applied it to Aurora.")
         return "sha"
 
-    def prepare(lab, phase, _api_url, output, *, results=True):
+    def prepare(lab, phase, _api_url, output, *, handoff=False):
         if state.fail_capture:
             raise RuntimeError("API restarting")
         state.captures += 1
@@ -463,9 +464,16 @@ def test_handoff_saves_passing_evidence_before_installing_fault(
     assert aurora.applies == 1 and aurora.captures == 1
     saved = json.loads(lab_entry.completion_path(1, repo).read_text())
     assert saved["search_event_ids"] == ["verified-lab-1"]
-    assert lines.index(
-        "\nLab 1: production-path validation passed. Passing evidence saved."
-    ) < next(i for i, line in enumerate(lines) if line.startswith("Installed"))
+    passed = next(
+        i
+        for i, line in enumerate(lines)
+        if re.fullmatch(
+            r"\nLab 1: all \d+ checks passed\. Passing evidence saved\.", line
+        )
+    )
+    assert passed < next(
+        i for i, line in enumerate(lines) if line.startswith("Installed")
+    )
 
 
 def test_failed_lab1_validation_never_starts_lab2(repo, aurora, monkeypatch):
@@ -624,9 +632,16 @@ def test_lab_2_handoff_saves_passing_evidence_then_installs_the_lab_3_starter(
     assert lab_source_is_repaired(2, repo=lab_2_repaired)
     saved = json.loads(lab_entry.completion_path(2, lab_2_repaired).read_text())
     assert saved["search_event_ids"] == ["first-lab-2", "second-lab-2"]
-    assert lines.index(
-        "\nLab 2: production-path validation passed. Passing evidence saved."
-    ) < next(i for i, line in enumerate(lines) if line.startswith("Installed"))
+    passed = next(
+        i
+        for i, line in enumerate(lines)
+        if re.fullmatch(
+            r"\nLab 2: all \d+ checks passed\. Passing evidence saved\.", line
+        )
+    )
+    assert passed < next(
+        i for i, line in enumerate(lines) if line.startswith("Installed")
+    )
     assert any("Your Retrieval agent is not built yet" in line for line in lines)
     assert lines[-1].startswith("\nLab 3: prepared.")
 
