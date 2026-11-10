@@ -194,7 +194,7 @@ def _apply_saved_repairs(lab: int, dsn: str | None, repo: Path, say: Say) -> Non
     then = ADVANCE_TO_LAB_2 if lab == 2 else ADVANCE_TO_LAB_3
     raise LabEntryError(
         f"Lab {lab - 1} cannot hand off yet: applying your saved SQL failed.\n"
-        f"{reason}\nThen: {then}"
+        f"{reason}\n\nNext: after fixing that, run\n{then}"
     )
 
 
@@ -271,7 +271,7 @@ def _failing_search_evidence(
         # applied, so no failing request exists; the state says why.
         say(
             f"Lab {lab}: {repaired}. {applied.detail}\n"
-            f"Next: {validate_applied_command(lab)} names what to change or run."
+            f"To see what to change or run: {validate_applied_command(lab)}"
         )
         return {
             "state": "done",
@@ -298,7 +298,7 @@ def _capture(
         # The saved refusal is Mosaic's one-line message; on screen the deploy command gets
         # its own line, so no line wraps mid-word in a laptop terminal.
         say(
-            "Mosaic now refuses Retrieval agent requests. Your Retrieval agent is not built yet.\n"
+            "\nMosaic now refuses Retrieval agent requests. Your Retrieval agent is not built yet.\n"
             "Open labs/lab3_reason/agent.py and complete create_agent with the supplied model,\n"
             "tools, instructions and hooks. Then deploy it and ask your question again:\n"
             f"      {DEPLOY_AGENT}"
@@ -483,11 +483,11 @@ def _advance_lab_2(
     for check in checks:
         say(verdict(f"PASS: {check}"))
     record_completion(2, checks, events, repo)
-    say("Lab 2: production-path validation passed. Passing evidence saved.")
-    say("Preparing Lab 3: install the Retrieval agent's starting code once.")
+    say("\nLab 2: production-path validation passed. Passing evidence saved.")
+    say("\nPreparing Lab 3: install the Retrieval agent's starting code once.")
     record = start(3, api_url=api_url, dsn=dsn, repo=repo, say=say)
     say(
-        "Lab 3: prepared. Continue in the Lab 3 guide. Your existing edits are preserved."
+        "\nLab 3: prepared. Continue in the Lab 3 guide. Your existing edits are preserved."
     )
     return record
 
@@ -557,19 +557,19 @@ def _advance_lab_1(
         temporary = path.with_suffix(".tmp")
         temporary.write_text(json.dumps(saved, indent=2) + "\n")
         temporary.replace(path)
-        say("Lab 1: production-path validation passed. Passing evidence saved.")
+        say("\nLab 1: production-path validation passed. Passing evidence saved.")
     else:
         say(
             "Lab 1: using saved handoff validation; not repeating it under Lab 2's ranking fault."
         )
     resumed = bool((load_record(2, repo) or {}).get("completed_at"))
-    say("Preparing Lab 2: install its fault once and save the starting request.")
+    say("\nPreparing Lab 2: install its fault once and save the starting request.")
     record = start(2, api_url=api_url, dsn=dsn, repo=repo, say=say)
     say(
-        "Lab 2: already prepared; continue where you left off in the Lab 2 guide. "
+        "\nLab 2: already prepared; continue where you left off in the Lab 2 guide. "
         "Your existing edits are preserved."
         if resumed
-        else "Lab 2: prepared. Continue with the saved failure in the Lab 2 guide. "
+        else "\nLab 2: prepared. Continue with the saved failure in the Lab 2 guide. "
         "Your existing edits are preserved."
     )
     return record

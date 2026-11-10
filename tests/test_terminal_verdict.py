@@ -265,6 +265,6 @@ def test_separate_next_leaves_a_message_that_is_already_laid_out_alone():
 
 def test_separate_next_adds_the_rerun_when_the_message_names_none():
     assert separate_next("It broke.", "uv run python x.py") == (
-        "It broke.\n\nNext: fix what it names above, then run\nuv run python x.py"
+        "It broke.\n\nNext: do what the message above says, then run\nuv run python x.py"
     )
     assert separate_next("It broke.") == "It broke."

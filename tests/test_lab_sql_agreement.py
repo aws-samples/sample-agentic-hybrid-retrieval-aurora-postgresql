@@ -214,8 +214,10 @@ def test_validate_lays_out_the_problem_the_fix_and_the_rerun(monkeypatch):
     assert str(refused.value) == (
         "Lab 1: FAIL\n"
         "- Lab 1's saved repair is not in Aurora. Saved differs.\n"
-        f"  Next: {APPLY_SQL}\n"
-        f"Then: {validate_applied_command(1)}"
+        f"  Fix: {APPLY_SQL}\n"
+        "\n"
+        "Next: after the fixes above, run\n"
+        f"{validate_applied_command(1)}"
     )
 
 
@@ -230,7 +232,9 @@ def test_validate_without_a_database_url_says_how_to_get_one(monkeypatch):
     with pytest.raises(SystemExit, match="DATABASE_URL is empty") as refused:
         lab_state._validate_command(2, "")
 
-    assert str(refused.value).endswith(f"Then: {validate_applied_command(2)}")
+    assert str(refused.value).endswith(
+        f"\n\nNext: after the fixes above, run\n{validate_applied_command(2)}"
+    )
 
 
 def test_validate_passes_only_when_aurora_runs_the_saved_repair(monkeypatch, capsys):

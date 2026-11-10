@@ -21,7 +21,17 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
 from scripts.progress import Progress
-from scripts.terminal_text import fill_words, paint
+from scripts.terminal_text import (
+    RUN_BY,
+    STATE_COLORS,
+    fill_words,
+    next_on_failure,
+    next_step,
+    paint,
+    separate_next,
+    tidy,
+    verdict,
+)
 from service.agent_setup import AGENT_NOT_BUILT
 from service.catalog_runtime import search_schema
 from service.lab_files import (
@@ -35,10 +45,12 @@ from service.lab_files import (
 )
 from service.participant_commands import (
     ADVANCE_TO_LAB_2,
+    ADVANCE_TO_LAB_3,
     APPLY_SQL,
     DEPLOY_AGENT,
     DIFF,
     DIFF_ANSWER,
+    LIST_TOOLS,
     USUAL_SECONDS,
     apply_solution_command,
     ask_setup_command,
@@ -46,6 +58,8 @@ from service.participant_commands import (
     finish_steps,
     grade_exercise_command,
     grade_setup_run_command,
+    load_context_command,
+    open_psql_command,
     proof_steps_text,
     repeat_request_command,
     reset_command,
@@ -62,9 +76,6 @@ from service.participant_commands import (
 #: has been through JSON on the way out of a search response.
 FUNCTION_CONTRIBUTION_TOLERANCE = 1e-12
 
-#: Set for the commands `finish` and `skip-to` run, to the run's label, so a step does
-#: not tell the participant to run the steps that come next: the run does that itself.
-RUN_BY = "MOSAIC_RUN_BY"
 # Code Editor's terminal holds 124 characters a line; prose stays well inside it.
 LINE_CHARS = 100
 
@@ -1027,8 +1038,8 @@ def explain_problems(header: str, problems: list[LabProblem], then: str) -> str:
     """Lay out what blocks a command and how to continue, one problem per item."""
     lines = [header]
     for problem in problems:
-        lines += [f"- {problem.finding}", f"  Next: {problem.next_step}"]
-    return "\n".join([*lines, f"Then: {then}"])
+        lines += [f"- {problem.finding}", f"  Fix: {problem.next_step}"]
+    return "\n".join([*lines, "", f"Next: after the fixes above, run\n{then}"])
 
 
 def status_line(lab: int, *, repo: Path = REPO) -> str:
@@ -1143,13 +1154,34 @@ def solution_summary(lab: int, path: Path, *, run_by: str | None = None) -> str:
     if run_by:
         return overwrote
     if lab == 3:
-        next_step = (
+        follow_up = (
             f"Next: deploy with {DEPLOY_AGENT}, then ask Alex's setup request:\n"
             f"{ask_setup_command()}\nthen check that run with {grade_setup_run_command()}"
         )
     else:
-        next_step = f"Next: apply it with {APPLY_SQL}, then prove it with {proof_steps_text(lab)}."
-    return f"{overwrote}\n{next_step}"
+        follow_up = f"Next: apply it with {APPLY_SQL}, then prove it with {proof_steps_text(lab)}."
+    return f"{overwrote}\n\n{follow_up}"
+
+
+def lab_ready_step(lab: int) -> None:
+    """Print the first step of a lab that has just been prepared, as the guide begins it.
+
+    Labs 1 and 2 open in `psql` with the saved request, so the step works from the terminal
+    or from `psql`; Lab 3 opens in the editor.
+    """
+    if lab == 3:
+        next_step(
+            "open labs/lab3_reason/agent.py in Code Editor and complete create_agent. To "
+            "see the SQL tools it can call first, run:",
+            LIST_TOOLS,
+        )
+        return
+    next_step(
+        f"open psql with Alex's saved request for Lab {lab}. From the terminal, run:",
+        open_psql_command(lab),
+        "or, if psql is already open, load it there:",
+        load_context_command(lab),
+    )
 
 
 def _entered(lab: int) -> bool:
@@ -1185,10 +1217,11 @@ def _run_steps(steps: list[str], *, label: str, resume: str) -> int:
         )
         if result.returncode != 0:
             progress.fail()
-            print(
-                f"\n{label} stopped at: {step}\n"
-                f"Next: fix what it names above, then run {resume} again; "
-                "the steps before it are safe to repeat."
+            print(f"\n{label} stopped at: {step}")
+            next_step(
+                "fix what it names above, then run the same command again; the steps "
+                "before it are safe to repeat:",
+                resume,
             )
             return result.returncode
     progress.finish()
@@ -1207,13 +1240,16 @@ def finish_lab(lab: int) -> int:
     if code:
         return code
     if lab == 3:
-        print(
-            "\nLab 3: the reference Retrieval agent is deployed. Next: ask Alex's "
-            f"setup request:\n{ask_setup_command()}\nthen check that run with "
-            f"{grade_setup_run_command()}"
+        print("\nLab 3: the reference Retrieval agent is deployed.")
+        next_step(
+            "ask Alex's setup request:",
+            ask_setup_command(),
+            "then check that run with:",
+            grade_setup_run_command(),
         )
     else:
         print(f"\nLab {lab}: finished with the reference answer.")
+        lab_ready_step(lab + 1)
     return 0
 
 
@@ -1233,21 +1269,76 @@ def skip_to_lab(lab: int) -> int:
     if code:
         return code
     print(f"\nLab {lab}: ready. Continue with Lab {lab} in the guide.")
+    lab_ready_step(lab)
     return 0
 
 
+def _status_next(lines: list[str]) -> None:
+    """Print the step after a status report: the first lab that is not solved yet."""
+    for lab, line in zip(LABS, lines, strict=True):
+        if "SOLVED" in line:
+            continue
+        if "FILE MISSING" in line:
+            next_step("put back its starting code:", reset_command(lab))
+        elif "START INTERRUPTED" in line or (lab == 1 and "NOT STARTED" in line):
+            next_step("finish the start; your edits are kept:", start_command(lab))
+        elif "NOT STARTED" in line:
+            handoff = ADVANCE_TO_LAB_2 if lab == 2 else ADVANCE_TO_LAB_3
+            next_step(f"Lab {lab - 1}'s hand-off prepares Lab {lab}:", handoff)
+        elif lab == 3 and "NOT DEPLOYED" in line:
+            next_step("deploy your Retrieval agent:", DEPLOY_AGENT)
+        elif lab == 3 and "NOT YET PROVED" in line:
+            next_step(
+                "ask Alex's setup request:",
+                ask_setup_command(),
+                "then check that run with:",
+                grade_setup_run_command(),
+            )
+        elif lab == 3:
+            next_step(
+                "open labs/lab3_reason/agent.py in Code Editor and complete create_agent, "
+                "then deploy it:",
+                DEPLOY_AGENT,
+            )
+        else:
+            next_step(
+                f"fix the marked block in Lab {lab}'s file in Code Editor, save it, then "
+                "apply it:",
+                APPLY_SQL,
+            )
+        return
+    next_step("the guide's Wrap-up. All three labs are solved.")
+
+
+def _entered_step(action: str, lab: int) -> None:
+    """Print the step after a start, hand-off or reset: the first step of the lab now ready."""
+    lab_ready_step(lab + 1 if action == "advance" else lab)
+
+
+@tidy
 def main() -> int:
     args = _parser().parse_args()
     if args.action != "status" and args.lab is None:
         valid = ", ".join(str(lab) for lab in sorted(LABS))
         raise SystemExit(
-            f"Lab rule: {args.action} needs --lab, with one of {valid}. "
-            f"Next: run uv run python scripts/lab_state.py {args.action} --lab N, "
-            f"for example uv run python scripts/lab_state.py {args.action} --lab 1."
+            separate_next(
+                f"Lab rule: {args.action} needs --lab, with one of {valid}. "
+                f"Next: run uv run python scripts/lab_state.py {args.action} --lab N, "
+                f"for example uv run python scripts/lab_state.py {args.action} --lab 1."
+            )
         )
+    rerun = f"uv run python scripts/lab_state.py {args.action} --lab {args.lab}"
+    with next_on_failure(None if args.action == "status" else rerun):
+        return _run_action(args)
+
+
+def _run_action(args: argparse.Namespace) -> int:
+    """Run one parsed action and print its output; the caller names its failures' next step."""
     if args.action == "status":
-        for lab in LABS:
-            print(status_line(lab))
+        lines = [status_line(lab) for lab in LABS]
+        for line in lines:
+            print(verdict(line, words=STATE_COLORS))
+        _status_next(lines)
         return 0
     if args.action == "finish":
         return finish_lab(args.lab)
@@ -1278,6 +1369,7 @@ def main() -> int:
             ) from error
         except psycopg.Error as error:
             raise database_fault_exit(error, f"{args.action} Lab {args.lab}") from error
+        _entered_step(args.action, args.lab)
         return 0
     if args.action == "apply-solution":
         path = set_lab_state(args.lab, solved=True)
@@ -1293,16 +1385,22 @@ def main() -> int:
 def _validate_command(lab: int, database_url: str | None, *, repo: Path = REPO) -> int:
     """Check one lab's saved source and, for a SQL lab, the block Aurora runs."""
     if missing := missing_file_problem(lab, repo):
-        raise SystemExit(missing.line)
+        raise SystemExit(separate_next(missing.line))
     if lab == 3:
         if not lab_source_is_repaired(3):
             from service.agent_setup import AGENT_STARTER_MESSAGE
 
             raise SystemExit(AGENT_STARTER_MESSAGE)
         print(
-            "Lab 3: source assembled. This checks the file's shape, not your Retrieval agent.\n"
-            f"Next: deploy with {DEPLOY_AGENT}, then ask Alex's setup request:\n"
-            f"{ask_setup_command()}\nthen check that run with {grade_setup_run_command()}"
+            "Lab 3: source assembled. This checks the file's shape, not your Retrieval agent."
+        )
+        next_step(
+            "deploy your Retrieval agent:",
+            DEPLOY_AGENT,
+            "then ask Alex's setup request:",
+            ask_setup_command(),
+            "then check that run with:",
+            grade_setup_run_command(),
         )
         return 0
     problem = source_problem(lab)
@@ -1319,9 +1417,12 @@ def _validate_command(lab: int, database_url: str | None, *, repo: Path = REPO) 
                 f"Lab {lab}: FAIL", [problem], validate_applied_command(lab)
             )
         )
-    print(
-        f"Lab {lab}: PASS. {LABS[lab][0]} is repaired and Aurora runs it.\n"
-        f"Next: {proof_steps_text(lab)}"
+    print(verdict(f"Lab {lab}: PASS. {LABS[lab][0]} is repaired and Aurora runs it."))
+    check = ADVANCE_TO_LAB_2 if lab == 1 else grade_exercise_command(lab)
+    next_step(
+        "leave psql with \\q if it is open, repeat Alex's request, then check it:",
+        repeat_request_command(lab),
+        check,
     )
     return 0
 

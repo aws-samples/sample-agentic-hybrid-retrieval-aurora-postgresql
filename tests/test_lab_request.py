@@ -2,6 +2,7 @@
 
 import json
 from contextlib import contextmanager
+from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
@@ -296,7 +297,9 @@ def test_a_run_saves_under_the_checkout_and_honours_lab_api_url(monkeypatch, tmp
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("LAB_API_URL", "http://api.internal:9000")
     calls = []
-    monkeypatch.setattr(lab_request, "prepare", lambda *args: calls.append(args))
+    monkeypatch.setattr(
+        lab_request, "prepare", lambda *args: calls.append(args) or Path("saved")
+    )
     monkeypatch.setattr(
         "sys.argv", ["lab_request.py", "send", "--lab", "2", "--phase", "after"]
     )

@@ -335,7 +335,9 @@ def test_an_unmet_prerequisite_explains_the_fix_and_changes_nothing(
     with pytest.raises(lab_entry.LabEntryError, match=fix) as refused:
         _start(lab, repo)
 
-    assert str(refused.value).endswith(f"Then: {start_command(lab)}")
+    assert str(refused.value).endswith(
+        f"\n\nNext: after the fixes above, run\n{start_command(lab)}"
+    )
 
     assert {path: (repo / path).read_bytes() for path, _ in LABS.values()} == before
     assert lab_entry.load_record(lab, repo) is None
@@ -462,7 +464,7 @@ def test_handoff_saves_passing_evidence_before_installing_fault(
     saved = json.loads(lab_entry.completion_path(1, repo).read_text())
     assert saved["search_event_ids"] == ["verified-lab-1"]
     assert lines.index(
-        "Lab 1: production-path validation passed. Passing evidence saved."
+        "\nLab 1: production-path validation passed. Passing evidence saved."
     ) < next(i for i, line in enumerate(lines) if line.startswith("Installed"))
 
 
@@ -519,8 +521,8 @@ def test_a_refused_handoff_names_the_problem_and_advance_as_the_rerun(
     lines = str(refused.value).splitlines()
     assert lines[0] == "Lab 1 cannot hand off yet."
     assert lines[1].startswith("- Lab 1 is not repaired: in labs/lab1_retrieve")
-    assert lines[2].startswith("  Next: ")
-    assert lines[-1] == f"Then: {ADVANCE_TO_LAB_2}"
+    assert lines[2].startswith("  Fix: ")
+    assert lines[-3:] == ["", "Next: after the fixes above, run", ADVANCE_TO_LAB_2]
     assert "start this lab again" not in str(refused.value)
     assert handoff_checks == [] and aurora.applies == 0
 
@@ -559,7 +561,7 @@ def test_a_handoff_applies_a_saved_repair_aurora_does_not_run_yet(
     ]
     assert lines.index(applying[0]) < lines.index("Applied it to Aurora.")
     assert handoff_checks == ["validate"]
-    assert lines[-1].startswith("Lab 2: prepared.")
+    assert lines[-1].startswith("\nLab 2: prepared.")
 
 
 def test_a_handoff_that_cannot_apply_the_saved_repair_says_why(
@@ -581,7 +583,7 @@ def test_a_handoff_that_cannot_apply_the_saved_repair_says_why(
         "Lab 1 cannot hand off yet: applying your saved SQL failed."
     )
     assert "Lab catalog rule: prepared dataset 'old' differs from 'new'" in message
-    assert message.splitlines()[-1] == f"Then: {ADVANCE_TO_LAB_2}"
+    assert message.endswith(f"\n\nNext: after fixing that, run\n{ADVANCE_TO_LAB_2}")
     assert handoff_checks == []
 
 
@@ -623,10 +625,10 @@ def test_lab_2_handoff_saves_passing_evidence_then_installs_the_lab_3_starter(
     saved = json.loads(lab_entry.completion_path(2, lab_2_repaired).read_text())
     assert saved["search_event_ids"] == ["first-lab-2", "second-lab-2"]
     assert lines.index(
-        "Lab 2: production-path validation passed. Passing evidence saved."
+        "\nLab 2: production-path validation passed. Passing evidence saved."
     ) < next(i for i, line in enumerate(lines) if line.startswith("Installed"))
     assert any("Your Retrieval agent is not built yet" in line for line in lines)
-    assert lines[-1].startswith("Lab 3: prepared.")
+    assert lines[-1].startswith("\nLab 3: prepared.")
 
 
 def test_lab_2_handoff_refuses_before_lab_2_has_started(repo, aurora, lab_2_checks):
@@ -687,7 +689,7 @@ def test_a_refused_lab_2_handoff_names_the_problem_and_advance_as_the_rerun(
     lines = str(refused.value).splitlines()
     assert lines[0] == "Lab 2 cannot hand off yet."
     assert lines[1].startswith("- Lab 2 is not repaired: in labs/lab2_rank")
-    assert lines[-1] == f"Then: {ADVANCE_TO_LAB_3}"
+    assert lines[-3:] == ["", "Next: after the fixes above, run", ADVANCE_TO_LAB_3]
     assert lab_2_checks == [] and aurora.applies == applies
     assert lab_entry.load_record(3, lab_2_repaired) is None
 
@@ -733,7 +735,9 @@ def test_a_lab_1_reset_after_a_repaired_lab_2_validates_lab_1_again(
     )
     assert handoff_checks == ["validate"]
     assert _seam_file(2, lab_2_repaired).read_bytes() == edited
-    assert lines[-1].startswith("Lab 2: already prepared; continue where you left off")
+    assert lines[-1].startswith(
+        "\nLab 2: already prepared; continue where you left off"
+    )
     assert not any("saved failure" in line for line in lines)
 
 

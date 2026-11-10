@@ -16,6 +16,10 @@ AGENTCORE_RESOURCES = "uv run python scripts/deploy_agentcore.py resources"
 COMPARE_SETTINGS = "uv run python scripts/lab_exercise.py compare --lab 2"
 RERANK_OFF_ON = "uv run python labs/lab2_rank/rerank_off_on.py"
 HNSW_GRADE = "uv run python scripts/hnsw_exercise.py grade"
+# The Scale & HNSW exercise's own files, which the index checker grades.
+HNSW_FILES = (
+    "mkdir -p .local/hnsw && touch .local/hnsw/index.sql .local/hnsw/search.sql"
+)
 # The guide's Lab 3 follow-up, after Alex's setup request and before the completion check.
 ASK_100W_QUESTION = (
     "My laptop needs 100W charging. Does the ViewSonic VG2756-4K monitor still meet that "

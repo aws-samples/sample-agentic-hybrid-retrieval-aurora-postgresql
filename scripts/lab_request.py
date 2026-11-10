@@ -19,10 +19,14 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from scripts.investigate_lab import paired_searches
+from scripts.lab_state import lab_ready_step
 from scripts.prove_lab import LabValidationError, _request, _require, _search
+from scripts.terminal_text import next_on_failure, next_step, tidy
 from service import lab_checks
 from service.lab_checks import FACILITATOR
 from service.participant_commands import (
+    ADVANCE_TO_LAB_2,
+    grade_exercise_command,
     grade_setup_run_command,
     repeat_request_command,
     start_command,
@@ -240,7 +244,7 @@ def _lab_1_handoff(handoff: Path) -> Path:
     )
     print(
         f"Lab 1: {reason}.\nIts passing evidence was saved when Lab 1 handed off to Lab 2:\n"
-        f"{handoff.relative_to(ROOT)}\nNext: continue in the Lab 2 guide.",
+        f"{handoff.relative_to(ROOT)}",
         flush=True,
     )
     return handoff
@@ -333,7 +337,7 @@ def prepare(lab: int, phase: str, api_url: str, output: Path) -> Path:
         )
     if lab == 1 and phase == "after" and _lab_2_hides_lab_1():
         return _lab_1_handoff(ROOT / ".local/lab-1/handoff.json")
-    print(f"Alex's request: {mission['query']}", flush=True)
+    print(f"\nAlex's request: {mission['query']}", flush=True)
     state = {
         "request": payload,
         "catalog_hash": catalog["catalog_sha256"],
@@ -397,9 +401,9 @@ def prepare(lab: int, phase: str, api_url: str, output: Path) -> Path:
         for product in response["results"]:
             print(f"{product['signals']['final_rank']:>2}. {product['title'][:88]}")
         if before:
-            print("\n".join(before_after_lines(event, mission)))
+            print("\n" + "\n".join(before_after_lines(event, mission)))
         else:
-            print(target_summary(event, mission))
+            print("\n" + target_summary(event, mission))
         run_id = response["search_event_id"]
     else:
         with connect() as connection:
@@ -436,7 +440,7 @@ def prepare(lab: int, phase: str, api_url: str, output: Path) -> Path:
                 phase == "after",
                 "Before-state rule: the Retrieval agent answered successfully; reset Lab 3 and restart its API before saving the failed turn.",
             )
-            print(response["answer"])
+            print("\n" + response["answer"])
         values.update(
             {
                 "lab_agent_id": run_id,
@@ -462,10 +466,29 @@ def prepare(lab: int, phase: str, api_url: str, output: Path) -> Path:
     # query is graded against the run they inspected, not a fresh one.
     (output / "context.json").write_text(json.dumps(values, indent=2) + "\n")
     (output / f"{phase}-context.psql").write_text(rendered_context)
-    print(f"Saved the application response. In psql:\n\\i {context}")
+    print(f"\nSaved the application response. In psql:\n\\i {context}")
     return context
 
 
+def _send_next(lab: int, phase: str, saved: Path) -> None:
+    """Print the step after a saved request, in the order the lab guide gives them."""
+    if saved.name == "handoff.json":
+        next_step(
+            "continue in the Lab 2 guide. Once Lab 2 is repaired and applied, compare "
+            "Lab 1 again:",
+            repeat_request_command(1),
+        )
+    elif phase == "before":
+        lab_ready_step(lab)
+    elif lab == 1:
+        next_step("check the repair and hand off to Lab 2:", ADVANCE_TO_LAB_2)
+    elif lab == 2:
+        next_step("check your formula against this run:", grade_exercise_command(2))
+    else:
+        next_step("check that run with:", grade_setup_run_command())
+
+
+@tidy
 def main() -> int:
     from dotenv import load_dotenv
 
@@ -499,15 +522,18 @@ def main() -> int:
                 time.sleep(1)
     if args.lab is None or args.phase is None:
         parser.error("send requires --lab and --phase")
-    try:
-        prepare(
-            args.lab,
-            args.phase,
-            args.api_url,
-            args.output or ROOT / f".local/lab-{args.lab}",
-        )
-    except LabValidationError as error:
-        raise SystemExit(f"Lab {args.lab}: {error}") from error
+    rerun = f"uv run python scripts/lab_request.py send --lab {args.lab} --phase {args.phase}"
+    with next_on_failure(rerun):
+        try:
+            saved = prepare(
+                args.lab,
+                args.phase,
+                args.api_url,
+                args.output or ROOT / f".local/lab-{args.lab}",
+            )
+        except LabValidationError as error:
+            raise SystemExit(f"Lab {args.lab}: {error}") from error
+    _send_next(args.lab, args.phase, saved)
     return 0
 
 

@@ -494,8 +494,10 @@ def test_a_failed_lab_check_during_entry_is_a_clean_exit_not_a_traceback(
     with pytest.raises(SystemExit) as exit_info:
         lab_state.main()
 
-    assert (
-        str(exit_info.value) == "/api/search is unavailable; fix: tell your facilitator"
+    assert str(exit_info.value) == (
+        "/api/search is unavailable; fix: tell your facilitator\n\n"
+        "Next: do what the message above says, then run\n"
+        f"uv run python scripts/lab_state.py {action} --lab 1"
     )
 
 
@@ -1021,7 +1023,9 @@ def test_validate_with_the_exercise_deleted_exits_with_the_way_back(
     with pytest.raises(SystemExit) as refused:
         lab_state._validate_command(lab, "", repo=lab_repo)
 
-    assert str(refused.value) == _missing_message(lab)
+    assert str(refused.value) == _missing_message(lab).replace(
+        ". Next: ", ".\n\nNext: "
+    )
 
 
 def _interrupted_record(lab: int, repo: Path) -> None:
@@ -1133,7 +1137,9 @@ def test_a_dataset_mismatch_during_entry_is_a_clean_exit_that_says_nothing_was_a
 
     assert str(exit_info.value) == (
         "Lab catalog rule: found dataset 'other'; fix: select the workshop\n"
-        "Nothing was applied: Aurora still runs its previous functions."
+        "Nothing was applied: Aurora still runs its previous functions.\n\n"
+        "Next: do what the message above says, then run\n"
+        f"uv run python scripts/lab_state.py {action} --lab 1"
     )
 
 
@@ -1149,7 +1155,10 @@ def test_validate_points_lab_1_at_its_proof_not_back_at_itself(
     assert lab_state._validate_command(1, "postgresql://aurora") == 0
 
     out = capsys.readouterr().out
-    assert f"Next: {repeat_request_command(1)}, then {ADVANCE_TO_LAB_2}" in out
+    assert out.endswith(
+        "\nNext: leave psql with \\q if it is open, repeat Alex's request, then check it:\n"
+        f"{repeat_request_command(1)}\n{ADVANCE_TO_LAB_2}\n"
+    )
     assert "prove_lab.py" not in out
 
 

@@ -21,7 +21,8 @@ import os
 import re
 import sys
 import textwrap
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from typing import Any, TextIO
 
 GREEN, RED, YELLOW = "1;32", "1;31", "1;33"
@@ -99,7 +100,7 @@ def verdict(
     )
 
 
-def next_step(prose: str, *commands: str, stream: TextIO | None = None) -> None:
+def next_step(prose: str, *lines: str, stream: TextIO | None = None) -> None:
     """Print a command's last lines: a blank line, then `Next:` and the step that follows.
 
     Commands go on lines of their own, whole, so a terminal never breaks one and it can be
@@ -108,13 +109,13 @@ def next_step(prose: str, *commands: str, stream: TextIO | None = None) -> None:
 
     Args:
         prose: What to do next, in words; end it with a colon when commands follow.
-        commands: Commands to run, one per line.
+        lines: Commands to run, and any words between them, one per line.
         stream: Where to print; stdout when omitted.
     """
     if os.environ.get(RUN_BY):
         return
-    lines = wrap_words(f"Next: {prose}", NEXT_WIDTH, subsequent_indent="      ")
-    print("\n" + "\n".join([*lines, *commands]), file=stream or sys.stdout, flush=True)
+    wrapped = wrap_words(f"Next: {prose}", NEXT_WIDTH, subsequent_indent="      ")
+    print("\n" + "\n".join([*wrapped, *lines]), file=stream or sys.stdout, flush=True)
 
 
 _INLINE_NEXT = re.compile(r"(?:(?<=\S) |\n)(?=Next: )")
@@ -132,7 +133,22 @@ def separate_next(message: str, rerun: str | None = None) -> str:
         return _INLINE_NEXT.sub("\n\n", message, count=1)
     if rerun is None:
         return message
-    return f"{message}\n\nNext: fix what it names above, then run\n{rerun}"
+    return f"{message}\n\nNext: do what the message above says, then run\n{rerun}"
+
+
+@contextmanager
+def next_on_failure(rerun: str | None = None) -> Iterator[None]:
+    """Give a command's text exit its `Next:` paragraph, whichever code raised it.
+
+    Args:
+        rerun: The command to name when the message has no `Next:` of its own.
+    """
+    try:
+        yield
+    except SystemExit as error:
+        if isinstance(error.code, str):
+            raise SystemExit(separate_next(error.code, rerun)) from error
+        raise
 
 
 class _Tidy:

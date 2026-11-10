@@ -209,7 +209,11 @@ def test_the_terminal_exits_with_the_lab_and_no_traceback(monkeypatch, tmp_path)
     with pytest.raises(SystemExit) as stopped:
         lab_request.main()
 
-    assert str(stopped.value) == "Lab 2: the search returned no candidates"
+    assert str(stopped.value) == (
+        "Lab 2: the search returned no candidates\n\n"
+        "Next: do what the message above says, then run\n"
+        "uv run python scripts/lab_request.py send --lab 2 --phase after"
+    )
 
 
 @pytest.fixture
@@ -245,7 +249,7 @@ def test_a_start_whose_search_already_works_finishes_and_says_why(repo, monkeypa
         (
             "Lab 1: the search already finds product 1 among its 50 candidates, so "
             f"there is no failing request to save. {detail}\n"
-            f"Next: {validate_applied_command(1)} names what to change or run."
+            f"To see what to change or run: {validate_applied_command(1)}"
         )
     ]
 
