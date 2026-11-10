@@ -36,13 +36,25 @@ sys.path.insert(0, str(REPO))
 from psycopg.rows import dict_row
 
 from scripts import lab2_tuning, lab_state
-from scripts.terminal_text import fill_words, verdict, wrap_words
+from scripts.terminal_text import (
+    CONTRIBUTION_COLORS,
+    fill_words,
+    next_step,
+    tidy,
+    verdict,
+    wrap_words,
+)
 from service.catalog_runtime import LIVE_INDEXES
 from service.lab_files import LAB2_SQL
 from service.participant_commands import (
+    ADVANCE_TO_LAB_3,
     APPLY_SQL,
+    COMPARE_SETTINGS,
     DEPLOY_AGENT,
+    HNSW_FILES,
+    RERANK_OFF_ON,
     ask_setup_command,
+    grade_exercise_command,
     grade_setup_run_command,
     repeat_request_command,
 )
@@ -597,14 +609,17 @@ def _print_lab2(report: dict) -> None:
         status = (
             "reaches reranking" if trial["within_cutoff"] else "cut before reranking"
         )
-        verdict = "correct" if trial["contribution_correct"] else "WRONG"
+        result = "correct" if trial["contribution_correct"] else "WRONG"
         print(
-            f"k={trial['k']:<4} contribution {verdict}; target combined position "
-            f"{where} ({status})"
+            verdict(
+                f"k={trial['k']:<4} contribution {result}; target combined position "
+                f"{where} ({status})",
+                words=CONTRIBUTION_COLORS,
+            )
         )
     saved = report["saved_run"]
     print(
-        f"saved run: {saved['rows']} rows, {saved['distinct_saved_scores']} distinct "
+        f"\nsaved run: {saved['rows']} rows, {saved['distinct_saved_scores']} distinct "
         f"scores, {saved['rows_disagreeing_with_correct_fusion']} disagree with "
         f"correct fusion; target present: {saved['target_saved']}"
     )
@@ -623,7 +638,7 @@ def print_comparison(table: dict) -> None:
         "rerank unit per query."
     )
     print(
-        f"{'Change':<18}{'Exact found':>12}{'Better':>8}{'Worse':>7}"
+        f"\n{'Change':<18}{'Exact found':>12}{'Better':>8}{'Worse':>7}"
         f"{'Sign test p':>13}{'Rerank units':>14}"
     )
     for row in table["rows"]:
@@ -640,8 +655,8 @@ def print_comparison(table: dict) -> None:
             )
     # Wrapped at word boundaries: a 124-column terminal otherwise breaks the sentence
     # mid-word, which the guide's capture of this output then shows.
-    print(fill_words(table["scope"], 100))
-    print("Choose a setting to test next and one measurement needed before shipping.")
+    print("\n" + fill_words(table["scope"], 100))
+    print("\nChoose a setting to test next and one measurement needed before shipping.")
 
 
 def failure_lines(failure: str) -> str:
@@ -670,7 +685,46 @@ def _print_lab3(report: dict) -> None:
         print(
             "Your Retrieval agent is live and using your hybrid search to answer with sources."
         )
-        print("Next: the guide's Wrap-up. Lab 3's required work is complete.")
+
+
+def _grade_next(lab: int, passed: bool) -> None:
+    """Print the step after a grade: the guide's next one when it passed, else the retry."""
+    if lab == 1:
+        if passed:
+            next_step(
+                "the Scale & HNSW exercise continues with step 4. Create its two files:",
+                HNSW_FILES,
+            )
+        else:
+            next_step(
+                "change your query in .local/lab-1/ as the failure above says, save it, "
+                "then grade again:",
+                grade_exercise_command(1),
+            )
+    elif lab == 2:
+        if passed:
+            next_step(
+                "see what reranking changes, as the guide's next section does:",
+                RERANK_OFF_ON,
+            )
+        else:
+            next_step(
+                "fix the marked block in labs/lab2_rank/rrf_contribution.sql if a k= line says "
+                "WRONG, apply it, then repeat the request and grade it again:",
+                APPLY_SQL,
+                repeat_request_command(2),
+                grade_exercise_command(2),
+            )
+    elif passed:
+        next_step("the guide's Wrap-up. Lab 3's required work is complete.")
+    else:
+        next_step(
+            "fix what FAIL names above; if you changed agent.py, deploy it. Then ask "
+            "Alex's setup request again and check that run:",
+            DEPLOY_AGENT,
+            ask_setup_command(),
+            grade_setup_run_command(),
+        )
 
 
 def grade(lab: int, work: Path) -> dict[str, Any]:
@@ -728,6 +782,7 @@ def argument_parser() -> argparse.ArgumentParser:
     return parser
 
 
+@tidy
 def main(argv: list[str] | None = None) -> int:
     from dotenv import load_dotenv
 
@@ -738,13 +793,18 @@ def main(argv: list[str] | None = None) -> int:
             print_comparison(compare(args.lab))
         except ExerciseError as error:
             print(f"Lab {args.lab} comparison: CANNOT MEASURE - {error}")
+            next_step("fix what it names, then measure again:", COMPARE_SETTINGS)
             return 2
+        next_step("hand off to Lab 3:", ADVANCE_TO_LAB_3)
         return 0
     work = args.work or default_work(args.lab)
     try:
         report = grade(args.lab, work)
     except ExerciseError as error:
         print(verdict(f"Lab {args.lab} exercise: CANNOT GRADE - {error}"))
+        next_step(
+            "fix what it names, then grade again:", grade_exercise_command(args.lab)
+        )
         return 2
     {1: _print_lab1, 2: _print_lab2, 3: _print_lab3}[args.lab](report)
     report.update(
@@ -767,9 +827,10 @@ def main(argv: list[str] | None = None) -> int:
         print(verdict(failure_lines(failure)))
     print(
         verdict(
-            f"Lab {args.lab} exercise: {report['verdict']} ({receipt.relative_to(REPO)})"
+            f"\nLab {args.lab} exercise: {report['verdict']} ({receipt.relative_to(REPO)})"
         )
     )
+    _grade_next(args.lab, not report["failures"])
     return 1 if report["failures"] else 0
 
 

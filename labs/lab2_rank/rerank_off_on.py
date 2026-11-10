@@ -20,7 +20,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from scripts.lab_request import request_payload
 from scripts.prove_lab import LabValidationError, _request
+from scripts.terminal_text import next_step, separate_next, tidy
 from service.lab_checks import mission_for_lab
+from service.participant_commands import COMPARE_SETTINGS, RERANK_OFF_ON
 
 TITLE_CHARS = 40
 
@@ -80,6 +82,7 @@ def render(off: dict[str, Any], on: dict[str, Any], target: int) -> str:
     return "\n".join([*timing, "", *pages, legend])
 
 
+@tidy
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument(
@@ -97,9 +100,13 @@ def main(argv: list[str] | None = None) -> int:
                 args.api_url, "/api/search", {**payload, "rerank": rerank}
             )
     except LabValidationError as error:
-        print(f"Search failed: {error}", file=sys.stderr)
+        print(separate_next(f"Search failed: {error}", RERANK_OFF_ON), file=sys.stderr)
         return 1
     print(render(pages[False], pages[True], mission["target_product_ids"][0]))
+    next_step(
+        "test whether changing k helps more right answers reach reranking:",
+        COMPARE_SETTINGS,
+    )
     return 0
 
 

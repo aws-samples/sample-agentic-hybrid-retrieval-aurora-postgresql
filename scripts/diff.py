@@ -21,7 +21,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scripts.lab_state import LABS, REPO, lab_diff
-from scripts.terminal_text import use_color
+from scripts.terminal_text import next_step, tidy, use_color
+from service.participant_commands import APPLY_SQL, DEPLOY_AGENT, STATUS
 
 
 def lab_for(name: str) -> int:
@@ -56,6 +57,31 @@ def report(
     return "\n\n".join(sections)
 
 
+def differing_lab(name: str | None, *, repo: Path = REPO) -> int | None:
+    """The lab `name` names, or the first lab whose file differs; None when none does."""
+    if name:
+        return lab_for(name)
+    return next((lab for lab in sorted(LABS) if lab_diff(lab, repo=repo)[1]), None)
+
+
+def _next_after(lab: int | None) -> None:
+    """Print what to do with the lines a report named: edit, save, then apply or deploy."""
+    if lab is None:
+        next_step("nothing differs. Check where your labs stand:", STATUS)
+    elif lab == 3:
+        next_step(
+            "edit the lines it names in Code Editor and save the file, then deploy:",
+            DEPLOY_AGENT,
+        )
+    else:
+        next_step(
+            "edit the lines it names in Code Editor and save the file, then apply it "
+            "(in psql, type \\! before the command):",
+            APPLY_SQL,
+        )
+
+
+@tidy
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument(
@@ -68,8 +94,10 @@ def main() -> int:
     color = use_color(sys.stdout)
     try:
         print(report(args.file, color=color, answer=args.answer))
+        lab = differing_lab(args.file)
     except ValueError as error:
         raise SystemExit(str(error)) from error
+    _next_after(lab)
     return 0
 
 

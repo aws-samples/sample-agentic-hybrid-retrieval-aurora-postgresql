@@ -5,7 +5,11 @@ import pytest
 from scripts import prove_lab
 from scripts.prove_lab import applied_sql_problem
 from service.config import get_settings
-from service.participant_commands import grade_setup_run_command, start_command
+from service.participant_commands import (
+    ADVANCE_TO_LAB_2,
+    grade_setup_run_command,
+    start_command,
+)
 
 PLAN = [{"Plan": {"Node Type": "Append"}}]
 
@@ -885,7 +889,9 @@ def test_a_passing_check_records_its_own_fresh_evidence(
     assert saved["checks"] == ["target"]
     output = capsys.readouterr().out
     assert "Lab 1: production-path validation passed" in output
-    assert "Next:" not in output
+    assert output.endswith(
+        f"\n\nNext: save this evidence and prepare Lab 2:\n{ADVANCE_TO_LAB_2}\n"
+    )
 
 
 def test_an_unreachable_api_points_at_the_service_check_not_a_server_start(monkeypatch):
@@ -931,8 +937,10 @@ def test_saved_sql_that_aurora_does_not_run_fails_before_any_search(monkeypatch)
     assert str(refused.value) == (
         "Lab 1: FAIL\n"
         "- Lab 1's saved repair is not in Aurora. Differs.\n"
-        f"  Next: {APPLY_SQL}\n"
-        f"Then: {prove_lab_command(1)}"
+        f"  Fix: {APPLY_SQL}\n"
+        "\n"
+        "Next: after the fixes above, run\n"
+        f"{prove_lab_command(1)}"
     )
 
 

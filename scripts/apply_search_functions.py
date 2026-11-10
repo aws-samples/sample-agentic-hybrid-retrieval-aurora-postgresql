@@ -18,10 +18,17 @@ from scripts.lab_state import (
     is_environment_fault,
     missing_file_problem,
 )
+from scripts.terminal_text import GREEN, next_on_failure, next_step, tidy, tint
 from service.catalog_runtime import active_dataset, search_schema
 from service.lab_files import LAB1_SQL, LAB2_SQL
 from service.lab_validation_receipt import participant_sql_digest
-from service.participant_commands import APPLY_SQL, DIFF
+from service.participant_commands import (
+    APPLY_SQL,
+    DIFF,
+    grade_exercise_command,
+    open_psql_command,
+    repeat_request_command,
+)
 from service.search_sql import (
     APPLIED_SQL_LABEL,
     FUSED_FUNCTION,
@@ -210,7 +217,40 @@ def print_untouched_exercise_notes() -> None:
             )
 
 
+def _fix_as_next(message: str) -> str:
+    """Make the `Fix:` paragraph of a failure message its `Next:` paragraph."""
+    return message.replace("\nFix: ", "\n\nNext: ", 1)
+
+
+def _applied_next() -> None:
+    """Print the step after an apply: the guide's check in psql, then the repeated request."""
+    from scripts.lab_entry import load_record
+
+    lab_2 = load_record(2, ROOT)
+    lab = 2 if lab_2 and lab_2.get("completed_at") else 1
+    check = "count query" if lab == 1 else "position check"
+    follow_up = (
+        (repeat_request_command(1),)
+        if lab == 1
+        else (repeat_request_command(2), grade_exercise_command(2))
+    )
+    next_step(
+        f"in psql, run the guide's {check} again to see the repair. If psql is closed, "
+        "open it first:",
+        open_psql_command(lab),
+        "then leave psql with \\q and repeat Alex's request:",
+        *follow_up,
+    )
+
+
+@tidy
 def main() -> None:
+    with next_on_failure(APPLY_SQL):
+        _apply_and_configure()
+    _applied_next()
+
+
+def _apply_and_configure() -> None:
     import psycopg
 
     from scripts.configure_retrieval_database import (
@@ -233,12 +273,20 @@ def main() -> None:
         ) from error
     except psycopg.Error as error:
         raise SystemExit(
-            describe_apply_failure(
-                error, rolled_back=True, statement=rendered_sql(source)
+            _fix_as_next(
+                describe_apply_failure(
+                    error, rolled_back=True, statement=rendered_sql(source)
+                )
             )
         ) from error
-    print(f"Applied participant SQL to {search_schema()}; source lab state preserved.")
+    print(
+        tint(
+            f"Applied participant SQL to {search_schema()}; source lab state preserved.",
+            GREEN,
+        )
+    )
     print_untouched_exercise_notes()
+    print()
     # One participant command: the applied functions must also satisfy the
     # stored pg_trgm gates, which is what this re-proves.
     try:

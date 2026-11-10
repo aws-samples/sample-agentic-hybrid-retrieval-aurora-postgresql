@@ -29,12 +29,13 @@ from scripts.lab_entry import (
     completion_path,
     load_record,
 )
-from scripts.lab_state import LabProblem, explain_problems
-from scripts.terminal_text import verdict
+from scripts.lab_state import LabProblem, explain_problems, lab_ready_step
+from scripts.terminal_text import next_on_failure, next_step, tidy, verdict
 from service import lab_checks
 from service.config import get_settings
 from service.lab_checks import AgentEvidence, LabCheck, RetrievalReceipt
 from service.participant_commands import (
+    ADVANCE_TO_LAB_2,
     ADVANCE_TO_LAB_3,
     APPLY_SQL,
     DIFF,
@@ -420,10 +421,27 @@ def prove_lab_3(
     return checks
 
 
-def main() -> int:
-    from dotenv import load_dotenv
+def _proved_next(lab: int) -> None:
+    """Print the step after a passing proof: the hand-off, or the lab that follows it."""
+    if lab == 3:
+        next_step("the guide's Wrap-up. Lab 3's required work is complete.")
+    elif load_record(lab + 1, REPO) is not None:
+        lab_ready_step(lab + 1)
+    else:
+        next_step(
+            f"save this evidence and prepare Lab {lab + 1}:",
+            ADVANCE_TO_LAB_2 if lab == 1 else ADVANCE_TO_LAB_3,
+        )
 
-    load_dotenv(REPO / ".env")
+
+@tidy
+def main() -> int:
+    args = _parse_arguments()
+    with next_on_failure(prove_lab_command(args.lab)):
+        return _prove(args)
+
+
+def _parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--lab", type=int, required=True, choices=(1, 2, 3))
     parser.add_argument(
@@ -448,6 +466,14 @@ def main() -> int:
             "found --reference on Lab 3; fix: check the reference agent with "
             "--save-receipt PATH"
         )
+    return args
+
+
+def _prove(args: argparse.Namespace) -> int:
+    """Run the proof the parsed arguments name and print its checks and next step."""
+    from dotenv import load_dotenv
+
+    load_dotenv(REPO / ".env")
     if args.lab == 3 and not (args.save_receipt or args.reuse_receipt):
         raise SystemExit(
             "Lab 3 validation rule: found --lab 3 without a receipt; Lab 3 is checked "
@@ -502,15 +528,15 @@ def main() -> int:
         print(verdict(f"PASS: {check}"))
     if args.reference:
         print(
-            f"Lab {args.lab}: the reference answer passed; this is a maintainer "
+            f"\nLab {args.lab}: the reference answer passed; this is a maintainer "
             "check, not a participant's completion"
         )
         return 0
     if args.lab in {1, 2}:
         record_completion(args.lab, checks, events, REPO)
-    print(f"Lab {args.lab}: production-path validation passed")
-    if args.lab == 2 and load_record(args.lab + 1, REPO) is None:
-        print(f"Next: save this evidence and prepare Lab 3 with {ADVANCE_TO_LAB_3}")
+    print(f"\nLab {args.lab}: production-path validation passed")
+    if not maintainer_check:
+        _proved_next(args.lab)
     return 0
 
 
