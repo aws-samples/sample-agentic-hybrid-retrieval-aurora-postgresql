@@ -40,6 +40,8 @@ export interface TurnProps {
   onStageProgress?: () => void;
   /** Fires as the reveal advances so the thread can keep the writing line in view. */
   onRevealProgress?: () => void;
+  /** Fires once an answer that arrived live has finished, its sources and steps included. */
+  onSettled?: () => void;
 }
 
 /**
@@ -239,7 +241,7 @@ function AnswerBody(props: AnswerBodyProps) {
  * it composes each take only the props they draw.
  */
 export function Turn(props: TurnProps) {
-  const { turn, isLatest, priorQuestions, previousBestPickId, onStageProgress, onRevealProgress } = props;
+  const { turn, isLatest, priorQuestions, previousBestPickId, onStageProgress, onRevealProgress, onSettled } = props;
   const response = turn.response;
   const reduceMotion = useReducedMotion();
   const [startedLive] = useState(turn.loading);
@@ -254,6 +256,8 @@ export function Turn(props: TurnProps) {
 
   useEffect(() => { onRevealProgress?.(); }, [reveal.text.length, onRevealProgress]);
   useEffect(() => { onStageProgress?.(); }, [answerVisible, onStageProgress, presentedStage]);
+  // Declared after the two follow effects: it runs last, so the thread ends where it puts it.
+  useEffect(() => { if (settled && startedLive) onSettled?.(); }, [settled, startedLive, onSettled]);
 
   // Whichever retrieval has landed: the finished response supersedes the partial.
   const plan: AgentPlanStep[] = response?.plan ?? turn.partial?.plan ?? [];

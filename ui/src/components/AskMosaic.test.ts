@@ -494,6 +494,66 @@ describe("AskMosaic jump to latest", () => {
   }, 12000);
 });
 
+describe("AskMosaic finished answer", () => {
+  const panel = (turns: AskMosaicTurn[], pending: boolean) => createElement(
+    CommerceProvider,
+    null,
+    createElement(AskMosaic, {
+      open: true,
+      seedQuery: "",
+      contextFilters: [],
+      turns,
+      pending,
+      suggestions: [],
+      imageByProductId: new Map(),
+      highlightedProductId: null,
+      onClose: () => {},
+      onClear: () => {},
+      onStop: () => {},
+      onRun: () => {},
+      onHighlight: () => {},
+      onSelectProduct: () => {},
+    }),
+  );
+
+  /** A turn still being written, then the same turn finished, in a thread laid out like a browser's. */
+  function finishLiveAnswer(scrolledUpTo?: number) {
+    const response = groundedResponse();
+    const writing: AskMosaicTurn = {
+      ...settledTurn(response),
+      completed: false,
+      loading: true,
+      executionPath: "focused_follow_up",
+      streamed: response.answer,
+    };
+    const view = render(panel([writing], true));
+    const thread = scrollableThread();
+    const turn = thread.querySelector<HTMLElement>(".ask-mosaic-turn")!;
+    thread.getBoundingClientRect = () => ({ top: 100 }) as DOMRect;
+    turn.getBoundingClientRect = () => ({ top: 100 - thread.scrollTop }) as DOMRect;
+    if (scrolledUpTo !== undefined) {
+      thread.scrollTop = scrolledUpTo;
+      fireEvent.scroll(thread);
+    }
+    view.rerender(panel([{ ...writing, completed: true, loading: false }], false));
+    return thread;
+  }
+
+  it("returns to the answer's start once an answer that arrived live has finished", async () => {
+    const thread = finishLiveAnswer();
+
+    await screen.findByText("Final recommendation", {}, { timeout: 8000 });
+    await waitFor(() => expect(thread.scrollTop).toBe(0));
+  }, 12000);
+
+  it("leaves a reader who scrolled away while it arrived where they are", async () => {
+    const thread = finishLiveAnswer(100);
+
+    await screen.findByText("Final recommendation", {}, { timeout: 8000 });
+    expect(thread.scrollTop).toBe(100);
+  }, 12000);
+});
+
 describe("AskMosaic declined reads as declined", () => {
   it("announces a declined turn as declined, with a neutral icon", () => {
     const { container } = renderAskMosaic(DECLINED_RESPONSE);

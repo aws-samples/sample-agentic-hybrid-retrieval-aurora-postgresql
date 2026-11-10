@@ -235,6 +235,20 @@ export function AskMosaic({
     if (thread) thread.scrollTop = thread.scrollHeight;
   }, []);
 
+  /**
+   * A finished answer is read from its start. The thread follows the writing line
+   * down while the answer arrives; its sources and steps then land below that line,
+   * which used to leave the panel part-way through them. A reader who scrolled away
+   * while the answer arrived keeps their place.
+   */
+  const showAnswerStart = useCallback(() => {
+    const thread = threadRef.current;
+    const turn = thread?.querySelector<HTMLElement>(":scope > .ask-mosaic-turn");
+    if (!thread || !turn || !followTailRef.current) return;
+    thread.scrollTop += turn.getBoundingClientRect().top - thread.getBoundingClientRect().top;
+    followTailRef.current = false;
+  }, []);
+
   /** A newly opened conversation or a question the reader just sent owns focus. */
   useEffect(() => {
     if (!open) return;
@@ -286,6 +300,7 @@ export function AskMosaic({
       }
       onStageProgress={index === turns.length - 1 ? followReveal : undefined}
       onRevealProgress={index === turns.length - 1 ? followReveal : undefined}
+      onSettled={index === turns.length - 1 ? showAnswerStart : undefined}
     />
   );
 
