@@ -1,7 +1,10 @@
 """`scripts/ask_agent.py` prints the deployed agent's answer of record from the terminal."""
 
 import http.client
+import io
 import json
+import re
+import sys
 from io import BytesIO
 from urllib.error import HTTPError
 from uuid import UUID
@@ -325,7 +328,11 @@ def test_on_a_terminal_the_answer_arrives_once_and_reads_as_the_saved_run(
 
     progress, report = out.split("\n\n", 1)
     assert progress.startswith(f"{bar(1, 1)}  answered in ")
-    assert report == ask_agent.render(run) + "\n"
+    assert report == (
+        ask_agent.render(run)
+        + "\n\nNext: check completion on your newest setup run:\n"
+        + "uv run python scripts/grade_setup_run.py\n"
+    )
     assert out.count("ANSWER") == 1
 
 
@@ -489,7 +496,7 @@ def test_an_api_refusal_prints_its_reason_not_the_json(monkeypatch, capsys):
 
     err = capsys.readouterr().err
     assert code == 1
-    assert f"HTTP 503: {reason}" in err
+    assert f"HTTP 503: {reason}".replace(" Next: ", "\n\nNext: ") in err
     assert "detail" not in err
 
 
@@ -829,3 +836,158 @@ def test_a_long_refused_claim_is_shortened_to_fit_the_terminal():
 
     assert max(len(line) for line in text.splitlines()) <= ask_agent.LINE_CHARS
     assert "draft refused: it claimed 'works with every laptop" in text
+
+
+# ---------------------------------------------------------------- layout, Next and colour
+
+
+class Terminal(io.StringIO):
+    def isatty(self) -> bool:
+        return True
+
+
+@pytest.fixture
+def colour_capable(monkeypatch):
+    monkeypatch.setenv("TERM", "xterm-256color")
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    monkeypatch.delenv("MOSAIC_RUN_BY", raising=False)
+
+
+def test_a_blank_line_comes_before_each_heading_and_before_the_outcome():
+    text = ask_agent.render(grounded())
+
+    blocks = text.split("\n\n")
+    assert [block.splitlines()[0] for block in blocks] == [
+        "ANSWER",
+        "PLAN",
+        "TOOL TRACE",
+        "PRODUCTS",
+        "CITATIONS",
+        "OUTCOME: grounded",
+    ]
+    assert blocks[-1].splitlines()[-1] == f"Run ID: {RUN}"
+    assert "\n\n\n" not in text and not text.startswith("\n")
+
+
+def test_a_declined_answer_keeps_its_reason_with_the_outcome():
+    blocks = ask_agent.render(declined()).split("\n\n")
+
+    assert blocks[-1].splitlines() == [
+        "OUTCOME: declined",
+        "DECLINE REASON: unsupported_requirements",
+        f"Run ID: {RUN}",
+    ]
+
+
+def streamed(monkeypatch, run):
+    monkeypatch.setattr(
+        ask_agent,
+        "urlopen",
+        lambda *_a, **_k: FakeStream(
+            stage("understand", "Interpret request"), ("complete", {"response": run})
+        ),
+    )
+
+
+def test_an_answer_ends_with_a_blank_line_and_the_next_step(monkeypatch, capsys):
+    from service.lab_checks import mission_for_lab
+    from service.participant_commands import (
+        ask_100w_command,
+        grade_setup_run_command,
+    )
+
+    streamed(monkeypatch, grounded())
+
+    assert ask_agent.main([mission_for_lab(3)["query"]]) == 0
+
+    out = capsys.readouterr().out
+    assert "\n\n\n" not in out and not out.startswith("\n")
+    assert out.endswith(
+        f"\n\nNext: ask whether the ViewSonic meets a new need for 100W charging:\n"
+        f"{ask_100w_command()}\nthen check completion with:\n"
+        f"{grade_setup_run_command()}\n"
+    )
+
+
+def test_the_100w_question_is_followed_by_the_completion_check(monkeypatch, capsys):
+    from service.participant_commands import (
+        ask_100w_command,
+        grade_setup_run_command,
+    )
+
+    streamed(monkeypatch, declined())
+    question = ask_100w_command().removeprefix('uv run python scripts/ask_agent.py "')
+
+    assert ask_agent.main([question.removesuffix('"')]) == 0
+
+    assert capsys.readouterr().out.endswith(
+        f"\n\nNext: check completion on your newest setup run:\n"
+        f"{grade_setup_run_command()}\n"
+    )
+
+
+def test_a_declined_setup_request_is_asked_again_not_followed_up(monkeypatch, capsys):
+    from service.lab_checks import mission_for_lab
+    from service.participant_commands import ask_100w_command, ask_setup_command
+
+    streamed(monkeypatch, declined())
+
+    assert ask_agent.main([mission_for_lab(3)["query"]]) == 0
+
+    out = capsys.readouterr().out
+    assert out.endswith(f"again:\n{ask_setup_command()}\n")
+    assert ask_100w_command() not in out
+
+
+def test_a_failed_request_ends_with_a_next_that_asks_again(monkeypatch, capsys):
+    from urllib.error import URLError
+
+    def unreachable(*_args, **_kwargs):
+        raise URLError("refused")
+
+    monkeypatch.setattr(ask_agent, "urlopen", unreachable)
+
+    assert ask_agent.main(["Find headphones for calls"]) == 1
+
+    assert capsys.readouterr().err.endswith(
+        "\n\nNext: do what the message above says, then run\n"
+        'uv run python scripts/ask_agent.py "Find headphones for calls"\n'
+    )
+
+
+def test_a_question_that_is_too_short_ends_with_an_example(capsys):
+    assert ask_agent.main(["hi"]) == 2
+
+    err = capsys.readouterr().err
+    assert err.endswith('Find headphones for calls"\n')
+    assert "\n\nNext: " in err
+
+
+def test_the_tool_trace_and_outcome_are_coloured_on_a_terminal(
+    colour_capable, monkeypatch
+):
+    from scripts.terminal_text import GREEN, RED, YELLOW
+
+    run = grounded()
+    run["trace"][1] = {**run["trace"][1], "outcome": "error"}
+    monkeypatch.setattr(sys, "stdout", Terminal())
+
+    grounded_text = ask_agent.render(run)
+    declined_text = ask_agent.render(declined())
+
+    assert f"\033[{GREEN}msuccess\033[0m" in grounded_text
+    assert f"\033[{RED}merror\033[0m" in grounded_text
+    assert f"\033[{GREEN}mOUTCOME: grounded\033[0m" in grounded_text
+    assert f"\033[{YELLOW}mOUTCOME: declined\033[0m" in declined_text
+    assert f"\033[{YELLOW}mdenied\033[0m" in declined_text
+
+
+def test_piped_output_has_no_colour_and_the_same_words(colour_capable, monkeypatch):
+    tty = Terminal()
+    monkeypatch.setattr(sys, "stdout", tty)
+    painted = ask_agent.render(declined())
+    monkeypatch.setattr(sys, "stdout", io.StringIO())
+    plain = ask_agent.render(declined())
+
+    assert "\033" not in plain
+    assert re.sub(r"\033\[[0-9;]*m", "", painted) == plain

@@ -36,10 +36,29 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scripts.progress import Waiting, bar, can_redraw
 from scripts.prove_lab import LabValidationError, error_detail
-from scripts.terminal_text import fill_words, wrap_words
+from scripts.terminal_text import (
+    GREEN,
+    OUTCOME_COLORS,
+    RED,
+    YELLOW,
+    fill_words,
+    next_step,
+    separate_next,
+    tidy,
+    tint,
+    verdict,
+    wrap_words,
+)
 from service.config import get_settings
 from service.lab_validation_receipt import participant_sql_digest
-from service.participant_commands import APPLY_SQL, STATUS, ask_agent_command
+from service.participant_commands import (
+    APPLY_SQL,
+    STATUS,
+    ask_100w_command,
+    ask_agent_command,
+    ask_setup_command,
+    grade_setup_run_command,
+)
 
 # Code Editor's terminal on a 16-inch laptop holds 124 characters a line. Every line stays
 # well inside it, so a long title or quote is shortened rather than wrapped mid-word.
@@ -80,6 +99,9 @@ def _plan(response: dict[str, Any]) -> list[str]:
 
 
 ROUTES = {"gateway": "through AgentCore Gateway", "in_process": "without Gateway"}
+# A tool call that worked is good, one that failed is bad, and one the application refused
+# (a draft its checks denied) needs the participant's attention.
+OUTCOME_WORD_COLORS = {"success": GREEN, "error": RED, "denied": YELLOW}
 
 
 def _search_sql(applied: str | None, workspace: str | None) -> str:
@@ -116,8 +138,9 @@ def _trace(response: dict[str, Any], workspace: str | None) -> list[str]:
         if step.get("origin") == "controller_fallback":
             notes.append("run by the application")
         noted = f"   {', '.join(notes)}" if notes else ""
+        outcome = tint(step["outcome"], OUTCOME_WORD_COLORS.get(step["outcome"], ""))
         lines.append(
-            f"  {step['sequence']}  {step['tool']:<23}  {step['outcome']}{took}{noted}"
+            f"  {step['sequence']}  {step['tool']:<23}  {outcome}{took}{noted}"
         )
         if step["tool"] == "synthesize_cited_answer" and step["outcome"] == "error":
             lines.append(f"     {_refusal(step.get('detail') or '')}")
@@ -232,18 +255,19 @@ def render(response: dict[str, Any], *, answer: bool = True) -> str:
     for item in response["recommendations"]:
         lead = f"  {item['product_id']}  "
         products.append(lead + _clip(item["title"], LINE_CHARS - len(lead)))
-    lines = [
-        *(_section("ANSWER", _answer_lines(response["answer"])) if answer else []),
-        *_section("PLAN", _plan(response)),
-        *_section("TOOL TRACE", _trace(response, _workspace_digest())),
-        *_section("PRODUCTS", products),
-        *_section("CITATIONS", _citations(response)),
-        f"OUTCOME: {response['outcome']}",
-    ]
+    closing = [verdict(f"OUTCOME: {response['outcome']}", words=OUTCOME_COLORS)]
     if response.get("decline_reason"):
-        lines.append(f"DECLINE REASON: {response['decline_reason']}")
-    lines.append(f"Run ID: {response['agent_run_id']}")
-    return "\n".join(lines)
+        closing.append(f"DECLINE REASON: {response['decline_reason']}")
+    closing.append(f"Run ID: {response['agent_run_id']}")
+    parts = [
+        *([_section("ANSWER", _answer_lines(response["answer"]))] if answer else []),
+        _section("PLAN", _plan(response)),
+        _section("TOOL TRACE", _trace(response, _workspace_digest())),
+        _section("PRODUCTS", products),
+        _section("CITATIONS", _citations(response)),
+        closing,
+    ]
+    return "\n\n".join("\n".join(part) for part in parts)
 
 
 def _events(lines: Iterable[bytes]) -> Iterator[tuple[str, dict[str, Any]]]:
@@ -442,6 +466,29 @@ def response_timeout() -> float:
     return get_settings().agent_turn_deadline_seconds + RESPONSE_MARGIN_SECONDS
 
 
+def _answered_next(question: str, response: dict[str, Any]) -> None:
+    """Print the step after an answer: the guide's follow-up, or the completion check."""
+    from service.lab_checks import mission_for_lab, same_request
+
+    if not same_request(mission_for_lab(3)["query"], question):
+        next_step(
+            "check completion on your newest setup run:", grade_setup_run_command()
+        )
+    elif response["outcome"] == "declined":
+        next_step(
+            "read the DECLINE REASON above, then ask Alex's setup request again:",
+            ask_setup_command(),
+        )
+    else:
+        next_step(
+            "ask whether the ViewSonic meets a new need for 100W charging:",
+            ask_100w_command(),
+            "then check completion with:",
+            grade_setup_run_command(),
+        )
+
+
+@tidy
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("question")
@@ -449,9 +496,14 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if len(args.question.strip()) < MIN_QUESTION:
         print(
-            f"Question rule: ask at least {MIN_QUESTION} characters, in quotes; "
-            f"fix: {ask_agent_command('Find headphones for calls')}",
+            f"Question rule: ask at least {MIN_QUESTION} characters, in quotes.",
             file=sys.stderr,
+        )
+        next_step(
+            "ask a question of your own, or Alex's setup request from the guide, "
+            "in quotes. For example:",
+            ask_agent_command("Find headphones for calls"),
+            stream=sys.stderr,
         )
         return 2
     try:
@@ -459,7 +511,8 @@ def main(argv: list[str] | None = None) -> int:
             args.api_url, args.question, timeout=response_timeout()
         )
     except LabValidationError as error:
-        print(f"Retrieval agent request failed: {error}", file=sys.stderr)
+        message = f"Retrieval agent request failed: {error}"
+        print(separate_next(message, ask_agent_command(args.question)), file=sys.stderr)
         return 1
     except KeyboardInterrupt:
         # Only the wait stops: the API keeps the turn and saves its answer when it finishes.
@@ -468,8 +521,14 @@ def main(argv: list[str] | None = None) -> int:
             "and save it.",
             file=sys.stderr,
         )
+        next_step(
+            "wait a minute for the run to finish, then ask again:",
+            ask_agent_command(args.question),
+            stream=sys.stderr,
+        )
         return 130
-    print(render(response, answer=not answer_shown))
+    print("\n" + render(response, answer=not answer_shown))
+    _answered_next(args.question, response)
     return 0
 
 

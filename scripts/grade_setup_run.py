@@ -29,7 +29,8 @@ from dotenv import load_dotenv
 
 from scripts import lab_exercise
 from scripts.lab_request import sql_context
-from scripts.terminal_text import verdict
+from scripts.terminal_text import next_step, tidy, verdict
+from service.participant_commands import ask_setup_command, grade_setup_run_command
 
 # Runs are compared in Python, with the completion check's own rule for "the same
 # request"; a participant asks a handful, so a bounded window holds them all.
@@ -109,7 +110,6 @@ def _pick_run() -> UUID | None:
     from service.agent_deploys import lab_3_started_at
     from service.db import connect
     from service.lab_checks import mission_for_lab
-    from service.participant_commands import ask_setup_command
 
     started_at = lab_3_started_at(ROOT)
     with connect() as connection:
@@ -126,17 +126,19 @@ def _pick_run() -> UUID | None:
             if pick.asked
             else f"found no run of Alex's setup request{since}"
         )
-        print(
-            verdict(
-                f"Lab 3 exercise: CANNOT GRADE - {found}. "
-                f"Next: ask it with\n{ask_setup_command()}\nthen run this command again."
-            )
+        print(verdict(f"Lab 3 exercise: CANNOT GRADE - {found}."))
+        next_step(
+            "ask it with:",
+            ask_setup_command(),
+            "then run this command again:",
+            grade_setup_run_command(),
         )
         return None
-    print(_choice(pick))
+    print(_choice(pick) + "\n")
     return UUID(str(pick.run["agent_turn_id"]))
 
 
+@tidy
 def main() -> int:
     load_dotenv(ROOT / ".env")
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
@@ -149,15 +151,22 @@ def main() -> int:
     except RuntimeError as error:
         # An unreadable Lab 3 start record names its own fix.
         print(verdict(f"Lab 3 exercise: CANNOT GRADE - {error}"))
+        next_step(
+            "fix what it names, then run this command again:", grade_setup_run_command()
+        )
         return 2
     except psycopg.Error as error:
         print(
             verdict(
                 "Lab 3 exercise: CANNOT GRADE - Aurora did not answer "
-                f"({type(error).__name__}). Next: open a new terminal from the Terminal "
-                "menu, which loads the workshop settings, and run this command again; if "
-                "it repeats, tell your facilitator."
+                f"({type(error).__name__})."
             )
+        )
+        next_step(
+            "open a new terminal from the Terminal menu, which loads the workshop "
+            "settings, and run this command again; if it repeats, tell your "
+            "facilitator:",
+            grade_setup_run_command(),
         )
         return 2
     if run_id is None:

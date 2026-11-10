@@ -1,5 +1,8 @@
 """`scripts/check_claim.py` runs a sentence through the agent's answer-of-record checks."""
 
+import io
+import sys
+
 import pytest
 
 from scripts import check_claim
@@ -77,7 +80,8 @@ def test_main_prints_the_record_and_the_verdict(records, capsys):
     out = capsys.readouterr().out
     assert code == 1
     assert "[1] product_spec  1551237" in out
-    assert out.strip().splitlines()[-1].startswith("BLOCKED")
+    verdict_block = out.split("\n\n")[1]
+    assert verdict_block.startswith("BLOCKED")
 
 
 def test_an_unknown_product_is_named(monkeypatch, capsys):
@@ -112,3 +116,62 @@ def test_a_product_without_a_current_listing_is_named_not_a_traceback(
     )
     assert "Traceback" not in captured.err
     assert captured.out == ""
+
+
+class Terminal(io.StringIO):
+    def isatty(self) -> bool:
+        return True
+
+
+def test_the_record_and_sentence_are_one_part_and_the_verdict_another(records, capsys):
+    from service.participant_commands import check_claim_command
+
+    sentence = "The ViewSonic VG2756-4K delivers up to 90W over USB-C [1]."
+
+    assert check_claim.main([str(VIEWSONIC), sentence]) == 0
+
+    out = capsys.readouterr().out
+    assert not out.startswith("\n") and "\n\n\n" not in out
+    record, verdict_block, following = out.rstrip("\n").split("\n\n")
+    assert record.splitlines()[-1] == f"Sentence: {sentence}"
+    assert verdict_block.startswith("PASS: ")
+    assert following == (
+        "Next: try a sentence of your own, or go back to the guide:\n"
+        + check_claim_command(VIEWSONIC, "YOUR SENTENCE [1]")
+    )
+
+
+def test_a_blocked_sentence_ends_with_rewording_it_not_moving_on(records, capsys):
+    sentence = "The ViewSonic VG2756-4K delivers 100W over USB-C [1]."
+
+    check_claim.main([str(VIEWSONIC), sentence])
+
+    last = capsys.readouterr().out.rstrip("\n").split("\n\n")[-1]
+    assert last.startswith("Next: reword the sentence")
+    assert "go back to the guide" not in last
+
+
+def test_the_verdict_word_is_coloured_on_a_terminal_only(records, monkeypatch):
+    monkeypatch.setenv("TERM", "xterm-256color")
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    sentence = "The ViewSonic VG2756-4K delivers up to 90W over USB-C [1]."
+    outputs = {}
+    for name, stream in (("tty", Terminal()), ("pipe", io.StringIO())):
+        monkeypatch.setattr(sys, "stdout", stream)
+        check_claim.main([str(VIEWSONIC), sentence])
+        outputs[name] = stream.getvalue()
+
+    assert "\033[1;32mPASS\033[0m: " in outputs["tty"]
+    assert "\033" not in outputs["pipe"]
+
+
+def test_an_unknown_product_ends_with_a_next_that_uses_a_product_from_the_guide(
+    monkeypatch, capsys
+):
+    monkeypatch.setattr(check_claim, "get_product_summaries", lambda ids: [])
+
+    assert check_claim.main(["42", "Anything [1]."]) == 2
+
+    err = capsys.readouterr().err
+    assert "\n\nNext: " in err
+    assert err.rstrip("\n").endswith('check_claim.py 1551237 "YOUR SENTENCE [1]"')

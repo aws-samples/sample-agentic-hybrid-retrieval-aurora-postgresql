@@ -17,11 +17,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from scripts.terminal_text import verdict
+from scripts.terminal_text import next_step, separate_next, tidy, verdict
 from service.catalog import get_evidence_record, get_product_summaries
 from service.catalog_runtime import active_dataset
 from service.db import connect
 from service.models import EvidenceRecord
+from service.participant_commands import check_claim_command
 from service.synthesis import SynthesisOutputError, validate_cited_answer
 
 
@@ -57,16 +58,22 @@ def check(product_id: int, sentence: str) -> tuple[bool, str]:
     return True, "every citation names the listing and every stated figure is in it"
 
 
+@tidy
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("product_id", type=int)
     parser.add_argument("sentence")
     args = parser.parse_args(argv)
     products = get_product_summaries([args.product_id])
+    own_sentence = check_claim_command(args.product_id, "YOUR SENTENCE [1]")
     if not products:
         print(
-            f"Claim check rule: product {args.product_id} is not in the catalog; fix: use "
-            "a product ID from your run, such as 1551237 for the ViewSonic VG2756-4K",
+            separate_next(
+                f"Claim check rule: product {args.product_id} is not in the catalog; "
+                "fix: use a product ID from your run, such as 1551237 for the ViewSonic "
+                "VG2756-4K",
+                check_claim_command(1551237, "YOUR SENTENCE [1]"),
+            ),
             file=sys.stderr,
         )
         return 2
@@ -77,12 +84,24 @@ def main(argv: list[str] | None = None) -> int:
         passed, detail = check(args.product_id, args.sentence)
     except LookupError:
         print(
-            f"Claim check rule: product {args.product_id} has no current listing record "
-            "to cite as [1]; fix: use a product ID from your run's PRODUCTS list",
+            separate_next(
+                f"Claim check rule: product {args.product_id} has no current listing "
+                "record to cite as [1]; fix: use a product ID from your run's PRODUCTS "
+                "list",
+                check_claim_command(1551237, "YOUR SENTENCE [1]"),
+            ),
             file=sys.stderr,
         )
         return 2
-    print(verdict(("PASS: " if passed else "BLOCKED: ") + detail))
+    print(verdict(("\nPASS: " if passed else "\nBLOCKED: ") + detail))
+    if passed:
+        next_step("try a sentence of your own, or go back to the guide:", own_sentence)
+    else:
+        next_step(
+            "reword the sentence so every figure appears in the listing above, then "
+            "check it again:",
+            own_sentence,
+        )
     return 0 if passed else 1
 
 

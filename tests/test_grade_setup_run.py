@@ -231,3 +231,73 @@ def test_a_cut_off_context_file_is_replaced_not_crashed_on(tmp_path) -> None:
     grade_setup_run.save_context(output, chosen)
 
     assert json.loads((output / "context.json").read_text()) == {"lab_agent_id": chosen}
+
+
+def test_no_checkable_run_ends_with_asking_one_and_then_checking_it(
+    monkeypatch, capsys, workspace
+) -> None:
+    from service.participant_commands import ask_setup_command, grade_setup_run_command
+
+    _turns(monkeypatch, [])
+    monkeypatch.setattr(sys, "argv", ["grade_setup_run.py"])
+
+    assert grade_setup_run.main() == 2
+
+    out = capsys.readouterr().out
+    assert not out.startswith("\n") and "\n\n\n" not in out
+    assert out.endswith(
+        "\n\nNext: ask it with:\n"
+        f"{ask_setup_command()}\nthen run this command again:\n"
+        f"{grade_setup_run_command()}\n"
+    )
+
+
+def test_an_unreachable_aurora_ends_with_opening_a_new_terminal(
+    monkeypatch, capsys, workspace
+) -> None:
+    import psycopg
+
+    from service.participant_commands import grade_setup_run_command
+
+    @contextmanager
+    def connect():
+        raise psycopg.OperationalError("connection timeout expired")
+        yield
+
+    monkeypatch.setattr("service.db.connect", connect)
+    monkeypatch.setattr(sys, "argv", ["grade_setup_run.py"])
+
+    grade_setup_run.main()
+
+    out = capsys.readouterr().out
+    assert "Next:" not in out.split("\n\n")[0]
+    assert out.endswith(f"tell your facilitator:\n{grade_setup_run_command()}\n")
+
+
+def test_the_verdict_comes_before_the_next_step(monkeypatch, capsys, tmp_path) -> None:
+    """The pick, the verdict and the step after it are separate parts, in that order."""
+    from scripts import lab_exercise
+
+    monkeypatch.setattr(grade_setup_run, "ROOT", tmp_path)
+    monkeypatch.setattr(grade_setup_run, "load_dotenv", lambda _path: None)
+    monkeypatch.setattr(
+        "service.agent_deploys.lab_3_started_at", lambda _root=None: STARTED
+    )
+    monkeypatch.setattr(lab_exercise, "REPO", tmp_path)
+    monkeypatch.setattr(lab_exercise, "grade", lambda *_: {"failures": []})
+    monkeypatch.setattr(lab_exercise, "record_decision", lambda *_: None)
+    monkeypatch.setattr(
+        lab_exercise, "default_work", lambda _lab: tmp_path / "agent.py"
+    )
+    (tmp_path / "agent.py").write_text("agent")
+    _turns(monkeypatch, [_run(5, "grounded")])
+    monkeypatch.setattr(sys, "argv", ["grade_setup_run.py"])
+
+    assert grade_setup_run.main() == 0
+
+    parts = capsys.readouterr().out.rstrip("\n").split("\n\n")
+    assert parts[0].startswith("Checking your newest setup run, ")
+    assert parts[1].startswith("Your Retrieval agent is live")
+    assert parts[2].startswith("Lab 3 exercise: PASS")
+    assert parts[3] == "Next: the guide's Wrap-up. Lab 3's required work is complete."
+    assert len(parts) == 4
