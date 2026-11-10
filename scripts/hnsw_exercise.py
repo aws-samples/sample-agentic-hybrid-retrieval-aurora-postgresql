@@ -34,7 +34,9 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
 from scripts.lab_exercise import ExerciseError, _connect, interpolate
-from scripts.terminal_text import verdict
+from scripts.progress import Progress
+from scripts.terminal_text import TIER_COLORS, next_step, tidy, verdict
+from service.participant_commands import HNSW_GRADE
 
 INDEX_WORK = Path(".local/hnsw/index.sql")
 SEARCH_WORK = Path(".local/hnsw/search.sql")
@@ -173,17 +175,38 @@ def measure_build(cur: Any, search: str, vectors: list[str], exact: list[set]) -
     }, uses_index
 
 
-def grade(index_text: str, search_text: str) -> dict[str, Any]:
+#: The grader's steps, none timed on a measured run, so the line shows only the time waited.
+GRADE_STEPS = (
+    "Run the exact plan for the five queries",
+    "Build a full-precision reference index to measure its size",
+    *(
+        f"Build your index ({number} of {BUILDS}) and run its five queries"
+        for number in (1, 2)
+    ),
+)
+
+
+def start_step(progress: Progress | None, number: int) -> None:
+    """Begin the grader's `number`th step (counting from 1) when progress is shown."""
+    if progress is not None:
+        progress.begin(GRADE_STEPS[number - 1], number=number)
+
+
+def grade(
+    index_text: str, search_text: str, progress: Progress | None = None
+) -> dict[str, Any]:
     create, name, ef_search = parse_index(index_text)
     interpolate(search_text, {"hnsw_vector": "[0]", "hnsw_limit": str(LIMIT)})
     vectors = query_vectors()
     with _connect() as connection, connection.cursor() as cur:
         cur.execute("SET LOCAL statement_timeout = '600s'")
         cur.execute("SET LOCAL hnsw.iterative_scan = 'relaxed_order'")
+        start_step(progress, 1)
         exact = []
         for vector in vectors:
             cur.execute(EXACT_SQL, (vector,))
             exact.append({row["product_id"] for row in cur.fetchall()})
+        start_step(progress, 2)
         cur.execute("SAVEPOINT reference")
         cur.execute(REFERENCE_INDEX)
         cur.execute(
@@ -192,7 +215,8 @@ def grade(index_text: str, search_text: str) -> dict[str, Any]:
         reference_bytes = cur.fetchone()["b"]
         cur.execute("ROLLBACK TO SAVEPOINT reference")
         builds = []
-        for _ in range(BUILDS):
+        for build_number in range(1, BUILDS + 1):
+            start_step(progress, 2 + build_number)
             cur.execute("SAVEPOINT build")
             try:
                 cur.execute(create)
@@ -249,6 +273,30 @@ def summarize(
     }
 
 
+def _graded_next(tier: str) -> None:
+    """Print the step after a grade: the next exercise, or the retry that fits the result."""
+    if tier == "FAST AND SMALL":
+        next_step(
+            "explain the trade-off you chose between recall, speed and size, then go on "
+            "to the guide's next optional exercise, Session & Memory."
+        )
+    elif tier == "FAST":
+        next_step(
+            "to reach FAST AND SMALL, make your index at most half the size of the "
+            "full-precision one, save index.sql and search.sql, then grade again:",
+            HNSW_GRADE,
+            "or explain the trade-off you chose and go on to the guide's next optional "
+            "exercise, Session & Memory.",
+        )
+    else:
+        next_step(
+            "change .local/hnsw/index.sql and search.sql as the FAIL lines say, save "
+            "them, then grade again:",
+            HNSW_GRADE,
+        )
+
+
+@tidy
 def main() -> int:
     from dotenv import load_dotenv
 
@@ -268,10 +316,22 @@ def main() -> int:
                 f"{SEARCH_WORK} is empty; write one SELECT returning product_id for the "
                 "nearest :hnsw_limit headphones to :'hnsw_vector', then grade again"
             )
-        report = grade(index, search)
+        progress = Progress("Grading your index")
+        progress.count(len(GRADE_STEPS))
+        try:
+            report = grade(index, search, progress)
+        except BaseException:
+            progress.fail()
+            raise
+        progress.finish()
     except ExerciseError as error:
         print(verdict(f"Shrink it: CANNOT GRADE - {error}"))
+        next_step(
+            "fix what it names in .local/hnsw/index.sql or search.sql, then grade again:",
+            HNSW_GRADE,
+        )
         return 2
+    print()
     for number, build in enumerate(report["builds"], start=1):
         print(
             f"build {number}: recall {build['recall']:.3f}, "
@@ -282,15 +342,18 @@ def main() -> int:
         f"reference full-precision index: {report['reference_index_bytes'] / 1e6:.1f} MB; "
         f"yours is {report['size_ratio_vs_full_precision']:.0%} of it"
     )
+    if report["failures"]:
+        print()
     for failure in report["failures"]:
         print(verdict(f"FAIL: {failure}"))
     tier = (
         "FAST AND SMALL" if report["small"] else "FAST" if report["fast"] else "NOT YET"
     )
-    print(f"Shrink it: {tier}")
+    print("\n" + verdict(f"Shrink it: {tier}", words=TIER_COLORS))
     receipt = REPO / ".local/hnsw/exercise-receipt.json"
     receipt.parent.mkdir(parents=True, exist_ok=True)
     receipt.write_text(json.dumps(report, indent=2) + "\n")
+    _graded_next(tier)
     return 0 if report["fast"] else 1
 
 

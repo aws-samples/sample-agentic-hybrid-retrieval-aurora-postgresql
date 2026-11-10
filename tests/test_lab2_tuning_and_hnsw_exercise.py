@@ -5,6 +5,7 @@ arithmetic it uses, the committed cache's coverage, and the HNSW exercise check'
 checks and tiers.
 """
 
+import io
 import json
 from pathlib import Path
 
@@ -13,6 +14,7 @@ import pytest
 from scripts import cache_lab2_arms, hnsw_exercise, lab2_tuning
 from scripts.lab_exercise import ExerciseError
 from service.models import RetrievalProfile
+from service.participant_commands import HNSW_GRADE
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -356,3 +358,218 @@ def test_hnsw_exercise_names_an_empty_search_file(monkeypatch, tmp_path, capsys)
     monkeypatch.setattr("sys.argv", ["hnsw_exercise.py", "grade"])
     assert hnsw_exercise.main() == 2
     assert "search.sql is empty; write one SELECT" in capsys.readouterr().out
+
+
+# ---------------------------------------------------------------- progress, layout, Next, colour
+
+
+def _report(*, fast: bool, small: bool) -> dict:
+    build = {
+        "recall": 0.98,
+        "time_ratio": 0.02,
+        "index_bytes": 121_900_000,
+        "uses_index": True,
+    }
+    return {
+        "builds": [build, build],
+        "reference_index_bytes": 370_000_000,
+        "size_ratio_vs_full_precision": 0.33,
+        "fast": fast,
+        "small": small,
+        "failures": [] if fast else ["mean recall 0.5 over 2 builds; the bar is 0.9"],
+    }
+
+
+def _graded_main(monkeypatch, tmp_path, report, stream):
+    (tmp_path / ".local/hnsw").mkdir(parents=True, exist_ok=True)
+    (tmp_path / ".local/hnsw/index.sql").write_text(HALFVEC_INDEX)
+    (tmp_path / ".local/hnsw/search.sql").write_text("SELECT product_id")
+    monkeypatch.setattr(hnsw_exercise, "REPO", tmp_path)
+    monkeypatch.setattr("dotenv.load_dotenv", lambda *_: None)
+
+    def grade(_index, _search, progress=None):
+        for number in range(1, len(hnsw_exercise.GRADE_STEPS) + 1):
+            hnsw_exercise.start_step(progress, number)
+        return report
+
+    monkeypatch.setattr(hnsw_exercise, "grade", grade)
+    monkeypatch.setattr("sys.argv", ["hnsw_exercise.py", "grade"])
+    monkeypatch.setattr("sys.stdout", stream)
+    code = hnsw_exercise.main()
+    return code, stream.getvalue()
+
+
+def test_the_grader_shows_each_step_with_the_time_waited_not_an_invented_usual_time(
+    monkeypatch, tmp_path
+):
+    code, out = _graded_main(
+        monkeypatch, tmp_path, _report(fast=True, small=True), io.StringIO()
+    )
+
+    steps = [line for line in out.splitlines() if line.startswith("  - ")]
+    assert code == 0
+    assert out.startswith("Grading your index\n")
+    assert steps == [
+        "  - 1/4  Run the exact plan for the five queries",
+        "  - 2/4  Build a full-precision reference index to measure its size",
+        "  - 3/4  Build your index (1 of 2) and run its five queries",
+        "  - 4/4  Build your index (2 of 2) and run its five queries",
+    ]
+    assert "usually" not in out
+
+
+def test_the_grader_redraws_one_line_with_the_time_waited_on_a_terminal(
+    monkeypatch, tmp_path
+):
+    from scripts import progress as progress_module
+
+    class Terminal(io.StringIO):
+        encoding = "utf-8"
+
+        def isatty(self):
+            return True
+
+    monkeypatch.setenv("TERM", "xterm-256color")
+    monkeypatch.setattr(progress_module, "columns", lambda: 100)
+    shown = []
+    real = progress_module.Progress._render
+
+    def spy(self, width):
+        line = real(self, width)
+        shown.append(line)
+        return line
+
+    monkeypatch.setattr(progress_module.Progress, "_render", spy)
+    stream = Terminal()
+
+    def grade(_index, _search, progress=None):
+        hnsw_exercise.start_step(progress, 3)
+        progress._live.draw()
+        return _report(fast=True, small=True)
+
+    (tmp_path / ".local/hnsw").mkdir(parents=True)
+    (tmp_path / ".local/hnsw/index.sql").write_text(HALFVEC_INDEX)
+    (tmp_path / ".local/hnsw/search.sql").write_text("SELECT product_id")
+    monkeypatch.setattr(hnsw_exercise, "REPO", tmp_path)
+    monkeypatch.setattr("dotenv.load_dotenv", lambda *_: None)
+    monkeypatch.setattr(hnsw_exercise, "grade", grade)
+    monkeypatch.setattr("sys.argv", ["hnsw_exercise.py", "grade"])
+    monkeypatch.setattr("sys.stdout", stream)
+
+    hnsw_exercise.main()
+
+    assert (
+        shown[-1].strip()
+        == "[3/4] Build your index (1 of 2) and run its five queries  0:00"
+    )
+
+
+def test_grade_starts_its_steps_in_the_order_it_does_the_work(monkeypatch):
+    from unittest.mock import MagicMock
+
+    connection, cursor = MagicMock(), MagicMock()
+    connection.__enter__.return_value = connection
+    connection.cursor.return_value.__enter__.return_value = cursor
+    cursor.fetchall.return_value = [{"product_id": 1}]
+    cursor.fetchone.side_effect = [{"b": 1000}, {"b": 100}, {"b": 100}]
+    monkeypatch.setattr(hnsw_exercise, "_connect", lambda: connection)
+    monkeypatch.setattr(hnsw_exercise, "query_vectors", lambda: ["[0]"])
+    monkeypatch.setattr(
+        hnsw_exercise,
+        "measure_build",
+        lambda *_args: (
+            {"recall": 1.0, "time_ratio": 0.2},
+            [["Index Scan using product"]],
+        ),
+    )
+    progress = MagicMock()
+
+    hnsw_exercise.grade(
+        HALFVEC_INDEX,
+        "SELECT product_id FROM mosaic_search.product_listing "
+        "ORDER BY embedding <=> :'hnsw_vector'::vector LIMIT :hnsw_limit;",
+        progress,
+    )
+
+    assert [call.args[0] for call in progress.begin.call_args_list] == list(
+        hnsw_exercise.GRADE_STEPS
+    )
+
+
+def test_a_failed_grade_names_the_step_that_failed_before_the_verdict(
+    monkeypatch, tmp_path, capsys
+):
+    (tmp_path / ".local/hnsw").mkdir(parents=True)
+    (tmp_path / ".local/hnsw/index.sql").write_text(HALFVEC_INDEX)
+    (tmp_path / ".local/hnsw/search.sql").write_text("SELECT product_id")
+    monkeypatch.setattr(hnsw_exercise, "REPO", tmp_path)
+    monkeypatch.setattr("dotenv.load_dotenv", lambda *_: None)
+
+    def grade(_index, _search, progress=None):
+        hnsw_exercise.start_step(progress, 3)
+        raise ExerciseError("PostgreSQL rejected the index: nope")
+
+    monkeypatch.setattr(hnsw_exercise, "grade", grade)
+    monkeypatch.setattr("sys.argv", ["hnsw_exercise.py", "grade"])
+
+    assert hnsw_exercise.main() == 2
+
+    out = capsys.readouterr().out
+    assert "3/4  Build your index (1 of 2) and run its five queries: failed" in out
+    assert "Shrink it: CANNOT GRADE - PostgreSQL rejected the index: nope" in out
+    assert out.endswith(f"then grade again:\n{HNSW_GRADE}\n")
+    assert "\n\n\n" not in out
+
+
+@pytest.mark.parametrize(
+    ("fast", "small", "tier", "next_words"),
+    [
+        (True, True, "FAST AND SMALL", "Session & Memory"),
+        (True, False, "FAST", "to reach FAST AND SMALL"),
+        (False, False, "NOT YET", "as the FAIL lines say"),
+    ],
+)
+def test_the_result_is_its_own_part_and_the_next_step_fits_it(
+    monkeypatch, tmp_path, fast, small, tier, next_words
+):
+    code, out = _graded_main(
+        monkeypatch, tmp_path, _report(fast=fast, small=small), io.StringIO()
+    )
+
+    parts = out.rstrip("\n").split("\n\n")
+    assert code == (0 if fast else 1)
+    assert not out.startswith("\n") and "\n\n\n" not in out
+    assert parts[-2] == f"Shrink it: {tier}"
+    assert parts[-1].startswith("Next: ") and next_words in parts[-1]
+    assert parts[-3].splitlines()[0].startswith(("build 1:", "FAIL:"))
+    if not fast:
+        assert HNSW_GRADE in parts[-1]
+
+
+@pytest.mark.parametrize(
+    ("fast", "small", "tier", "code"),
+    [
+        (True, True, "FAST AND SMALL", "1;32"),
+        (True, False, "FAST", "1;32"),
+        (False, False, "NOT YET", "1;33"),
+    ],
+)
+def test_the_result_word_is_coloured_on_a_terminal_and_plain_when_piped(
+    monkeypatch, tmp_path, fast, small, tier, code
+):
+    class Terminal(io.StringIO):
+        encoding = "utf-8"
+
+        def isatty(self):
+            return True
+
+    monkeypatch.setenv("TERM", "xterm-256color")
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    monkeypatch.delenv("MOSAIC_RUN_BY", raising=False)
+    report = _report(fast=fast, small=small)
+
+    _, painted = _graded_main(monkeypatch, tmp_path, report, Terminal())
+    _, plain = _graded_main(monkeypatch, tmp_path, report, io.StringIO())
+
+    assert f"Shrink it: \033[{code}m{tier}\033[0m" in painted
+    assert "\033" not in plain and f"Shrink it: {tier}\n" in plain

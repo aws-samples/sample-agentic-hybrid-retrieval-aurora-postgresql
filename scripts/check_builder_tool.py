@@ -6,6 +6,7 @@ import argparse
 import importlib.util
 import json
 import os
+import sys
 from pathlib import Path
 from types import ModuleType
 from typing import Any
@@ -13,8 +14,22 @@ from typing import Any
 import httpx
 from strands.tools.registry import ToolRegistry
 
+from scripts.progress import Progress
+from scripts.terminal_text import (
+    GREEN,
+    RED,
+    next_step,
+    separate_next,
+    tidy,
+    tint,
+    verdict,
+)
 from service.config import get_settings
 from service.models import SearchResponse
+from service.participant_commands import (
+    call_headphones_agent_command,
+    check_builder_tool_command,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -40,9 +55,19 @@ def load_example(path: Path) -> ModuleType:
 
 
 def check_tool(
-    module: ModuleType, brands: list[str], query: str
+    module: ModuleType,
+    brands: list[str],
+    query: str,
+    progress: Progress | None = None,
 ) -> list[dict[str, Any]]:
-    """Run the registered callable and replay the service's own saved responses."""
+    """Run the registered callable and replay the service's own saved responses.
+
+    Args:
+        module: The participant's file, which registers `search_call_headphones`.
+        brands: Two or more distinct brands to search for.
+        query: The shopper query sent for every brand.
+        progress: Told when each brand's search starts, so the wait shows which one runs.
+    """
     require(
         all(isinstance(brand, str) and brand.strip() for brand in brands)
         and len({brand.strip().casefold() for brand in brands}) >= 2,
@@ -65,7 +90,14 @@ def check_tool(
     )
     reports = []
     endpoint = os.environ.get("MOSAIC_API_URL", "http://127.0.0.1:8000").rstrip("/")
+    if progress is not None:
+        progress.count(len(brands))
     for brand in brands:
+        if progress is not None:
+            progress.begin(
+                f"Search {brand.strip()} headphones and check the saved search",
+                done=f"Checked the {brand.strip()} search",
+            )
         # The same decorated callable the agent invokes, never a second search implementation.
         response = SearchResponse.model_validate(registered(query=query, brand=brand))
         origin_secret = get_settings().origin_verify_secret
@@ -127,6 +159,7 @@ def check_tool(
     return reports
 
 
+@tidy
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--module", type=Path, required=True)
@@ -142,16 +175,34 @@ def main() -> None:
         )["playground"]["requests"]
         if item["id"] == "focus-at-home"
     )
+    # Progress goes to stderr: stdout carries only the JSON result, which a pipe may parse.
+    progress = Progress("Checking your tool", stream=sys.stderr)
+    rerun = check_builder_tool_command(str(args.module))
     try:
-        reports = check_tool(load_example(args.module), args.brands, request["query"])
+        reports = check_tool(
+            load_example(args.module), args.brands, request["query"], progress
+        )
     except (
         BuilderCheckError,
         NotImplementedError,
         ValueError,
         httpx.HTTPError,
     ) as error:
-        parser.exit(1, f"{error}\n")
-    print(json.dumps({"status": "passed", "runs": reports}, indent=2))
+        progress.fail()
+        failure = verdict(
+            separate_next(str(error), rerun),
+            sys.stderr,
+            words={"Build check failed": RED},
+        )
+        parser.exit(1, f"{failure}\n")
+    progress.finish()
+    result = json.dumps({"status": "passed", "runs": reports}, indent=2)
+    print(result.replace('"status": "passed"', tint('"status": "passed"', GREEN), 1))
+    next_step(
+        "let the Retrieval agent call your tool:",
+        call_headphones_agent_command(str(args.module)),
+        stream=sys.stderr,
+    )
 
 
 if __name__ == "__main__":

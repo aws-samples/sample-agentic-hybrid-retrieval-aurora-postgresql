@@ -175,3 +175,94 @@ def test_the_agent_answer_ends_its_line(monkeypatch, capsys):
     )
     call_headphones.main()
     assert capsys.readouterr().out == "Bose\n"
+
+
+# ---------------------------------------------------------------- progress, JSON and Next
+
+
+def _run_checker(monkeypatch, argv, *, stdout=None, stderr=None):
+    from scripts import check_builder_tool
+
+    monkeypatch.setattr("sys.argv", ["check_builder_tool", *argv])
+    if stdout is not None:
+        monkeypatch.setattr("sys.stdout", stdout)
+    if stderr is not None:
+        monkeypatch.setattr("sys.stderr", stderr)
+    return check_builder_tool.main()
+
+
+def test_each_brand_search_is_a_step_with_the_time_waited_and_stdout_stays_json(
+    network, monkeypatch, capsys
+):
+    import json
+
+    _run_checker(monkeypatch, ["--module", str(call_headphones.__file__)])
+
+    captured = capsys.readouterr()
+    assert json.loads(captured.out)["status"] == "passed"
+    steps = [line for line in captured.err.splitlines() if line.startswith("  - ")]
+    assert steps == [
+        "  - 1/2  Search Bose headphones and check the saved search",
+        "  - 2/2  Search Sony headphones and check the saved search",
+    ]
+    assert "usually" not in captured.err
+
+
+def test_the_checker_ends_with_the_agent_step_on_stderr_so_stdout_stays_json(
+    network, monkeypatch, capsys
+):
+    from service.participant_commands import call_headphones_agent_command
+
+    module = str(call_headphones.__file__)
+    _run_checker(monkeypatch, ["--module", module])
+
+    captured = capsys.readouterr()
+    assert captured.out.rstrip("\n").endswith("}")
+    assert "Next" not in captured.out
+    assert captured.err.endswith(
+        "\n\nNext: let the Retrieval agent call your tool:\n"
+        f"{call_headphones_agent_command(module)}\n"
+    )
+
+
+def test_status_passed_is_green_on_a_terminal_and_plain_when_piped(
+    network, monkeypatch
+):
+    import io
+
+    class Terminal(io.StringIO):
+        encoding = "utf-8"
+
+        def isatty(self):
+            return True
+
+    monkeypatch.setenv("TERM", "xterm-256color")
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    module = str(call_headphones.__file__)
+    painted, plain = Terminal(), io.StringIO()
+
+    _run_checker(
+        monkeypatch, ["--module", module], stdout=painted, stderr=io.StringIO()
+    )
+    _run_checker(monkeypatch, ["--module", module], stdout=plain, stderr=io.StringIO())
+
+    assert '\033[1;32m"status": "passed"\033[0m' in painted.getvalue()
+    assert '"status": "passed"' in plain.getvalue()
+    assert "\033" not in plain.getvalue()
+
+
+def test_a_failing_tool_ends_with_a_next_that_checks_it_again(
+    network, monkeypatch, capsys, tmp_path
+):
+    from service.participant_commands import check_builder_tool_command
+
+    starter = tmp_path / "participant.py"
+    call_headphones.write_starter(starter)
+
+    with pytest.raises(SystemExit):
+        _run_checker(monkeypatch, ["--module", str(starter)])
+
+    err = capsys.readouterr().err
+    assert "\n\nNext: do what the message above says, then run\n" in err
+    assert err.rstrip("\n").endswith(check_builder_tool_command(str(starter)))
+    assert err.startswith("Build check failed: ")
