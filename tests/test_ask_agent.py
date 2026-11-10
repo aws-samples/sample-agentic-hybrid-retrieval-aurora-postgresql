@@ -365,10 +365,11 @@ def test_a_refused_draft_is_named_when_it_happens_and_only_once(monkeypatch, cap
     assert ask_agent.main(["Find headphones for calls"]) == 0
     lines = capsys.readouterr().out.split("answered in")[0].splitlines()
 
-    said = (
-        "      draft refused: it was cut off before it finished; the agent drafts again"
-    )
+    said = "      draft refused: it was cut off before it finished"
     assert [line for line in lines if "draft refused" in line] == [said, said]
+    assert (
+        lines[lines.index(said) + 1] == "      The agent is told why and drafts again."
+    )
     assert lines.index(said) < len(lines) - 1 - lines[::-1].index(
         next(line for line in lines[::-1] if "tool call" in line)
     )
@@ -740,6 +741,16 @@ def refused_then_grounded(detail):
     return run
 
 
+def reason_under(lines: list[str], step: int) -> str:
+    """The reason printed under a trace step, rejoined from the lines it wraps onto."""
+    taken = []
+    for line in lines[step + 1 :]:
+        if not line.startswith("     "):
+            break
+        taken.append(line.strip())
+    return " ".join(taken)
+
+
 @pytest.mark.parametrize(
     ("detail", "said"),
     [
@@ -809,6 +820,62 @@ def refused_then_grounded(detail):
             "Synthesis failed with ThrottlingException.",
             "draft step failed (ThrottlingException), not refused by a check",
         ),
+        (
+            (
+                "Synthesis failed with SynthesisOutputError: claim support: passage 8 "
+                "rests on record 1's scope note, \"Historical parent-product listing. "
+                'Confirm exact variant and current offer separately.", which is '
+                "Mosaic's note on what the record can establish, not its words; write "
+                "that caveat as a plain step without a citation"
+            ),
+            (
+                "draft refused: it cited record 1 for a caveat that is Mosaic's note, "
+                "not the record's own words"
+            ),
+        ),
+        (
+            (
+                "Synthesis failed with SynthesisOutputError: claim support: passage 8 "
+                'cites [1][2][3][4][5][6] but states no product fact: "Sources: [1][2] '
+                'headset, [3][4] monitor, [5][6] chair."; write advice, checks and '
+                "headings without citations, or state the fact the record gives"
+            ),
+            (
+                "draft refused: it put citations on a line that states no product "
+                'fact: "Sources: [1][2] headset, [3][4] monitor, [5][6] chair."'
+            ),
+        ),
+        (
+            (
+                "Synthesis failed with SynthesisOutputError: claim support: passage 3 is "
+                "marked supported without a source quote; quote the cited record that "
+                "supports it"
+            ),
+            "draft refused: the check could not confirm every claim against its source",
+        ),
+        (
+            (
+                "Synthesis failed with SynthesisOutputError: Synthesized answer did not "
+                "cite catalog evidence"
+            ),
+            "draft refused: it cited no source",
+        ),
+        (
+            (
+                "Synthesis failed with SynthesisOutputError: Synthesized answer cited "
+                "evidence outside the retrieved set"
+            ),
+            "draft refused: it cited a source number that is not among the retrieved records",
+        ),
+        (
+            (
+                "Synthesis failed with SynthesisOutputError: The answer leads with Chair "
+                "A, which is rated at least 1 star lower than Chair B, a pick of the same "
+                "kind. Name Chair B first, as the best fit, and write about the other "
+                "after it"
+            ),
+            "draft refused: it led with a pick rated at least a star below another of its kind",
+        ),
     ],
 )
 def test_a_refused_draft_says_in_plain_words_why_it_was_refused(detail, said):
@@ -823,9 +890,48 @@ def test_a_refused_draft_says_in_plain_words_why_it_was_refused(detail, said):
     assert ("refused" if refused else "error") in lines[step]
     assert ("error" in lines[step]) is not refused, "a refused draft is not an error"
     assert lines[step].endswith("the agent drafted again") is refused
-    assert lines[step + 1].strip() == said
+    assert reason_under(lines, step) == said
     assert "SynthesisOutputError" not in text and "Synthesis failed" not in text
     assert max(len(line) for line in lines) <= ask_agent.LINE_CHARS
+
+
+CLAIM_REVIEW_REFUSAL = (
+    "Synthesis failed with SynthesisOutputError: claim support: passage 1: Features and "
+    'warranty are supported, but calling it "the chair for your setup" asserts a fit with '
+    "the other products that no source establishes.; remove the unsupported claim or "
+    "cite evidence that supports it"
+)
+
+
+def test_the_claim_reviews_own_reason_prints_whole_inside_the_terminal():
+    """Measured on the 10 November event, where this refusal printed no reason at all."""
+    lines = ask_agent.render(refused_then_grounded(CLAIM_REVIEW_REFUSAL)).splitlines()
+
+    step = next(
+        i for i, line in enumerate(lines) if "2  synthesize_cited_answer" in line
+    )
+    reason = reason_under(lines, step)
+    assert lines[step].endswith("the agent drafted again")
+    assert reason == (
+        "draft refused: a claim no cited record supports. The check's reason: Features "
+        'and warranty are supported, but calling it "the chair for your setup" asserts '
+        "a fit with the other products that no source establishes."
+    )
+    assert len(lines[step + 1]) > 80, "the reason wraps at the terminal's width"
+    assert max(len(line) for line in lines) <= ask_agent.LINE_CHARS
+    assert (
+        "passage 1" not in "\n".join(lines) and "remove the unsupported" not in reason
+    )
+
+
+def test_a_refusal_the_next_draft_is_not_told_about_does_not_claim_it_is():
+    told = ask_agent._after_refusal(CLAIM_REVIEW_REFUSAL)
+    untold = ask_agent._after_refusal(
+        "Synthesis failed with AnswerabilityError: answerability: incomplete review"
+    )
+
+    assert told == "The agent is told why and drafts again."
+    assert untold == "The agent drafts again."
 
 
 def test_a_long_refused_claim_is_shortened_to_fit_the_terminal():

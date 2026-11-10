@@ -163,7 +163,7 @@ def _trace(response: dict[str, Any], workspace: str | None) -> list[str]:
             f"  {step['sequence']}  {step['tool']:<23}  {outcome}{took}{noted}"
         )
         if reason:
-            lines.append(f"     {reason}")
+            lines.extend(_indented(reason, "     "))
         if step["tool"] == "search_products" and step.get("route"):
             lines.append(
                 f"     {_search_sql(step.get('search_sql_sha256'), workspace)}"
@@ -173,6 +173,10 @@ def _trace(response: dict[str, Any], workspace: str | None) -> list[str]:
 
 REFUSED = "draft refused"
 UNSUPPORTED = "which no cited record supports"
+# What the claim review's messages start with; the passage number means nothing on screen.
+CLAIM_REVIEW = r"claim support: passage \d+"
+# The checks whose reason the next draft is given, so it can avoid the same problem.
+TOLD_WHY = ("SynthesisOutputError", "SynthesisTruncated")
 # The application's own answer checks; any other failure of the draft step is the
 # model or the service, not a refusal.
 ANSWER_CHECKS = (
@@ -216,9 +220,61 @@ def _refusal(detail: str) -> str:
         reason = "it left a selected product without a citation"
     elif "contains a link" in detail:
         reason = "it contained a link that is not a cited source"
+    elif "did not cite catalog evidence" in detail:
+        reason = "it cited no source"
+    elif "cited evidence outside the retrieved set" in detail:
+        reason = "it cited a source number that is not among the retrieved records"
+    elif "The answer leads with" in detail:
+        reason = "it led with a pick rated at least a star below another of its kind"
+    elif reviewed := _claim_review_reason(detail):
+        reason = reviewed
     else:
         return f"{REFUSED} by the answer check"
     return f"{REFUSED}: {reason}"
+
+
+def _claim_review_reason(detail: str) -> str | None:
+    """Why the claim review refused a draft, or None for another check's message.
+
+    The review reads the finished draft against the records it cites. Its own reason
+    is a sentence about this draft, so it prints whole, wrapped by the caller.
+    """
+    if match := re.search(
+        rf"{CLAIM_REVIEW} rests on record (\d+)'s scope note", detail
+    ):
+        return (
+            f"it cited record {match.group(1)} for a caveat that is Mosaic's note, "
+            "not the record's own words"
+        )
+    if match := re.search(
+        rf'{CLAIM_REVIEW} cites \S+ but states no product fact: "(.+?)"; write',
+        detail,
+        re.DOTALL,
+    ):
+        line = _clip(match.group(1), LINE_CHARS)
+        return f'it put citations on a line that states no product fact: "{line}"'
+    if match := re.search(
+        rf"{CLAIM_REVIEW}: (.+?); remove the unsupported claim", detail, re.DOTALL
+    ):
+        said = " ".join(match.group(1).split())
+        return f"a claim no cited record supports. The check's reason: {said}"
+    if "claim support:" in detail:
+        return "the check could not confirm every claim against its source"
+    return None
+
+
+def _indented(text: str, indent: str) -> list[str]:
+    """`text` as lines inside the terminal's width, each behind `indent`."""
+    return wrap_words(text, LINE_CHARS, initial_indent=indent, subsequent_indent=indent)
+
+
+def _after_refusal(detail: str) -> str:
+    """What the agent does after a draft step that did not produce the answer."""
+    failed = re.match(r"Synthesis failed with (\w+)", detail)
+    told = failed is not None and failed.group(1) in TOLD_WHY
+    return (
+        "The agent is told why and drafts again." if told else "The agent drafts again."
+    )
 
 
 def _clip(text: str, limit: int) -> str:
@@ -348,10 +404,11 @@ class _Run:
         self._waiting()
 
     def partial(self, trace: list[dict[str, Any]]) -> None:
-        """Say why a draft was refused as soon as the run records it.
+        """Say why a draft was refused, and what the agent does next, as soon as the run
+        records it.
 
         The agent drafts again after a refusal, so the wait is longer; the reason is
-        the same line the tool trace prints once the run ends.
+        the one the tool trace prints once the run ends.
         """
         refusals = [
             step.get("detail") or ""
@@ -360,10 +417,10 @@ class _Run:
             and step.get("outcome") == "error"
         ]
         for detail in refusals[self._refused :]:
-            reason = _refusal(detail)
+            lines = _indented(_refusal(detail), "      ")
             # Yellow, not red: a refused draft is the answer check working.
-            shown = tint(reason, YELLOW) if reason.startswith(REFUSED) else reason
-            print(f"      {shown}; the agent drafts again", flush=True)
+            lines[0] = lines[0].replace(REFUSED, tint(REFUSED, YELLOW), 1)
+            print("\n".join([*lines, f"      {_after_refusal(detail)}"]), flush=True)
         self._refused = max(self._refused, len(refusals))
 
     def _answered(self) -> None:
