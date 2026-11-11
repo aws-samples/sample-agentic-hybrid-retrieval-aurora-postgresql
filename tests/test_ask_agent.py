@@ -1152,3 +1152,29 @@ def test_piped_output_has_no_colour_and_the_same_words(colour_capable, monkeypat
 
     assert "\033" not in plain
     assert re.sub(r"\033\[[0-9;]*m", "", painted) == plain
+
+
+def test_an_answer_heading_prints_its_words_without_markdown_marks(monkeypatch):
+    """The answer step writes `### What to check`; Ask Mosaic draws it as a heading."""
+    monkeypatch.setattr(sys, "stdout", io.StringIO())
+    run = grounded()
+    run["answer"] = "First claim [1].\n\n### What to check\n\n- Confirm the wattage."
+
+    answer = ask_agent.render(run).split("\n\nPLAN")[0]
+
+    assert answer.splitlines() == [
+        "ANSWER",
+        "  First claim [1].",
+        "  ",
+        "  What to check",
+        "  ",
+        "  - Confirm the wattage.",
+    ]
+
+
+def test_an_answer_heading_is_bold_on_a_terminal(colour_capable, monkeypatch):
+    monkeypatch.setattr(sys, "stdout", Terminal())
+    run = grounded()
+    run["answer"] = "First claim [1].\n\n### What to check"
+
+    assert "\n  \033[1mWhat to check\033[0m\n" in ask_agent.render(run)

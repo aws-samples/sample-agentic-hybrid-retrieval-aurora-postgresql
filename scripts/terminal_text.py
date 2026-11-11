@@ -26,6 +26,7 @@ from contextlib import contextmanager
 from typing import Any, TextIO
 
 GREEN, RED, YELLOW = "1;32", "1;31", "1;33"
+BOLD = "1"
 VERDICT_COLORS = {
     "PASS": GREEN,
     "FAIL": RED,

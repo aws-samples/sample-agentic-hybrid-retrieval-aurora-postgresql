@@ -38,6 +38,7 @@ from scripts.lab_state import lab_3_solved
 from scripts.progress import Waiting, bar, can_redraw
 from scripts.prove_lab import LabValidationError, error_detail
 from scripts.terminal_text import (
+    BOLD,
     GREEN,
     OUTCOME_COLORS,
     RED,
@@ -313,12 +314,19 @@ def _workspace_digest() -> str | None:
         return None
 
 
+#: A Markdown heading the answer step writes, such as `### What to check`.
+ANSWER_HEADING = re.compile(r"#{1,6}\s+(\S.*)")
+
+
 def _answer_lines(text: str) -> list[str]:
-    return [
-        "  " + line
-        for paragraph in text.splitlines()
-        for line in (wrap_words(paragraph, 86) or [""])
-    ]
+    """The answer indented and wrapped, its headings as words, bold on a terminal."""
+    lines = []
+    for paragraph in text.splitlines():
+        if heading := ANSWER_HEADING.fullmatch(paragraph.strip()):
+            lines.append("  " + tint(heading.group(1), BOLD))
+        else:
+            lines += ["  " + line for line in (wrap_words(paragraph, 86) or [""])]
+    return lines
 
 
 def render(response: dict[str, Any], *, answer: bool = True) -> str:
