@@ -4,7 +4,7 @@
 Output CSV is compatible with scripts/evals/evaluate.py. Use the same embedding
 provider/dimension used to populate the retrieval projection's embeddings.
 
-Ported from `catalog.search_hybrid_rrf` in Phase 2 Unit E. **No predecessor
+Ported from `catalog.search_hybrid_rrf` in the rewrite. **No predecessor
 comparison possible — both `catalog.*` databases dropped 2026-08; DDL survives in
 git, loaded state does not.** See SUBSTRATE-1 in docs/rewrite-losses.md.
 

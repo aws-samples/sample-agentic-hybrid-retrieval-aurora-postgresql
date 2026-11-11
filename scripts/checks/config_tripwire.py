@@ -2,7 +2,7 @@
 """Fail the build if any file other than the yaml declares a retrieval number.
 
 `db/config/retrieval.yaml` is the single source for candidate limits, fusion `k`,
-per-arm weights, and the fuzzy threshold. Unit C removed the three live copies
+per-arm weights, and the fuzzy threshold. The rewrite removed the three live copies
 that agreed by luck and the dead fourth that disagreed (LOSS-3). This check
 prevents the fifth.
 
@@ -255,7 +255,7 @@ SQL_DEFAULTS: tuple[SqlDefault, ...] = (
         "fuzzy_threshold",
         "fuzzy_threshold",
     ),
-    # Unit D's weighted comparison function. Every arm cap and fusion input is
+    # The weighted comparison function. Every arm cap and fusion input is
     # pinned to the same yaml field as its unweighted twin, which is what makes
     # "identical candidate lists" checkable at the config layer rather than only
     # at request time.
@@ -446,7 +446,7 @@ def check_exemptions_complete(report: Report, *, repo: Path = REPO) -> None:
     default is silently unmonitored, and a "monitored seam" that only monitors
     what someone remembered to list is not monitored.
 
-    Measured: Unit D added 13 defaults across two functions — including three
+    Measured: adding weighted fusion added 13 defaults across two functions — including three
     fusion weights — and the tripwire stayed green with none of them pinned.
     """
     exempt = {(d.function, d.parameter) for d in SQL_DEFAULTS}

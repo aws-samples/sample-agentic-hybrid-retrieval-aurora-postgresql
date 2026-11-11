@@ -342,8 +342,8 @@ class FusionComparisonService:
     ) -> None:
         """Write the run and every candidate in one transaction.
 
-        Phase 4's `rrf_recomputes` reads exactly these columns, so it needs no
-        schema change: arm ranks, both fused scores, and the `rrf_k` and weights
+        A recompute check (`rrf_recomputes`) would read exactly these columns, so it
+        needs no schema change: arm ranks, both fused scores, and the `rrf_k` and weights
         this run used rather than whatever the yaml holds when the assertion runs.
         """
         provenance = {row["product_id"]: row["provenance"] for row in unweighted}

@@ -77,10 +77,10 @@ CREATE INDEX IF NOT EXISTS search_result_rank_idx
 
 -- One run of the unweighted/weighted fusion comparison.
 --
--- Phase 4's `rrf_recomputes` assertion re-derives a fused order from stored arm
--- ranks and stored fusion inputs, then checks the persisted order matches. That
--- assertion needs no schema change when it lands: everything it reads is here.
--- Unit D ships the substrate, not the assertion.
+-- A recompute check (`rrf_recomputes`) would re-derive a fused order from stored
+-- arm ranks and stored fusion inputs, then check the persisted order matches. It
+-- would need no schema change: everything it reads is stored here. This table
+-- holds those inputs; the check itself is not written yet.
 --
 -- `weights` and `rrf_k` are stored per run rather than read from the yaml at
 -- assertion time, because the yaml is editable and a recompute must use the

@@ -71,7 +71,7 @@ _ASSERTIONS: tuple[Assertion, ...] = (
         falsifier=(
             "full-text search contributes no candidates: an AND-only tsquery on "
             "terms that do not co-occur, an unpopulated search_document, or a "
-            "dropped GIN index. Measured before Phase 1 on four of six missions."
+            "dropped GIN index. Measured on four of six missions before the rewrite."
         ),
         label="full-text search contributed candidates",
     ),
