@@ -10,6 +10,7 @@ import { BuilderView } from "./BuilderView";
 import { comparisonRows, type ComparisonRow } from "./comparison";
 import { boldRecommendationNames } from "./emphasis";
 import { reportedDuration, type RunData } from "./findings";
+import { pickRequirements } from "./pickFacts";
 import { HowAnswered } from "./HowAnswered";
 import { PickRow, TopPick } from "./Picks";
 import { FollowUps } from "./ResultCards";
@@ -192,6 +193,22 @@ export function sameKind(picks: ProductSummary[]): boolean {
 }
 
 /**
+ * Whether the first pick earns the Top pick card. A pick whose listing states less
+ * than the shopper asked for is not a top pick: Lab 3's monitor states 90 W against
+ * Alex's 100W, so its verdict stands in the list instead of under a green label.
+ */
+function leadsWithTopPick(
+  picks: ProductSummary[],
+  rows: ComparisonRow[],
+  previousBestPickId: number | null,
+): boolean {
+  return Boolean(picks[0])
+    && sameKind(picks)
+    && picks[0].product_id !== previousBestPickId
+    && !pickRequirements(rows, 0).some((item) => item.status === "not_met");
+}
+
+/**
  * The picks after the lead card. They wait below the prose until it has been
  * read out, so their arrival never pushes the sentence being read down the panel.
  */
@@ -356,9 +373,7 @@ export function Turn(props: TurnProps) {
               durationMs={reportedDuration(turn.durationMs, trace)}
               rows={rows}
               answerId={answerId}
-              leadsWithCard={
-                Boolean(picks[0]) && sameKind(picks) && picks[0].product_id !== previousBestPickId
-              }
+              leadsWithCard={leadsWithTopPick(picks, rows, previousBestPickId)}
               text={declined ? "" : reveal.text}
               answerText={turn.streamed || response.answer}
               chunks={reveal.chunks}

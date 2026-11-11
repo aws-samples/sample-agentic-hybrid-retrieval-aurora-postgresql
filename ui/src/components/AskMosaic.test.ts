@@ -463,6 +463,41 @@ describe("AskMosaic header and Builder view", () => {
     expect(within(others).getAllByRole("listitem")).toHaveLength(1);
   });
 
+  const chargingMonitor = (watts: number) => ({
+    ...first,
+    category_key: "monitor",
+    title: "Vista 27 4K Monitor",
+    brand: "Vista",
+    model: "V27",
+    specs: { usb_c_power_w: { value: watts, source: "features[1]", quote: `${watts}W charging` } },
+  });
+
+  it("names no top pick when the pick falls short of a stated requirement", () => {
+    // Lab 3's follow-up: Alex's laptop needs 100W and the monitor's listing states 90 W.
+    const monitor = chargingMonitor(90);
+    renderAskMosaic({
+      ...groundedResponse(),
+      question: "Will the monitor charge my laptop at 100W?",
+      recommendations: [monitor],
+    });
+
+    expect(screen.queryByLabelText(/Top pick/)).toBeNull();
+    expect(screen.queryByText("Top pick")).toBeNull();
+    const picks = screen.getByRole("region", { name: "Picks" });
+    expect(within(picks).getByText(/Short of/).textContent).toContain("100W charging");
+  });
+
+  it("keeps the top pick when the pick meets every stated requirement", () => {
+    renderAskMosaic({
+      ...groundedResponse(),
+      question: "Will the monitor charge my laptop at 100W?",
+      recommendations: [chargingMonitor(100)],
+    });
+
+    const card = screen.getByLabelText(/Top pick/);
+    expect(within(card).getByText(/Meets/).textContent).toContain("100W charging");
+  });
+
   it("turns a citation number in the answer into a chip that names its source", () => {
     renderAskMosaic(groundedResponse());
 

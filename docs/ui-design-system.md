@@ -695,7 +695,9 @@ list (number pill, product, Listing or Review pill, the reviewer's stars, title,
 quote), "Still unknown", and up to three follow-ups as clear pills. When the
 picks are different kinds of product, such as the headset, monitor and chair of
 Alex's setup request, none is a top pick: the prose comes first and every pick is
-a compact row under "Picks". A pick's
+a compact row under "Picks". The same holds when the first pick's listing states
+less than a requirement the shopper named, such as Lab 3's monitor at 90 W against
+100W: its "Short of" verdict sits in its row, never under a "Top pick" pill. A pick's
 facts quote a review only when its reviewer gave four stars or more: the answer
 may cite a lower-rated review as a caveat, and on the card, without that
 sentence, it would read as a reason for the pick.
