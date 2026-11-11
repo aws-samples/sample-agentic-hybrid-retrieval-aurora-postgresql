@@ -1021,7 +1021,8 @@
 /* The open Ask Mosaic panel and the search-details column take width from the grid. */
 .mosaic-catalog-page .shop-canvas.assist-open .shop-results-layout .shop-products .shop-product-grid.is-ranked { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
-@media (min-width: 1200px) {
+/* The same breakpoint as the search-details column in shop-search-details.css. */
+@media (min-width: 1600px) {
   .mosaic-catalog-page .shop-results-layout.with-inspector .shop-products .shop-product-grid.is-ranked { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
