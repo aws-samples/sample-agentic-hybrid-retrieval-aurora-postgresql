@@ -367,10 +367,10 @@ def test_deploy_shows_each_phase_with_its_usual_time_and_what_is_left(
     assert positions == sorted(positions)
     # Verification is the one step whose measured time varies, so it and the totals that
     # include it show the shortest and longest; the steps that never varied keep one figure.
-    assert "5 steps, usually 1:11 to 1:25 in all." in output
+    assert "5 steps, usually 1:11 to 1:28 in all." in output
     assert "2/5  Update the tools runtime (usually about 0:16)" in output
-    assert "5/5  Verify the deployment (usually 0:13 to 0:27)" in output
-    assert "3/5  Updated the Retrieval agent runtime, 0:34 to 0:48 left" in output
+    assert "5/5  Verify the deployment (usually 0:13 to 0:30)" in output
+    assert "3/5  Updated the Retrieval agent runtime, 0:34 to 0:51 left" in output
 
 
 def test_a_failed_phase_says_so_before_the_failure(monkeypatch, capsys):
