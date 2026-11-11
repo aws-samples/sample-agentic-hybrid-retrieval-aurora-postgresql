@@ -37,7 +37,8 @@ def saved_answer(monkeypatch):
     connection.execute.return_value.fetchone.return_value = row
     connection.execute.return_value.fetchall.side_effect = [
         [{"search_event_id": search_id}],
-        [{"product_id": i} for i in (1, 2, 3)],
+        # Listing 4 is a second listing the answer step can receive and leave out.
+        [{"product_id": i} for i in (1, 2, 3, 4)],
     ]
 
     @contextmanager
@@ -73,8 +74,29 @@ def test_followup_preserves_answer_order_independent_of_synthesis_order(
     hydrate.assert_called_once_with([2, 1, 3])
 
 
+def test_followup_accepts_an_answer_that_left_out_a_repeated_listing(saved_answer):
+    """The answer step keeps one listing per product; its recorded input keeps them all."""
+    context, row, hydrate = saved_answer
+    row["input_payload"]["product_ids"] = [1, 2, 3, 4]
+
+    _, products, _ = agent_tools._load_conversation_context(context)
+
+    assert [item.product_id for item in products] == [2, 1, 3]
+    hydrate.assert_called_once_with([2, 1, 3])
+
+
 @pytest.mark.parametrize(
-    "change", ["missing", "extra", "duplicate", "reordered", "renamed", "scope_changed"]
+    "change",
+    [
+        "missing",
+        "extra",
+        "duplicate",
+        "reordered",
+        "renamed",
+        "left_out_listing",
+        "unsaved_answer_subset",
+        "scope_changed",
+    ],
 )
 def test_followup_rejects_changed_answer_or_scope_before_hydrating(
     saved_answer, change
@@ -92,6 +114,14 @@ def test_followup_rejects_changed_answer_or_scope_before_hydrating(
         context.recommendations.reverse()
     elif change == "renamed":
         context.recommendations[0].title = "A different product"
+    elif change == "left_out_listing":
+        row["input_payload"]["product_ids"] = [1, 2, 3, 4]
+        context.recommendations[-1] = context.recommendations[-1].model_copy(
+            update={"product_id": 4}
+        )
+    elif change == "unsaved_answer_subset":
+        row["input_payload"]["product_ids"] = [1, 2, 3, 4]
+        del row["extracted_intent"]["selected_products"]
     else:
         row["input_payload"]["product_ids"] = [1, 2, 99]
     with pytest.raises(agent_tools.ConversationContextError):

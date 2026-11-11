@@ -179,12 +179,12 @@ def _load_conversation_context(
             recommendation.model_dump() for recommendation in context.recommendations
         ]
         supplied_ids = [item["product_id"] for item in supplied_products]
-        # Synthesis records its input order; the saved answer may lead with a
-        # different pick. Scope must agree, then saved identities pin display order.
-        if (
-            len(supplied_ids) != len(selected_ids)
-            or len(set(supplied_ids)) != len(supplied_ids)
-            or set(supplied_ids) != set(selected_ids)
+        # Synthesis records the agent's input in its order. The answer keeps one
+        # listing per product and may lead with a different pick, so it can hold
+        # fewer products in another order. A follow-up may name only products the
+        # step received; the saved identities below pin which, and their order.
+        if len(set(supplied_ids)) != len(supplied_ids) or not set(supplied_ids) <= set(
+            selected_ids
         ):
             raise ConversationContextError(
                 "The follow-up products do not match the previous answer of record"
@@ -212,6 +212,11 @@ def _load_conversation_context(
                     "The follow-up product identities do not match the previous answer"
                 )
             selected_ids = supplied_ids
+        elif len(supplied_ids) != len(selected_ids):
+            # A turn saved without its answer's products has only the step's input.
+            raise ConversationContextError(
+                "The follow-up products do not match the previous answer of record"
+            )
 
         context_event_ids = _uuid_list(
             [
