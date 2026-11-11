@@ -98,6 +98,17 @@ describe("SpotlightTour", () => {
     expect(screen.getByRole("dialog", { name: "Search" })).toBeTruthy();
   });
 
+  it("counts only the stops it shows when an optional one is absent", () => {
+    // Playground's run chips exist only after a search: its tour read 1, 2, 4, 5 of 5.
+    placeTarget("search");
+    render(<SpotlightTour open onClose={vi.fn()} steps={[STEPS[0], OPTIONAL, STEPS[2]]} />);
+    frames();
+    expect(screen.getByRole("dialog", { name: "Welcome" }).textContent).toContain("Tour · 1 of 2");
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    frames();
+    expect(screen.getByRole("dialog", { name: "Search" }).textContent).toContain("Tour · 2 of 2");
+  });
+
   it("Skip the tour ends it and remembers", () => {
     const onClose = vi.fn();
     render(<SpotlightTour open onClose={onClose} steps={STEPS} />);

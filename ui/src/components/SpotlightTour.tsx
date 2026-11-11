@@ -242,9 +242,11 @@ export function SpotlightTour(
   const id = useId();
   const maskId = `${id}-cut`;
   const step = steps[Math.min(index, steps.length - 1)];
-  // Only optional stops can be known not to come, so only they make this the last one.
-  const lastShown = steps.slice(index + 1).every((later) => later.optional === true
-    && later.target !== undefined && visibleTarget(later.target) === null);
+  // Only optional stops can be known not to come, so only they leave the count and
+  // only they can make this the last one.
+  const shown = steps.filter((candidate) => candidate === step || !(candidate.optional === true
+    && candidate.target !== undefined && visibleTarget(candidate.target) === null));
+  const lastShown = shown.at(-1) === step;
 
   const end = useCallback(() => {
     markTourSeen(storageKey);
@@ -434,7 +436,7 @@ export function SpotlightTour(
           onKeyDown={keepFocus}
         >
           <div key={step.id} className="spotlight-card-content">
-            <p className="spotlight-count">{hint ? "Tip" : `Tour · ${index + 1} of ${steps.length}`}</p>
+            <p className="spotlight-count">{hint ? "Tip" : `Tour · ${shown.indexOf(step) + 1} of ${shown.length}`}</p>
             <h2 id={`${id}-title`}>{step.title}</h2>
             <p id={`${id}-body`}>{step.body}</p>
             <div className="spotlight-actions">
