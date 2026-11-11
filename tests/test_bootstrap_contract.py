@@ -1015,6 +1015,19 @@ def test_claude_code_is_pinned_to_an_exact_version(script: str) -> None:
     )
 
 
+def test_claude_code_installs_no_editor_extension(script: str) -> None:
+    """The coach's first run installed Open VSX's newest extension, unpinned.
+
+    On 11 November it was 2.1.322 beside the pinned CLI 2.1.312, with two activity-bar
+    icons, a PORTS badge and a welcome screen that interrupted a minute later.
+    """
+    profile = script.split("cat >/etc/profile.d/mosaic-claude.sh", 1)[1].split(
+        "\nEOF", 1
+    )[0]
+    assert "export CLAUDE_CODE_IDE_SKIP_AUTO_INSTALL=1" in profile.splitlines()
+    assert "--install-extension" not in script
+
+
 def _executable_lines(script: str) -> list[str]:
     """The script's own commands: no comment lines, no heredoc bodies.
 

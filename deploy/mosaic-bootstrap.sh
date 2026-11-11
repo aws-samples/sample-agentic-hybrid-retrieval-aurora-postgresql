@@ -559,13 +559,16 @@ test -n "$CLAUDE_CODE_VERSION"
 echo "Claude Code $CLAUDE_CODE_VERSION installed"
 
 # The stack's Region: an event may run in any Region the workshop is validated in, and
-# Claude Code must call Bedrock in the one it runs in.
+# Claude Code must call Bedrock in the one it runs in. Without the skip switch, the
+# coach's first run installs Open VSX's newest editor extension, unpinned, and its
+# welcome screen interrupts a minute later; the coach asks before edits without it.
 cat >/etc/profile.d/mosaic-claude.sh <<EOF
 export AWS_REGION=$AWS_REGION
 export AWS_DEFAULT_REGION=$AWS_REGION
 export CLAUDE_CODE_USE_BEDROCK=1
 export ANTHROPIC_MODEL=global.anthropic.claude-sonnet-5-5
 export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
+export CLAUDE_CODE_IDE_SKIP_AUTO_INSTALL=1
 EOF
 chmod 644 /etc/profile.d/mosaic-claude.sh
 # Since Claude Code 2.1.283, interactive sessions start in auto mode, which edits
