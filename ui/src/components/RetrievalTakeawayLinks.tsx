@@ -1,4 +1,7 @@
-export const RETRIEVAL_CONNECTION_GUIDE = "https://github.com/aws-samples/sample-agentic-hybrid-retrieval-aurora-postgresql/blob/main/docs/mcp-interoperability.md";
+import { SOURCE_REPOSITORY_URL } from "../navigation";
+
+export const RETRIEVAL_CONNECTION_GUIDE =
+  `${SOURCE_REPOSITORY_URL}/blob/${__MOSAIC_SOURCE_REVISION__}/docs/mcp-interoperability.md`;
 
 export function RetrievalTakeawayLinks() {
   return (

@@ -1,8 +1,25 @@
 import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
+import { execFileSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 
 const API_TARGET = process.env.CATALOG_API_PROXY ?? "http://127.0.0.1:8000";
+
+/**
+ * The commit this app is built from. Its links into the source open that commit's
+ * files, as the lab guide's do; a `main` link drifts from the event it ships with.
+ */
+function sourceRevision(): string {
+  try {
+    return execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+  } catch (error) {
+    throw new Error(
+      "Source revision rule: the app links source files at the commit it is built from, "
+      + `and git rev-parse HEAD failed (${(error as Error).message.trim()}); `
+      + "fix: build from a Git checkout of the repository.",
+    );
+  }
+}
 
 /** What `GET /api/health` reports in service/main.py. Nothing else answers this. */
 const MOSAIC_SERVICE = "catalog-hybrid-retrieval";
@@ -134,6 +151,7 @@ function verifyApiTarget(): Plugin {
 
 export default defineConfig({
   plugins: [react(), verifyApiTarget(), localCatalogPreview()],
+  define: { __MOSAIC_SOURCE_REVISION__: JSON.stringify(sourceRevision()) },
   server: {
     host: "127.0.0.1",
     port: 5173,
