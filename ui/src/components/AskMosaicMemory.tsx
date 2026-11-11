@@ -3,6 +3,7 @@ import { Link } from "wouter";
 import { api } from "../api";
 import { memoryRecordText } from "../memoryRecordText";
 import type { MemoryConnectionStatus, SessionMemorySnapshot } from "../types";
+import { plural } from "./ask-mosaic/findings";
 
 export function useAskMosaicMemory(open: boolean) {
   const [enabled, setEnabled] = useState(false);
@@ -58,11 +59,12 @@ export function MemoryControl({ memory, pending }: { memory: AskMosaicMemoryCont
 export function MemoryReceipt({ memory }: { memory?: SessionMemorySnapshot }) {
   if (!memory?.enabled) return null;
   const records = memory.records ?? [];
+  const events = memory.event_ids_read?.length ?? 0;
   return <details className="ask-mosaic-memory-receipt">
     <summary>Memories used <span>{records.length}</span></summary>
     {memory.status !== "connected" ? <p>AgentCore Memory was not connected for this answer.</p> : <>
       <p>{records.length ? "These saved details helped interpret your request. Product facts still come from the catalog sources."
-        : "No saved facts or preferences matched this request."} {memory.event_ids_read?.length ?? 0} earlier conversation events were read.</p>
+        : "No saved facts or preferences matched this request."} {plural(events, "earlier conversation event")} {events === 1 ? "was" : "were"} read.</p>
       <ul>{records.map((record) => <li key={record.id}>
         <p>{memoryRecordText(record.text)}</p>
         <details><summary>Record details</summary><code>{record.id}</code><pre>{record.text}</pre></details>

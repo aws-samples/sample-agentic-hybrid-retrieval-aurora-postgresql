@@ -31,7 +31,13 @@ it("shows actual records and a failed save without claiming new memories exist",
   expect(screen.getByText("Prefers quiet equipment")).toBeTruthy();
   expect(screen.getByRole("alert").textContent).toContain("could not be saved");
   expect(screen.queryByText(/Conversation saved/)).toBeNull();
-  expect(screen.getByText(/1 earlier conversation events/)).toBeTruthy();
+  expect(screen.getByText(/1 earlier conversation event was read\./)).toBeTruthy();
+});
+
+it("counts earlier conversation events in the plural only when there are several", () => {
+  render(<MemoryReceipt memory={{ enabled: true, status: "connected", event_ids_read: ["a", "b"], records: [] }} />);
+  fireEvent.click(screen.getByText("Memories used"));
+  expect(screen.getByText(/2 earlier conversation events were read\./)).toBeTruthy();
 });
 
 it("keeps memory to one toggle and shows its sentence as a line only when memory cannot be used", () => {

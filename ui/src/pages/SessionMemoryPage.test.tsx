@@ -177,6 +177,17 @@ it("keeps saved answers collapsed and shows only a newly requested answer inline
   expect(stream).toHaveBeenCalledTimes(1);
 });
 
+it("counts one memory and one conversation event in the singular", async () => {
+  const record = { id: "fact-1", strategy_id: "SEMANTIC", text: "Alex shares an office.", namespaces: ["/mosaic/alex-browser/"], created_at: "2026-09-09T17:45:00Z", score: null };
+  const session: ShopperSession = {
+    agent_session_id: "session-one", started_at: "2026-09-09T17:44:11Z", ended_at: null, label: null,
+    turns: [{ run_id: "run-1", question: "I take video calls from home", answer: "Answer.", created_at: "2026-09-09T17:44:40Z", products: [], search_ids: [], citations: [], memory: { status: "connected", enabled: true, records: [record], event_ids_read: ["event-1"] } }],
+  };
+  vi.mocked(api.sessionMemory).mockResolvedValue({ ...structuredClone(response), sessions: [session], active_session_id: "session-one" });
+  render(<SessionMemoryPage />);
+  expect(await screen.findByText("1 long-term memory read · 1 conversation event read")).toBeTruthy();
+});
+
 it("says when a session's runs kept memory off, and names each record's scope", async () => {
   const session: ShopperSession = {
     agent_session_id: "session-off", started_at: "2026-09-09T17:44:11Z", ended_at: null, label: null,

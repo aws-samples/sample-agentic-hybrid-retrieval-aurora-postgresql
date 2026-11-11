@@ -10,6 +10,7 @@ import { ProductAnswer } from "../components/ProductAnswer";
 import { MosaicLabsTabs } from "../components/MosaicLabsTabs";
 import { MosaicLabsMasthead } from "../components/MosaicLabsMasthead";
 import { MosaicRunButton } from "../components/MosaicRunButton";
+import { plural } from "../components/ask-mosaic/findings";
 import { isSetupCardMessage, splitSetupCommand } from "../components/ask-mosaic/setupMessage";
 import { DEPLOY_AGENT } from "../participantCommands";
 import { playgroundQueryHref } from "../navigation";
@@ -49,7 +50,7 @@ function Records({ records, sessionId = null }: { records: MemoryRecord[]; sessi
 
 function Turn({ turn }: { turn: Omit<ShopperSession["turns"][number], "created_at"> }) {
   return <article className="memory-turn"><h3>{turn.question}</h3>
-    <p className="memory-turn-meta">{turn.memory.records?.length ?? 0} long-term memories read · {turn.memory.event_ids_read?.length ?? 0} conversation events read</p>
+    <p className="memory-turn-meta">{plural(turn.memory.records?.length ?? 0, "long-term memory", "long-term memories")} read · {plural(turn.memory.event_ids_read?.length ?? 0, "conversation event")} read</p>
     {turn.memory.write_status === "failed" && <p role="alert">The answer is saved in Aurora, but its AgentCore event could not be stored.</p>}
     {turn.answer ? <div className="memory-answer-copy"><ProductAnswer text={turn.answer} products={turn.products} citations={turn.citations} /></div> : <p>This run has no completed answer.</p>}
     <details className="memory-sources"><summary>Memories, searches and sources used</summary>
