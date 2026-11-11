@@ -336,6 +336,50 @@ def test_on_a_terminal_the_answer_arrives_once_and_reads_as_the_saved_run(
     assert out.count("ANSWER") == 1
 
 
+LAB_3_COMPLETE_NEXT = (
+    "\n\nNext: the guide's next step. Lab 3 is complete, so this run needs no "
+    "completion check.\n"
+)
+
+
+@pytest.mark.parametrize("asked", ["setup request", "another question"])
+def test_once_lab_3_is_complete_an_answer_points_on_to_the_guide(
+    asked, monkeypatch, capsys
+):
+    """Go deeper's questions come after completion; none of them is graded."""
+    from service.lab_checks import mission_for_lab
+
+    question = (
+        mission_for_lab(3)["query"] if asked == "setup request" else "Find a desk lamp"
+    )
+    monkeypatch.setattr(ask_agent, "lab_3_solved", lambda: True)
+    monkeypatch.setattr(
+        ask_agent,
+        "urlopen",
+        lambda *_a, **_k: FakeStream(*answered_in_pieces(grounded())),
+    )
+    assert ask_agent.main([question]) == 0
+
+    assert capsys.readouterr().out.endswith(LAB_3_COMPLETE_NEXT)
+
+
+def test_before_lab_3_is_complete_an_answer_points_to_the_completion_check(
+    monkeypatch, capsys
+):
+    monkeypatch.setattr(ask_agent, "lab_3_solved", lambda: False)
+    monkeypatch.setattr(
+        ask_agent,
+        "urlopen",
+        lambda *_a, **_k: FakeStream(*answered_in_pieces(grounded())),
+    )
+    assert ask_agent.main(["Find a desk lamp"]) == 0
+
+    assert capsys.readouterr().out.endswith(
+        "\n\nNext: check completion on your newest setup run:\n"
+        "uv run python scripts/grade_setup_run.py\n"
+    )
+
+
 def refused_draft(sequence):
     return {
         "sequence": sequence,

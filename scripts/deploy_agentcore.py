@@ -22,6 +22,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from scripts.checks.rehearsal import redact
+from scripts.lab_state import lab_3_solved
 from scripts.package_agentcore import package
 from scripts.progress import Progress
 from scripts.terminal_text import (
@@ -816,8 +817,14 @@ def tool_lines(tools: list[dict]) -> list[str]:
 
 
 def _verified_next() -> None:
-    """Print the step after a deployment that verified: ask Alex's setup request."""
-    next_step("ask Alex's setup request:", ask_setup_command())
+    """Print the step after a deployment that verified: ask Alex's setup request.
+
+    A deploy makes Lab 3 unproved again, so only a recheck can find it complete.
+    """
+    if lab_3_solved():
+        next_step("the guide's next step. Lab 3 is complete.")
+    else:
+        next_step("ask Alex's setup request:", ask_setup_command())
 
 
 @tidy

@@ -1080,6 +1080,14 @@ def _lab_3_passed_since(deployed_at: datetime, repo: Path) -> bool:
     return saved.get("verdict") == "PASS" and graded_at > deployed_at
 
 
+LAB_3_SOLVED = "Lab 3: SOLVED"
+
+
+def lab_3_solved(repo: Path = REPO) -> bool:
+    """Whether `status` reads Lab 3 SOLVED: the newest deploy since its start passed."""
+    return status_line(3, repo=repo) == LAB_3_SOLVED
+
+
 def _lab_3_status(repo: Path) -> str:
     """Lab 3 is solved by a passing run of the participant's deployed agent, not by source."""
     from service.agent_deploys import lab_3_started_at, load_deploys
@@ -1095,7 +1103,7 @@ def _lab_3_status(repo: Path) -> str:
     if not deploys:
         return f"Lab 3: REPAIRED, NOT DEPLOYED. Next: deploy with {DEPLOY_AGENT}."
     if _lab_3_passed_since(deploys[-1].deployed_at, repo):
-        return "Lab 3: SOLVED"
+        return LAB_3_SOLVED
     return (
         "Lab 3: DEPLOYED, NOT YET PROVED. Next: ask Alex's setup request:\n"
         f"{ask_setup_command()}\nthen check that run with {grade_setup_run_command()}"

@@ -1288,6 +1288,20 @@ def test_lab_3_is_solved_only_after_the_deployed_agent_passed_completion(
     assert status_line(3, repo=lab_repo) == "Lab 3: SOLVED"
 
 
+def test_lab_3_reads_complete_only_while_status_reads_solved(lab_repo: Path) -> None:
+    """The `Next:` lines after an answer or a recheck follow the same rule as `status`."""
+    from scripts.lab_state import lab_3_solved
+
+    assert not lab_3_solved(lab_repo)
+    _lab_3_started(lab_repo)
+    _lab_3_deployed(lab_repo, "2026-10-29T11:00:00+00:00")
+    assert not lab_3_solved(lab_repo)
+    _lab_3_graded(lab_repo, "PASS", "2026-10-29T11:30:00+00:00")
+    assert lab_3_solved(lab_repo)
+    _lab_3_deployed(lab_repo, "2026-10-29T12:00:00+00:00")
+    assert not lab_3_solved(lab_repo)
+
+
 def test_lab_3_with_unrepaired_source_is_broken(lab_repo: Path) -> None:
     from scripts.lab_state import status_line
 

@@ -34,6 +34,7 @@ from urllib.request import Request, urlopen
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from scripts.lab_state import lab_3_solved
 from scripts.progress import Waiting, bar, can_redraw
 from scripts.prove_lab import LabValidationError, error_detail
 from scripts.terminal_text import (
@@ -550,7 +551,12 @@ def _answered_next(question: str, response: dict[str, Any]) -> None:
     """Print the step after an answer: the guide's follow-up, or the completion check."""
     from service.lab_checks import mission_for_lab, same_request
 
-    if not same_request(mission_for_lab(3)["query"], question):
+    if lab_3_solved():
+        next_step(
+            "the guide's next step. Lab 3 is complete, so this run needs no "
+            "completion check."
+        )
+    elif not same_request(mission_for_lab(3)["query"], question):
         next_step(
             "check completion on your newest setup run:", grade_setup_run_command()
         )

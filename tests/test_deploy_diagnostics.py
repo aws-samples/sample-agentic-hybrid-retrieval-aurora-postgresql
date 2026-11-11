@@ -554,6 +554,18 @@ def test_verify_alone_ends_with_asking_the_setup_request(monkeypatch, capsys):
     )
 
 
+def test_verify_after_lab_3_is_complete_points_on_to_the_guide(monkeypatch, capsys):
+    monkeypatch.setattr(sys, "argv", ["deploy_agentcore.py", "verify"])
+    monkeypatch.setattr(deploy, "verify", lambda: print("Runtime code: passed"))
+    monkeypatch.setattr(deploy, "lab_3_solved", lambda: True)
+
+    assert deploy.main() == 0
+
+    assert capsys.readouterr().out == (
+        "Runtime code: passed\n\nNext: the guide's next step. Lab 3 is complete.\n"
+    )
+
+
 def test_tools_ends_with_connecting_them_in_the_editor(monkeypatch, capsys):
     monkeypatch.setattr(sys, "argv", ["deploy_agentcore.py", "tools"])
     monkeypatch.setattr(

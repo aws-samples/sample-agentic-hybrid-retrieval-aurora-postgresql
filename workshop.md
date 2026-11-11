@@ -208,7 +208,9 @@ delivers it, which it does only after the answer's checks pass, followed by the 
 the tool trace with the search SQL Aurora ran, the products, each citation with its
 quote, the outcome and the **Run ID**, each under its own heading after a blank line, and
 a closing `Next:` line that names the 100W follow-up. They ask the 100W follow-up the same way;
-each call is its own run. One drafting call rewrites a draft its checks refuse up to
+each call is its own run. Once `status` reads Lab 3 SOLVED, an answer's `Next:` and a
+`deploy_agentcore.py verify` recheck's name the guide's next step instead of the completion
+check or the setup request; a new deploy makes Lab 3 unproved again. One drafting call rewrites a draft its checks refuse up to
 twice before the agent hears of it. When a call still ends refused, that
 `synthesize_cited_answer` step reads `refused` in yellow, not `error`, with
 `draft refused: <reason>` under it, wrapped to the terminal's width; the reason is the
