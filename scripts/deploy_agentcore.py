@@ -432,8 +432,8 @@ def update(image_uri: str, progress: Progress, application_sha256: str) -> None:
         payload.get("networkConfiguration", {}).get("networkModeConfig", {}).pop(
             "requireServiceS3Endpoint", None
         )
-        # The pinned platform, named on every update: a runtime found on another one moves
-        # back in place, so this deploy is the fix the readiness record gives for it.
+        # Every update names the pinned platform version, so a runtime found on another
+        # version moves back to it in place.
         payload["platformVersion"] = RUNTIME_PLATFORM_VERSION
         payload["agentRuntimeId"] = runtime_id
         payload["agentRuntimeArtifact"] = {
