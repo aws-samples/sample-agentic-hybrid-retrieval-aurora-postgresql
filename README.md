@@ -143,7 +143,7 @@ needs attention (`CANNOT GRADE`, `declined`, a `refused` draft). The word always
 and a log or pipe gets the plain line. Each command
 ends with a blank line and a `Next:` line naming the step after it.
 
-Every search calls Amazon Bedrock twice, for the query embedding and for reranking, and
+A search can call Amazon Bedrock twice, for the query embedding and for reranking, and
 waits 10 seconds for each attempt. If no attempt answers, the command stops with `This
 search stopped: Amazon Bedrock's reranking call did not answer within 10 seconds, even after
 retrying.` Run the same command again; nothing in your lab changed.
