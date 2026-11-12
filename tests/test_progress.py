@@ -44,6 +44,8 @@ class Terminal(io.StringIO):
 
 @pytest.fixture(autouse=True)
 def _a_capable_terminal(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The shell running the tests can set NO_COLOR; Code Editor's terminal does not.
+    monkeypatch.delenv("NO_COLOR", raising=False)
     monkeypatch.setenv("TERM", "xterm-256color")
     monkeypatch.setattr(progress_module, "columns", lambda: 100)
 
@@ -287,6 +289,16 @@ def test_a_failed_step_names_failed_in_red_on_a_terminal_only() -> None:
         "Verify the deployment: \033[1;31mfailed\033[0m\n"
     )
     assert plain.getvalue().endswith("Verify the deployment: failed\n")
+
+
+def test_no_color_keeps_a_failed_step_plain_on_a_terminal(monkeypatch) -> None:
+    monkeypatch.setenv("NO_COLOR", "1")
+    out = Terminal()
+    progress = Progress(stream=out, now=Clock(), interval=None)
+    progress.begin("Verify the deployment", typical=13, animate=False)
+    progress.fail()
+
+    assert out.getvalue().endswith("Verify the deployment: failed\n")
 
 
 def test_a_step_without_a_usual_time_shows_only_the_time_waited_on_a_terminal() -> None:
