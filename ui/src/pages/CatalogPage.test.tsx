@@ -1008,6 +1008,24 @@ describe("CatalogPage", () => {
     expect(within(row).getAllByRole("button").filter((button) => button.getAttribute("aria-pressed") === "true")).toHaveLength(1);
   });
 
+  it("searches again when the selected suggestion is already the current search", async () => {
+    // The Lab 2 guide has participants select this chip after their repair: the
+    // earlier, unrepaired result must not be kept just because the request matches.
+    vi.mocked(useCatalogSource).mockReturnValue({ dataset_id: "reviews-2023-v2", real: true });
+    renderPage();
+    const examples = await screen.findByRole("group", { name: "Suggested searches" });
+    const chip = within(examples).getByRole("button", { name: "Lab 1: a mistyped listing ID" });
+    fireEvent.click(chip);
+    await waitFor(() => expect(api.search).toHaveBeenCalledTimes(1));
+    await screen.findByRole("region", { name: "How this search ran" });
+
+    fireEvent.click(within(screen.getByRole("group", { name: "Suggested searches" }))
+      .getByRole("button", { name: "Lab 1: a mistyped listing ID" }));
+
+    await waitFor(() => expect(api.search).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(api.search).mock.calls[1].slice(0, 2)).toEqual(vi.mocked(api.search).mock.calls[0].slice(0, 2));
+  });
+
   it("inspects and reorders the same saved products without another search", async () => {
     const shifted = { ...searchResponse, results: recommendations.map((product, index) => ({
       ...product, signals: { ...product.signals!, pre_rerank_rank: index === 0 ? 24 : 2, final_rank: index + 1 },

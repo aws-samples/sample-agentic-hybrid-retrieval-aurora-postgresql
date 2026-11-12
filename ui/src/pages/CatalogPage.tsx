@@ -906,6 +906,9 @@ export function CatalogPage() {
       if (value !== undefined) next.set(key, typeof value === "object" ? JSON.stringify(value) : String(value));
     }
     setSearchParams(next);
+    // Selecting the request already showing must still ask Aurora again: a repair made
+    // in another window changes the answer while the URL stays the same.
+    if (exampleIsActive(suggestion)) setRetrievalNonce((run) => run + 1);
   }
 
   /** Whether this example is the request Shop is showing: its words and every gate it sets. */
