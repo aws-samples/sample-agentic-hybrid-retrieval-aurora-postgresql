@@ -61,6 +61,7 @@ from service.participant_commands import (
     ask_setup_command,
     grade_setup_run_command,
 )
+from service.synthesis import ANSWER_CHECK_ERRORS
 
 # Code Editor's terminal on a 16-inch laptop holds 124 characters a line. Every line stays
 # well inside it, so a long title or quote is shortened rather than wrapped mid-word.
@@ -179,15 +180,9 @@ UNSUPPORTED = "which no cited record supports"
 CLAIM_REVIEW = r"claim support: passage \d+"
 # The checks whose reason the next draft is given, so it can avoid the same problem.
 TOLD_WHY = ("SynthesisOutputError", "SynthesisTruncated")
-# The application's own answer checks; any other failure of the draft step is the
-# model or the service, not a refusal.
-ANSWER_CHECKS = (
-    "AnswerabilityError",
-    "PartlySupportedSelection",
-    "SynthesisOutputError",
-    "SynthesisStopped",
-    "SynthesisTruncated",
-)
+# The application's own answer checks, the ones the agent's trace marks `refused`; any
+# other failure of the draft step is the model or the service, not a refusal.
+ANSWER_CHECKS = tuple(check.__name__ for check in ANSWER_CHECK_ERRORS)
 
 
 def _refusal(detail: str) -> str:

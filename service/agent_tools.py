@@ -17,7 +17,6 @@ from strands import tool
 from service import gateway_tools
 from service.agent_setup import AgentSetupError
 from service.answerability import (
-    AnswerabilityError,
     PartlySupportedSelection,
     SynthesisDeclined,
 )
@@ -41,10 +40,10 @@ from service.models import (
 from service.retrieval import get_retrieval_service, signals_from_receipt
 from service.retrieval_fingerprint import explain
 from service.synthesis import (
+    ANSWER_CHECK_ERRORS,
     LEAD_STAR_GAP,
     ReportedLimits,
     SynthesisOutputError,
-    SynthesisStopped,
     SynthesisTruncated,
     lead_with_better_rated,
     recommendations_in_answer_order,
@@ -498,6 +497,7 @@ def _append_trace_step(
     outcome: str = "success",
     origin: Literal["model", "controller_fallback"] | None = None,
     search_sql_sha256: str | None = None,
+    refused: bool = False,
 ) -> None:
     """Append one step to the run's trace and notify the progress callback.
 
@@ -516,6 +516,7 @@ def _append_trace_step(
             "result_count": result_count,
             "arguments": arguments,
             "outcome": outcome,
+            "refused": refused,
             "origin": origin or _TRACE_ORIGIN.get(),
             "latency_ms": round((perf_counter() - started) * 1_000, 2),
             "route": route,
@@ -1651,9 +1652,7 @@ def synthesize_cited_answer(
         )
         # The application's own check errors name the rule and the offending IDs
         # or sentence, so the trace says which check failed, not just its type.
-        named = isinstance(
-            error, (AnswerabilityError, SynthesisOutputError, SynthesisStopped)
-        )
+        named = isinstance(error, ANSWER_CHECK_ERRORS)
         _append_trace_step(
             "synthesize_cited_answer",
             {"question": question, "product_ids": unique_ids},
@@ -1664,6 +1663,7 @@ def synthesize_cited_answer(
                 else f"Synthesis failed with {type(error).__name__}."
             ),
             outcome="error",
+            refused=named,
         )
         if isinstance(error, (SynthesisOutputError, SynthesisTruncated)):
             state["synthesis_retry_product_ids"] = unique_ids
@@ -2160,6 +2160,7 @@ def persist_completed_run(
                                 "result_count": step.get("result_count"),
                                 "route": step.get("route"),
                                 "search_sql_sha256": step.get("search_sql_sha256"),
+                                "refused": step.get("refused", False),
                                 "citations": (
                                     [
                                         citation.model_dump()

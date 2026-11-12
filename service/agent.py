@@ -77,6 +77,7 @@ def _trace_steps(state: dict[str, Any]) -> list[ToolTraceStep]:
             result_count=item.get("result_count"),
             arguments=item.get("arguments") or {},
             outcome=item.get("outcome", "success"),
+            refused=item.get("refused", False),
             origin=item.get("origin", "model"),
             latency_ms=item.get("latency_ms"),
             route=item.get("route"),

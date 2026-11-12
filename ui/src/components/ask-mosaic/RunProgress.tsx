@@ -6,6 +6,7 @@ import { stagesFor, type AssistStage } from "./types";
 const CHIP_STATE_WORD: Record<ToolChip["state"], string> = {
   done: "done",
   failed: "failed",
+  refused: "refused by an answer check",
   denied: "declined",
 };
 

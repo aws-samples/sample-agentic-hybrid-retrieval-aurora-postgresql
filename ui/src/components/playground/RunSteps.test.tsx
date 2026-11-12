@@ -47,6 +47,12 @@ it("names each tool call in plain words and keeps denied apart from failed", () 
   ]);
 });
 
+it("shows a refused draft as refused, not failed", () => {
+  const refused = { ...step(1, "synthesize_cited_answer", "error", 31176), refused: true };
+  const chips = agentChips([refused, step(2, "synthesize_cited_answer", "error", 90)], "reason", false);
+  expect(chips.map((chip) => chip.state)).toEqual(["refused", "failed"]);
+});
+
 it("draws the chips as one labelled list with arrows between the pipeline's stages", () => {
   render(<RunSteps chips={searchChips(response("applied"))} label="How this search ran" />);
   const list = screen.getByRole("list", { name: "How this search ran" });

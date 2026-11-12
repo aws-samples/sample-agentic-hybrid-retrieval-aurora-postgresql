@@ -603,6 +603,10 @@
   background: var(--danger);
 }
 
+.ask-tool-chip[data-state="refused"] .ask-tool-chip-dot {
+  background: var(--gold);
+}
+
 .ask-tool-chip[data-state="denied"] {
   color: var(--ink-soft);
 }

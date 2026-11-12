@@ -409,6 +409,11 @@ export interface ToolTraceStep {
    * that omits the value entirely makes the step unrepresentable in this UI.
    */
   outcome: "success" | "error" | "denied";
+  /**
+   * An answer check refused this draft step. Its `outcome` is still `error`, the only
+   * value the database has for it, but it is the check working, not a failed step.
+   */
+  refused?: boolean;
   origin?: "model" | "controller_fallback";
   latency_ms: number | null;
   /** Where a catalog tool ran; absent for steps that read no catalog. */

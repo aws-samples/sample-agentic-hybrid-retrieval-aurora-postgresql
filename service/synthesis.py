@@ -9,7 +9,12 @@ from collections.abc import Collection, Iterable, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from service.answerability import SynthesisDeclined, assess_answerability
+from service.answerability import (
+    AnswerabilityError,
+    PartlySupportedSelection,
+    SynthesisDeclined,
+    assess_answerability,
+)
 from service.bedrock import (
     cached_system,
     converse,
@@ -40,6 +45,16 @@ class SynthesisTruncated(SynthesisStopped):
     the places that retry on `SynthesisOutputError` retry on this too.
     """
 
+
+# The application's own answer checks. A draft step that fails with one of these was
+# refused by a check; any other failure is the model or the service.
+ANSWER_CHECK_ERRORS = (
+    AnswerabilityError,
+    PartlySupportedSelection,
+    SynthesisOutputError,
+    SynthesisStopped,
+    SynthesisTruncated,
+)
 
 SYSTEM_PROMPT = """You are a read-only product-discovery synthesis service.
 Answer only from the numbered evidence records supplied by the application.

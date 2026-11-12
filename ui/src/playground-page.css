@@ -817,6 +817,7 @@ p.pg-rank-move {
 
 .pg-chip[data-state="done"]::before { background: var(--green); }
 .pg-chip[data-state="failed"]::before { background: var(--danger); }
+.pg-chip[data-state="refused"]::before { background: var(--gold); }
 .pg-chip[data-state="running"]::before { background: var(--action); animation: pg-pulse 1.1s ease-in-out infinite; }
 .pg-chip[data-state="quiet"] { color: var(--ink-soft); }
 .pg-chip[data-state="quiet"]::before { background: transparent; box-shadow: inset 0 0 0 1.5px var(--line-strong); }

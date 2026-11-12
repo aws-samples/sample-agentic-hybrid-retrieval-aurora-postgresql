@@ -4,7 +4,7 @@ import { toolName } from "../ask-mosaic/toolChips";
 import type { SearchResponse, ToolTraceStep } from "../../types";
 import type { PipelinePhase } from "../../usePipelineRun";
 
-type ChipState = "running" | "done" | "failed" | "quiet";
+type ChipState = "running" | "done" | "failed" | "refused" | "quiet";
 
 interface Chip {
   key: string;
@@ -65,7 +65,7 @@ export function agentChips(trace: ToolTraceStep[], phase: PipelinePhase | null, 
       key: `step-${step.sequence}`,
       label,
       value: duration(step.latency_ms),
-      state: step.outcome === "success" ? "done" : step.outcome === "error" ? "failed" : "quiet",
+      state: step.outcome === "success" ? "done" : step.outcome === "error" ? (step.refused ? "refused" : "failed") : "quiet",
       title: step.detail,
     };
   });

@@ -79,6 +79,15 @@ describe("stepsFor", () => {
     expect(failed.tags.find((tag) => tag.label === "Step failed")?.stage).toBe("problem");
   });
 
+  it("words a refused draft as the answer check working, without a problem dot", () => {
+    const [refused] = stepsFor("answer", [], [
+      step(1, "synthesize_cited_answer", { outcome: "error", refused: true }),
+    ]);
+    const tag = refused.tags.find((item) => item.label === "Draft refused by an answer check");
+    expect(tag?.stage).toBeNull();
+    expect(refused.tags.map((item) => item.label)).not.toContain("Step failed");
+  });
+
   it("files an unknown tool under the last phase instead of dropping it", () => {
     expect(stepsFor("answer", [], [step(1, "brand_new_tool")]).map((item) => item.tool)).toEqual(["brand_new_tool"]);
   });

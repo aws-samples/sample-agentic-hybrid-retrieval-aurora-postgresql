@@ -1,8 +1,8 @@
 import { formatCategoryKey } from "../../format";
 import type { ToolTraceStep } from "../../types";
 
-/** How a chip reads: done is green, failed is red, denied stays grey. */
-export type ChipState = "done" | "failed" | "denied";
+/** How a chip reads: done is green, failed is red, refused is amber, denied stays grey. */
+export type ChipState = "done" | "failed" | "refused" | "denied";
 
 export interface ToolChip {
   key: string;
@@ -50,7 +50,7 @@ export function toolChips(trace: ToolTraceStep[]): ToolChip[] {
     key: `trace-${step.sequence}`,
     label: toolName(step),
     tool: step.tool,
-    state: STATE_FOR_OUTCOME[step.outcome] ?? "failed",
+    state: step.refused && step.outcome === "error" ? "refused" : STATE_FOR_OUTCOME[step.outcome] ?? "failed",
     latencyMs: step.latency_ms ?? null,
   }));
 }

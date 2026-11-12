@@ -85,7 +85,9 @@ function traceStep(step: ToolTraceStep): BuilderStep {
       ...(TOOL_TAGS[step.tool] ?? []),
       ...(step.route ? [{ label: ROUTE_LABEL[step.route], stage: null }] : []),
       ...(step.origin ? [{ label: ORIGIN_LABEL[step.origin], stage: null }] : []),
-      { label: OUTCOME_LABEL[step.outcome] ?? step.outcome, stage: step.outcome === "error" ? "problem" : null },
+      step.refused && step.outcome === "error"
+        ? { label: "Draft refused by an answer check", stage: null }
+        : { label: OUTCOME_LABEL[step.outcome] ?? step.outcome, stage: step.outcome === "error" ? "problem" : null },
     ],
     meta,
     args: formatArguments(step.arguments ?? {}),

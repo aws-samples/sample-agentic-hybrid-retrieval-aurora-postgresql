@@ -30,6 +30,15 @@ describe("toolChips", () => {
     expect(chips.map((chip) => chip.latencyMs)).toEqual([312.5, null, 312.5]);
   });
 
+  it("shows a draft an answer check refused as refused, and any other error as failed", () => {
+    const chips = toolChips([
+      step(1, "synthesize_cited_answer", { outcome: "error", refused: true, latency_ms: 31176 }),
+      step(2, "synthesize_cited_answer", { outcome: "error", refused: false }),
+      step(3, "synthesize_cited_answer", { outcome: "error" }),
+    ]);
+    expect(chips.map((chip) => chip.state)).toEqual(["refused", "failed", "failed"]);
+  });
+
   it("keeps each tool's own name beside its plain label, as the terminal prints it", () => {
     const chips = toolChips([step(1, "search_products"), step(2, "get_product_evidence")]);
     expect(chips.map((chip) => [chip.label, chip.tool])).toEqual([

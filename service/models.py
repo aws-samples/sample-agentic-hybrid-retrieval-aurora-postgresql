@@ -778,6 +778,9 @@ class ToolTraceStep(BaseModel):
     # Mirrors the mosaic.tool_outcome enum in db/sql/01_schemas_and_types.sql;
     # a value the database accepts must survive the API response too.
     outcome: Literal["success", "denied", "error", "timeout"] = "success"
+    #: An answer check refused the draft this step wrote. `outcome` stays `error`,
+    #: the only value the database enum has for it, so this says it was not a failure.
+    refused: bool = False
     origin: Literal["model", "controller_fallback"] = "model"
     latency_ms: float | None = Field(default=None, ge=0)
     #: Where a catalog tool ran: through AgentCore Gateway to the tools runtime,
