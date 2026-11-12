@@ -30,11 +30,8 @@ from dotenv import load_dotenv
 from scripts import lab_exercise
 from scripts.lab_request import sql_context
 from scripts.terminal_text import next_step, tidy, verdict
-from service.participant_commands import (
-    ask_100w_command,
-    ask_setup_command,
-    grade_setup_run_command,
-)
+from service.lab_followup import follow_up_saved
+from service.participant_commands import grade_setup_run_command, lab3_steps
 
 # Runs are compared in Python, with the completion check's own rule for "the same
 # request"; a participant asks a handful, so a bounded window holds them all.
@@ -111,13 +108,14 @@ def _choice(pick: SetupRunPick) -> str:
 
 def _pick_run() -> UUID | None:
     """Find the setup run to check and say which it is, or say how to make one."""
-    from service.agent_deploys import lab_3_started_at
+    from service.agent_deploys import deploy_due, lab_3_started_at
     from service.db import connect
     from service.lab_checks import mission_for_lab
 
     started_at = lab_3_started_at(ROOT)
     with connect() as connection:
         pick = pick_setup_run(connection, mission_for_lab(3)["query"], started_at)
+        saved = pick.run is None and follow_up_saved(connection, ROOT)
     if pick.run is None:
         since = (
             f" since Lab 3 started at {started_at.astimezone(UTC):%H:%M} UTC"
@@ -131,13 +129,8 @@ def _pick_run() -> UUID | None:
             else f"found no run of Alex's setup request{since}"
         )
         print(verdict(f"Lab 3 exercise: CANNOT GRADE - {found}."))
-        next_step(
-            "ask it, then the 100W question:",
-            ask_setup_command(),
-            ask_100w_command(),
-            "then run this command again:",
-            grade_setup_run_command(),
-        )
+        steps, commands = lab3_steps(deploy=deploy_due(ROOT), follow_up=not saved)
+        next_step(steps, *commands)
         return None
     print(_choice(pick) + "\n")
     return UUID(str(pick.run["agent_turn_id"]))

@@ -52,6 +52,7 @@ from scripts.terminal_text import (
     wrap_words,
 )
 from service.config import get_settings
+from service.lab_followup import follow_up_saved_now
 from service.lab_validation_receipt import participant_sql_digest
 from service.participant_commands import (
     APPLY_SQL,
@@ -568,6 +569,10 @@ def _answered_next(question: str, response: dict[str, Any]) -> None:
             "read the DECLINE REASON above, then ask Alex's setup request again:",
             ask_setup_command(),
         )
+    elif follow_up_saved_now():
+        # A setup request asked again after a failed check: the 100W answer from the
+        # deployed code still counts, and asking it again costs about a minute.
+        next_step("check completion:", grade_setup_run_command())
     else:
         next_step(
             "ask whether the ViewSonic meets a new need for 100W charging:",

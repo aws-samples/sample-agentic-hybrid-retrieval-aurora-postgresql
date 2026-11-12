@@ -252,44 +252,52 @@ def test_lab3_setup_run_reports_every_failing_check(monkeypatch):
     ]
 
 
-def test_lab3_failing_only_the_follow_up_retries_the_follow_up(monkeypatch):
-    """A 100W run saved before the last deploy fails only the follow-up's own checks."""
-    work = _lab3_proof(
-        monkeypatch,
-        [
-            ("canonical mission request answered", True, "matches"),
-            ("managed_agent_deployed", True, "deployed"),
-            ("changed requirement checked", False, "made by different code"),
-            ("changed requirement deployment", False, "saved before your last deploy"),
-        ],
-    )
-    assert lab_exercise.grade_lab3(work)["retry"] == "follow-up"
+@pytest.mark.parametrize(
+    ("checks", "due", "needs"),
+    [
+        (
+            # A 100W run saved before the last deploy fails only the follow-up's checks.
+            [
+                ("canonical mission request answered", True, "matches"),
+                ("managed_agent_deployed", True, "deployed"),
+                ("changed requirement checked", False, "made by different code"),
+                ("changed requirement deployment", False, "saved before your deploy"),
+            ],
+            False,
+            {"deploy": False, "setup": False, "follow_up": True},
+        ),
+        (
+            # A setup answer a check refused needs that request again, not the 100W one.
+            [
+                ("canonical mission request answered", True, "matches"),
+                (
+                    "finished answer support reviewed",
+                    False,
+                    "a claim no record supports",
+                ),
+                ("changed requirement checked", True, "read the specification"),
+            ],
+            False,
+            {"deploy": False, "setup": True, "follow_up": False},
+        ),
+        (
+            # Code changed after the deploy: both runs must come from the next one.
+            [
+                ("managed_agent_deployed", False, "code changed after your deploy"),
+                ("changed requirement checked", True, "read the specification"),
+            ],
+            True,
+            {"deploy": True, "setup": True, "follow_up": True},
+        ),
+    ],
+)
+def test_lab3_a_failed_grade_needs_only_the_runs_its_checks_fail(
+    monkeypatch, checks, due, needs
+):
+    work = _lab3_proof(monkeypatch, checks)
+    monkeypatch.setattr("service.agent_deploys.deploy_due", lambda *_a, **_k: due)
 
-
-def test_lab3_failing_the_setup_run_retries_the_setup_request(monkeypatch):
-    work = _lab3_proof(
-        monkeypatch,
-        [
-            ("canonical mission request answered", True, "matches"),
-            ("managed_agent_deployed", False, "found no deploy"),
-            ("changed requirement checked", False, "made by different code"),
-        ],
-    )
-    assert lab_exercise.grade_lab3(work)["retry"] == "setup"
-
-
-def test_a_follow_up_retry_names_the_100w_question_not_the_deploy(capsys):
-    from service.participant_commands import (
-        DEPLOY_AGENT,
-        ask_100w_command,
-        grade_setup_run_command,
-    )
-
-    lab_exercise._grade_next(3, False, retry="follow-up")
-    out = " ".join(capsys.readouterr().out.split())
-    assert " ".join(ask_100w_command().split()) in out
-    assert grade_setup_run_command() in out
-    assert DEPLOY_AGENT not in out
+    assert lab_exercise.grade_lab3(work)["needs"] == needs
 
 
 def test_lab3_names_the_contract_part_the_agent_misses(monkeypatch):
@@ -338,7 +346,10 @@ def test_the_graded_files_are_found_from_the_checkout_not_the_shells_folder(
     )
 
 
-def test_lab_3_without_a_graded_run_points_at_the_lab_3_commands(monkeypatch, tmp_path):
+def test_lab_3_without_a_graded_run_points_at_the_completion_check(
+    monkeypatch, tmp_path
+):
+    """The check finds the newest setup run and names any question still missing."""
     from service.participant_commands import ask_setup_command, grade_setup_run_command
 
     monkeypatch.setattr(lab_exercise, "REPO", tmp_path)
@@ -347,8 +358,8 @@ def test_lab_3_without_a_graded_run_points_at_the_lab_3_commands(monkeypatch, tm
         lab_exercise.load_context(3)
 
     message = str(refused.value)
-    assert ask_setup_command() in message
     assert grade_setup_run_command() in message
+    assert ask_setup_command() not in message
     assert "lab_request" not in message
 
 

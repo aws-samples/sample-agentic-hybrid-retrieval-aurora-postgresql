@@ -55,6 +55,46 @@ def load_changed_requirement(connection, mission, started_at):
     return load_agent_turn_rows(connection, found["agent_turn_id"]) if found else None
 
 
+def follow_up_saved(connection, root=None) -> bool:
+    """Whether the 100W answer completion would read already comes from the deployed code.
+
+    It reads the run with `load_changed_requirement`, as completion does, and compares the
+    code that made it with the code deployed now, so a later deploy of changed code makes
+    it count no longer. Completion's other checks on that run still run when it grades.
+    """
+    from service.agent_deploys import deploy_due, lab_3_started_at
+    from service.lab_checks import mission_for_lab
+    from service.lab_validation_receipt import application_digest
+
+    if deploy_due(root):
+        return False
+    rows = load_changed_requirement(
+        connection, mission_for_lab(3), lab_3_started_at(root)
+    )
+    if rows is None:
+        return False
+    intent = rows.turn.get("extracted_intent") or {}
+    code = application_digest(root) if root else application_digest()
+    return intent.get("application_sha256") == code
+
+
+def follow_up_saved_now() -> bool:
+    """`follow_up_saved` on a connection of its own.
+
+    Only a connection that cannot be made counts as no saved answer, which leaves the
+    guide's own order, the 100W question next. Any other error is a defect and raises.
+    """
+    import psycopg
+
+    from service.db import connect
+
+    try:
+        with connect() as connection:
+            return follow_up_saved(connection)
+    except psycopg.OperationalError:
+        return False
+
+
 def changed_requirement_check(mission, rows, setup_rows, resolved_evidence) -> LabCheck:
     """Check the actual answer/decline, new searches, and the product records it read."""
     from service.models import EvidenceRecord, ProductSummary

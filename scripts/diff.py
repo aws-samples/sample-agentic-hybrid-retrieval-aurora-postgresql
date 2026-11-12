@@ -22,6 +22,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scripts.lab_state import LABS, REPO, lab_diff
 from scripts.terminal_text import next_step, tidy, use_color
+from service.agent_deploys import deploy_due
 from service.participant_commands import APPLY_SQL, DEPLOY_AGENT, STATUS
 
 
@@ -64,23 +65,9 @@ def differing_lab(name: str | None, *, repo: Path = REPO) -> int | None:
     return next((lab for lab in sorted(LABS) if lab_diff(lab, repo=repo)[1]), None)
 
 
-def lab_3_needs_deploy() -> bool:
-    """Whether Lab 3 has started and Runtime does not yet run this workspace's code.
-
-    An unreadable start or deploy record is `status`'s to report, so it counts as no.
-    """
-    from service.agent_deploys import ask_problem
-    from service.lab_validation_receipt import application_digest
-
-    try:
-        return ask_problem(application_digest()) is not None
-    except (OSError, ValueError):
-        return False
-
-
 def _next_after(lab: int | None) -> None:
     """Print what to do with the lines a report named: edit, save, then apply or deploy."""
-    if lab is None and lab_3_needs_deploy():
+    if lab is None and deploy_due():
         next_step("nothing differs. Deploy your Retrieval agent:", DEPLOY_AGENT)
     elif lab is None:
         next_step("nothing differs. Check where your labs stand:", STATUS)

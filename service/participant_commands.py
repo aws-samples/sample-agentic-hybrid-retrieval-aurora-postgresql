@@ -130,19 +130,37 @@ def grade_setup_run_command(run_id: str | None = None) -> str:
     return f"{command} --run-id {run_id}" if run_id else command
 
 
-LAB_3_COMPLETION_STEPS = (
-    "ask Alex's setup request, then the 100W question, then check both answers:"
-)
-
-
-def lab3_completion_commands() -> tuple[str, str, str]:
-    """Lab 3's two required runs and the check that grades them, in order.
+def lab3_steps(
+    *, deploy: bool = False, setup: bool = True, follow_up: bool = True
+) -> tuple[str, tuple[str, ...]]:
+    """What Lab 3 completion still needs, in order: a `Next:` sentence and its commands.
 
     Completion checks the newest setup run and the newest answered 100W question since
-    Lab 3 started, and both must come from the same deployed code, so after a deploy
-    both are asked again before the check.
+    Lab 3 started, both made by the code deployed now, so a deploy needs both again. A
+    caller that knows a run is already saved from that code leaves it out: each is a
+    full agent run.
+
+    Args:
+        deploy: The workspace's code is not deployed yet.
+        setup: Alex's setup request still needs a run from the deployed code.
+        follow_up: The 100W question still needs an answer from the deployed code.
     """
-    return ask_setup_command(), ask_100w_command(), grade_setup_run_command()
+    setup = setup or deploy
+    follow_up = follow_up or deploy
+    steps: list[str] = []
+    commands: list[str] = []
+    if deploy:
+        steps.append("deploy your Retrieval agent")
+        commands.append(DEPLOY_AGENT)
+    if setup:
+        steps.append("ask Alex's setup request")
+        commands.append(ask_setup_command())
+    if follow_up:
+        steps.append("the 100W question" if setup else "ask the 100W question")
+        commands.append(ask_100w_command())
+    steps.append("check both answers:" if setup and follow_up else "check completion:")
+    commands.append(grade_setup_run_command())
+    return ", then ".join(steps), tuple(commands)
 
 
 def validate_applied_command(lab: int) -> str:

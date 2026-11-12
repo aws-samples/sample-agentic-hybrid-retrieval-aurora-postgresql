@@ -18,6 +18,12 @@ from service.models import AgentResponse
 RUN = UUID("27086027-0000-4000-8000-000000000001")
 
 
+@pytest.fixture(autouse=True)
+def no_saved_100w_answer(monkeypatch):
+    """Aurora stays a boundary: no 100W answer is saved unless a test says so."""
+    monkeypatch.setattr(ask_agent, "follow_up_saved_now", lambda: False)
+
+
 def product(product_id, title):
     return {
         "product_id": product_id,
@@ -1060,6 +1066,23 @@ def test_an_answer_ends_with_a_blank_line_and_the_next_step(monkeypatch, capsys)
         f"{ask_100w_command()}\nthen check completion with:\n"
         f"{grade_setup_run_command()}\n"
     )
+
+
+def test_a_setup_answer_after_a_saved_100w_answer_goes_straight_to_the_check(
+    monkeypatch, capsys
+):
+    """Asking the setup request again must not send anyone to the 100W question again."""
+    from service.lab_checks import mission_for_lab
+    from service.participant_commands import ask_100w_command, grade_setup_run_command
+
+    streamed(monkeypatch, grounded())
+    monkeypatch.setattr(ask_agent, "follow_up_saved_now", lambda: True)
+
+    assert ask_agent.main([mission_for_lab(3)["query"]]) == 0
+
+    out = capsys.readouterr().out
+    assert out.endswith(f"\n\nNext: check completion:\n{grade_setup_run_command()}\n")
+    assert ask_100w_command() not in out
 
 
 def test_the_100w_question_is_followed_by_the_completion_check(monkeypatch, capsys):

@@ -396,6 +396,7 @@ test-aurora-invariants:
 		tests/test_coverage.py \
 		tests/test_lab1_anchor_invariants.py \
 		tests/test_answerability_live.py \
+		tests/test_lab3_follow_up_live.py \
 		tests/test_retrieval_scope.py
 
 simulate:

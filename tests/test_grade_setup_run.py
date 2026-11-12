@@ -94,6 +94,8 @@ def workspace(monkeypatch, tmp_path):
     monkeypatch.setattr(
         "service.agent_deploys.lab_3_started_at", lambda _root=None: STARTED
     )
+    monkeypatch.setattr("service.agent_deploys.deploy_due", lambda *_a, **_k: False)
+    monkeypatch.setattr(grade_setup_run, "follow_up_saved", lambda *_a: False)
     graded = []
 
     def grade(argv: list[str]) -> int:
@@ -233,9 +235,11 @@ def test_a_cut_off_context_file_is_replaced_not_crashed_on(tmp_path) -> None:
     assert json.loads((output / "context.json").read_text()) == {"lab_agent_id": chosen}
 
 
-def test_no_checkable_run_ends_with_asking_one_and_then_checking_it(
-    monkeypatch, capsys, workspace
+@pytest.mark.parametrize("follow_up_saved", [False, True])
+def test_no_checkable_run_ends_with_asking_what_is_missing_then_checking(
+    monkeypatch, capsys, workspace, follow_up_saved
 ) -> None:
+    """A 100W answer already saved from the deployed code is not asked for again."""
     from service.participant_commands import (
         ask_100w_command,
         ask_setup_command,
@@ -243,17 +247,24 @@ def test_no_checkable_run_ends_with_asking_one_and_then_checking_it(
     )
 
     _turns(monkeypatch, [])
+    monkeypatch.setattr(grade_setup_run, "follow_up_saved", lambda *_a: follow_up_saved)
     monkeypatch.setattr(sys, "argv", ["grade_setup_run.py"])
 
     assert grade_setup_run.main() == 2
 
     out = capsys.readouterr().out
     assert not out.startswith("\n") and "\n\n\n" not in out
-    assert out.endswith(
-        "\n\nNext: ask it, then the 100W question:\n"
-        f"{ask_setup_command()}\n{ask_100w_command()}\nthen run this command again:\n"
-        f"{grade_setup_run_command()}\n"
-    )
+    if follow_up_saved:
+        assert out.endswith(
+            "\n\nNext: ask Alex's setup request, then check completion:\n"
+            f"{ask_setup_command()}\n{grade_setup_run_command()}\n"
+        )
+    else:
+        assert out.endswith(
+            "\n\nNext: ask Alex's setup request, then the 100W question, then check "
+            f"both answers:\n{ask_setup_command()}\n{ask_100w_command()}\n"
+            f"{grade_setup_run_command()}\n"
+        )
 
 
 def test_an_unreachable_aurora_ends_with_opening_a_new_terminal(

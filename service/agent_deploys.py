@@ -181,6 +181,20 @@ def ask_problem(workspace_sha256: str, *, root: Path | None = None) -> str | Non
     return None
 
 
+def deploy_due(root: Path | None = None) -> bool:
+    """Whether Lab 3 has started and Runtime does not yet run this workspace's code.
+
+    An unreadable start or deploy record is `status`'s to report, so it counts as no.
+    """
+    from service.lab_validation_receipt import application_digest
+
+    try:
+        digest = application_digest(root) if root else application_digest()
+        return ask_problem(digest, root=root) is not None
+    except (OSError, ValueError):
+        return False
+
+
 def run_deploy_problem(
     run_created_at: datetime, run_sha256: object, *, root: Path | None = None
 ) -> str | None:

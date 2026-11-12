@@ -511,6 +511,7 @@ def test_lab3_source_check_names_the_next_commands_instead_of_passing(
         "sys.argv", ["lab_state.py", "validate", "--lab", "3", "--database-url", ""]
     )
     monkeypatch.setattr(lab_state, "lab_source_is_repaired", lambda *_a, **_k: True)
+    monkeypatch.setattr("service.agent_deploys.lab_3_started_at", lambda *_a: None)
 
     assert lab_state.main() == 0
 
@@ -1269,20 +1270,15 @@ def test_lab_3_is_solved_only_after_the_deployed_agent_passed_completion(
     lab_repo: Path,
 ) -> None:
     from scripts.lab_state import status_line
-    from service.participant_commands import (
-        ask_100w_command,
-        ask_setup_command,
-        grade_setup_run_command,
-    )
+    from service.participant_commands import grade_setup_run_command
 
     _lab_3_started(lab_repo)
     assert status_line(3, repo=lab_repo).startswith("Lab 3: REPAIRED, NOT DEPLOYED")
 
     _lab_3_deployed(lab_repo, "2026-10-29T11:00:00+00:00")
     assert status_line(3, repo=lab_repo) == (
-        "Lab 3: DEPLOYED, NOT YET PROVED. Next: ask Alex's setup request, then the 100W "
-        "question, then check both answers:\n"
-        f"{ask_setup_command()}\n{ask_100w_command()}\n{grade_setup_run_command()}"
+        "Lab 3: DEPLOYED, NOT YET PROVED. Next: check completion with "
+        f"{grade_setup_run_command()}; it names any question you still need to ask."
     )
 
     _lab_3_graded(lab_repo, "FAIL", "2026-10-29T11:30:00+00:00")

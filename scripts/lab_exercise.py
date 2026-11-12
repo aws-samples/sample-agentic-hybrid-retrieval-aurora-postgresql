@@ -52,13 +52,10 @@ from service.participant_commands import (
     COMPARE_SETTINGS,
     DEPLOY_AGENT,
     HNSW_FILES,
-    LAB_3_COMPLETION_STEPS,
     RERANK_OFF_ON,
-    ask_100w_command,
-    ask_setup_command,
     grade_exercise_command,
     grade_setup_run_command,
-    lab3_completion_commands,
+    lab3_steps,
     repeat_request_command,
 )
 
@@ -114,9 +111,8 @@ def load_context(lab: int) -> dict[str, str]:
     path = REPO / f".local/lab-{lab}/context.json"
     if not path.exists() and lab == 3:
         raise ExerciseError(
-            "no graded run of Alex's setup request yet; ask it with "
-            f"`{ask_setup_command()}`, then the 100W question with "
-            f"`{ask_100w_command()}`, then run `{grade_setup_run_command()}`"
+            f"no graded run of Alex's setup request yet; run `{grade_setup_run_command()}`, "
+            "which finds your newest setup run and names any question you still need to ask"
         )
     if not path.exists():
         raise ExerciseError(
@@ -564,14 +560,22 @@ def grade_lab3(path: Path) -> dict[str, Any]:
             "Your current code does not match the completed labs. Apply Labs 1 and 2, "
             f"then deploy with {DEPLOY_AGENT}."
         )
+    from service.agent_deploys import deploy_due
+
     failed = {check.name for check in proof.checks if not check.passed}
-    # A 100W run saved before the last deploy fails only its own checks: the setup run and
-    # the deploy are fine, so the retry is the 100W question, not another deploy.
-    retry = "follow-up" if failed and failed <= FOLLOW_UP_CHECKS else "setup"
+    deploy = deploy_due()
+    # Only a run whose own checks failed is asked again: a 100W run saved before the last
+    # deploy fails only its checks, and a refused setup answer only the setup's. A deploy,
+    # or a failure no check names, needs both, and each run costs about a minute.
+    needs = {
+        "deploy": deploy,
+        "setup": deploy or not failed or bool(failed - FOLLOW_UP_CHECKS),
+        "follow_up": deploy or not failed or bool(failed & FOLLOW_UP_CHECKS),
+    }
     return {
         "agent_run_id": values["lab_agent_id"],
         "failures": failures,
-        "retry": retry,
+        "needs": needs,
     }
 
 
@@ -700,8 +704,12 @@ def _print_lab3(report: dict) -> None:
         )
 
 
-def _grade_next(lab: int, passed: bool, retry: str = "setup") -> None:
-    """Print the step after a grade: the guide's next one when it passed, else the retry."""
+def _grade_next(lab: int, passed: bool, needs: dict[str, bool] | None = None) -> None:
+    """Print the step after a grade: the guide's next one when it passed, else the retry.
+
+    For Lab 3, `needs` says which of the deploy, the setup run and the 100W answer the
+    failed grade needs again; without it, both runs are named.
+    """
     if lab == 1:
         if passed:
             next_step(
@@ -736,20 +744,9 @@ def _grade_next(lab: int, passed: bool, retry: str = "setup") -> None:
             )
     elif passed:
         next_step("the guide's Wrap-up. Lab 3's required work is complete.")
-    elif retry == "follow-up":
-        next_step(
-            "ask the 100W question again, so your deployed agent answers it, then check "
-            "again:",
-            ask_100w_command(),
-            grade_setup_run_command(),
-        )
     else:
-        next_step(
-            "fix what FAIL names above; if you changed agent.py, deploy it. Then "
-            + LAB_3_COMPLETION_STEPS,
-            DEPLOY_AGENT,
-            *lab3_completion_commands(),
-        )
+        steps, commands = lab3_steps(**(needs or {}))
+        next_step(f"fix what FAIL names above, then {steps}", *commands)
 
 
 def grade(lab: int, work: Path) -> dict[str, Any]:
@@ -855,7 +852,7 @@ def main(argv: list[str] | None = None) -> int:
             f"\nLab {args.lab} exercise: {report['verdict']} ({receipt.relative_to(REPO)})"
         )
     )
-    _grade_next(args.lab, not report["failures"], report.get("retry", "setup"))
+    _grade_next(args.lab, not report["failures"], report.get("needs"))
     return 1 if report["failures"] else 0
 
 

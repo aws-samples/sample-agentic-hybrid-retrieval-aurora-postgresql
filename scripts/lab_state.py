@@ -50,7 +50,6 @@ from service.participant_commands import (
     DEPLOY_AGENT,
     DIFF,
     DIFF_ANSWER,
-    LAB_3_COMPLETION_STEPS,
     LIST_TOOLS,
     USUAL_SECONDS,
     apply_solution_command,
@@ -60,7 +59,7 @@ from service.participant_commands import (
     finish_steps,
     grade_exercise_command,
     grade_setup_run_command,
-    lab3_completion_commands,
+    lab3_steps,
     load_context_command,
     open_psql_command,
     proof_steps_text,
@@ -273,6 +272,10 @@ def _outside_markers(source: str, blocks: list[Block]) -> tuple[list[str], list[
     kept = [index for index in range(len(lines)) if index not in inside]
     return [lines[index] for index in kept], [index + 1 for index in kept]
 
+
+CHECK_NAMES_WHAT_IS_MISSING = (
+    "check completion; it names any question you still need to ask:"
+)
 
 # Commands sit on their own lines under a short label, so a long line never wraps
 # mid-word in a terminal and each command copies whole.
@@ -1110,8 +1113,8 @@ def _lab_3_status(repo: Path) -> str:
     if _lab_3_passed_since(deploys[-1].deployed_at, repo):
         return LAB_3_SOLVED
     return (
-        f"Lab 3: DEPLOYED, NOT YET PROVED. Next: {LAB_3_COMPLETION_STEPS}\n"
-        + "\n".join(lab3_completion_commands())
+        f"Lab 3: DEPLOYED, NOT YET PROVED. Next: check completion with "
+        f"{grade_setup_run_command()}; it names any question you still need to ask."
     )
 
 
@@ -1167,10 +1170,8 @@ def solution_summary(lab: int, path: Path, *, run_by: str | None = None) -> str:
     if run_by:
         return overwrote
     if lab == 3:
-        follow_up = (
-            f"Next: deploy with {DEPLOY_AGENT}, then {LAB_3_COMPLETION_STEPS}\n"
-            + "\n".join(lab3_completion_commands())
-        )
+        steps, commands = lab3_steps(deploy=True)
+        follow_up = f"Next: {steps}\n" + "\n".join(commands)
     else:
         follow_up = f"Next: apply it with {APPLY_SQL}, then prove it with {proof_steps_text(lab)}."
     return f"{overwrote}\n\n{follow_up}"
@@ -1259,7 +1260,8 @@ def finish_lab(lab: int) -> int:
         return code
     if lab == 3:
         print("\nLab 3: the reference Retrieval agent is deployed.")
-        next_step(LAB_3_COMPLETION_STEPS, *lab3_completion_commands())
+        steps, commands = lab3_steps()
+        next_step(steps, *commands)
     else:
         print(f"\nLab {lab}: finished with the reference answer.")
         lab_ready_step(lab + 1)
@@ -1301,7 +1303,9 @@ def _status_next(lines: list[str]) -> None:
         elif lab == 3 and "NOT DEPLOYED" in line:
             next_step("deploy your Retrieval agent:", DEPLOY_AGENT)
         elif lab == 3 and "NOT YET PROVED" in line:
-            next_step(LAB_3_COMPLETION_STEPS, *lab3_completion_commands())
+            # The check reads the saved runs and names any still missing; status
+            # cannot tell which, and asking a saved one again costs a minute.
+            next_step(CHECK_NAMES_WHAT_IS_MISSING, grade_setup_run_command())
         elif lab == 3:
             next_step(
                 "open labs/lab3_reason/agent.py in Code Editor and complete create_agent, "
@@ -1406,11 +1410,19 @@ def _validate_command(lab: int, database_url: str | None, *, repo: Path = REPO) 
         print(
             "Lab 3: source assembled. This checks the file's shape, not your Retrieval agent."
         )
-        next_step(
-            f"deploy your Retrieval agent, then {LAB_3_COMPLETION_STEPS}",
-            DEPLOY_AGENT,
-            *lab3_completion_commands(),
-        )
+        from service.agent_deploys import deploy_due, lab_3_started_at
+
+        # Only a deploy since Lab 3 started that carries this code lets the runs count;
+        # an unreadable start record is status's to report, here it means deploy first.
+        try:
+            deployed = lab_3_started_at() is not None and not deploy_due()
+        except ValueError:
+            deployed = False
+        if deployed:
+            next_step(CHECK_NAMES_WHAT_IS_MISSING, grade_setup_run_command())
+        else:
+            steps, commands = lab3_steps(deploy=True)
+            next_step(steps, *commands)
         return 0
     problem = source_problem(lab)
     if problem is None and not database_url:

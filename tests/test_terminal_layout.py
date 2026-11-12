@@ -628,7 +628,7 @@ def test_a_failed_lab_3_grade_asks_for_a_new_run_instead_of_the_wrap_up(
         io.StringIO(),
     )
 
-    last = assert_ends_with_next(out, grade_setup_run_command(), DEPLOY_AGENT)
+    last = assert_ends_with_next(out, grade_setup_run_command())
     assert "Wrap-up" not in last
 
 
