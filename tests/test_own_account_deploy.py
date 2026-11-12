@@ -1533,8 +1533,8 @@ def test_every_runtime_pins_platform_version_v1():
         for path in sorted(CLOUDFORMATION.glob("*.yml"))
     }
     assert {name: off for name, off in found.items() if off} == {}, (
-        "Runtime platform rule: set PlatformVersion: V1 on each runtime until V2 "
-        f"has its own fresh-event proof: {found}"
+        "Runtime platform rule: set PlatformVersion: V1 on each runtime until AWS "
+        f"retires V1: {found}"
     )
 
 

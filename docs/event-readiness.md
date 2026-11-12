@@ -48,6 +48,27 @@ Logitech (1492978) for both Lab 1's typo and the exact ID before the gate's "Log
 absent" proves the fault. A runtime that reports no platform version fails, because a
 missing value is not `V1`. A record in which no check passed is not ready.
 
+### AgentCore Runtime platform
+
+Both runtimes stay on platform `V1` until AWS retires it. Each gets one platform line,
+worded the same in DAT410, DAT416 and DAT432 after the status, and every line but the
+first makes the account not ready:
+
+```text
+PASS  AgentCore Runtime <name>: READY on platform V1
+FAIL  AgentCore Runtime <name>: platform V2, not the pinned V1. Fix: in the box's terminal, before Lab 3, run uv run python scripts/deploy_agentcore.py deploy; it updates the runtime in place on V1
+FAIL  AgentCore Runtime <name>: status UPDATING, not READY
+FAIL  AgentCore Runtime <name>: could not read the platform version (<reason>)
+FAIL  AgentCore Runtime platform check did not finish: <last line>
+```
+
+"Could not read" covers a runtime that names no platform, a failed `GetAgentRuntime` and a
+runtime ARN missing from the box's `.env`. A READY runtime then gets a second line, under
+its role's name, for its endpoint, models and image. Only this record judges the
+platform: bootstrap's connect step and a participant's deploy never fail on it. Every
+deploy names `V1`, so the Lab 3 deploy also moves a runtime found on another platform
+back in place. Run it before Lab 3 starts: from then on it deploys the participant's code.
+
 ## Read the records
 
 Use each event account's Ops credentials: in the facilitator console, **Teams** >

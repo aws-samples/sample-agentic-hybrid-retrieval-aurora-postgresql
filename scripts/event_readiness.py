@@ -44,6 +44,7 @@ sys.path.insert(0, str(REPO))
 
 from scripts.readiness_checks import (
     Line,
+    error_code,
 )
 
 READY = "READY FOR LAB 1"
@@ -139,11 +140,6 @@ def imds_instance_id() -> str:
     from scripts.readiness_checks import imds
 
     return imds("meta-data/instance-id")
-
-
-def error_code(error: Exception) -> str:
-    response = getattr(error, "response", None) or {}
-    return response.get("Error", {}).get("Code") or type(error).__name__
 
 
 def write_cloudwatch(record: dict[str, Any], logs: Any) -> None:

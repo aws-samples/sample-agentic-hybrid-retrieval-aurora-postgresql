@@ -409,19 +409,53 @@ def check_lab_state(ctx: Context) -> list[Line]:
     return [passed(LAB_STATE, "; ".join(lines))]
 
 
-def runtime_line(ctx: Context, control: Any, label: str, runtime: dict) -> Line:
-    from scripts.deploy_agentcore import RUNTIME_PLATFORM_VERSION
+def error_code(error: Exception) -> str:
+    """The AWS error code of a failed call, or the exception's type."""
+    response = getattr(error, "response", None) or {}
+    return response.get("Error", {}).get("Code") or type(error).__name__
 
-    platform = runtime.get("platformVersion")
+
+def last_line(error: Exception) -> str:
+    """An exception's type and the last line of its redacted message."""
+    from scripts.checks.rehearsal import redact
+
+    lines = [line.strip() for line in redact(str(error)).splitlines() if line.strip()]
+    return f"{type(error).__name__}: {lines[-1] if lines else 'no message'}"[:200]
+
+
+# The platform lines read the same in DAT410, DAT416 and DAT432 after the status prefix;
+# change their words in all three repositories together.
+PLATFORM_CHECK = "AgentCore Runtime platform check"
+
+
+def unread_platform(name: str, reason: str) -> Line:
+    return failed(
+        f"AgentCore Runtime {name}", f"could not read the platform version ({reason})"
+    )
+
+
+def runtime_platform_line(name: str, runtime: dict) -> Line:
+    """Whether one runtime is READY on the pinned platform; anything unconfirmed fails."""
+    from scripts.deploy_agentcore import RUNTIME_PLATFORM_VERSION as pinned
+    from service.participant_commands import DEPLOY_AGENT
+
+    label = f"AgentCore Runtime {name}"
     if runtime.get("status") != "READY":
-        return failed(label, f"status {runtime.get('status')}")
-    if platform != RUNTIME_PLATFORM_VERSION:
+        return failed(label, f"status {runtime.get('status')}, not READY")
+    platform = runtime.get("platformVersion")
+    if not platform:
+        return unread_platform(name, "GetAgentRuntime returned no platformVersion")
+    if platform != pinned:
         return failed(
             label,
-            f"reports platform {platform!r}; a missing value is not "
-            f"{RUNTIME_PLATFORM_VERSION}; fix: check the stack's "
-            "PlatformVersion",
+            f"platform {platform}, not the pinned {pinned}. Fix: in the box's terminal, "
+            f"before Lab 3, run {DEPLOY_AGENT}; it updates the runtime in place on {pinned}",
         )
+    return passed(label, f"READY on platform {pinned}")
+
+
+def runtime_line(ctx: Context, control: Any, label: str, runtime: dict) -> Line:
+    """A READY runtime's endpoint, models and image; its platform has its own line."""
     endpoint = control.get_agent_runtime_endpoint(
         agentRuntimeId=runtime["agentRuntimeId"], endpointName="DEFAULT"
     )
@@ -448,21 +482,42 @@ def runtime_line(ctx: Context, control: Any, label: str, runtime: dict) -> Line:
         )
     return passed(
         label,
-        f"READY on {platform}, version {version}, image "
-        f"{uri.rsplit(':', 1)[-1][:22]}, models match the box",
+        f"version {version}, image {uri.rsplit(':', 1)[-1][:22]}, models match the box",
     )
 
 
-def check_runtimes(ctx: Context) -> list[Line]:
+def runtime_lines(ctx: Context) -> list[Line]:
+    """Each runtime's platform line, then a READY runtime's deployment line."""
     from scripts.deploy_agentcore import RUNTIME_ROLES, client
 
     control = client("bedrock-agentcore-control")
     lines = []
     for variable, label, _role in RUNTIME_ROLES:
-        runtime_id = ctx.need(variable).rsplit("/", 1)[-1]
-        runtime = control.get_agent_runtime(agentRuntimeId=runtime_id)
-        lines.append(runtime_line(ctx, control, label, runtime))
+        try:
+            runtime_id = ctx.need(variable).rsplit("/", 1)[-1]
+        except CheckError as error:
+            lines.append(unread_platform(variable, str(error)))
+            continue
+        try:
+            runtime = control.get_agent_runtime(agentRuntimeId=runtime_id)
+        except Exception as error:  # noqa: BLE001 - a runtime nobody can read is not ready
+            lines.append(unread_platform(runtime_id, error_code(error)))
+            continue
+        name = runtime.get("agentRuntimeName") or runtime_id
+        lines.append(runtime_platform_line(name, runtime))
+        if runtime.get("status") == "READY":
+            lines.append(runtime_line(ctx, control, label, runtime))
     return lines
+
+
+def check_runtimes(ctx: Context) -> list[Line]:
+    """The runtimes' lines; a check that crashed or printed nothing did not finish."""
+    unfinished = f"{PLATFORM_CHECK} did not finish"
+    try:
+        lines = runtime_lines(ctx)
+    except Exception as error:  # noqa: BLE001 - the record names the unfinished check
+        return [failed(unfinished, last_line(error))]
+    return lines or [failed(unfinished, "it printed no line")]
 
 
 def check_gateway(ctx: Context) -> list[Line]:
@@ -571,7 +626,7 @@ CHECKS: tuple[tuple[str, Callable[[Context], list[Line]]], ...] = (
     ("Aurora and extensions", check_aurora),
     ("Fuzzy matching control (Lab 1)", check_fuzzy_control),
     (LAB_STATE, check_lab_state),
-    ("AgentCore runtimes", check_runtimes),
+    (PLATFORM_CHECK, check_runtimes),
     ("Gateway", check_gateway),
     ("Memory", check_memory),
     ("Bedrock models", check_models),

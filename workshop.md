@@ -307,7 +307,9 @@ CloudWatch log names the cause, such as Bedrock throttling.
 - Before the event, read every account's readiness record with
   `uv run scripts/event_readiness.py --accounts DIR` and Ops credentials; `--live`
   rechecks a box until its participant starts a lab. During the session, read records
-  without `--live`. See [event readiness](docs/event-readiness.md).
+  without `--live`. An AgentCore runtime that is not on platform V1 makes its account
+  not ready; its line names the fix, the Lab 3 deploy command run before Lab 3. See
+  [event readiness](docs/event-readiness.md).
 - Preserve filters, retrieval settings, indexes, source checks and participant
   notes. Use Aurora only. Never substitute a facilitator's run for participant proof.
 

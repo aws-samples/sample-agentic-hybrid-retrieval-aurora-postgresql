@@ -119,12 +119,14 @@ Registry login credentials exist only in a private temporary directory and are
 removed after the command. ECR scans images on push. Only untagged images expire;
 tagged images and the repository are retained for explicit event cleanup.
 
-Both runtimes set `PlatformVersion: V1`. AgentCore Runtime makes V2 the default for
-runtimes created from 12 November 2026; V2 restores each instance from a snapshot
-taken once per version, so an update takes minutes to reach READY rather than
-seconds, and Lab 3's deploy times, like every event proof, were measured on V1.
-Moving to V2 needs its own fresh-event proof of the deploy and the agent's startup
-work.
+Both runtimes set `PlatformVersion: V1`, and every deploy update names V1 too, so a
+runtime found on another platform moves back in place. They stay on V1 until AWS
+retires it. AgentCore Runtime makes V2 the default for runtimes created from 12 November
+2026; V2 restores each instance from a snapshot taken once per version, so an update
+takes minutes to reach READY rather than seconds, and Lab 3's deploy times, like every
+event proof, were measured on V1. Only the facilitator's
+[readiness record](event-readiness.md#agentcore-runtime-platform) judges the platform;
+setup and a participant's deploy never fail on it.
 
 Runtime packaging creates no S3 buckets and requires no access-logging
 suppression. The separately published workshop catalog remains in Studio S3

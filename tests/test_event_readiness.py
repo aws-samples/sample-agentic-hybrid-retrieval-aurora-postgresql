@@ -1,6 +1,7 @@
 """The event readiness record and fleet view report ready only when they can prove it."""
 
 import json
+import re
 import threading
 import time
 from datetime import UTC, datetime, timedelta
@@ -13,6 +14,7 @@ from botocore.exceptions import ClientError
 
 from scripts import event_readiness as readiness
 from scripts import readiness_checks as checks
+from scripts.deploy_agentcore import RUNTIME_ROLES
 from scripts.readiness_checks import Line
 
 NOW = datetime(2026, 12, 1, 6, 40, tzinfo=UTC)
@@ -216,17 +218,207 @@ def ready_control() -> Mock:
     return control
 
 
-def test_runtime_with_no_platform_version_is_not_v1():
-    line = checks.runtime_line(
-        context(), ready_control(), "Tools runtime", runtime(platformVersion=None)
+NAME = "MosaicTools_abc"
+REDEPLOY = (
+    "Fix: in the box's terminal, before Lab 3, run uv run python "
+    "scripts/deploy_agentcore.py deploy; it updates the runtime in place on V1"
+)
+
+
+def not_ready(line: Line) -> bool:
+    """Whether this line alone makes an otherwise ready record not ready."""
+    record = readiness.build_record(
+        [Line("PASS", "Services", "active"), line],
+        mode="live",
+        instance_id="i",
+        now=NOW,
     )
-    assert line.status == "FAIL"
-    assert "a missing value is not V1" in line.detail
+    return record["ready"] is False and record["final"] == f"x {line.text()}"
 
 
-def test_runtime_on_v1_with_matching_models_passes():
-    line = checks.runtime_line(context(), ready_control(), "Tools runtime", runtime())
+def without_platform(**overrides) -> dict:
+    found = runtime(**overrides)
+    del found["platformVersion"]
+    return found
+
+
+def test_runtime_on_v1_reads_ready_on_platform_v1():
+    line = checks.runtime_platform_line(NAME, runtime())
+    assert (
+        line.text() == "PASS  AgentCore Runtime MosaicTools_abc: READY on platform V1"
+    )
+    assert not not_ready(line)
+
+
+@pytest.mark.parametrize("platform", ["V2", "V3"])
+def test_runtime_off_v1_is_not_ready_and_names_the_fix(platform):
+    line = checks.runtime_platform_line(NAME, runtime(platformVersion=platform))
+    assert line.text() == (
+        f"FAIL  AgentCore Runtime MosaicTools_abc: platform {platform}, not the pinned "
+        f"V1. {REDEPLOY}"
+    )
+    assert not_ready(line)
+
+
+@pytest.mark.parametrize("platform", [None, ""])
+def test_a_missing_platform_version_is_not_v1(platform):
+    """Readiness confirms V1 positively: a runtime that names no platform is not ready."""
+    found = without_platform() if platform is None else runtime(platformVersion="")
+    line = checks.runtime_platform_line(NAME, found)
+    assert line.text() == (
+        "FAIL  AgentCore Runtime MosaicTools_abc: could not read the platform version "
+        "(GetAgentRuntime returned no platformVersion)"
+    )
+    assert not_ready(line)
+
+
+@pytest.mark.parametrize("status", ["UPDATING", "CREATE_FAILED", None])
+def test_runtime_not_ready_is_not_ready(status):
+    line = checks.runtime_platform_line(NAME, runtime(status=status))
+    assert line.text() == (
+        f"FAIL  AgentCore Runtime MosaicTools_abc: status {status}, not READY"
+    )
+    assert not_ready(line)
+
+
+def runtimes_context(**overrides) -> checks.Context:
+    arns = {
+        variable: f"arn:aws:bedrock-agentcore:us-east-1:1:runtime/{variable}-id"
+        for variable, _label, _role in RUNTIME_ROLES
+    }
+    return context(**{**arns, **overrides})
+
+
+def runtimes_control(monkeypatch, **behaviour) -> Mock:
+    from scripts import deploy_agentcore
+
+    control = ready_control()
+    for name, value in behaviour.items():
+        setattr(control.get_agent_runtime, name, value)
+    monkeypatch.setattr(deploy_agentcore, "client", lambda _service: control)
+    return control
+
+
+def test_each_runtime_gets_its_platform_line_then_its_deployment_line(monkeypatch):
+    runtimes_control(
+        monkeypatch,
+        side_effect=lambda agentRuntimeId: runtime(
+            agentRuntimeName=agentRuntimeId.removesuffix("-id")
+        ),
+    )
+    lines = [line.text() for line in checks.check_runtimes(runtimes_context())]
+    assert lines[0::2] == [
+        f"PASS  AgentCore Runtime {variable}: READY on platform V1"
+        for variable, _label, _role in RUNTIME_ROLES
+    ]
+    assert [text.split(":")[0] for text in lines[1::2]] == [
+        f"PASS  {label}" for _variable, label, _role in RUNTIME_ROLES
+    ]
+
+
+def test_a_failed_read_is_not_ready(monkeypatch):
+    runtimes_control(monkeypatch, side_effect=client_error("AccessDeniedException"))
+    lines = checks.check_runtimes(runtimes_context())
+    assert [line.text() for line in lines] == [
+        f"FAIL  AgentCore Runtime {variable}-id: could not read the platform version "
+        "(AccessDeniedException)"
+        for variable, _label, _role in RUNTIME_ROLES
+    ]
+
+
+def test_a_runtime_arn_that_is_not_configured_is_not_ready(monkeypatch):
+    control = runtimes_control(monkeypatch, return_value=runtime())
+    variable = RUNTIME_ROLES[0][0]
+    lines = checks.check_runtimes(runtimes_context(**{variable: ""}))
+    assert lines[0].text() == (
+        f"FAIL  AgentCore Runtime {variable}: could not read the platform version "
+        f"({variable} is unset; fix: load this workshop's .env)"
+    )
+    assert control.get_agent_runtime.call_count == len(RUNTIME_ROLES) - 1
+
+
+def test_a_runtime_not_ready_gets_no_deployment_line(monkeypatch):
+    control = runtimes_control(monkeypatch, return_value=runtime(status="UPDATING"))
+    lines = checks.check_runtimes(runtimes_context())
+    assert [line.status for line in lines] == ["FAIL"] * len(RUNTIME_ROLES)
+    control.get_agent_runtime_endpoint.assert_not_called()
+
+
+def test_a_platform_check_that_crashes_did_not_finish(monkeypatch):
+    from scripts import deploy_agentcore
+
+    def broken(_service):
+        raise RuntimeError("no Region\nlast words")
+
+    monkeypatch.setattr(deploy_agentcore, "client", broken)
+    lines = checks.run_checks(
+        runtimes_context(), 5, ((checks.PLATFORM_CHECK, checks.check_runtimes),)
+    )
+    assert [line.text() for line in lines] == [
+        "FAIL  AgentCore Runtime platform check did not finish: RuntimeError: last words"
+    ]
+    assert not_ready(lines[0])
+
+
+def test_a_platform_check_that_prints_nothing_did_not_finish(monkeypatch):
+    monkeypatch.setattr(checks, "runtime_lines", lambda _ctx: [])
+    lines = checks.check_runtimes(runtimes_context())
+    assert [line.text() for line in lines] == [
+        "FAIL  AgentCore Runtime platform check did not finish: it printed no line"
+    ]
+
+
+def test_the_pinned_botocore_returns_the_platform_version():
+    """The check reads platformVersion from the parsed response, so the pinned botocore
+    must model it: 1.43.51 and 1.43.67 dropped it, and the line would then read
+    "could not read" on every account."""
+    import botocore.session
+
+    model = botocore.session.get_session().get_service_model(
+        "bedrock-agentcore-control"
+    )
+    assert (
+        "platformVersion"
+        in model.operation_model("GetAgentRuntime").output_shape.members
+    )
+
+
+def test_runtime_with_matching_models_passes_without_judging_the_platform():
+    line = checks.runtime_line(
+        context(), ready_control(), "Tools runtime", runtime(platformVersion="V2")
+    )
     assert line.status == "PASS"
+    assert "platform" not in line.detail
+
+
+def test_only_the_readiness_record_runs_the_platform_check():
+    """Versions rule 5 without a gate: the check lives in the readiness checks, which only
+    event_readiness.py imports, and bootstrap writes that record after its SUCCESS
+    signal, so it can fail neither the CloudFormation stack nor a participant command."""
+    repo = Path(__file__).resolve().parents[1]
+    importers = sorted(
+        str(path.relative_to(repo))
+        for folder in ("scripts", "service", "deploy", "labs")
+        for path in (repo / folder).rglob("*.py")
+        if path.name != "readiness_checks.py"
+        and "readiness_checks" in path.read_text(encoding="utf-8")
+    )
+    assert importers == ["scripts/event_readiness.py"]
+    bootstrap = (repo / "deploy" / "mosaic-bootstrap.sh").read_text(encoding="utf-8")
+    # The signal that completes the stack, not the image-ready one before it.
+    success = bootstrap.index('"Status":"SUCCESS","Reason":"Mosaic bootstrap complete"')
+    runs = [
+        (found.start(), found.group(1))
+        for found in re.finditer(
+            r"^\s*/usr/local/sbin/mosaic-readiness-record(.*)$", bootstrap, re.MULTILINE
+        )
+    ]
+    # --failed records the failing phase and runs no check (tested above).
+    checked = [
+        start for start, rest in runs if not rest.lstrip().startswith("--failed")
+    ]
+    assert len(runs) == 2 and len(checked) == 1
+    assert checked[0] > success
 
 
 def test_runtime_without_a_container_image_fails_with_a_reason():

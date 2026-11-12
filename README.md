@@ -150,8 +150,8 @@ retrying.` Run the same command again; nothing in your lab changed.
 
 Facilitators check every event account before the event with
 `uv run scripts/event_readiness.py --accounts DIR`, one Ops credential file per account.
-Each box records its own readiness when bootstrap ends; see
-[event readiness](docs/event-readiness.md).
+Each box records its own readiness when bootstrap ends, including whether both AgentCore
+runtimes run on platform V1; see [event readiness](docs/event-readiness.md).
 
 ### Run it in your own account
 
