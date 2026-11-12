@@ -700,6 +700,7 @@ def completion_proof(
         if rows is not None:
             from service.agent_deploys import lab_3_started_at
             from service.lab_followup import (
+                CHANGED_REQUIREMENT_DEPLOYMENT,
                 changed_requirement_check,
                 claim_review_problem,
                 load_changed_requirement,
@@ -741,7 +742,7 @@ def completion_proof(
                 for check in _managed_agent_checks(followup, root):
                     checks.append(
                         LabCheck(
-                            name="changed requirement deployment",
+                            name=CHANGED_REQUIREMENT_DEPLOYMENT,
                             passed=check.passed,
                             falsifier=check.falsifier,
                             detail=check.detail.replace(

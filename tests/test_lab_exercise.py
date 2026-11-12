@@ -252,6 +252,46 @@ def test_lab3_setup_run_reports_every_failing_check(monkeypatch):
     ]
 
 
+def test_lab3_failing_only_the_follow_up_retries_the_follow_up(monkeypatch):
+    """A 100W run saved before the last deploy fails only the follow-up's own checks."""
+    work = _lab3_proof(
+        monkeypatch,
+        [
+            ("canonical mission request answered", True, "matches"),
+            ("managed_agent_deployed", True, "deployed"),
+            ("changed requirement checked", False, "made by different code"),
+            ("changed requirement deployment", False, "saved before your last deploy"),
+        ],
+    )
+    assert lab_exercise.grade_lab3(work)["retry"] == "follow-up"
+
+
+def test_lab3_failing_the_setup_run_retries_the_setup_request(monkeypatch):
+    work = _lab3_proof(
+        monkeypatch,
+        [
+            ("canonical mission request answered", True, "matches"),
+            ("managed_agent_deployed", False, "found no deploy"),
+            ("changed requirement checked", False, "made by different code"),
+        ],
+    )
+    assert lab_exercise.grade_lab3(work)["retry"] == "setup"
+
+
+def test_a_follow_up_retry_names_the_100w_question_not_the_deploy(capsys):
+    from service.participant_commands import (
+        DEPLOY_AGENT,
+        ask_100w_command,
+        grade_setup_run_command,
+    )
+
+    lab_exercise._grade_next(3, False, retry="follow-up")
+    out = " ".join(capsys.readouterr().out.split())
+    assert " ".join(ask_100w_command().split()) in out
+    assert grade_setup_run_command() in out
+    assert DEPLOY_AGENT not in out
+
+
 def test_lab3_names_the_contract_part_the_agent_misses(monkeypatch):
     clause = "Agent needs hooks=hooks, the supplied execution hooks"
     monkeypatch.setattr(lab_exercise.lab_state, "lab3_problem", lambda: clause)

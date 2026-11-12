@@ -11,6 +11,13 @@ from service.claim_review import ClaimReview
 from service.lab_checks import LabCheck, same_request
 from service.telemetry_contract import load_agent_turn_rows
 
+CHANGED_REQUIREMENT_CHECK = "changed requirement checked"
+CHANGED_REQUIREMENT_DEPLOYMENT = "changed requirement deployment"
+# The checks only the 100W follow-up's run can fail; asking it again is their fix.
+FOLLOW_UP_CHECKS = frozenset(
+    {CHANGED_REQUIREMENT_CHECK, CHANGED_REQUIREMENT_DEPLOYMENT}
+)
+
 
 def claim_review_problem(turn: Mapping[str, Any]) -> str | None:
     """Require the completed answer's support receipt, not a review of another draft."""
@@ -170,7 +177,7 @@ def changed_requirement_check(mission, rows, setup_rows, resolved_evidence) -> L
         else:
             failure = f"the changed-requirement run ended with outcome {outcome!r}"
     return LabCheck(
-        name="changed requirement checked",
+        name=CHANGED_REQUIREMENT_CHECK,
         passed=not failure,
         falsifier="the changed question was skipped, used other code, did not search/read the named product, or its answer/decline lacks checked support for the new requirement",
         detail=f"Changed-requirement run {rows.turn['agent_turn_id']} checked against current sources"

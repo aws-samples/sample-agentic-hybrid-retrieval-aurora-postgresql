@@ -53,6 +53,7 @@ from service.participant_commands import (
     DEPLOY_AGENT,
     HNSW_FILES,
     RERANK_OFF_ON,
+    ask_100w_command,
     ask_setup_command,
     grade_exercise_command,
     grade_setup_run_command,
@@ -527,6 +528,7 @@ def grade_lab3(path: Path) -> dict[str, Any]:
     from uuid import UUID
 
     from service.agentcore_transport import runtime_arn
+    from service.lab_followup import FOLLOW_UP_CHECKS
     from service.lab_proof import completion_proof
 
     if path.resolve() != default_work(3).resolve():
@@ -559,7 +561,15 @@ def grade_lab3(path: Path) -> dict[str, Any]:
             "Your current code does not match the completed labs. Apply Labs 1 and 2, "
             f"then deploy with {DEPLOY_AGENT}."
         )
-    return {"agent_run_id": values["lab_agent_id"], "failures": failures}
+    failed = {check.name for check in proof.checks if not check.passed}
+    # A 100W run saved before the last deploy fails only its own checks: the setup run and
+    # the deploy are fine, so the retry is the 100W question, not another deploy.
+    retry = "follow-up" if failed and failed <= FOLLOW_UP_CHECKS else "setup"
+    return {
+        "agent_run_id": values["lab_agent_id"],
+        "failures": failures,
+        "retry": retry,
+    }
 
 
 def record_decision(lab: int, report: dict[str, Any], values: dict[str, str]) -> None:
@@ -687,7 +697,7 @@ def _print_lab3(report: dict) -> None:
         )
 
 
-def _grade_next(lab: int, passed: bool) -> None:
+def _grade_next(lab: int, passed: bool, retry: str = "setup") -> None:
     """Print the step after a grade: the guide's next one when it passed, else the retry."""
     if lab == 1:
         if passed:
@@ -723,6 +733,13 @@ def _grade_next(lab: int, passed: bool) -> None:
             )
     elif passed:
         next_step("the guide's Wrap-up. Lab 3's required work is complete.")
+    elif retry == "follow-up":
+        next_step(
+            "ask the 100W question again, so your deployed agent answers it, then check "
+            "again:",
+            ask_100w_command(),
+            grade_setup_run_command(),
+        )
     else:
         next_step(
             "fix what FAIL names above; if you changed agent.py, deploy it. Then ask "
@@ -836,7 +853,7 @@ def main(argv: list[str] | None = None) -> int:
             f"\nLab {args.lab} exercise: {report['verdict']} ({receipt.relative_to(REPO)})"
         )
     )
-    _grade_next(args.lab, not report["failures"])
+    _grade_next(args.lab, not report["failures"], report.get("retry", "setup"))
     return 1 if report["failures"] else 0
 
 
