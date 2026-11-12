@@ -132,7 +132,7 @@ The commands you use most:
 | Hand off Lab 1 or Lab 2: prove it and prepare the next lab | `uv run python scripts/lab_state.py advance --lab 1` |
 | Deploy your Retrieval agent (Lab 3) | `uv run python scripts/deploy_agentcore.py deploy` |
 | Ask the deployed Retrieval agent | `uv run python scripts/ask_agent.py "QUESTION"` |
-| Grade your Lab 3 setup run | `uv run python scripts/grade_setup_run.py` |
+| Grade Lab 3: your setup run and 100W answer | `uv run python scripts/grade_setup_run.py` |
 | Catch up by installing a lab's reference answer | `uv run python scripts/lab_state.py finish --lab N` |
 
 A successful deploy or a plausible answer is not completion: each lab ends with the

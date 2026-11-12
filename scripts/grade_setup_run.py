@@ -30,7 +30,11 @@ from dotenv import load_dotenv
 from scripts import lab_exercise
 from scripts.lab_request import sql_context
 from scripts.terminal_text import next_step, tidy, verdict
-from service.participant_commands import ask_setup_command, grade_setup_run_command
+from service.participant_commands import (
+    ask_100w_command,
+    ask_setup_command,
+    grade_setup_run_command,
+)
 
 # Runs are compared in Python, with the completion check's own rule for "the same
 # request"; a participant asks a handful, so a bounded window holds them all.
@@ -128,8 +132,9 @@ def _pick_run() -> UUID | None:
         )
         print(verdict(f"Lab 3 exercise: CANNOT GRADE - {found}."))
         next_step(
-            "ask it with:",
+            "ask it, then the 100W question:",
             ask_setup_command(),
+            ask_100w_command(),
             "then run this command again:",
             grade_setup_run_command(),
         )

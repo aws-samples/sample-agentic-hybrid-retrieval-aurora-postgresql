@@ -99,7 +99,7 @@ it does not prove the running API or Aurora has loaded them. The validators
 check the installed SQL and production responses. Every lab is completed in
 the terminal, never in the browser: Labs 1 and 2 with the guide's repeat and
 check commands, Lab 3 with `uv run python scripts/grade_setup_run.py` on the
-participant's newest setup run since Lab 3 started.
+participant's newest setup run and 100W answer since Lab 3 started.
 
 ### Opening
 
@@ -167,8 +167,8 @@ start command. A rerun proves Lab 2 again and keeps any Lab 3 edits.
 ### Lab 3: Reason - Build and deploy the Retrieval agent
 
 Participants extend their SQL from Labs 1 and 2. They list the Gateway tools,
-complete `create_agent` in `labs/lab3_reason/agent.py`, add one source-aware instruction,
-and run `uv run python scripts/deploy_agentcore.py deploy`. The managed services and networking are prepared.
+complete `create_agent` in `labs/lab3_reason/agent.py`, optionally add one source-aware
+instruction, and run `uv run python scripts/deploy_agentcore.py deploy`. The managed services and networking are prepared.
 
 Show the deployment message, then ask Alex's setup request from the terminal
 with `uv run python scripts/ask_agent.py "..."`, copied from the guide. One line
@@ -405,7 +405,7 @@ and chair searches and open one source. Distinguish a deployment failure from a
 working answer that declines an unsupported claim.
 
 At completion, check the participant's newest setup run (or name one with
-`--run-id <run-id>`):
+`--run-id <run-id>`) and their newest 100W answer:
 
 ```sh
 uv run python scripts/grade_setup_run.py

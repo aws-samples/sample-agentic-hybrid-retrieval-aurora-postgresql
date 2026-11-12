@@ -46,14 +46,15 @@ them.
 
 ## Change a need, then prove the run
 
-Ask the guide's 100W follow-up the same way. Then prove the setup run:
+Ask the guide's 100W follow-up the same way. Then prove both runs:
 
 ```bash
 uv run python scripts/grade_setup_run.py
 ```
 
 It finds your newest setup run since Lab 3 started, says which it chose, and
-reads your deployed code and that run without generating another answer;
+reads your deployed code, that run and your newest 100W answer without
+generating another answer;
 `--run-id <run-id>` checks a particular run instead. Deployment alone does not
 prove completion.
 
@@ -64,8 +65,8 @@ prove completion.
 [reference answer](solution/agent.py), inside and outside the markers, without
 printing it, and changes nothing; an instruction you added shows as a difference.
 Add `--answer` to see the answer's lines; try the guide's hints first. `uv run python scripts/lab_state.py apply-solution --lab 3`
-overwrites your edit with the answer; deploy it, then run the setup request
-yourself and prove that run. `uv run python scripts/lab_state.py finish --lab 3`
+overwrites your edit with the answer; deploy it, then ask the setup request and
+the 100W question yourself and prove them. `uv run python scripts/lab_state.py finish --lab 3`
 installs and deploys the answer in one command.
 
 </details>

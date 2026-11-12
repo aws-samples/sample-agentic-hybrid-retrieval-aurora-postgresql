@@ -34,8 +34,8 @@ build and deploy an agent), and each is graded against an answer the grader comp
   **Lesson: fusion only works if positions count, and a tuning claim needs a judged
   set.**
 - **Lab 3: Reason - Build and deploy the Retrieval agent · 20 min.** Participants connect the
-  Gateway SQL tools, complete the Retrieval agent constructor, add an instruction
-  and deploy it to AgentCore Runtime. They ask Alex's setup request,
+  Gateway SQL tools, complete the Retrieval agent constructor (an instruction of
+  their own is optional) and deploy it to AgentCore Runtime. They ask Alex's setup request,
   open a citation and change a requirement in a follow-up. The actual managed
   run is checked at completion without another model call. **Lesson: the SQL
   from Labs 1 and 2 becomes a managed Retrieval agent capability, with product claims
@@ -79,7 +79,7 @@ Logitech Zone 900 Alex saved; Lab 2 keeps the ViewSonic VG2756-4K, a
 27-inch 4K monitor documenting USB-C charging up to 90W over one cable, in
 reach of the reranker; Lab 3 asks the Retrieval agent to check those headphones, that monitor and the
 Steelcase Gesture chair against their sources. The completion check, `grade_setup_run.py`, reads the participant's saved setup
-run, its decisions and citations back from Aurora without
+run and 100W answer, their decisions and citations back from Aurora without
 another model call. The [presenter brief](../workshop.md) owns the spoken
 narrative and transitions.
 

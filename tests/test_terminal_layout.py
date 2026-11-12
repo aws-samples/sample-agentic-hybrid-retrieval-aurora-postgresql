@@ -953,8 +953,12 @@ def test_finish_ends_with_the_first_step_of_the_lab_it_handed_off_to(
     assert_ends_with_next(out, open_psql_command(2))
 
 
-def test_finish_lab_3_ends_with_asking_the_setup_request(monkeypatch, capsys) -> None:
-    from service.participant_commands import ask_setup_command, grade_setup_run_command
+def test_finish_lab_3_ends_with_asking_both_questions(monkeypatch, capsys) -> None:
+    from service.participant_commands import (
+        ask_100w_command,
+        ask_setup_command,
+        grade_setup_run_command,
+    )
 
     monkeypatch.setattr(lab_state, "_run_steps", lambda *_a, **_k: 0)
     monkeypatch.setattr(lab_state, "_earlier_labs_to_finish", lambda _lab: [])
@@ -964,7 +968,9 @@ def test_finish_lab_3_ends_with_asking_the_setup_request(monkeypatch, capsys) ->
 
     out = capsys.readouterr().out
     assert out.startswith("Lab 3: the reference Retrieval agent is deployed.\n\nNext: ")
-    assert_ends_with_next(out, ask_setup_command(), grade_setup_run_command())
+    assert_ends_with_next(
+        out, ask_setup_command(), ask_100w_command(), grade_setup_run_command()
+    )
 
 
 def test_skip_to_ends_with_the_first_step_of_the_lab_it_started(

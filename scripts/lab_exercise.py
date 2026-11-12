@@ -52,11 +52,13 @@ from service.participant_commands import (
     COMPARE_SETTINGS,
     DEPLOY_AGENT,
     HNSW_FILES,
+    LAB_3_COMPLETION_STEPS,
     RERANK_OFF_ON,
     ask_100w_command,
     ask_setup_command,
     grade_exercise_command,
     grade_setup_run_command,
+    lab3_completion_commands,
     repeat_request_command,
 )
 
@@ -113,7 +115,8 @@ def load_context(lab: int) -> dict[str, str]:
     if not path.exists() and lab == 3:
         raise ExerciseError(
             "no graded run of Alex's setup request yet; ask it with "
-            f"`{ask_setup_command()}`, then run `{grade_setup_run_command()}`"
+            f"`{ask_setup_command()}`, then the 100W question with "
+            f"`{ask_100w_command()}`, then run `{grade_setup_run_command()}`"
         )
     if not path.exists():
         raise ExerciseError(
@@ -742,11 +745,10 @@ def _grade_next(lab: int, passed: bool, retry: str = "setup") -> None:
         )
     else:
         next_step(
-            "fix what FAIL names above; if you changed agent.py, deploy it. Then ask "
-            "Alex's setup request again and check that run:",
+            "fix what FAIL names above; if you changed agent.py, deploy it. Then "
+            + LAB_3_COMPLETION_STEPS,
             DEPLOY_AGENT,
-            ask_setup_command(),
-            grade_setup_run_command(),
+            *lab3_completion_commands(),
         )
 
 

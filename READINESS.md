@@ -103,7 +103,7 @@ the production search path, checks it and records the new `search_event_id`s.
 `lab_state.py advance --lab 1` and `--lab 2` run the same checks before they
 prepare the next lab. Lab 3 grades the attendee's own persisted agent run:
 `uv run python scripts/grade_setup_run.py` evaluates the newest setup run (or one
-named with `--run-id`) without generating a new answer, including whether the
+named with `--run-id`) and the newest 100W answer without generating a new answer, including whether the
 application deployed now and the SQL Aurora runs now are the ones that made it, and
 whether a deploy the attendee made since Lab 3 started produced it. Completion also
 checks the saved 100W follow-up for a fresh search, current monitor specification,

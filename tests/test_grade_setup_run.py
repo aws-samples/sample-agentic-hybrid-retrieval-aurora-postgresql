@@ -236,7 +236,11 @@ def test_a_cut_off_context_file_is_replaced_not_crashed_on(tmp_path) -> None:
 def test_no_checkable_run_ends_with_asking_one_and_then_checking_it(
     monkeypatch, capsys, workspace
 ) -> None:
-    from service.participant_commands import ask_setup_command, grade_setup_run_command
+    from service.participant_commands import (
+        ask_100w_command,
+        ask_setup_command,
+        grade_setup_run_command,
+    )
 
     _turns(monkeypatch, [])
     monkeypatch.setattr(sys, "argv", ["grade_setup_run.py"])
@@ -246,8 +250,8 @@ def test_no_checkable_run_ends_with_asking_one_and_then_checking_it(
     out = capsys.readouterr().out
     assert not out.startswith("\n") and "\n\n\n" not in out
     assert out.endswith(
-        "\n\nNext: ask it with:\n"
-        f"{ask_setup_command()}\nthen run this command again:\n"
+        "\n\nNext: ask it, then the 100W question:\n"
+        f"{ask_setup_command()}\n{ask_100w_command()}\nthen run this command again:\n"
         f"{grade_setup_run_command()}\n"
     )
 

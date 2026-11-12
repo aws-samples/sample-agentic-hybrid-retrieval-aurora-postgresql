@@ -189,7 +189,7 @@ Lab 3 edits. Weighted RRF is optional.
 
 Discover Gateway tools, then complete `create_agent` inside `LAB3_EDIT` in
 `labs/lab3_reason/agent.py`. Participants keep the supplied model, tools, source
-rules and hooks, and add one instruction of their own. Deploy using the guide.
+rules and hooks; an instruction of their own is optional. Deploy using the guide.
 
 Use the deployment wait to predict the 100W answer. The resource tour is
 optional. The deploy shows each of its five steps against its usual time, 1:11

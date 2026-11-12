@@ -130,6 +130,21 @@ def grade_setup_run_command(run_id: str | None = None) -> str:
     return f"{command} --run-id {run_id}" if run_id else command
 
 
+LAB_3_COMPLETION_STEPS = (
+    "ask Alex's setup request, then the 100W question, then check both answers:"
+)
+
+
+def lab3_completion_commands() -> tuple[str, str, str]:
+    """Lab 3's two required runs and the check that grades them, in order.
+
+    Completion checks the newest setup run and the newest answered 100W question since
+    Lab 3 started, and both must come from the same deployed code, so after a deploy
+    both are asked again before the check.
+    """
+    return ask_setup_command(), ask_100w_command(), grade_setup_run_command()
+
+
 def validate_applied_command(lab: int) -> str:
     """Check the source and the SQL Aurora last applied, as the guides do."""
     return (

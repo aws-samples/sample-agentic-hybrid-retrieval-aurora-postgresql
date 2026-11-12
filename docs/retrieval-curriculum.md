@@ -152,8 +152,8 @@ performance, laptop compatibility and personal comfort stated separately.
 ## Prove (unnumbered finale)
 
 Prove is included inside Lab 3's 20-minute budget, not an additional lab:
-`grade_setup_run.py` checks the participant's newest setup run without a
-new model call. The required path
+`grade_setup_run.py` checks the participant's newest setup run and 100W answer
+without a new model call. The required path
 contains three repairs and five controls. A separate representative evaluation
 is needed to make whole-catalog ranking claims.
 

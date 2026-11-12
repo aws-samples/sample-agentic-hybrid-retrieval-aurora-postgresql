@@ -47,8 +47,8 @@ anything, run `uv run python scripts/diff.py`; it does not print the answer.
 In Lab 2 you repair the rank contribution, then read what reranking changed
 and compare three settings; `advance --lab 2` then proves
 Lab 2 and prepares Lab 3. In Lab 3, deploy your Retrieval agent, ask Alex's
-setup request with `scripts/ask_agent.py`, then run
-`uv run python scripts/grade_setup_run.py`: it checks your newest setup run.
+setup request and then the 100W question with `scripts/ask_agent.py`, then run
+`uv run python scripts/grade_setup_run.py`: it checks both saved answers.
 
 After the labs, open **Playground → Use it in your own agent** and choose
 **Download the agent skill** to keep the agentic hybrid retrieval skill, or

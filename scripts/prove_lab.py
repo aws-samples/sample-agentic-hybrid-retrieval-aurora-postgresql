@@ -39,6 +39,7 @@ from service.participant_commands import (
     ADVANCE_TO_LAB_3,
     APPLY_SQL,
     DIFF,
+    ask_100w_command,
     ask_setup_command,
     grade_setup_run_command,
     prove_lab_command,
@@ -478,7 +479,8 @@ def _prove(args: argparse.Namespace) -> int:
         raise SystemExit(
             "Lab 3 validation rule: found --lab 3 without a receipt; Lab 3 is checked "
             "on your saved Retrieval agent run, not on fresh answers. fix: ask Alex's setup "
-            f"request with {ask_setup_command()}, then run {grade_setup_run_command()} "
+            f"request with {ask_setup_command()}, then the 100W question with "
+            f"{ask_100w_command()}, then run {grade_setup_run_command()} "
             "(a maintainer passes --save-receipt PATH or --reuse-receipt PATH)."
         )
     validator = {

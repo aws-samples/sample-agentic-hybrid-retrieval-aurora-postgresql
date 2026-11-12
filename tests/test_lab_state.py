@@ -1269,15 +1269,20 @@ def test_lab_3_is_solved_only_after_the_deployed_agent_passed_completion(
     lab_repo: Path,
 ) -> None:
     from scripts.lab_state import status_line
-    from service.participant_commands import ask_setup_command, grade_setup_run_command
+    from service.participant_commands import (
+        ask_100w_command,
+        ask_setup_command,
+        grade_setup_run_command,
+    )
 
     _lab_3_started(lab_repo)
     assert status_line(3, repo=lab_repo).startswith("Lab 3: REPAIRED, NOT DEPLOYED")
 
     _lab_3_deployed(lab_repo, "2026-10-29T11:00:00+00:00")
     assert status_line(3, repo=lab_repo) == (
-        "Lab 3: DEPLOYED, NOT YET PROVED. Next: ask Alex's setup request:\n"
-        f"{ask_setup_command()}\nthen check that run with {grade_setup_run_command()}"
+        "Lab 3: DEPLOYED, NOT YET PROVED. Next: ask Alex's setup request, then the 100W "
+        "question, then check both answers:\n"
+        f"{ask_setup_command()}\n{ask_100w_command()}\n{grade_setup_run_command()}"
     )
 
     _lab_3_graded(lab_repo, "FAIL", "2026-10-29T11:30:00+00:00")

@@ -50,14 +50,17 @@ from service.participant_commands import (
     DEPLOY_AGENT,
     DIFF,
     DIFF_ANSWER,
+    LAB_3_COMPLETION_STEPS,
     LIST_TOOLS,
     USUAL_SECONDS,
     apply_solution_command,
+    ask_100w_command,
     ask_setup_command,
     finish_command,
     finish_steps,
     grade_exercise_command,
     grade_setup_run_command,
+    lab3_completion_commands,
     load_context_command,
     open_psql_command,
     proof_steps_text,
@@ -292,10 +295,13 @@ def _diff_footer(
     if block_differs and lab == 3:
         footer += [
             (
-                "Lab 3 also asks for your own instruction inside this block, so "
-                "some difference is expected."
+                "An instruction of your own after the supplied ones, if you add one, "
+                "also shows as a difference."
             ),
             f"Deploy:   {DEPLOY_AGENT}",
+            "Then ask Alex's setup request and the 100W question:",
+            f"{COMMAND_INDENT}{ask_setup_command()}",
+            f"{COMMAND_INDENT}{ask_100w_command()}",
             f"Check:    {grade_setup_run_command()}",
         ]
     elif block_differs:
@@ -1091,7 +1097,6 @@ def lab_3_solved(repo: Path = REPO) -> bool:
 def _lab_3_status(repo: Path) -> str:
     """Lab 3 is solved by a passing run of the participant's deployed agent, not by source."""
     from service.agent_deploys import lab_3_started_at, load_deploys
-    from service.participant_commands import ask_setup_command, grade_setup_run_command
 
     if not lab_source_is_repaired(3, repo=repo):
         return "Lab 3: BROKEN"
@@ -1105,8 +1110,8 @@ def _lab_3_status(repo: Path) -> str:
     if _lab_3_passed_since(deploys[-1].deployed_at, repo):
         return LAB_3_SOLVED
     return (
-        "Lab 3: DEPLOYED, NOT YET PROVED. Next: ask Alex's setup request:\n"
-        f"{ask_setup_command()}\nthen check that run with {grade_setup_run_command()}"
+        f"Lab 3: DEPLOYED, NOT YET PROVED. Next: {LAB_3_COMPLETION_STEPS}\n"
+        + "\n".join(lab3_completion_commands())
     )
 
 
@@ -1163,8 +1168,8 @@ def solution_summary(lab: int, path: Path, *, run_by: str | None = None) -> str:
         return overwrote
     if lab == 3:
         follow_up = (
-            f"Next: deploy with {DEPLOY_AGENT}, then ask Alex's setup request:\n"
-            f"{ask_setup_command()}\nthen check that run with {grade_setup_run_command()}"
+            f"Next: deploy with {DEPLOY_AGENT}, then {LAB_3_COMPLETION_STEPS}\n"
+            + "\n".join(lab3_completion_commands())
         )
     else:
         follow_up = f"Next: apply it with {APPLY_SQL}, then prove it with {proof_steps_text(lab)}."
@@ -1254,12 +1259,7 @@ def finish_lab(lab: int) -> int:
         return code
     if lab == 3:
         print("\nLab 3: the reference Retrieval agent is deployed.")
-        next_step(
-            "ask Alex's setup request:",
-            ask_setup_command(),
-            "then check that run with:",
-            grade_setup_run_command(),
-        )
+        next_step(LAB_3_COMPLETION_STEPS, *lab3_completion_commands())
     else:
         print(f"\nLab {lab}: finished with the reference answer.")
         lab_ready_step(lab + 1)
@@ -1301,12 +1301,7 @@ def _status_next(lines: list[str]) -> None:
         elif lab == 3 and "NOT DEPLOYED" in line:
             next_step("deploy your Retrieval agent:", DEPLOY_AGENT)
         elif lab == 3 and "NOT YET PROVED" in line:
-            next_step(
-                "ask Alex's setup request:",
-                ask_setup_command(),
-                "then check that run with:",
-                grade_setup_run_command(),
-            )
+            next_step(LAB_3_COMPLETION_STEPS, *lab3_completion_commands())
         elif lab == 3:
             next_step(
                 "open labs/lab3_reason/agent.py in Code Editor and complete create_agent, "
@@ -1412,12 +1407,9 @@ def _validate_command(lab: int, database_url: str | None, *, repo: Path = REPO) 
             "Lab 3: source assembled. This checks the file's shape, not your Retrieval agent."
         )
         next_step(
-            "deploy your Retrieval agent:",
+            f"deploy your Retrieval agent, then {LAB_3_COMPLETION_STEPS}",
             DEPLOY_AGENT,
-            "then ask Alex's setup request:",
-            ask_setup_command(),
-            "then check that run with:",
-            grade_setup_run_command(),
+            *lab3_completion_commands(),
         )
         return 0
     problem = source_problem(lab)
