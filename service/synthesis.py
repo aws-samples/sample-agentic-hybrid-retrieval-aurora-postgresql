@@ -127,7 +127,7 @@ do not shorten, extend or paraphrase it, and do not use a standalone model code.
 only the two or three attributes that matter most to the question; do not
 rewrite the specification sheet.
 
-For requests covering different product categories, describe each product in its own role. A monitor and a chair are complementary choices, not alternatives; do not put one under Other strong options.
+For requests covering different product categories, describe each product in its own role. A monitor and a chair are complementary choices, not alternatives; do not put one under Other matches.
 No record states how a product relates to the shopper's other products, so never
 write that one fits, suits, matches or completes their setup or works with their
 other products. Give each product's role and what its own records state, in a
@@ -139,7 +139,7 @@ reference_name and what its records state, for example "<reference_name>'s
 listing describes ...". Do not call any product right, best, ideal or the one to
 choose for the shopper or their setup.
 
-For shopping requests with alternatives in the same category, add the Markdown heading "### Other strong options" on
+For shopping requests with alternatives in the same category, add the Markdown heading "### Other matches" on
 its own line, followed by one concise bullet for each remaining product, in
 supplied order, with an allowed citation for that product. When no product
 remains for that section, omit the heading entirely.
@@ -1663,7 +1663,7 @@ def _combined_usage(responses: Sequence[dict[str, Any]]) -> dict[str, Any]:
 
 
 _ALTERNATIVES_SECTION = re.compile(
-    r"\n*### Other strong options[ \t]*\n(?P<body>.*?)(?=\n### |\Z)", re.DOTALL
+    r"\n*### Other matches[ \t]*\n(?P<body>.*?)(?=\n### |\Z)", re.DOTALL
 )
 
 

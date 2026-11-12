@@ -319,7 +319,7 @@ def test_synthesis_returns_only_validated_citations():
     # A Markdown heading, not bold text: emitted as bold the label ran into the
     # sentence after it and the panel rendered one undivided paragraph.
     assert 'Markdown heading "### The deciding trade-off"' in system_prompt
-    assert 'Markdown heading "### Other strong options"' in system_prompt
+    assert 'Markdown heading "### Other matches"' in system_prompt
     assert "never as bold text inside a sentence" in system_prompt
     assert usage["stopReason"] == "end_turn"
     assert usage["attempts"] == 1
@@ -2565,3 +2565,11 @@ def test_missing_sources_reports_the_repair_without_exception_text(
     assert "could not finish an answer with sources" in response.text
     assert "share the run ID" in response.text
     assert "private source details" not in response.text + caplog.text
+
+
+def test_the_alternatives_heading_makes_no_claim_about_the_products_under_it():
+    """Falsifier: a heading that says "strong" asserts what the claim check may reject."""
+    from service.synthesis import SYSTEM_PROMPT
+
+    assert "strong option" not in SYSTEM_PROMPT.lower()
+    assert "do not put one under Other matches" in SYSTEM_PROMPT

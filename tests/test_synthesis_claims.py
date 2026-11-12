@@ -1077,7 +1077,7 @@ def test_a_bullet_that_only_names_a_product_is_a_label_not_a_claim():
     # split leaves the name alone, and rejecting it failed whole runs.
     answer = (
         "AuriLogic Flight ANC is the strongest fit [1].\n"
-        "### Other strong options\n"
+        "### Other matches\n"
         f"- {reference_name(SHELL)}. Its listing describes active noise cancellation [2]."
     )
     validate(

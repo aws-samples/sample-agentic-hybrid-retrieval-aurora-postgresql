@@ -256,11 +256,11 @@ def test_the_writer_gets_no_limit_note_when_there_are_no_limits():
 def test_an_empty_alternatives_section_is_not_shown():
     client = DraftClient(
         "AuriLogic Flight ANC has active noise cancellation [1].\n\n"
-        "### Other strong options\nNo alternative headphones were supplied.\n\n"
+        "### Other matches\nNo alternative headphones were supplied.\n\n"
         "### The deciding trade-off\nChoose AuriLogic Flight ANC for quiet calls [1]."
     )
     answer, _, _ = _synthesize(client)
-    assert "Other strong options" not in answer
+    assert "Other matches" not in answer
     assert "### The deciding trade-off" in answer
 
 
