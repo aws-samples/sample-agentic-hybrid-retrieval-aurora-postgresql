@@ -3,7 +3,7 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TOUR_SEEN, TOUR_STORAGE_KEY, type TourStep } from "../tour";
-import { SpotlightTour, TARGET_WAIT_MS } from "./SpotlightTour";
+import { OPTIONAL_GRACE_MS, SpotlightTour, TARGET_WAIT_MS } from "./SpotlightTour";
 
 const STEPS: TourStep[] = [
   { id: "welcome", title: "Welcome", body: "Start here." },
@@ -81,7 +81,7 @@ describe("SpotlightTour", () => {
     const steps = [STEPS[0], STEPS[2], OPTIONAL];
     placeTarget("search");
     render(<SpotlightTour open onClose={onClose} steps={steps} />);
-    frames();
+    frames(OPTIONAL_GRACE_MS + 100);
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     frames();
     fireEvent.click(screen.getByRole("button", { name: "Got it" }));
@@ -92,7 +92,7 @@ describe("SpotlightTour", () => {
   it("passes over an absent optional stop at once", () => {
     placeTarget("search");
     render(<SpotlightTour open onClose={vi.fn()} steps={[STEPS[0], OPTIONAL, STEPS[2]]} />);
-    frames();
+    frames(OPTIONAL_GRACE_MS + 100);
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     frames();
     expect(screen.getByRole("dialog", { name: "Search" })).toBeTruthy();
@@ -102,8 +102,37 @@ describe("SpotlightTour", () => {
     // Playground's run chips exist only after a search: its tour read 1, 2, 4, 5 of 5.
     placeTarget("search");
     render(<SpotlightTour open onClose={vi.fn()} steps={[STEPS[0], OPTIONAL, STEPS[2]]} />);
-    frames();
+    frames(OPTIONAL_GRACE_MS + 100);
     expect(screen.getByRole("dialog", { name: "Welcome" }).textContent).toContain("Tour · 1 of 2");
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    frames();
+    expect(screen.getByRole("dialog", { name: "Search" }).textContent).toContain("Tour · 2 of 2");
+  });
+
+  it("keeps one total while an optional stop's control arrives after the tour opens", () => {
+    // On a first visit Shop's Code Editor link waits on /api/health, so it mounts after
+    // the tour opens: the counter read 1 of 6, then 2 of 7.
+    placeTarget("search");
+    render(<SpotlightTour open onClose={vi.fn()} steps={[STEPS[0], OPTIONAL, STEPS[2]]} />);
+    frames(20);
+    placeTarget("optional");
+    frames();
+    expect(screen.getByRole("dialog", { name: "Welcome" }).textContent).toContain("Tour · 1 of 3");
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    frames();
+    expect(screen.getByRole("dialog", { name: "Optional" }).textContent).toContain("Tour · 2 of 3");
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    frames();
+    expect(screen.getByRole("dialog", { name: "Search" }).textContent).toContain("Tour · 3 of 3");
+  });
+
+  it("does not raise the total for an optional control that arrives after the wait", () => {
+    placeTarget("search");
+    render(<SpotlightTour open onClose={vi.fn()} steps={[STEPS[0], OPTIONAL, STEPS[2]]} />);
+    frames(OPTIONAL_GRACE_MS + 100);
+    expect(screen.getByRole("dialog", { name: "Welcome" }).textContent).toContain("Tour · 1 of 2");
+    placeTarget("optional");
+    frames();
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     frames();
     expect(screen.getByRole("dialog", { name: "Search" }).textContent).toContain("Tour · 2 of 2");

@@ -476,9 +476,10 @@ describe("Shell guided tour", () => {
     );
   }
 
-  it("offers itself on a first visit to Shop's landing", () => {
+  it("offers itself on a first visit to Shop's landing", async () => {
     renderShell("/catalog", true);
-    expect(screen.getByRole("dialog", { name: "Welcome to Mosaic" })).toBeTruthy();
+    // The card waits out the grace for the header's optional stops, none of which render here.
+    expect(await screen.findByRole("dialog", { name: "Welcome to Mosaic" }, { timeout: 3_000 })).toBeTruthy();
   });
 
   it("stays away from a returning visitor, a search and a render without the entry point", () => {
@@ -494,12 +495,12 @@ describe("Shell guided tour", () => {
     expect(screen.queryByRole("dialog", { name: "Welcome to Mosaic" })).toBeNull();
   });
 
-  it("Take the tour starts it on Shop's landing from any page but the Playground", () => {
+  it("Take the tour starts it on Shop's landing from any page but the Playground", async () => {
     window.localStorage.setItem(TOUR_STORAGE_KEY, TOUR_SEEN);
     renderShell("/mosaic-labs/hnsw", false);
     fireEvent.click(screen.getByTitle("Take the tour"));
     expect(window.location.pathname + window.location.search).toBe("/catalog");
-    expect(screen.getByRole("dialog", { name: "Welcome to Mosaic" })).toBeTruthy();
+    expect(await screen.findByRole("dialog", { name: "Welcome to Mosaic" }, { timeout: 3_000 })).toBeTruthy();
   });
 
   it("Take the tour on the Playground starts the Playground's own tour, in place", () => {

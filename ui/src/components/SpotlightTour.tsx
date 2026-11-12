@@ -53,6 +53,8 @@ const SETTLED = { distance: 0.5, speed: 2 };
 const OPEN_FROM = 28;
 /** Shop's landing renders its shelf after the header; a stop waits this long for its control. */
 export const TARGET_WAIT_MS = 2_500;
+/** An optional stop's control may mount just after the tour opens; the count waits this long for it. */
+export const OPTIONAL_GRACE_MS = 1_500;
 
 type Box = { top: number; left: number; width: number; height: number; radius: number };
 type Extent = { top: number; left: number; right: number; bottom: number };
@@ -241,12 +243,13 @@ export function SpotlightTour(
   const clickedAway = useRef(false);
   const id = useId();
   const maskId = `${id}-cut`;
+  // The stops this run shows, fixed once for the whole run so the total never changes
+  // under the participant; null until it is known.
+  const [shown, setShown] = useState<readonly TourStep[] | null>(null);
+  const latestSteps = useRef(steps);
+  latestSteps.current = steps;
   const step = steps[Math.min(index, steps.length - 1)];
-  // Only optional stops can be known not to come, so only they leave the count and
-  // only they can make this the last one.
-  const shown = steps.filter((candidate) => candidate === step || !(candidate.optional === true
-    && candidate.target !== undefined && visibleTarget(candidate.target) === null));
-  const lastShown = shown.at(-1) === step;
+  const lastShown = shown?.at(-1) === step;
 
   const end = useCallback(() => {
     markTourSeen(storageKey);
@@ -270,6 +273,31 @@ export function SpotlightTour(
       const previous = returnFocus.current;
       if (!clickedAway.current && previous?.isConnected) previous.focus({ preventScroll: true });
     };
+  }, [open]);
+
+  // Only optional stops can be known not to come, so only they leave the count. Their
+  // controls may mount just after the tour opens (the Code Editor link waits on
+  // /api/health, the run chips on the saved search), so the roster is fixed once they
+  // are all there or the grace has passed; a control that arrives later is passed over.
+  useEffect(() => {
+    if (!open) {
+      setShown(null);
+      return undefined;
+    }
+    const started = Date.now();
+    let frame = 0;
+    const settle = () => {
+      const missing = (candidate: TourStep) => candidate.optional === true
+        && candidate.target !== undefined && visibleTarget(candidate.target) === null;
+      const current = latestSteps.current;
+      if (current.some(missing) && Date.now() - started < OPTIONAL_GRACE_MS) {
+        frame = requestAnimationFrame(settle);
+        return;
+      }
+      setShown(current.filter((candidate) => !missing(candidate)));
+    };
+    settle();
+    return () => cancelAnimationFrame(frame);
   }, [open]);
 
   useEffect(() => {
@@ -317,7 +345,11 @@ export function SpotlightTour(
   // this stop settles the hole springs toward the control; after that it is the
   // control's own box, every frame.
   useEffect(() => {
-    if (!open) return undefined;
+    if (!open || !shown) return undefined;
+    if (!shown.includes(step)) {
+      advance();
+      return undefined;
+    }
     const target = step.target;
     const started = Date.now();
     const instant = reducedMotion();
@@ -372,11 +404,11 @@ export function SpotlightTour(
     };
     frame = requestAnimationFrame(follow);
     return () => cancelAnimationFrame(frame);
-  }, [advance, draw, open, step]);
+  }, [advance, draw, open, shown, step]);
 
   useEffect(() => {
-    if (open && !waiting) nextRef.current?.focus({ preventScroll: true });
-  }, [index, open, waiting]);
+    if (open && shown && !waiting) nextRef.current?.focus({ preventScroll: true });
+  }, [index, open, shown, waiting]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -424,7 +456,7 @@ export function SpotlightTour(
         <rect className="spotlight-dim" width="100%" height="100%" mask={`url(#${maskId})`} />
       </svg>
       <div ref={ringRef} className="spotlight-hole" style={{ display: "none" }} aria-hidden="true" />
-      {waiting ? null : (
+      {waiting || !shown ? null : (
         <div
           ref={cardRef}
           className="spotlight-card"
