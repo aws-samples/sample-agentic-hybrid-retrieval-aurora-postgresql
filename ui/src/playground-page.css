@@ -1031,6 +1031,21 @@ p.pg-rank-move {
   text-align: right;
 }
 
+/* A shortlist product below the page says so beside its name, not in a legend above. */
+.pg-race-name-off { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.pg-race-name-off > span { overflow: hidden; text-overflow: ellipsis; }
+.pg-race-name-off > em {
+  flex: none;
+  padding: 1px 8px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 999px;
+  color: var(--ink);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
 .pg-race-name {
   overflow: hidden;
   font-size: 14px;
@@ -1224,6 +1239,19 @@ p.pg-rank-move {
 .pg-journey li[data-current][data-accent="rank"] b { background: var(--rank); }
 .pg-journey li[data-current][data-accent="done"] b { background: var(--green); color: var(--canvas); box-shadow: none; }
 .pg-journey li[data-ahead] b { background: var(--paper-warm); color: var(--ink-soft); box-shadow: inset 0 0 0 2px var(--line); }
+/* A step with no rank says why in words; the dashed ring keeps it apart from a position. */
+.pg-journey li:not([data-found]) b,
+.pg-journey li[data-current]:not([data-found]) b {
+  background: var(--canvas);
+  color: var(--ink-soft);
+  box-shadow: none;
+  outline: 1.5px dashed var(--line-strong);
+  outline-offset: -1.5px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.pg-journey li[data-current]:not([data-found]) b { color: var(--ink); }
 .pg-journey li[data-ahead] small { color: var(--ink-soft); }
 .pg-journey button { border-radius: 14px; }
 .pg-journey button:focus:not(:focus-visible) { outline: none; }
@@ -1283,6 +1311,7 @@ p.pg-rank-move {
   .pg-depth .pg-depth-panel:not([hidden]) { padding: 20px 16px; }
   .pg-journey small { font-size: 11px; }
   .pg-journey b { min-width: 34px; height: 34px; font-size: 13px; }
+  .pg-journey li:not([data-found]) b { height: auto; min-height: 34px; padding: 3px 6px; font-size: 12px; line-height: 1.15; white-space: normal; text-align: center; }
   .pg-journey::before { top: 16px; }
 }
 

@@ -1565,7 +1565,7 @@ export function CatalogPage() {
               <h2>
                 {agentProducts ? (
                   <>
-                    <strong>{agentProducts.length}</strong> linked recommendations
+                    <strong>{agentProducts.length}</strong> linked {agentProducts.length === 1 ? "recommendation" : "recommendations"}
                     <small> · numbered in Shop and Ask Mosaic</small>
                   </>
                 ) : retrieval && retrievalLoading ? (

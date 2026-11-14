@@ -1,3 +1,4 @@
+import { ArrowRight } from "lucide-react";
 import { forwardRef, useEffect, useState } from "react";
 import { Link } from "wouter";
 import { api } from "../api";
@@ -7,7 +8,13 @@ import type { SearchResponse } from "../types";
 import { useLabStates } from "../useLabStates";
 import { useWantedName } from "../useWantedName";
 
-/** A good reference result is not a participant repair. Check entry and run age. */
+/**
+ * A good reference result is not a participant repair. Check entry and run age.
+ *
+ * The saved search is the first thing to inspect, so opening it in Playground is the
+ * primary action whenever it can count; searching again only records a new one. When it
+ * cannot count (it predates the lab, or its time is unknown), searching again leads.
+ */
 export const RankLabCard = forwardRef<HTMLElement, {
   mission: MosaicLabMission;
   response: SearchResponse;
@@ -36,6 +43,7 @@ export const RankLabCard = forwardRef<HTMLElement, {
   let title = "Checking the exercise state";
   let detail = "Checking whether Lab 2 has started.";
   let tone = "neutral";
+  let stale = false;
   const occurred = event?.id === eventId && event.at ? Date.parse(event.at) : NaN;
   const started = lab?.started_at ? Date.parse(lab.started_at) : NaN;
   if (failed) {
@@ -52,9 +60,11 @@ export const RankLabCard = forwardRef<HTMLElement, {
   } else if (lab?.entry_state === "started") {
     status = "Lab 2 / Send Alex’s monitor request";
     if (!Number.isFinite(occurred) || !Number.isFinite(started)) {
+      stale = true;
       title = "Search timing not verified";
       detail = "Search again to record a result for this exercise. This saved result cannot verify your repair yet.";
     } else if (occurred < started) {
+      stale = true;
       title = "This search predates Lab 2";
       detail = "Search again with the same request and filters to inspect the exercise you started.";
     } else if (outcome.tone === "unhealthy") {
@@ -82,8 +92,19 @@ export const RankLabCard = forwardRef<HTMLElement, {
     <h2>{title}</h2>
     <p>{detail}</p>
     <div className="shop-lab-callout-actions">
-      <Link className="shop-lab-callout-playground" href={playgroundHref}>Inspect this run in the Playground</Link>
-      <button type="button" onClick={failed ? retry : onSearchAgain}>{failed ? "Retry state check" : "Search again"}</button>
+      {failed ? <>
+        <button type="button" className="shop-lab-callout-primary" onClick={retry}>Retry state check</button>
+        <Link className="shop-lab-callout-secondary" href={playgroundHref}>Inspect saved search</Link>
+      </> : stale ? <>
+        <button type="button" className="shop-lab-callout-primary" onClick={onSearchAgain}>Run search again</button>
+        <Link className="shop-lab-callout-secondary" href={playgroundHref}>Inspect saved search</Link>
+      </> : <>
+        <Link className="shop-lab-callout-primary" href={playgroundHref}>
+          Inspect saved search <ArrowRight size={15} aria-hidden="true" />
+        </Link>
+        <span className="shop-lab-saved-id">Saved search <code>{eventId.slice(0, 8)}</code></span>
+        <button type="button" className="shop-lab-callout-secondary" onClick={onSearchAgain}>Run search again</button>
+      </>}
     </div>
   </section>;
 });

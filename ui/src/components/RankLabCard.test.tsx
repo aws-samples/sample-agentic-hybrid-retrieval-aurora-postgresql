@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { api } from "../api";
 import { coreMosaicLabs } from "../labMissions";
@@ -106,4 +106,34 @@ it("uses the guide's section name, not an invented stage", async () => {
   render(<RankLabCard mission={mission} response={absent} outcome={{ ...outcome, tone: "broken" }} playgroundHref="/labs/retrieval" onSearchAgain={() => {}} />);
   await screen.findByText("Lab 2 / Send Alex’s monitor request");
   expect(screen.queryByText(/See it fail/)).toBeNull();
+});
+
+/** The dark pill is the card's one next step; the other action reads as a link. */
+const primary = () => document.querySelector(".shop-lab-callout-primary")!;
+it("leads with the saved search, which opens without a new search", async () => {
+  const absent = { ...seedRun, results: seedRun.results.slice(1) };
+  const searchAgain = vi.fn();
+  render(<RankLabCard mission={mission} response={absent} outcome={{ ...outcome, tone: "broken" }} playgroundHref="/labs/retrieval?event=e1" onSearchAgain={searchAgain} />);
+  await screen.findByText(`Where is the ${mission.target_display_name}?`);
+  expect(primary().textContent).toBe("Inspect saved search ");
+  expect(primary().getAttribute("href")).toBe("/labs/retrieval?event=e1");
+  expect(screen.getByText(seedRun.search_event_id.slice(0, 8)).closest(".shop-lab-saved-id")).toBeTruthy();
+  fireEvent.click(primary());
+  expect(searchAgain).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Run search again" }));
+  expect(searchAgain).toHaveBeenCalledTimes(1);
+});
+it("leads with a new search when the saved one predates the lab", async () => {
+  vi.mocked(api.retrievalEvent).mockResolvedValue({ run: { occurred_at: "2026-10-06T11:59:59Z" }, candidates: [] } as never);
+  card();
+  await screen.findByText("This search predates Lab 2");
+  expect(primary().textContent).toBe("Run search again");
+  expect(screen.getByRole("link", { name: "Inspect saved search" })).toBeTruthy();
+});
+it("leads with the retry when the lab state cannot be read", async () => {
+  vi.mocked(api.labsState).mockRejectedValue(new Error("offline"));
+  card();
+  await screen.findByText("Exercise state unavailable");
+  expect(primary().textContent).toBe("Retry state check");
+  expect(screen.queryByRole("button", { name: "Run search again" })).toBeNull();
 });

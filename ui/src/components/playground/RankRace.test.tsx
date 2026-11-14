@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { seedRun } from "../../retrievalSeed";
 import { fixtureCatalogPage } from "../../testProducts";
 import type { ProductSummary, SearchResponse } from "../../types";
-import { RACE_STEPS, RankRace, advance, raceCaption, raceRows } from "./RankRace";
+import { RACE_STEPS, RankRace, advance, missingRank, raceCaption, raceRows } from "./RankRace";
 
 vi.mock("motion/react", async (original) => ({ ...await original<typeof import("motion/react")>(), useReducedMotion: () => true }));
 
@@ -151,5 +151,37 @@ describe("RankRace", () => {
     expect(row?.textContent).toContain("#1");
     // Not followable: the Playground holds no receipt for a product it did not return.
     expect(within(list).queryAllByRole("button")).toHaveLength(0);
+  });
+});
+
+describe("missingRank", () => {
+  const journey = () => [...screen.getByRole("list", { name: /at each step$/ }).querySelectorAll("li b")].map((node) => node.textContent);
+
+  it("names the two searches that ran and missed the ViewSonic, where a dash used to stand", () => {
+    render(<RankRace response={response} followId={viewSonic.product_id} wanted onFollow={() => {}} />);
+    expect(journey()).toEqual(["No match", "No match", "#10", "#21", "#5"]);
+    expect(screen.getByRole("button", { name: "Full-text search: no match" })).toBeTruthy();
+  });
+
+  it("does not claim a miss the run never recorded", () => {
+    const unrecorded = { ...response, diagnostics: { ...response.diagnostics, candidate_counts: undefined } } as unknown as SearchResponse;
+    expect(missingRank(step("fts"), viewSonic, unrecorded)).toBe("Not recorded");
+  });
+
+  it("tells reranking that was off from a product reranking never received", () => {
+    const unranked = { ...viewSonic, signals: { ...viewSonic.signals!, final_rank: null } } as unknown as ProductSummary;
+    const off = { ...response, diagnostics: { ...response.diagnostics, rerank_status: "disabled" } } as unknown as SearchResponse;
+    expect(missingRank(step("final"), unranked, off)).toBe("Not reranked");
+    expect(missingRank(step("final"), unranked, response)).toBe("Not sent");
+  });
+});
+
+describe("a shortlist product below the page", () => {
+  it("says so beside its name, with the page size the response returned", () => {
+    const below = ranked(bases[10], "Dell 27-inch USB-C Monitor", { fts: 40, semantic: 40, combined: 3, final: 9 });
+    render(<RankRace response={response} pool={[...products, below]} followId={null} wanted={false} onFollow={() => {}} />);
+    fireEvent.click(screen.getByRole("radio", { name: "Combined (RRF)" }));
+    const row = screen.getByText("Dell 27-inch USB-C Monitor").closest(".pg-race-name")!;
+    expect(row.textContent).toBe(`Dell 27-inch USB-C MonitorNot in the ${products.length} shown`);
   });
 });

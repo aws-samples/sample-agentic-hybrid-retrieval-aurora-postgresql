@@ -685,6 +685,37 @@
   font-weight: 700;
 }
 
+/* After the repair the IDs open on the card as letters: Alex's swap in amber, the
+   listing's letters in green, each letter in its own cell so the swap lines up. */
+.shop-fault-ids-open {
+  display: grid;
+  gap: 10px;
+  width: min(100%, 560px);
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: var(--surface-muted);
+}
+.shop-fault-ids-open .shop-fault-ids { align-items: center; gap: 8px 14px; font-size: 13px; }
+.shop-fault-ids-open dt { font-weight: 600; }
+.shop-fault-ids-open dd { display: flex; flex-wrap: wrap; gap: 3px; letter-spacing: 0; }
+.shop-fault-ids-open dd > span,
+.shop-fault-ids-open dd > mark {
+  display: grid;
+  place-items: center;
+  width: 1.6em;
+  height: 1.9em;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 600;
+}
+.shop-fault-ids-open dd:nth-of-type(1) > mark { border-color: var(--gold); background: var(--gold-soft); color: var(--gold-deep); }
+.shop-fault-ids-open dd:nth-of-type(2) > mark { border-color: var(--green); background: var(--green-soft); color: var(--green); }
+.shop-fault-ids-open > p { margin: 0; color: var(--ink); font-size: 13px; line-height: 1.5; }
+
 .shop-fault-body {
   display: grid;
   align-content: center;
@@ -994,10 +1025,51 @@
   padding: 0 20px;
   border-radius: 999px;
 }
-.shop-rank-card .shop-lab-callout-actions > button {
+.shop-rank-card .shop-lab-callout-actions > .shop-lab-callout-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 20px;
   border: 0;
+  border-radius: 999px;
   background: var(--ink);
   color: var(--canvas);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.shop-rank-card .shop-lab-callout-actions > .shop-lab-callout-primary:hover,
+.shop-rank-card .shop-lab-callout-actions > .shop-lab-callout-primary:focus-visible {
+  background: var(--maroon-700);
+}
+/* The quieter action reads as a link, so the card offers one clear next step. */
+.shop-rank-card .shop-lab-callout-actions > .shop-lab-callout-secondary {
+  min-height: 40px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.shop-rank-card .shop-lab-callout-actions > .shop-lab-callout-secondary:hover,
+.shop-rank-card .shop-lab-callout-actions > .shop-lab-callout-secondary:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.shop-lab-saved-id {
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+.shop-lab-saved-id code {
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--surface-muted);
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 12px;
 }
 .shop-fault-inspect,
 .shop-lab-callout-playground { margin-top: 0; }

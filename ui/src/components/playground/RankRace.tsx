@@ -101,6 +101,22 @@ export function raceRows(
 
 const slotY = (slot: number, pinned: boolean) => slot * ROW_HEIGHT + (pinned ? PINNED_GAP : 0);
 
+/**
+ * Why a step has no rank for a product, in words a dash cannot carry: the search ran and
+ * did not return it, reranking was off or never received it, or the run did not record it.
+ */
+export function missingRank(step: RaceStep, product: ProductSummary, response: SearchResponse): string {
+  const diagnostics = response.diagnostics;
+  if (step.key === "fts" || step.key === "fuzzy" || step.key === "semantic") {
+    return diagnostics?.candidate_counts?.[armPoolKey[step.key]] == null ? "Not recorded" : "No match";
+  }
+  if (step.key === "final" && diagnostics?.rerank_status) {
+    if (diagnostics.rerank_status !== "applied") return "Not reranked";
+    if (product.signals?.pre_rerank_rank != null) return "Not sent";
+  }
+  return "Not recorded";
+}
+
 /** Searches are blue, Aurora's combined order orange, the reranked final order green. */
 const stepAccent = (key: RaceStepKey) => key === "final" ? "done" : key === "combined" ? "rank" : "retrieve";
 
@@ -109,9 +125,10 @@ const stepAccent = (key: RaceStepKey) => key === "final" ? "done" : key === "com
  * where each search ranked it, where Aurora combined it, where it ended. The
  * step on screen is lit; choosing a node shows that step.
  */
-function Journey({ steps, product, current, onPick }: {
+function Journey({ steps, product, response, current, onPick }: {
   steps: RaceStep[];
   product: ProductSummary;
+  response: SearchResponse;
   current: RaceStepKey;
   onPick: (key: RaceStepKey) => void;
 }) {
@@ -120,11 +137,12 @@ function Journey({ steps, product, current, onPick }: {
     <ol className="pg-journey" style={{ "--steps": steps.length } as CSSProperties} aria-label={`${pickName(product)} at each step`}>
       {steps.map((step, index) => {
         const rank = step.rank(product);
+        const gap = rank == null ? missingRank(step, product, response) : null;
         // A step the race has not reached keeps its colour until it gets there.
         const ahead = index > steps.findIndex((item) => item.key === current);
         return <li key={step.key} data-current={step.key === current || undefined} data-ahead={ahead || undefined} data-found={rank != null || undefined} data-accent={stepAccent(step.key)}>
-          <button type="button" onClick={() => onPick(step.key)} aria-label={`${step.label}: ${rank == null ? "not found" : `#${rank}`}`}>
-            <b>{rank == null ? "—" : `#${rank}`}</b>
+          <button type="button" onClick={() => onPick(step.key)} aria-label={`${step.label}: ${gap ? gap.toLowerCase() : `#${rank}`}`}>
+            <b>{gap ?? `#${rank}`}</b>
             <small>{step.label}</small>
           </button>
         </li>;
@@ -319,7 +337,12 @@ export function RankRace({ response, pool, followId, wanted, missing, onFollow }
 
   const cells = (content: RowContent) => <>
     <span className="pg-race-rank">#{content.rank}</span>
-    <span className="pg-race-name">{content.name}</span>
+    {content.onPage ? <span className="pg-race-name">{content.name}</span> : (
+      <span className="pg-race-name pg-race-name-off">
+        <span>{content.name}</span>
+        <em>Not in the {response.results.length} shown</em>
+      </span>
+    )}
     <span className="pg-race-track" aria-hidden="true">
       <span className="pg-race-bar" ref={(bar) => { elements.current.set(content.productId, { ...elements.current.get(content.productId) ?? { row: null }, bar }); }} />
     </span>
@@ -343,7 +366,7 @@ export function RankRace({ response, pool, followId, wanted, missing, onFollow }
         <button type="button" className="pg-race-replay" onClick={replay} disabled={steps.length < 2}>Replay</button>
       </div>
     </div>
-    {follow ? <Journey steps={steps} product={follow} current={step.key} onPick={choose} /> : null}
+    {follow ? <Journey steps={steps} product={follow} response={response} current={step.key} onPick={choose} /> : null}
     {rows.length ? null : <p className="pg-race-empty">{foundLine(step, response) ?? `${step.label} ranked none of these products.`}</p>}
     <ol className="pg-race-list" style={{ height: rows.length ? height : 0 }} aria-label={`${step.label} order`}>
       {mounted.map(({ content }) => {

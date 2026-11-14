@@ -1782,6 +1782,8 @@ describe("CatalogPage", () => {
     expect(within(sources).getByText("Measured for shared-office use.", { exact: false })).toBeTruthy();
     expect(within(dialog).queryByText("Still unknown")).toBeNull();
     expect(screen.getByText("Ask Mosaic picks")).toBeTruthy();
+    expect(document.querySelector(".shop-results-heading h2")?.textContent)
+      .toMatch(/^2 linked recommendations ·/);
 
     // Builder view, on unless the viewer turned it off, puts the recorded steps
     // and ranks on the page.
@@ -2253,7 +2255,7 @@ describe("CatalogPage", () => {
     renderPage();
     const callout = await screen.findByRole("region", { name: "Lab 2 outcome" });
     expect(callout.textContent).not.toContain("Fusion now respects source rank");
-    const link = within(callout).getByRole("link", { name: /Inspect this run/ });
+    const link = within(callout).getByRole("link", { name: /Inspect saved search/ });
     expect(link.getAttribute("href")).toContain(`example=${mission.id}`);
 
   });

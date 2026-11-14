@@ -153,7 +153,14 @@ differ from the reference answer, inside and outside the markers, without printi
 the answer (`--answer` adds it). A start whose
 search already works records that instead of stopping, and repeating a request
 without a saved Before shows the search alone. Shop shows symptoms before
-diagnosis and does not credit pre-start searches as repairs.
+diagnosis and does not credit pre-start searches as repairs. Lab 2's card leads with
+**Inspect saved search**, which opens that search in Playground without searching again;
+**Run search again** leads only when the saved search predates the lab or its time is
+unknown. Once Lab 1's repair is verified, its card puts Alex's ID above the listing's,
+marks the swapped letters and counts the three-letter pieces the two still share. In
+Playground's **Watch the ranking change**, a step that has no rank for the followed
+product says why (**No match**, **Not reranked**, **Not sent** or **Not recorded**), and a
+shortlist product below the page reads **Not in the N shown**.
 Its ordering control sorts the same displayed products; Playground holds the
 full candidate pool.
 Playground's measured comparison of the searches (**Compare searches**, and one
