@@ -34,7 +34,7 @@
     "scan_mem_multiplier": 2.0
   },
   "k": 10,
-  "measured_at": "2026-11-11T14:24:31.268228+00:00",
+  "measured_at": "2026-11-14T18:56:40.872708+00:00",
   "metrics": {
     "mrr": 0.7592592592592592,
     "ndcg@10": 0.8032961425511451,
@@ -142,10 +142,10 @@
     "weight_semantic": 0.45
   },
   "retrieval_settings_sha256": "f97893ed1217126bb78dc7cadd85b0bdf098a0c0dddf3b613d1b43b0a78f4f51",
-  "scorecard_methodology_sha256": "f83a621d8be8e96aad857a26c87e263a62a01376dbc1cf9ba97f5a50c9a05193",
+  "scorecard_methodology_sha256": "9036308993d2007abeecfe695ade9846e1af37ade8c971c05fabd2a109389164",
   "scored_query_set_sha256": "952f034619dec9b0964e7dd3dac061619894f7ce315dfdef9ac28ccaf6c7b06d",
   "source": {
-    "revision": "0b42c5cf73b7d9797b3adf905580e56cf3fd111e",
+    "revision": "c01ae60c1ed6ba322d0e7c50c61e9f6e2c7b46b0",
     "worktree_dirty": false
   },
   "strategy": "rrf_fusion+rerank+exact_sku_preservation"
