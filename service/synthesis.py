@@ -742,7 +742,7 @@ def _validate_lead(
 #: A figure is only supported by evidence that states it in the *same* family:
 #: "48-year warranty" is not supported by "48 hours of playback", which is the
 #: whole point -- both carry the figure 48 and only the unit tells them apart.
-_UNIT_ALIASES = {
+UNIT_ALIASES = {
     "h": "hour",
     "hr": "hour",
     "hrs": "hour",
@@ -833,7 +833,7 @@ _NUMBER_SCALES = {"hundred": 100, "thousand": 1000, "million": 1000000}
 _NUMBER_WORD = "|".join([*_SMALL_NUMBERS, *_NUMBER_SCALES])
 _SPELLED_MEASUREMENT = re.compile(
     rf"\b(?:{_NUMBER_WORD})(?:[ -]+(?:and[ -]+)?(?:{_NUMBER_WORD}))*"
-    rf"(?=[ -]+(?:{'|'.join(sorted(_UNIT_ALIASES, key=len, reverse=True))})\b)",
+    rf"(?=[ -]+(?:{'|'.join(sorted(UNIT_ALIASES, key=len, reverse=True))})\b)",
     re.IGNORECASE,
 )
 
@@ -865,7 +865,7 @@ _RESOLUTION_PATTERN = re.compile(
 
 
 def _unit_family(word: str) -> str | None:
-    return _UNIT_ALIASES.get(word.casefold())
+    return UNIT_ALIASES.get(word.casefold())
 
 
 @dataclass(frozen=True)
@@ -1052,7 +1052,7 @@ def _states_figure_in_unit(support: str, figure: str, family: str) -> bool:
         return False
     figure = numeric.group().replace(",", "")
     aliases = sorted(
-        (alias for alias, value in _UNIT_ALIASES.items() if value == family),
+        (alias for alias, value in UNIT_ALIASES.items() if value == family),
         key=len,
         reverse=True,
     )

@@ -1318,3 +1318,23 @@ p.pg-rank-move {
 @media (max-width: 820px) {
   .pg-answer-layout[data-picks] { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* The figure a claim cited, marked as Ask Mosaic marks it. */
+.pg-sources .ask-figure {
+  padding: 0 2px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--green) 15%, transparent);
+  color: inherit;
+  font-weight: 600;
+}
+
+.pg-sources .pg-source-unstated {
+  display: block;
+  margin: 2px 0 0;
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+
+.pg-sources .pg-source-unstated + a {
+  margin-left: 0;
+}

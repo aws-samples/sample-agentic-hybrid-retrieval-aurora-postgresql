@@ -16,6 +16,8 @@ import { PersistedRunDisclosures } from "../components/RetrievalProvenance";
 import { SourceComparison } from "../components/SourceComparison";
 import { pickName } from "../components/ask-mosaic/comparison";
 import { sourceAnchor } from "../components/ask-mosaic/citations";
+import { MarkedText } from "../components/ask-mosaic/MarkedText";
+import { citedExcerpt, listFigures } from "../components/ask-mosaic/quoteLines";
 import { useSoftReveal } from "../components/ask-mosaic/softReveal";
 import { StreamedAnswer } from "../components/ask-mosaic/StreamedAnswer";
 import { armReads } from "../components/playground/MethodReads";
@@ -28,7 +30,7 @@ import { RunSteps, agentChips, searchChips, searchingChips } from "../components
 import { ReturnedProducts } from "../components/playground/ReturnedProducts";
 import { RunSummary } from "../components/playground/RunSummary";
 import { MethodComparison, modelName, rerankStep, signedScore, UNMEASURED_SQL_NOTE } from "../components/playground/RetrievalPath";
-import { formatPriceCompact, withoutBreakTags } from "../format";
+import { formatPriceCompact } from "../format";
 import { armLabel, armLanguage } from "../retrievalLanguage";
 import { coreMosaicLabs, mosaicLabManifest, pipelineRequests, type MosaicLabMission } from "../labMissions";
 import { retrievalLabOutcome, runMatchesMissionGates, targetRankBound, type LabOutcome } from "../labOutcome";
@@ -167,21 +169,30 @@ function ProductSearchLinks({ product, receipts, running, onSelect }: {
   return <div className="inspector-product-search-links">{matches.map(({ receipt, index, rank: final }) => <button key={receipt.id} type="button" aria-label={`${product.title}: show Search ${index + 1}${final == null ? "" : `, rank ${final}`}`} onClick={() => onSelect(receipt.id, product.product_id)}>Search {index + 1}{final == null ? "" : ` · #${final} in Rank`} <ArrowRight size={13} aria-hidden="true" /></button>)}</div>;
 }
 
-const EXCERPT = 160;
-const excerpt = (raw: string) => {
-  const text = withoutBreakTags(raw);
-  return text.length > EXCERPT ? `${text.slice(0, EXCERPT).replace(/\s\S*$/, "")}…` : text;
-};
+/** The record's line a citation was cited for, its figure marked, and any figure it never states. */
+function CitedQuote({ citation, answer }: { citation: AgentCitation; answer: string }) {
+  const excerpt = citedExcerpt(citation, answer);
+  if (!excerpt.line) return null;
+  return <>
+    <q data-figure={excerpt.marks.length ? "" : undefined}><MarkedText text={excerpt.line} marks={excerpt.marks} /></q>
+    {excerpt.unstated.length ? <small className="pg-source-unstated">No line in this record states {listFigures(excerpt.unstated)}.</small> : null}
+  </>;
+}
 
-/** The answer's sources, numbered as its prose cites them; each citation chip jumps to its entry. */
-function AnswerSources({ citations, answerId }: { citations: AgentCitation[]; answerId: string }) {
+/**
+ * The answer's sources, numbered as its prose cites them; each citation chip jumps to its
+ * entry. Each quotes the line it was cited for, as Ask Mosaic and the terminal do.
+ */
+function AnswerSources({ citations, answerId, answer }: {
+  citations: AgentCitation[]; answerId: string; answer: string;
+}) {
   if (!citations.length) return null;
   return <aside className="pg-sources" aria-labelledby="pg-sources-title">
     <h3 id="pg-sources-title">Sources</h3>
     <ol>{citations.map((citation) => <li key={`${citation.number}-${citation.evidence_id}`} id={sourceAnchor(answerId, citation.number)} tabIndex={-1} value={citation.number}>
       <span className="pg-source-kind">{/review/i.test(citation.evidence_type) ? "Review" : "Listing"}</span>
       <strong>{citation.title}</strong>
-      {/review/i.test(citation.evidence_type) && citation.quote ? <q>{excerpt(citation.quote)}</q> : null}
+      <CitedQuote citation={citation} answer={answer} />
       <a href={`/api/evidence/${citation.evidence_id}`} target="_blank" rel="noreferrer">Record {citation.evidence_id} <ArrowUpRight size={12} aria-hidden="true" /></a>
     </li>)}</ol>
   </aside>;
@@ -221,7 +232,7 @@ function RevealedAnswer({ answer, streamed, completed, renderSearchLink, multipl
       <div className="inspector-answer pg-answer" aria-busy={!done}>
         <StreamedAnswer className="product-answer" text={reveal.text} chunks={reveal.chunks} citations={answer.citations} answerId={answerId} />
       </div>
-      {done ? <AnswerSources citations={answer.citations} answerId={answerId} /> : null}
+      {done ? <AnswerSources citations={answer.citations} answerId={answerId} answer={answer.answer} /> : null}
     </div>
   </div>;
 }

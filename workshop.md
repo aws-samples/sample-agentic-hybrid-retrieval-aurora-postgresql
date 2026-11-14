@@ -205,8 +205,10 @@ place with the stage, the running tool and the time waited, and each tool call
 stays as its own line. A draft the answer checks refuse prints its reason at once,
 then a line saying the agent is told why and drafts again. The answer then prints paragraph by paragraph as the API
 delivers it, which it does only after the answer's checks pass, followed by the plan,
-the tool trace with the search SQL Aurora ran, the products, each citation with its
-quote, the outcome and the **Run ID**, each under its own heading after a blank line, and
+the tool trace with the search SQL Aurora ran, the products, each citation with the
+record line it was cited for (a cited figure in bold, and a note naming any figure the
+record never states; Ask Mosaic and Playground quote and mark the same line), the outcome
+and the **Run ID**, each under its own heading after a blank line, and
 a closing `Next:` line that names the 100W follow-up, or only the completion check when a 100W
 answer from the deployed code is already saved. If the terminal loses either answer,
 participants wait a minute and run the completion check. It can find the saved answer,

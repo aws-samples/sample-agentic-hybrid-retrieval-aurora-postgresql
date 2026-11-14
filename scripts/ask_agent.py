@@ -34,6 +34,7 @@ from urllib.request import Request, urlopen
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from scripts.cited_lines import cited_excerpt, clip_around
 from scripts.lab_state import lab_3_solved
 from scripts.progress import Waiting, bar, can_redraw
 from scripts.prove_lab import LabValidationError, error_detail
@@ -285,6 +286,28 @@ def _quote(text: str) -> str:
     return _clip(text, QUOTE_CHARS)
 
 
+def _cited_quote(citation: dict[str, Any], answer: str) -> list[str]:
+    """The record's line the answer cited, its figure in bold, and any figure it never states.
+
+    Ask Mosaic quotes the same line (`scripts/cited_lines.py`). A record with no quotable
+    line, only a title, keeps its opening words.
+    """
+    excerpt = cited_excerpt(citation["quote"], answer, citation["number"])
+    if not excerpt.line:
+        return [f'      "{_quote(citation["quote"])}"']
+    shown = clip_around(excerpt.line, excerpt.marks, QUOTE_CHARS)
+    for start, end in excerpt.marks:
+        figure = excerpt.line[start:end]
+        if figure in shown:
+            shown = shown.replace(figure, tint(figure, BOLD), 1)
+    lines = [f'      "{shown}"']
+    if excerpt.unstated:
+        lines.append(
+            f"      No line in this record states {', '.join(excerpt.unstated)}."
+        )
+    return lines
+
+
 def _citations(response: dict[str, Any]) -> list[str]:
     """One line per citation (type, product, source file at a short revision), then its quote.
 
@@ -298,7 +321,7 @@ def _citations(response: dict[str, Any]) -> list[str]:
             f"  [{c['number']}] {c['evidence_type']:<16} {c['product_id']}  "
             f"{source} @ {c['revision'][:12]}"
         )
-        lines.append(f'      "{_quote(c["quote"])}"')
+        lines.extend(_cited_quote(c, response.get("answer") or ""))
     return lines
 
 

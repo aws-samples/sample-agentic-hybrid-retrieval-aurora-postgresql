@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { AgentCitation } from "../../types";
-import { citedClaim, citedLine, recordSentences } from "./quoteLines";
+import shared from "../../../../data/cited_line_cases.json";
+import { citedClaim, citedExcerpt, citedLine, recordSentences } from "./quoteLines";
 
 // Records and answer from the recorded fc97f09b-style run.
 const ANSWER = "The Logitech Zone 900 is the strongest starting point here since its listing specifies "
@@ -116,4 +117,18 @@ describe("citedLine", () => {
   it("is empty when a record is only boilerplate", () => {
     expect(citedLine(record(1, "product_spec", "Title: Just a name\n\nCategories: A > B"), ANSWER)).toBe("");
   });
+});
+
+// The terminal (`scripts/cited_lines.py`) is held to the same cases by tests/test_cited_lines.py.
+describe("citedExcerpt on the cases shared with the terminal", () => {
+  const records = shared.records as Record<string, { evidence_type: string; quote: string }>;
+  for (const example of shared.cases) {
+    it(example.name, () => {
+      const source = records[example.record];
+      const excerpt = citedExcerpt(record(example.number, source.evidence_type, source.quote), example.answer);
+      expect(excerpt.line).toBe(example.line);
+      expect(excerpt.marks.map(([start, end]) => excerpt.line.slice(start, end))).toEqual(example.marked);
+      expect(excerpt.unstated).toEqual(example.unstated);
+    });
+  }
 });

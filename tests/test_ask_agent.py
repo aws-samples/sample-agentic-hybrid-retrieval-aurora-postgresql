@@ -133,7 +133,10 @@ def test_a_grounded_answer_shows_trace_products_and_each_citation():
 
 
 def test_a_long_quote_is_shortened_but_the_answer_is_not():
-    text = ask_agent.render(grounded())
+    run = grounded()
+    # One sentence, so the line the answer cited is itself too long for a terminal line.
+    run["citations"][1]["quote"] = "They are comfortable and " * 10 + "light."
+    text = ask_agent.render(run)
 
     lines = text.splitlines()
     quote_line = lines[
@@ -167,7 +170,8 @@ def test_a_quote_shows_the_source_line_breaks_as_spaces():
 
     text = ask_agent.render(run)
 
-    assert '"Great dock. Charges my laptop. Loud fan."' in text
+    # A break ends a line, as a sentence does; the line the answer cited is quoted whole.
+    assert '"Charges my laptop."' in text
     assert "<br" not in text.lower()
 
 

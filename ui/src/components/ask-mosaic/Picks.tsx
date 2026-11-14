@@ -5,6 +5,7 @@ import { armLabel } from "../../retrievalLanguage";
 import type { AgentCitation, ProductSummary } from "../../types";
 import { CitePills } from "./citations";
 import { isReview, pickName, retrievalPath, type ComparisonRow } from "./comparison";
+import { MarkedText } from "./MarkedText";
 import { pickFacts, pickRequirements, type PickFact, type PickRequirement } from "./pickFacts";
 
 interface PickProps {
@@ -81,13 +82,13 @@ function Requirement({ item, answerId }: { item: PickRequirement; answerId: stri
  * the last word so it never wraps onto a line of its own.
  */
 function FactLine({ fact, answerId, review = false }: { fact: PickFact; answerId: string; review?: boolean }) {
-  const words = fact.text.split(" ");
-  const last = words.pop() ?? "";
+  const lastWord = fact.text.lastIndexOf(" ") + 1;
+  const marks = fact.marks ?? [];
   return (
     <p className={review ? "ask-fact is-review" : "ask-fact"}>
-      {words.length ? `${words.join(" ")} ` : ""}
+      <MarkedText text={fact.text} marks={marks} to={lastWord} />
       <span className="ask-nowrap">
-        {last}
+        <MarkedText text={fact.text} marks={marks} from={lastWord} />
         {fact.number != null ? <CitePills numbers={[fact.number]} answerId={answerId} /> : null}
       </span>
     </p>

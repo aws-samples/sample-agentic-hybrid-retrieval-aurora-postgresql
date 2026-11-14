@@ -1720,3 +1720,55 @@
   -webkit-line-clamp: 1;
   font-size: 13px;
 }
+
+/* The figure a claim cited, in the record's own words: the same mark in Picks and Sources. */
+.ask-figure {
+  padding: 0 2px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--green) 15%, transparent);
+  color: inherit;
+  font-weight: 600;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+/* A line that carries the cited figure shows whole; the clamp would cut the figure off. */
+.ask-source-quote[data-figure] {
+  display: block;
+  overflow: visible;
+  -webkit-line-clamp: unset;
+}
+
+.ask-source-unstated {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
+.ask-source-whole summary {
+  width: fit-content;
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ask-source-whole summary:hover {
+  color: var(--ink);
+}
+
+.ask-source-whole > div {
+  max-height: 180px;
+  margin-top: 6px;
+  padding-left: 10px;
+  overflow-y: auto;
+  border-left: 2px solid var(--line);
+  color: var(--ink-soft);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.ask-source-whole p {
+  margin: 0 0 4px;
+}

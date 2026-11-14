@@ -1,0 +1,145 @@
+{
+  "description": "The line each citation was cited for. ui/src/components/ask-mosaic/quoteLines.ts (Ask Mosaic, Playground) and scripts/cited_lines.py (ask_agent.py) must both choose `line`, mark exactly `marked` in it and report `unstated`. The ViewSonic records are the catalog's own text for product 1551237 (Amazon Reviews 2023), the listing and review the recorded 100W answer cited; the others are written to isolate one rule each.",
+  "records": {
+    "viewsonic_listing": {
+      "evidence_type": "product_spec",
+      "quote": "Title: ViewSonic VG2756-4K 27 Inch IPS 4K Docking Monitor with Integrated USB 3.2 Type-C RJ45 HDMI Display Port and 40 Degree Tilt Ergonomics for Home and Office\n\nCategories: Electronics > Computers & Accessories > Monitors\n\nDescription:\nDesigned to boost productivity and maximize output, the ViewSonic VG2756-4K is a 27” 4K Ultra HD docking monitor that transforms your desktop into a streamlined and efficient workspace. Enjoy reliable and flexible network connectivity with the integrated gigabit Ethernet port, while the latest USB Type-C connectivity makes setup a breeze. That’s not all, the integrated USB hub also provides single-cable simplicity for connecting and charging your peripherals and accessories. A best-in-class ergonomic design features 40-degree tilt and bi-directional pivot so your screen and workspace are as comfortable as you need. In addition, the included vDisplay software gives you quick and easy OSD control, as well as customized screen templates for easy multi-tasking. This monitor is also shipped in eco-friendly biodegradable packaging, along with an easy-to-install quick release stand that makes for quick deployment and a lower total cost of ownership.\n\nListing features:\nVERSATILE MONITOR: 27 Inch 4K (3840x2160p) IPS monitor with thin bezels and 60Hz refresh rate\nDITCH THE DOCK: Ethernet RJ45 and USB-C connectivity for fast data, audio and video transfer, 90W charging over one cable\nERGONOMIC STAND: Advanced ergonomics (40-degree tilt, swivel, rotate and height) for all-day comfort\nENHANCED VIEWING COMFORT: Flicker-Free technology and Blue Light Filter for reduced eye fatigue\nVERSATILE STAND: Easy-to-install quick release stand with carrying handle and client mount\nFLEXIBLE CONNECTIVITY: The VG2456-4K supports PC, Mac and more with USB-C, RJ45, HDMI, DisplayPort, USB inputs\n\nSpecifications:\nBest Sellers Rank: {\"Climate Pledge Friendly\":14346,\"Climate Pledge Friendly: Computers\":1608,\"Computer Monitors\":1263}\nBrand: ViewSonic\nColor: Black\nDate First Available: September 3, 2020\nDisplay Resolution Maximum: 3840 x 2160\nItem Dimensions  LxWxH: 16 x 8 x 24.1 inches\nItem Weight: 16.5 pounds\nItem model number: VG2756-4K\nManufacturer: ViewSonic\nMax Screen Resolution: 3840 x 2160\nNumber of USB 2.0 Ports: 1\nNumber of USB 3.0 Ports: 1\nPower Source: 10\nProduct Dimensions: 16 x 8 x 24.1 inches\nRefresh Rate: 60 Hz\nScreen Resolution: 3840 x 2160\nScreen Size: 27\nSeries: VG2756-4K\nSpecial Feature: Height Adjustment, Anti-Glare Coating, Swivel Adjustment, Tilt Adjustment, Built-In Speakers\nStanding screen display size: 27"
+    },
+    "viewsonic_review": {
+      "evidence_type": "customer_review",
+      "quote": "I've been using this for about a month nearly every day and I am very satisfied. The additional USB connections are a nice little feature and with a USB-C connector to pass battery charging to my laptop and operate as the video input it simplifies my setup real nicely."
+    },
+    "dock_with_two_figures": {
+      "evidence_type": "product_spec",
+      "quote": "Title: Example Dock\n\nDescription:\nSupports 100W pass-through charging for a laptop when docked.\nDelivers 90W charging over one cable to the connected laptop."
+    },
+    "spaced_unit": {
+      "evidence_type": "product_spec",
+      "quote": "Title: Example Monitor\n\nDescription:\nCharges a laptop at 90 W over USB-C.\nIncludes a USB hub for charging single-cable accessories."
+    },
+    "title_only_figure": {
+      "evidence_type": "product_spec",
+      "quote": "Title: Example 32 Inch Monitor\n\nDescription:\nA monitor for a home office.\nIt has a USB hub for accessories."
+    }
+  },
+  "cases": [
+    {
+      "name": "the recorded 100W answer cites the listing for 90W",
+      "record": "viewsonic_listing",
+      "number": 1,
+      "answer": "ViewSonic VG2756-4K's listing states 90W charging over a single USB-C cable [1], so its records do not show it meeting a 100W requirement.\n\nOne reviewer reports using its USB-C connection to pass battery charging to their laptop while it also serves as the video input [2]. Neither record states what laptop that reviewer used or how much power it needs [1][2].",
+      "line": "DITCH THE DOCK: Ethernet RJ45 and USB-C connectivity for fast data, audio and video transfer, 90W charging over one cable",
+      "marked": [
+        "90W"
+      ],
+      "unstated": []
+    },
+    {
+      "name": "the recorded 100W answer cites the review for a laptop charging, with no figure",
+      "record": "viewsonic_review",
+      "number": 2,
+      "answer": "ViewSonic VG2756-4K's listing states 90W charging over a single USB-C cable [1], so its records do not show it meeting a 100W requirement.\n\nOne reviewer reports using its USB-C connection to pass battery charging to their laptop while it also serves as the video input [2]. Neither record states what laptop that reviewer used or how much power it needs [1][2].",
+      "line": "The additional USB connections are a nice little feature and with a USB-C connector to pass battery charging to my laptop and operate as the video input it simplifies my setup real nicely.",
+      "marked": [],
+      "unstated": []
+    },
+    {
+      "name": "a record stating 90W and 100W follows the 90W claim",
+      "record": "dock_with_two_figures",
+      "number": 1,
+      "answer": "The listing states 90W charging over one cable [1].",
+      "line": "Delivers 90W charging over one cable to the connected laptop.",
+      "marked": [
+        "90W"
+      ],
+      "unstated": []
+    },
+    {
+      "name": "a record stating 90W and 100W follows the 100W claim",
+      "record": "dock_with_two_figures",
+      "number": 1,
+      "answer": "The dock supports 100W pass-through charging [1].",
+      "line": "Supports 100W pass-through charging for a laptop when docked.",
+      "marked": [
+        "100W"
+      ],
+      "unstated": []
+    },
+    {
+      "name": "90W in the claim matches 90 W in the record",
+      "record": "spaced_unit",
+      "number": 1,
+      "answer": "The listing states 90W USB-C charging over a single cable [1].",
+      "line": "Charges a laptop at 90 W over USB-C.",
+      "marked": [
+        "90 W"
+      ],
+      "unstated": []
+    },
+    {
+      "name": "a figure the record never states is reported, and nothing is marked",
+      "record": "viewsonic_listing",
+      "number": 1,
+      "answer": "It delivers 120W charging over one cable [1].",
+      "line": "That’s not all, the integrated USB hub also provides single-cable simplicity for connecting and charging your peripherals and accessories.",
+      "marked": [],
+      "unstated": [
+        "120W"
+      ]
+    },
+    {
+      "name": "the stated figure is marked and the question's figure is reported",
+      "record": "viewsonic_listing",
+      "number": 1,
+      "answer": "Its listing states 90W, short of the 100W this laptop needs [1].",
+      "line": "DITCH THE DOCK: Ethernet RJ45 and USB-C connectivity for fast data, audio and video transfer, 90W charging over one cable",
+      "marked": [
+        "90W"
+      ],
+      "unstated": [
+        "100W"
+      ]
+    },
+    {
+      "name": "a record that states neither figure establishes neither",
+      "record": "viewsonic_review",
+      "number": 1,
+      "answer": "Its listing states 90W, short of the 100W this laptop needs [1].",
+      "line": "The additional USB connections are a nice little feature and with a USB-C connector to pass battery charging to my laptop and operate as the video input it simplifies my setup real nicely.",
+      "marked": [],
+      "unstated": [
+        "90W",
+        "100W"
+      ]
+    },
+    {
+      "name": "a claim's figure marks the description line that states it",
+      "record": "viewsonic_listing",
+      "number": 1,
+      "answer": "It is a 27-inch monitor with USB-C [1].",
+      "line": "VERSATILE MONITOR: 27 Inch 4K (3840x2160p) IPS monitor with thin bezels and 60Hz refresh rate",
+      "marked": [
+        "27 Inch"
+      ],
+      "unstated": []
+    },
+    {
+      "name": "a figure stated only in the title is not reported missing",
+      "record": "title_only_figure",
+      "number": 1,
+      "answer": "It is a 32-inch monitor with a USB hub [1].",
+      "line": "A monitor for a home office.",
+      "marked": [],
+      "unstated": []
+    },
+    {
+      "name": "a model number and a bare count are not figures",
+      "record": "viewsonic_listing",
+      "number": 1,
+      "answer": "The VG2756-4K's USB hub handles connecting 3 peripherals [1].",
+      "line": "That’s not all, the integrated USB hub also provides single-cable simplicity for connecting and charging your peripherals and accessories.",
+      "marked": [],
+      "unstated": []
+    }
+  ]
+}

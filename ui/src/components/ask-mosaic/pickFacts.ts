@@ -1,13 +1,15 @@
 import { specFacts } from "../../format";
 import type { AgentCitation, ProductSummary } from "../../types";
 import { isReview, type ComparisonRow } from "./comparison";
-import { quotedLine } from "./quoteLines";
+import { quotedExcerpt } from "./quoteLines";
 
 /** A fact about a pick, with the citation that backs it when there is one. */
 export interface PickFact {
   text: string;
   /** The citation number whose record contains the words, or null for a listing spec. */
   number: number | null;
+  /** Offsets in `text` of the figure the answer cited the line for. */
+  marks?: Array<[number, number]>;
 }
 
 /** A stated requirement judged against the listing's own typed value. */
@@ -38,8 +40,8 @@ export function pickFacts(product: ProductSummary, citations: AgentCitation[], a
   const own = citations.filter((citation) => citation.product_id === product.product_id);
   const first = (review: boolean): PickFact[] => {
     for (const citation of own.filter((item) => isReview(item) === review && (!review || recommends(item)))) {
-      const text = quotedLine(citation, answer);
-      if (text) return [{ text, number: citation.number }];
+      const { line, marks } = quotedExcerpt(citation, answer);
+      if (line) return [{ text: line, number: citation.number, ...(marks.length ? { marks } : {}) }];
     }
     return [];
   };
