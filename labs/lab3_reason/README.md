@@ -54,9 +54,9 @@ uv run python scripts/grade_setup_run.py
 
 It finds your newest setup run since Lab 3 started, says which it chose, and
 reads your deployed code, that run and your newest 100W answer without
-generating another answer;
-`--run-id <run-id>` checks a particular run instead. Deployment alone does not
-prove completion.
+generating another answer. If you lose the connection during either question, wait
+a minute and run the same check. Its `Next:` line tells you whether to wait or which
+question to ask again. Use `--run-id <run-id>` to select a particular setup run.
 
 <details>
 <summary>🛠️ Compare with or install the reference answer</summary>

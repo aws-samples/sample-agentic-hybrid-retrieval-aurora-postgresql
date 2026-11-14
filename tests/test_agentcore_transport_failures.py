@@ -102,6 +102,7 @@ def test_a_cut_runtime_stream_ends_with_an_error_frame(monkeypatch):
     payload = json.loads(data.removeprefix("data: "))
     assert payload == {
         "status": 503,
-        "detail": "Retrieval agent stream was interrupted; ask again",
+        "code": "stream_interrupted",
+        "detail": "The connection to the Retrieval agent closed before its answer arrived.",
     }
     assert "secret" not in last

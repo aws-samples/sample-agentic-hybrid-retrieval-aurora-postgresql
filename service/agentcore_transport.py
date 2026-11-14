@@ -190,9 +190,6 @@ def answer(request: AgentRequest, http_request: Request | None) -> AgentResponse
         return AgentResponse.model_validate_json(body.read())
 
 
-_STREAM_INTERRUPTED = "Retrieval agent stream was interrupted; ask again"
-
-
 def _as_received(body, notice: str | None = None) -> Iterator[bytes]:
     if notice:
         payload = json.dumps(
@@ -215,7 +212,16 @@ def _as_received(body, notice: str | None = None) -> Iterator[bytes]:
             logger.warning(
                 "Runtime stream interrupted: error_type=%s", type(error).__name__
             )
-            payload = json.dumps({"status": 503, "detail": _STREAM_INTERRUPTED})
+            payload = json.dumps(
+                {
+                    "status": 503,
+                    "code": "stream_interrupted",
+                    "detail": (
+                        "The connection to the Retrieval agent closed before its "
+                        "answer arrived."
+                    ),
+                }
+            )
             yield f"event: error\ndata: {payload}\n\n".encode()
 
 

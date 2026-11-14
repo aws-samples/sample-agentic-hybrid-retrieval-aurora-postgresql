@@ -548,7 +548,9 @@ def _run_sql_digests(rows: AgentTurnRows) -> list[str]:
     return sorted({str(item.get("search_sql_sha256")) for item in recorded})
 
 
-def _managed_agent_checks(rows: AgentTurnRows | None, root: Path) -> list[LabCheck]:
+def _managed_agent_checks(
+    rows: AgentTurnRows | None, root: Path, managed: bool
+) -> list[LabCheck]:
     """Whether Runtime, Gateway, Aurora and the run itself all carry today's work.
 
     Runtime refuses to answer from code other than the workspace's, but only at
@@ -564,7 +566,7 @@ def _managed_agent_checks(rows: AgentTurnRows | None, root: Path) -> list[LabChe
     from service import agentcore_transport, gateway_tools
     from service.agent_deploys import run_deploy_problem
 
-    if not agentcore_transport.runtime_arn():
+    if not managed:
         return []
     from service.lab_validation_receipt import (
         application_digest,
@@ -685,6 +687,9 @@ def completion_proof(
         )
 
     if lab_id == 3:
+        from service.agentcore_transport import runtime_arn
+
+        managed = bool(runtime_arn())
         run = _persisted_run(rows) if rows is not None else None
         checks = lab_checks.lab_3_proof_checks(
             mission,
@@ -696,7 +701,7 @@ def completion_proof(
                 mission, rows, run, str(agent_run_id) if agent_run_id else None
             )
         )
-        checks.extend(_managed_agent_checks(rows, root))
+        checks.extend(_managed_agent_checks(rows, root, managed))
         if rows is not None:
             from service.agent_deploys import lab_3_started_at
             from service.lab_followup import (
@@ -737,9 +742,13 @@ def completion_proof(
                 if followup
                 else {}
             )
-            checks.append(changed_requirement_check(mission, followup, rows, records))
+            checks.append(
+                changed_requirement_check(
+                    mission, followup, rows, records, managed=managed
+                )
+            )
             if followup is not None:
-                for check in _managed_agent_checks(followup, root):
+                for check in _managed_agent_checks(followup, root, managed):
                     checks.append(
                         LabCheck(
                             name=CHANGED_REQUIREMENT_DEPLOYMENT,

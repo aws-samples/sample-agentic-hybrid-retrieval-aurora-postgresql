@@ -6,7 +6,7 @@ import json
 import re
 import sys
 from io import BytesIO
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 from uuid import UUID
 
 import pytest
@@ -563,6 +563,8 @@ def test_ctrl_c_stops_the_wait_in_one_line_without_a_traceback(monkeypatch, caps
     assert "Stopped waiting" in err
     assert "may still finish this run" in err
     assert "Traceback" not in err and "KeyboardInterrupt" not in err
+    # The participant chose to stop, so nothing failed and there is no one to tell.
+    assert "then ask again" in err and "fails twice" not in err
 
 
 def test_the_terminal_waits_longer_than_the_api_can_take():
@@ -575,6 +577,54 @@ def test_the_terminal_waits_longer_than_the_api_can_take():
     api_worst_case = get_settings().agent_turn_deadline_seconds + 30 + 10
 
     assert ask_agent.response_timeout() > api_worst_case
+
+
+@pytest.mark.parametrize(
+    "lost", ["interrupt", "eof", "disconnect", "timeout", "wrapped-timeout", "relay"]
+)
+@pytest.mark.parametrize("request_kind", ["setup", "100W", "other"])
+def test_lost_answer_checks_saved_lab_work_before_a_retry(
+    monkeypatch, capsys, lost, request_kind
+):
+    from service.lab_checks import mission_for_lab
+    from service.participant_commands import ask_agent_command, grade_setup_run_command
+
+    mission = mission_for_lab(3)
+    question = {
+        "setup": mission["query"].upper(),
+        "100W": mission["changed_requirement"]["query"],
+        "other": "Find headphones for calls",
+    }[request_kind]
+
+    def lose_response(*_args, **_kwargs):
+        if lost == "eof":
+            return FakeStream(stage("understand", "Interpret request"))
+        if lost == "relay":
+            return FakeStream(
+                (
+                    "error",
+                    {"code": "stream_interrupted", "detail": "Stream interrupted."},
+                )
+            )
+        raise {
+            "interrupt": KeyboardInterrupt(),
+            "disconnect": http.client.RemoteDisconnected(),
+            "timeout": TimeoutError(),
+            "wrapped-timeout": URLError(TimeoutError()),
+        }[lost]
+
+    monkeypatch.setattr(ask_agent, "urlopen", lose_response)
+    assert ask_agent.main([question]) == (130 if lost == "interrupt" else 1)
+    error = capsys.readouterr().err
+    assert error.count("Next:") == 1
+    expected = (
+        grade_setup_run_command()
+        if request_kind != "other"
+        else ask_agent_command(question)
+    )
+    assert error.rstrip().splitlines()[-1] == expected
+    if request_kind != "other":
+        assert "ask_agent.py" not in error and "run the command again" not in error
 
 
 def test_a_slow_answer_is_reported_with_its_wait_and_a_fix(monkeypatch, capsys):

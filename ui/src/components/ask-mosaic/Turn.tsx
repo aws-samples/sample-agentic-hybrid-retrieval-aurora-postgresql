@@ -1,11 +1,13 @@
 import { CircleStop, PencilLine, RotateCcw } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from "react";
+import { labThreeRequiredQuestion } from "../../labMissions";
 import type { AgentCitation, AgentPlanStep, AgentResponse, ProductSummary, ToolTraceStep } from "../../types";
 import { AgentNoticeNote } from "../AgentNoticeNote";
 import { DeclinedAnswer } from "../DeclinedAnswer";
 import { MemoryReceipt } from "../AskMosaicMemory";
 import { AgentSetupCard } from "./AgentSetupCard";
+import { AnswerLostCard } from "./AnswerLostCard";
 import { BuilderView } from "./BuilderView";
 import { comparisonRows, type ComparisonRow } from "./comparison";
 import { boldRecommendationNames } from "./emphasis";
@@ -111,6 +113,10 @@ const arrival = (order: number) => ({ "--i": order }) as CSSProperties;
 /** A request longer than this is shown in five lines until the reader opens it. */
 const LONG_QUESTION = 280;
 
+/** A required Lab 3 question whose answer was lost in transit: graded from saved runs, not asked twice. */
+const answerLost = (turn: TurnProps["turn"]) =>
+  turn.errorCode === "stream_interrupted" && labThreeRequiredQuestion(turn.question) != null;
+
 function TurnQuestion({ turn, isLatest, onEdit, onRun }: Pick<TurnProps, "turn" | "isLatest" | "onEdit" | "onRun">) {
   const long = turn.question.length > LONG_QUESTION;
   const [expanded, setExpanded] = useState(false);
@@ -132,10 +138,12 @@ function TurnQuestion({ turn, isLatest, onEdit, onRun }: Pick<TurnProps, "turn" 
               <PencilLine size={13} aria-hidden="true" />
               Edit request
             </button>
-            <button className="ask-mosaic-ask-again" type="button" onClick={() => onRun(turn.question)}>
-              <RotateCcw size={13} aria-hidden="true" />
-              Ask again
-            </button>
+            {answerLost(turn) ? null : (
+              <button className="ask-mosaic-ask-again" type="button" onClick={() => onRun(turn.question)}>
+                <RotateCcw size={13} aria-hidden="true" />
+                Ask again
+              </button>
+            )}
           </>
         ) : null}
       </span>
@@ -341,6 +349,8 @@ export function Turn(props: TurnProps) {
 
       {needsSetup ? (
         <AgentSetupCard detail={turn.error} />
+      ) : answerLost(turn) ? (
+        <AnswerLostCard runId={turn.errorRunId} />
       ) : turn.error ? (
         <div className="ask-mosaic-error" role="alert">
           <strong>The Retrieval agent could not finish this request.</strong>

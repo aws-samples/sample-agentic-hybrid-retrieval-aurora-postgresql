@@ -54,6 +54,8 @@ export interface AskMosaicTurn {
   error: string;
   /** The service's failure code for `error`, when it sent one. */
   errorCode?: string;
+  /** The run the failed request started, when the service named it. */
+  errorRunId?: string;
   /**
    * What the service said about this answer before it began, such as that the
    * reference Retrieval agent the account was prepared with gave it, not the

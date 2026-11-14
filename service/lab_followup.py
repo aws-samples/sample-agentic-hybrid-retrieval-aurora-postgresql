@@ -95,7 +95,9 @@ def follow_up_saved_now() -> bool:
         return False
 
 
-def changed_requirement_check(mission, rows, setup_rows, resolved_evidence) -> LabCheck:
+def changed_requirement_check(
+    mission, rows, setup_rows, resolved_evidence, *, managed: bool = False
+) -> LabCheck:
     """Check the actual answer/decline, new searches, and the product records it read."""
     from service.models import EvidenceRecord, ProductSummary
     from service.participant_commands import ask_agent_command
@@ -106,6 +108,7 @@ def changed_requirement_check(mission, rows, setup_rows, resolved_evidence) -> L
     if rows is not None and setup_rows is not None:
         intent = rows.turn.get("extracted_intent") or {}
         setup_intent = setup_rows.turn.get("extracted_intent") or {}
+        followup_code = intent.get("application_sha256")
         target = requirement["product_id"]
         records = [
             record
@@ -133,10 +136,12 @@ def changed_requirement_check(mission, rows, setup_rows, resolved_evidence) -> L
         failure = ""
         if not same_request(rows.turn.get("user_message"), requirement["query"]):
             failure = "the run answered another question"
-        elif not intent.get("application_sha256") or intent.get(
-            "application_sha256"
-        ) != setup_intent.get("application_sha256"):
-            failure = "the two exercise runs were made by different or unrecorded code"
+        # Managed proof checks each run against deployed code. Comparing the two
+        # here would blame a current 100W answer for a stale setup run.
+        elif not followup_code or (
+            not managed and followup_code != setup_intent.get("application_sha256")
+        ):
+            failure = "the 100W answer came from different or unrecorded code"
         elif not any(row["product_id"] == target for row in rows.candidates):
             failure = (
                 "the changed request has no new search containing the named monitor"

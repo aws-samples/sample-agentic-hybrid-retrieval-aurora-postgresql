@@ -158,6 +158,7 @@ def test_the_ui_prints_the_same_commands_as_the_service() -> None:
         "APPLY_SQL": commands.APPLY_SQL,
         "DEPLOY_AGENT": commands.DEPLOY_AGENT,
         "VERIFY_AGENT": commands.VERIFY_AGENT,
+        "GRADE_SETUP_RUN": commands.grade_setup_run_command(),
         "prove_lab": commands.prove_lab_command(1).removesuffix("1") + "{lab}",
         "grade_setup_run": commands.grade_setup_run_command("{run_id}"),
     }, (

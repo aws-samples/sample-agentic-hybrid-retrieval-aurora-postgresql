@@ -12,6 +12,7 @@ import pytest
 
 from scripts import grade_setup_run
 from service.lab_checks import mission_for_lab
+from service.participant_commands import ask_100w_command, ask_setup_command
 
 REQUEST = mission_for_lab(3)["query"]
 STARTED = datetime(2026, 10, 25, 10, 0, tzinfo=UTC)
@@ -24,6 +25,8 @@ def _run(minutes: int, outcome: str | None, *, question: str = REQUEST) -> dict:
         "user_message": question,
         "created_at": STARTED + timedelta(minutes=minutes),
         "answered": outcome is not None,
+        "turn_number": 1,
+        "awaiting_answer": False,
         "outcome": outcome,
     }
 
@@ -98,7 +101,7 @@ def workspace(monkeypatch, tmp_path):
     monkeypatch.setattr(grade_setup_run, "follow_up_saved", lambda *_a: False)
     graded = []
 
-    def grade(argv: list[str]) -> int:
+    def grade(argv: list[str], *, pending_answers=None) -> int:
         graded.append(argv)
         return 0
 
@@ -182,6 +185,97 @@ def test_a_named_run_is_checked_without_a_pick(monkeypatch, workspace) -> None:
 
     saved = json.loads((grade_setup_run.ROOT / ".local/lab-3/context.json").read_text())
     assert saved == {"lab_agent_id": str(named)}
+
+
+def test_in_progress_setup_waits_before_asking_again(
+    monkeypatch, workspace, capsys
+) -> None:
+    pending = _run(7, None)
+    pending.update(awaiting_answer=True)
+    _turns(monkeypatch, [pending])
+    monkeypatch.setattr(sys, "argv", ["grade_setup_run.py"])
+
+    assert grade_setup_run.main() == 2
+    out = capsys.readouterr().out
+    assert str(pending["agent_turn_id"]) in out and "setup" in out
+    assert out.rstrip().endswith("uv run python scripts/grade_setup_run.py")
+    assert "scripts/ask_agent.py" not in out and workspace == []
+
+
+def test_a_100w_run_in_flight_without_a_setup_run_asks_setup_now(
+    monkeypatch, workspace, capsys
+) -> None:
+    """A 100W answer still on its way cannot supply setup, and asking it twice wastes a turn."""
+    pending = _run(7, None, question=mission_for_lab(3)["changed_requirement"]["query"])
+    pending.update(awaiting_answer=True, turn_number=2)
+    _turns(monkeypatch, [pending])
+    monkeypatch.setattr(sys, "argv", ["grade_setup_run.py"])
+
+    assert grade_setup_run.main() == 2
+    out = capsys.readouterr().out
+    assert ask_setup_command() in out
+    assert ask_100w_command() not in out and workspace == []
+
+
+def test_later_conversation_turn_cannot_be_the_setup_run():
+    later = _run(8, "grounded")
+    later["turn_number"] = 2
+    first = _run(3, "grounded")
+    pick = grade_setup_run.pick_setup_run(_Connection([later, first]), REQUEST, STARTED)
+
+    assert pick.run is first and pick.asked == 1
+
+
+@pytest.mark.parametrize("pending_kind", ["setup", "100W"])
+@pytest.mark.parametrize("missing", [None, "setup", "100W", "both"])
+def test_an_extra_pending_attempt_does_not_hide_an_existing_pair(
+    missing, pending_kind, monkeypatch, tmp_path, capsys
+):
+    """Grade the saved answers first. Wait only when the open turn can supply a missing one."""
+    follow_up = mission_for_lab(3)["changed_requirement"]["query"]
+    pending = _run(8, None, question=REQUEST if pending_kind == "setup" else follow_up)
+    pending.update(
+        awaiting_answer=True, turn_number=1 if pending_kind == "setup" else 2
+    )
+    _turns(
+        monkeypatch,
+        [_run(4, "grounded"), _run(5, "grounded", question=follow_up), pending],
+    )
+    monkeypatch.setattr(grade_setup_run, "ROOT", tmp_path)
+    monkeypatch.setattr(grade_setup_run, "load_dotenv", lambda _: None)
+    monkeypatch.setattr("service.agent_deploys.lab_3_started_at", lambda _: STARTED)
+    monkeypatch.setattr(grade_setup_run.lab_exercise, "REPO", tmp_path)
+    work = tmp_path / "agent.py"
+    work.write_text("# participant agent")
+    monkeypatch.setattr(grade_setup_run.lab_exercise, "default_work", lambda _: work)
+    needs = {
+        "deploy": False,
+        "setup": missing in ("setup", "both"),
+        "follow_up": missing in ("100W", "both"),
+    }
+    monkeypatch.setattr(
+        grade_setup_run.lab_exercise,
+        "grade",
+        lambda *_: {
+            "failures": [f"needs {missing}"] if missing else [],
+            "needs": needs,
+        },
+    )
+    monkeypatch.setattr(grade_setup_run.lab_exercise, "_print_lab3", lambda _: None)
+    monkeypatch.setattr(
+        grade_setup_run.lab_exercise, "record_decision", lambda *_: None
+    )
+    monkeypatch.setattr(sys, "argv", ["grade_setup_run.py"])
+
+    result = grade_setup_run.main()
+    output = capsys.readouterr().out
+    receipt = tmp_path / ".local/lab-3/exercise-receipt.json"
+    if missing in (pending_kind, "both"):
+        assert result == 2 and not receipt.exists()
+        assert str(pending["agent_turn_id"]) in output and "ask_agent.py" not in output
+    else:
+        assert result == (1 if missing else 0) and receipt.exists()
+        assert str(pending["agent_turn_id"]) not in output
 
 
 def test_an_unreachable_aurora_is_reported_without_a_traceback(

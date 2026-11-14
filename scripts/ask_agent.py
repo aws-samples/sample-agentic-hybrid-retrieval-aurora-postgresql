@@ -459,6 +459,10 @@ class _Run:
             self.live = None
 
 
+class AnswerStreamLost(LabValidationError):
+    """The client lost the response before it could tell whether an answer was saved."""
+
+
 def _follow(events: Iterator[tuple[str, dict[str, Any]]], run: _Run) -> dict[str, Any]:
     """Show each event of a run and return its saved response."""
     for event, data in events:
@@ -484,14 +488,15 @@ def _follow(events: Iterator[tuple[str, dict[str, Any]]], run: _Run) -> dict[str
             return data["response"]
         elif event == "error":
             run_id = data.get("agent_run_id")
+            if data.get("code") == "stream_interrupted":
+                raise AnswerStreamLost(
+                    f"{STREAM_PATH} lost the connection to the Retrieval agent."
+                )
             raise LabValidationError(
                 f"{STREAM_PATH} stopped: {data.get('detail', 'no reason given')}"
                 + (f" Run ID: {run_id}" if run_id else "")
             )
-    raise LabValidationError(
-        f"{STREAM_PATH} closed before the answer; fix: run the command again, and if "
-        "it happens twice, give this message to your facilitator"
-    )
+    raise AnswerStreamLost(f"{STREAM_PATH} closed before the answer arrived.")
 
 
 def ask(base_url: str, question: str, *, timeout: float) -> tuple[dict[str, Any], bool]:
@@ -519,9 +524,8 @@ def ask(base_url: str, question: str, *, timeout: float) -> tuple[dict[str, Any]
         with urlopen(request, timeout=timeout) as response:
             return _follow(_events(response), run), run.answer_shown
     except TimeoutError as error:
-        raise LabValidationError(
-            f"{STREAM_PATH} sent no response within {timeout:.0f} s; fix: run the command "
-            "again, and if it times out twice, give this message to your facilitator"
+        raise AnswerStreamLost(
+            f"{STREAM_PATH} sent no response within {timeout:.0f} s."
         ) from error
     except HTTPError as error:
         detail = error_detail(error.read().decode("utf-8", errors="replace"))
@@ -529,18 +533,21 @@ def ask(base_url: str, question: str, *, timeout: float) -> tuple[dict[str, Any]
             f"{STREAM_PATH} returned HTTP {error.code}: {detail}"
         ) from error
     except URLError as error:
+        if isinstance(error.reason, TimeoutError):
+            raise AnswerStreamLost(
+                f"{STREAM_PATH} sent no response within {timeout:.0f} s."
+            ) from error
         raise LabValidationError(
             f"{STREAM_PATH} is unavailable at {base_url}: {error.reason}; "
             "fix: run `systemctl status mosaic-api` in the terminal. If it is not "
             "active, tell your facilitator"
         ) from error
-    except (http.client.HTTPException, ValueError) as error:
+    except (http.client.HTTPException, ConnectionError, ValueError) as error:
         # The connection dropped or sent a broken event after the run began, so the
         # API may still have saved it.
-        raise LabValidationError(
-            f"{STREAM_PATH} broke off mid-answer ({type(error).__name__}); the "
-            "Retrieval agent may still have saved this run. Fix: run the command "
-            "again, and if it happens twice, give this message to your facilitator"
+        raise AnswerStreamLost(
+            f"{STREAM_PATH} broke off mid-answer ({type(error).__name__}). The "
+            "Retrieval agent may still have saved this run."
         ) from error
     finally:
         run.close()
@@ -549,6 +556,40 @@ def ask(base_url: str, question: str, *, timeout: float) -> tuple[dict[str, Any]
 def response_timeout() -> float:
     """Seconds to wait for the answer: longer than the API can take to return one."""
     return get_settings().agent_turn_deadline_seconds + RESPONSE_MARGIN_SECONDS
+
+
+def _lost_answer_next(question: str, *, stopped: bool = False) -> None:
+    """Recover a required question from saved answers before spending another turn.
+
+    Args:
+        question: The question whose answer the terminal did not receive.
+        stopped: The participant pressed Ctrl+C, so nothing failed.
+    """
+    from service.lab_checks import mission_for_lab, same_request
+
+    mission = mission_for_lab(3)
+    if any(
+        same_request(q, question)
+        for q in (mission["query"], mission["changed_requirement"]["query"])
+    ):
+        next_step(
+            "wait a minute, then check your saved answers. Follow the check's Next line:",
+            grade_setup_run_command(),
+            stream=sys.stderr,
+        )
+    elif stopped:
+        next_step(
+            "wait a minute for the run to finish, then ask again:",
+            ask_agent_command(question),
+            stream=sys.stderr,
+        )
+    else:
+        next_step(
+            "wait a minute, then run the command again. If it fails twice, tell your "
+            "facilitator:",
+            ask_agent_command(question),
+            stream=sys.stderr,
+        )
 
 
 def _answered_next(question: str, response: dict[str, Any]) -> None:
@@ -604,6 +645,10 @@ def main(argv: list[str] | None = None) -> int:
         response, answer_shown = ask(
             args.api_url, args.question, timeout=response_timeout()
         )
+    except AnswerStreamLost as error:
+        print(f"Retrieval agent request failed: {error}", file=sys.stderr)
+        _lost_answer_next(args.question)
+        return 1
     except LabValidationError as error:
         message = f"Retrieval agent request failed: {error}"
         print(separate_next(message, ask_agent_command(args.question)), file=sys.stderr)
@@ -615,11 +660,7 @@ def main(argv: list[str] | None = None) -> int:
             "and save it.",
             file=sys.stderr,
         )
-        next_step(
-            "wait a minute for the run to finish, then ask again:",
-            ask_agent_command(args.question),
-            stream=sys.stderr,
-        )
+        _lost_answer_next(args.question, stopped=True)
         return 130
     print("\n" + render(response, answer=not answer_shown))
     _answered_next(args.question, response)

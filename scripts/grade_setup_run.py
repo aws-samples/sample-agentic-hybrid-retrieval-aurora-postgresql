@@ -30,6 +30,7 @@ from dotenv import load_dotenv
 from scripts import lab_exercise
 from scripts.lab_request import sql_context
 from scripts.terminal_text import next_step, tidy, verdict
+from service.config import get_settings
 from service.lab_followup import follow_up_saved
 from service.participant_commands import grade_setup_run_command, lab3_steps
 
@@ -45,10 +46,11 @@ class SetupRunPick:
     run: dict[str, Any] | None
     skipped: list[dict[str, Any]] = field(default_factory=list)
     asked: int = 0
+    pending_answers: dict[str, str] = field(default_factory=dict)
 
 
 def pick_setup_run(
-    connection: Any, request: str, started_at: datetime | None
+    connection: Any, request: str, started_at: datetime | None, *, follow_up: str = ""
 ) -> SetupRunPick:
     """Choose the setup run completion should check.
 
@@ -62,28 +64,51 @@ def pick_setup_run(
         request: Alex's setup request, as the Lab 3 mission words it.
         started_at: When Lab 3 last started; earlier runs answered from the
             reference Retrieval agent, so they never count.
+        follow_up: The required follow-up, which can be a later conversation turn.
     """
     from service.lab_checks import same_request
 
     rows = connection.execute(
         """
-        SELECT agent_turn_id, user_message, created_at,
+        SELECT agent_turn_id, turn_number, user_message, created_at,
                assistant_message IS NOT NULL AS answered,
-               extracted_intent ->> 'outcome' AS outcome
+               extracted_intent ->> 'outcome' AS outcome,
+               assistant_message IS NULL
+                 AND coalesce(extracted_intent #>> '{telemetry,status}', 'active') = 'active'
+                 AND created_at > now() - make_interval(secs => %(deadline)s)
+                 AS awaiting_answer
         FROM mosaic.agent_turn
-        WHERE turn_number = 1
-          AND (%(started)s::timestamptz IS NULL OR created_at > %(started)s::timestamptz)
+        WHERE (%(started)s::timestamptz IS NULL OR created_at > %(started)s::timestamptz)
         ORDER BY created_at DESC
         LIMIT %(limit)s
         """,
-        {"started": started_at, "limit": RECENT_RUNS},
+        {
+            "started": started_at,
+            "limit": RECENT_RUNS,
+            "deadline": get_settings().agent_turn_deadline_seconds,
+        },
     ).fetchall()
-    setup = [row for row in rows if same_request(request, row["user_message"])]
+    setup = [
+        row
+        for row in rows
+        if row["turn_number"] == 1 and same_request(request, row["user_message"])
+    ]
     run = next((row for row in setup if row["outcome"] == "grounded"), None) or next(
         (row for row in setup if row["answered"]), None
     )
     skipped = setup[: setup.index(run)] if run is not None else setup
-    return SetupRunPick(run, skipped, len(setup))
+    latest_follow_up = next(
+        (row for row in rows if same_request(follow_up, row["user_message"])), None
+    )
+    pending = {
+        kind: str(row["agent_turn_id"])
+        for kind, row in (
+            ("setup", next(iter(setup), None)),
+            ("follow_up", latest_follow_up),
+        )
+        if row and row["awaiting_answer"]
+    }
+    return SetupRunPick(run, skipped, len(setup), pending)
 
 
 def _choice(pick: SetupRunPick) -> str:
@@ -95,6 +120,11 @@ def _choice(pick: SetupRunPick) -> str:
         )
     newer = len(pick.skipped)
     runs = "run" if newer == 1 else "runs"
+    if any(row["awaiting_answer"] for row in pick.skipped):
+        return (
+            f"Checking saved setup run {run['agent_turn_id']}, asked at {asked}. "
+            "A newer attempt is still awaiting an answer."
+        )
     if run["outcome"] == "grounded":
         return (
             f"Checking your newest grounded setup run, {run['agent_turn_id']}, asked at "
@@ -106,16 +136,29 @@ def _choice(pick: SetupRunPick) -> str:
     )
 
 
-def _pick_run() -> UUID | None:
+def _pick_run() -> SetupRunPick:
     """Find the setup run to check and say which it is, or say how to make one."""
     from service.agent_deploys import deploy_due, lab_3_started_at
     from service.db import connect
     from service.lab_checks import mission_for_lab
 
     started_at = lab_3_started_at(ROOT)
+    mission = mission_for_lab(3)
     with connect() as connection:
-        pick = pick_setup_run(connection, mission_for_lab(3)["query"], started_at)
-        saved = pick.run is None and follow_up_saved(connection, ROOT)
+        pick = pick_setup_run(
+            connection,
+            mission["query"],
+            started_at,
+            follow_up=mission["changed_requirement"]["query"],
+        )
+        # Only a setup attempt still running can supply the missing setup run. A 100W
+        # run in flight cannot, so the participant asks setup now rather than waiting.
+        if pick.run is None and "setup" in pick.pending_answers:
+            lab_exercise.wait_for_saved_answer("setup", pick.pending_answers["setup"])
+            return pick
+        saved = pick.run is None and (
+            "follow_up" in pick.pending_answers or follow_up_saved(connection, ROOT)
+        )
     if pick.run is None:
         since = (
             f" since Lab 3 started at {started_at.astimezone(UTC):%H:%M} UTC"
@@ -131,9 +174,9 @@ def _pick_run() -> UUID | None:
         print(verdict(f"Lab 3 exercise: CANNOT GRADE - {found}."))
         steps, commands = lab3_steps(deploy=deploy_due(ROOT), follow_up=not saved)
         next_step(steps, *commands)
-        return None
+        return pick
     print(_choice(pick) + "\n")
-    return UUID(str(pick.run["agent_turn_id"]))
+    return pick
 
 
 @tidy
@@ -144,8 +187,15 @@ def main() -> int:
         "--run-id", type=UUID, help="check this run instead of your newest setup run"
     )
     args = parser.parse_args()
+    run_id = args.run_id
+    pending = {}
     try:
-        run_id = args.run_id or _pick_run()
+        if run_id is None:
+            pick = _pick_run()
+            if pick.run is None:
+                return 2
+            run_id = pick.run["agent_turn_id"]
+            pending = pick.pending_answers
     except RuntimeError as error:
         # An unreadable Lab 3 start record names its own fix.
         print(verdict(f"Lab 3 exercise: CANNOT GRADE - {error}"))
@@ -167,10 +217,8 @@ def main() -> int:
             grade_setup_run_command(),
         )
         return 2
-    if run_id is None:
-        return 2
     save_context(ROOT / ".local/lab-3", str(run_id))
-    return lab_exercise.main(["grade", "--lab", "3"])
+    return lab_exercise.main(["grade", "--lab", "3"], pending_answers=pending)
 
 
 def save_context(output: Path, run_id: str) -> None:

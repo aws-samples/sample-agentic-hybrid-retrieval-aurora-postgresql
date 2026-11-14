@@ -201,6 +201,7 @@ export function useAskMosaicConversation(
           : "This step did not finish. Review the error below and retry.",
         error: message,
         errorCode: code,
+        errorRunId: (cause as { agentRunId?: unknown } | null)?.agentRunId as string | undefined,
       });
     } finally {
       if (version === requestVersion.current) patch({ loading: false });

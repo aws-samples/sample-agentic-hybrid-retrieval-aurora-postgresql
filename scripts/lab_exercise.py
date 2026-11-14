@@ -804,8 +804,23 @@ def argument_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def wait_for_saved_answer(question: str, run_id: str) -> int:
+    """Report an outstanding required turn without sending a second request."""
+    label = "100W" if question == "follow_up" else "setup"
+    print(
+        verdict(
+            f"Lab 3 exercise: CANNOT GRADE - the {label} run {run_id} is still "
+            "within its time limit and has no saved answer yet."
+        )
+    )
+    next_step("wait a minute and check the saved run again:", grade_setup_run_command())
+    return 2
+
+
 @tidy
-def main(argv: list[str] | None = None) -> int:
+def main(
+    argv: list[str] | None = None, *, pending_answers: dict[str, str] | None = None
+) -> int:
     from dotenv import load_dotenv
 
     load_dotenv(REPO / ".env")
@@ -828,6 +843,14 @@ def main(argv: list[str] | None = None) -> int:
             "fix what it names, then grade again:", grade_exercise_command(args.lab)
         )
         return 2
+    # The setup picker can see a retry still running. A passing saved pair is
+    # immediately usable; only a retry that could fix this grade warrants waiting.
+    if args.lab == 3 and pending_answers and report["failures"]:
+        needs = report["needs"]
+        if not needs["deploy"]:
+            for question, run_id in pending_answers.items():
+                if needs[question]:
+                    return wait_for_saved_answer(question, run_id)
     {1: _print_lab1, 2: _print_lab2, 3: _print_lab3}[args.lab](report)
     report.update(
         lab=args.lab,

@@ -135,6 +135,9 @@ The commands you use most:
 | Grade Lab 3: your setup run and 100W answer | `uv run python scripts/grade_setup_run.py` |
 | Catch up by installing a lab's reference answer | `uv run python scripts/lab_state.py finish --lab N` |
 
+If the terminal disconnects during either required Lab 3 question, wait a minute and
+run the grading command. It checks the saved runs before asking you to repeat a question.
+
 A successful deploy or a plausible answer is not completion: each lab ends with the
 guide's checks against the same request, run on the state you applied or deployed.
 On a terminal each result is coloured: green for good (`PASS`, `passed`, `grounded`, a

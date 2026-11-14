@@ -208,7 +208,12 @@ delivers it, which it does only after the answer's checks pass, followed by the 
 the tool trace with the search SQL Aurora ran, the products, each citation with its
 quote, the outcome and the **Run ID**, each under its own heading after a blank line, and
 a closing `Next:` line that names the 100W follow-up, or only the completion check when a 100W
-answer from the deployed code is already saved. They ask the 100W follow-up the same way;
+answer from the deployed code is already saved. If the terminal loses either answer,
+participants wait a minute and run the completion check. It can find the saved answer,
+tell them to wait for a pending run, or name the question that still needs a current answer.
+Ask Mosaic does the same for those two questions: a broken answer stream shows the
+completion command and the run ID in place of **Ask again**.
+They ask the 100W follow-up the same way;
 each call is its own run. Once `status` reads Lab 3 SOLVED, an answer's `Next:` and a
 `deploy_agentcore.py verify` recheck's name the guide's next step instead of the completion
 check or the setup request; a new deploy makes Lab 3 unproved again. One drafting call rewrites a draft its checks refuse up to

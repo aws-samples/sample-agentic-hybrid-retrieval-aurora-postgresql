@@ -51,6 +51,8 @@ export interface MosaicLabMission {
   expected_outcome: string;
   assertions: string[];
   required_citation_support?: MosaicCitationSupport[];
+  /** Lab 3's follow-up: the same setup with a new requirement, asked as its own run. */
+  changed_requirement?: { query: string };
   top_k: number;
 }
 
@@ -225,4 +227,32 @@ export function retrievalExampleHref(example: MosaicLabMission) {
   // in Shop. Reuse the same encoder so its eligibility gates travel with it.
   if (example.stage === "reason") return shopMissionHref(example);
   return `/labs/retrieval?example=${encodeURIComponent(example.id)}`;
+}
+
+const CONTRACTIONS: Array<[string, string]> = [
+  ["i'm", "i am"], ["i've", "i have"], ["it's", "it is"], ["that's", "that is"], ["don't", "do not"],
+  ["doesn't", "does not"], ["can't", "cannot"], ["won't", "will not"], ["isn't", "is not"],
+];
+
+/** A request as `service.lab_checks.same_request` compares it: case, spacing, quotes and contractions aside. */
+function normalizedRequest(text: string): string {
+  let normalized = text.replace(/[‘’]/g, "'").replace(/[“”]/g, "\"").split(/\s+/).filter(Boolean).join(" ").toLowerCase();
+  for (const [short, long] of CONTRACTIONS) {
+    normalized = normalized.replace(new RegExp(`(?<![\\w'])${short.replace("'", "\\'")}(?![\\w'])`, "g"), long);
+  }
+  return normalized;
+}
+
+/**
+ * Which of Lab 3's two required questions a request is, if either: Alex's setup request
+ * or the 100W follow-up. Both are graded from saved runs, so a lost answer is checked
+ * there before anyone spends another agent turn on it.
+ */
+export function labThreeRequiredQuestion(question: string): "setup" | "follow_up" | null {
+  const reason = coreMosaicLabs.find((mission) => mission.stage === "reason");
+  const asked = normalizedRequest(question);
+  if (!reason || !asked) return null;
+  if (asked === normalizedRequest(reason.query)) return "setup";
+  const followUp = reason.changed_requirement?.query;
+  return followUp && asked === normalizedRequest(followUp) ? "follow_up" : null;
 }

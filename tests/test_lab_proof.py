@@ -1116,7 +1116,7 @@ def _managed_run(
     searched_with: str,
     made_by: object = CURRENT_APPLICATION,
     deployed: datetime | None = DEPLOYED_AFTER_START,
-) -> None:
+) -> _FakeConnection:
     """A grounded saved run, its searches recorded with `searched_with`.
 
     Runtime serves the workspace's code and Aurora runs the workspace's SQL,
@@ -1163,12 +1163,50 @@ def _managed_run(
         "service.search_sql.applied_sql_digest", lambda _connection: CURRENT_SQL
     )
     monkeypatch.setattr("service.gateway_tools.call_tool", lambda _name, _arguments: {})
+    return connection
 
 
 def _deployment_check(proof):
     return next(
         check for check in proof.checks if check.name == "managed_agent_deployed"
     )
+
+
+@pytest.mark.parametrize(
+    ("stale", "bad_followup", "ask_setup", "ask_followup"),
+    [
+        ("setup", False, True, False),
+        ("followup", False, False, True),
+        ("setup", True, True, True),
+    ],
+)
+def test_grade_repeats_only_stale_or_unsupported_answers(
+    monkeypatch, stale, bad_followup, ask_setup, ask_followup
+):
+    from scripts import lab_exercise
+    from service.participant_commands import ask_100w_command, ask_setup_command
+
+    connection = _managed_run(monkeypatch, searched_with=CURRENT_SQL)
+    old = connection.turn if stale == "setup" else connection.followup.turn
+    old["extracted_intent"]["application_sha256"] = EARLIER_APPLICATION
+    if bad_followup:
+        connection.followup.turn["extracted_intent"]["retrieved_evidence"] = []
+    monkeypatch.setattr(lab_exercise.lab_state, "lab3_problem", lambda: None)
+    monkeypatch.setattr(
+        lab_exercise, "load_context", lambda _lab: {"lab_agent_id": str(AGENT_RUN_ID)}
+    )
+    monkeypatch.setattr("service.agent_deploys.deploy_due", lambda: False)
+
+    report = lab_exercise.grade_lab3(lab_exercise.default_work(3))
+    assert report["failures"]
+    assert report["needs"] == {
+        "deploy": False,
+        "setup": ask_setup,
+        "follow_up": ask_followup,
+    }
+    reasons = "\n".join(report["failures"])
+    assert (ask_setup_command() in reasons) is ask_setup
+    assert (ask_100w_command() in reasons) is ask_followup
 
 
 def test_a_run_saved_before_the_last_apply_is_not_credited(monkeypatch) -> None:
