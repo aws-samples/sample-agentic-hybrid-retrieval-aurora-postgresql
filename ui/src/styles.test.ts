@@ -194,13 +194,36 @@ export function unpinnedGridTracks(sheets: Sheet[]): string[] {
  * showed what it was there to prove.
  */
 const WRAPPED_EVIDENCE = [".receipt-states q"] as const;
+/** The lines an evidence quote keeps: three hold any quote that starts near its figure. */
+const EVIDENCE_LINES = 3;
 
-/** Evidence quotes that are gone, or held to one line with `white-space: nowrap`. */
+/** The bodies of every rule whose selector list ends in `selector`, in any sheet or query. */
+function rulesFor(selector: string, text: string): string[] {
+  const uncommented = text.replace(/\/\*[^]*?\*\//g, "");
+  return [...uncommented.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+    .filter(([, selectors]) => selectors.split(",").some((one) => one.trim().endsWith(selector)))
+    .map(([, , body]) => body);
+}
+
+/** Why one rule body cuts an evidence quote short, or null when it lets it wrap. */
+function clipsEvidence(body: string): string | null {
+  if (/white-space:\s*nowrap/.test(body)) return "white-space: nowrap";
+  const clamp = /(?:^|[\s;])(?:-webkit-)?line-clamp:\s*(\d+)/.exec(body);
+  if (clamp && Number(clamp[1]) < EVIDENCE_LINES) return `line-clamp: ${clamp[1]}`;
+  if (/(?:^|[\s;])(?:max-)?height:/.test(body)) return "a fixed height";
+  return null;
+}
+
+/**
+ * Evidence quotes that are gone, or that some rule, later or more specific ones included,
+ * holds to fewer than three lines. CSS text cannot tell which of two equal rules wins, so
+ * every rule that reaches the quote must let it wrap.
+ */
 export function clippedEvidenceQuotes(sheets: Sheet[]): string[] {
   const text = sheets.map((sheet) => sheet.text).join("\n");
   return WRAPPED_EVIDENCE.filter((selector) => {
-    const block = new RegExp(`^\\${selector} \\{([^]*?)^\\}`, "m").exec(text);
-    return !block || /white-space:\s*nowrap/.test(block[1]);
+    const bodies = rulesFor(selector, text);
+    return bodies.length === 0 || bodies.some((body) => clipsEvidence(body) !== null);
   });
 }
 
@@ -313,5 +336,20 @@ describe("stylesheet vocabulary", () => {
     expect(clippedEvidenceQuotes([{ name: "world.css", text: oneLine }])).toEqual([".receipt-states q"]);
     expect(clippedEvidenceQuotes([{ name: "world.css", text: ".other { color: red; }" }])).toEqual([".receipt-states q"]);
     expect(clippedEvidenceQuotes([{ name: "world.css", text: ".receipt-states q {\n  -webkit-line-clamp: 3;\n}" }])).toEqual([]);
+    // A clamp to one line clips as nowrap did, and a later or more specific rule, or one
+    // inside a media query, undoes the wrapping rule above it.
+    const wrapping = ".receipt-states q {\n  -webkit-line-clamp: 3;\n}";
+    const undone = [
+      ".receipt-states q {\n  -webkit-line-clamp: 1;\n}",
+      `${wrapping}\n.receipt-states q { line-clamp: 2; }`,
+      `${wrapping}\n.product-receipt-card .receipt-states q {\n  white-space: nowrap;\n}`,
+      `${wrapping}\n@media (max-width: 1100px) {\n  .receipt-states q { white-space: nowrap; }\n}`,
+      `${wrapping}\n.other, .receipt-states q { max-height: 1.2em; }`,
+    ];
+    for (const text of undone) {
+      expect(clippedEvidenceQuotes([{ name: "world.css", text }]), text).toEqual([".receipt-states q"]);
+    }
+    expect(clippedEvidenceQuotes([{ name: "world.css", text: `/* { white-space: nowrap } */\n${wrapping}` }])).toEqual([]);
+    expect(clippedEvidenceQuotes([{ name: "world.css", text: `${wrapping}\n.receipt-states q::before { white-space: nowrap; }` }])).toEqual([]);
   });
 });
