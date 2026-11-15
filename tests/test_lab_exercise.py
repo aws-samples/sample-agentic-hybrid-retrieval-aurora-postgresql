@@ -464,3 +464,28 @@ def test_a_failure_wraps_its_prose_and_keeps_each_command_whole():
     assert ask_setup_command() in lines
     assert all(len(line) <= 100 for line in lines if not line.startswith("uv run "))
     assert all(not line.endswith("-") for line in lines)
+
+
+@pytest.mark.parametrize("lab", [2, 3])
+def test_a_deleted_lab_file_names_reset_not_save_your_work(
+    lab, monkeypatch, tmp_path, capsys
+):
+    monkeypatch.setattr(lab_exercise, "REPO", tmp_path)
+
+    assert lab_exercise.main(["grade", "--lab", str(lab)]) == 2
+
+    out = capsys.readouterr().out
+    assert f"Lab {lab}: FILE MISSING" in out
+    assert f"uv run python scripts/lab_state.py reset --lab {lab}" in out
+    assert "save your work" not in out
+    assert out.count("Next:") == 1
+
+
+def test_a_missing_lab_1_recall_file_still_says_to_save_it(
+    monkeypatch, tmp_path, capsys
+):
+    monkeypatch.setattr(lab_exercise, "REPO", tmp_path)
+
+    assert lab_exercise.main(["grade", "--lab", "1"]) == 2
+
+    assert "save your work there first" in capsys.readouterr().out

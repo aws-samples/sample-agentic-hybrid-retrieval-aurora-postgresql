@@ -607,3 +607,18 @@ def test_a_failed_action_ends_with_a_next_that_names_the_retry(monkeypatch, caps
     assert err.endswith(
         f"\n\nNext: fix what the message above names, then run this again:\n{VERIFY_AGENT}\n"
     )
+
+
+def test_deploy_of_a_deleted_agent_file_names_reset_not_a_python_error(
+    monkeypatch, tmp_path, capsys
+):
+    monkeypatch.setattr(sys, "argv", ["deploy_agentcore.py", "deploy"])
+    monkeypatch.setattr(deploy, "ROOT", tmp_path)
+    monkeypatch.setattr("scripts.lab_state.lab_source_is_repaired", lambda lab: False)
+
+    assert deploy.main() == 1
+
+    err = capsys.readouterr().err
+    assert "Lab 3: FILE MISSING (labs/lab3_reason/agent.py)" in err
+    assert "uv run python scripts/lab_state.py reset --lab 3" in err
+    assert "FileNotFoundError" not in err and "correct that problem" not in err

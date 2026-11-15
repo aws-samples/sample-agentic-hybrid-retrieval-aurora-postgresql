@@ -861,8 +861,10 @@ def main() -> int:
             os.environ.update(values)
             verify()
         elif args.action == "deploy":
-            from scripts.lab_state import lab_source_is_repaired
+            from scripts.lab_state import lab_source_is_repaired, missing_file_problem
 
+            if missing := missing_file_problem(3, ROOT):
+                raise ValueError(missing.line)
             if not lab_source_is_repaired(3):
                 raise ValueError(not_ready_message())
             progress = deploy_progress()
