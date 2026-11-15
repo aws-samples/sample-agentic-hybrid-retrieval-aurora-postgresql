@@ -169,7 +169,7 @@ function ProductSearchLinks({ product, receipts, running, onSelect }: {
   return <div className="inspector-product-search-links">{matches.map(({ receipt, index, rank: final }) => <button key={receipt.id} type="button" aria-label={`${product.title}: show Search ${index + 1}${final == null ? "" : `, rank ${final}`}`} onClick={() => onSelect(receipt.id, product.product_id)}>Search {index + 1}{final == null ? "" : ` · #${final} in Rank`} <ArrowRight size={13} aria-hidden="true" /></button>)}</div>;
 }
 
-/** The record's line a citation was cited for, its figure marked, and any figure it never states. */
+/** The record's line closest to the claim, its figure marked, and any figure it never states. */
 function CitedQuote({ citation, answer }: { citation: AgentCitation; answer: string }) {
   const excerpt = citedExcerpt(citation, answer);
   if (!excerpt.line) return null;
@@ -181,7 +181,7 @@ function CitedQuote({ citation, answer }: { citation: AgentCitation; answer: str
 
 /**
  * The answer's sources, numbered as its prose cites them; each citation chip jumps to its
- * entry. Each quotes the line it was cited for, as Ask Mosaic and the terminal do.
+ * entry. Each quotes its line closest to the claim, as Ask Mosaic and the terminal do.
  */
 function AnswerSources({ citations, answerId, answer }: {
   citations: AgentCitation[]; answerId: string; answer: string;

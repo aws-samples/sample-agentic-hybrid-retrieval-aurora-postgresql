@@ -14,7 +14,7 @@ interface PickProps {
   index: number;
   rows: ComparisonRow[];
   citations: AgentCitation[];
-  /** The answer's text, so each fact is the line its citation was cited for. */
+  /** The answer's text, so each fact is its record's line closest to the claim. */
   answer: string;
   answerId: string;
   imageSrc?: string;

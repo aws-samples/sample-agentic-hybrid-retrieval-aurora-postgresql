@@ -110,7 +110,10 @@ function statedAt(line: string, figure: Figure): [number, number] | null {
   return match ? [match.index, match.index + match[0].length] : null;
 }
 
-/** The line a citation was cited for, and what in it carries the claim's figures. */
+/**
+ * A cited record's line closest to the claim, and what in it carries the claim's figures.
+ * A citation covers its whole record; the agent chooses no line.
+ */
 export interface CitedExcerpt {
   /** A whole line of the record, in the record's own words. */
   line: string;
@@ -171,7 +174,7 @@ export function listFigures(figures: string[]): string {
   return figures.length < 2 ? figures.join("") : `${figures.slice(0, -1).join(", ")} or ${figures.at(-1)}`;
 }
 
-/** The line a citation was cited for, as `citedExcerpt` chooses it. */
+/** A cited record's line closest to the claim, as `citedExcerpt` chooses it. */
 export function citedLine(citation: AgentCitation, answer: string): string {
   return citedExcerpt(citation, answer).line;
 }

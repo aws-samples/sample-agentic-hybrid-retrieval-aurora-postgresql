@@ -40,7 +40,7 @@ tools are connected through Gateway.`
 
 Ask the guide's setup request from the terminal with
 `uv run python scripts/ask_agent.py "..."`. It prints the answer, the plan, the
-tool trace, each citation with the record line it was cited for, the outcome and
+tool trace, each citation with the record line closest to the claim, the outcome and
 the **Run ID**. Read one listing citation and one review citation against the
 sentences that cite them.
 

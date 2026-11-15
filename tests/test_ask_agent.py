@@ -134,7 +134,7 @@ def test_a_grounded_answer_shows_trace_products_and_each_citation():
 
 def test_a_long_quote_is_shortened_but_the_answer_is_not():
     run = grounded()
-    # One sentence, so the line the answer cited is itself too long for a terminal line.
+    # One sentence, so the line closest to the claim is itself too long for a terminal line.
     run["citations"][1]["quote"] = "They are comfortable and " * 10 + "light."
     text = ask_agent.render(run)
 

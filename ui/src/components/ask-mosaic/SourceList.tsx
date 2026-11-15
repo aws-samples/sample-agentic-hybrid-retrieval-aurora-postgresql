@@ -20,7 +20,7 @@ function WholeRecord({ quote, kind }: { quote: string; kind: string }) {
 
 /**
  * The answer's sources on hairlines, numbered as the prose and the picks cite
- * them. Each shows the line it was cited for, the cited figure marked, says which
+ * them. Each shows its line closest to the claim, the cited figure marked, says which
  * of the claim's figures the record never states, and opens to the whole record.
  * Builder view adds each record's id, revision and type.
  */
@@ -33,7 +33,7 @@ export function SourceList({
 }: {
   citations: AgentCitation[];
   products: ProductSummary[];
-  /** The answer's text, so each record shows the line it was cited for. */
+  /** The answer's text, so each record shows its line closest to the claim. */
   answer: string;
   answerId: string;
   builder: boolean;
