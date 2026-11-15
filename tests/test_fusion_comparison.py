@@ -25,6 +25,7 @@ from service.fusion_comparison import (
     SubstrateError,
 )
 from service.models import SearchFilters
+from service.participant_commands import APPLY_SQL
 from service.retrieval import RetrievalService
 from service.search_sql import search_sql
 
@@ -507,6 +508,23 @@ def test_an_unrepaired_lab_1_is_named_rather_than_blamed_on_drift():
     assert not any(
         "FROM mosaic_search.search_hybrid_rrf" in sql for sql in connection.executed_sql
     ), "the comparison must stop before fusing either pool"
+
+
+def test_a_missing_fused_function_names_the_apply_not_lab_1():
+    """A NULL definition is a missing function, not Lab 1's unfinished exercise.
+
+    Before 14 November 2026 a NULL definition became the text "None", which has
+    no fuzzy branch, so the error blamed an open Lab 1 seam.
+    """
+    connection = StubConnection(IDENTICAL_UNWEIGHTED, IDENTICAL_WEIGHTED)
+    connection.definition = None
+    with pytest.raises(LabStateError) as raised:
+        FusionComparisonService(
+            embedding_provider=StubEmbedder(), connection_factory=lambda: connection
+        ).compare("mesh chair", SearchFilters(), persist=False)
+    assert "found no mosaic_search.search_hybrid_rrf(" in str(raised.value)
+    assert APPLY_SQL in str(raised.value)
+    assert "Lab 1" not in str(raised.value)
 
 
 def test_query_embedding_cache_survives_concurrent_sync_routes():

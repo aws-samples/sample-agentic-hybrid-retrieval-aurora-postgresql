@@ -24,6 +24,15 @@ FUSED_FUNCTION = (
 )
 APPLIED_SQL_LABEL = "Participant SQL sha256 "
 
+#: The fused function's definition, looked up by name when each read runs; pass
+#: `f"{search_schema()}.{FUSED_FUNCTION}"`. A `'...'::regprocedure` literal
+#: becomes the function's OID when the statement is planned. psycopg prepares a
+#: statement after its fifth run on a pooled connection, and every apply drops
+#: and recreates the function under a new OID, so a prepared literal read NULL
+#: after an apply: on 14 November 2026 `GET /api/labs/state` answered 500 to 8
+#: of 40 requests after one apply.
+FUSED_DEFINITION_SQL = "SELECT pg_get_functiondef(to_regprocedure(%s)) AS definition"
+
 SEARCH_SQL_FILES: tuple[Path, ...] = (
     Path("db/sql/08_search_channels.sql"),
     LAB2_SQL,

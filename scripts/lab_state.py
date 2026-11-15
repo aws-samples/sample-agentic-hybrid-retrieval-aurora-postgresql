@@ -69,6 +69,7 @@ from service.participant_commands import (
     start_command,
     validate_applied_command,
 )
+from service.search_sql import FUSED_DEFINITION_SQL, FUSED_FUNCTION
 
 #: Slack for one reciprocal rank contribution read back out of PostgreSQL by
 #: calling `mosaic_search.reciprocal_rank_contribution` directly. Not a
@@ -876,14 +877,6 @@ class LabDatabaseState:
     detail: str
 
 
-#: The two facts each SQL-backed lab is decided on, so the source edit and the
-#: applied function can disagree out loud instead of silently.
-LAB1_FUNCTION_SIGNATURE = """
-    'mosaic_search.search_hybrid_rrf(
-        text,vector,jsonb,integer,integer,integer,integer,integer,real
-    )'::regprocedure
-"""
-
 _LAB3_DETAIL = (
     f"Lab 3 builds {LAB3_AGENT}. Deploy with {DEPLOY_AGENT} to publish the "
     "Retrieval agent and SQL tools; deployed source must match before a run is accepted."
@@ -905,12 +898,19 @@ def _marked_tokens(source: str, lab: int) -> list[str] | None:
 
 def _lab_1_database_state(connection: Any, repo: Path) -> LabDatabaseState:
     schema = search_schema()
-    signature = LAB1_FUNCTION_SIGNATURE
-    row = connection.execute(
-        f"SELECT pg_get_functiondef({signature}) AS definition"
-    ).fetchone()
-    definition = row["definition"]
+    function = f"{schema}.{FUSED_FUNCTION}"
+    definition = connection.execute(FUSED_DEFINITION_SQL, (function,)).fetchone()[
+        "definition"
+    ]
     path = LABS[1][0]
+    if definition is None:
+        return LabDatabaseState(
+            state="stale",
+            detail=(
+                f"Aurora has no {function}, the function {path} defines. Saving changes "
+                "only the file; applying it updates Aurora."
+            ),
+        )
     saved = (repo / path).read_text(encoding="utf-8")
     if _marked_tokens(definition, 1) != _marked_tokens(saved, 1):
         return LabDatabaseState(

@@ -158,11 +158,13 @@ def contained_database_state(
     """Read one lab's Aurora state inside its own transaction.
 
     `GET /api/labs/state` grades three labs over one pooled connection, and
-    `scripts.lab_state._lab_1_database_state` casts a signature to
-    `regprocedure`: a missing or re-headed `search_hybrid_rrf` raises
+    `scripts.lab_state._lab_2_database_state` calls
+    `reciprocal_rank_contribution`: a missing or re-headed function raises
     `psycopg.errors.UndefinedFunction`, which is not a `RuntimeError` and
     aborts the surrounding transaction. Uncontained, one bad lab both returned
     a 500 and left the next lab's read failing on an aborted transaction.
+    (Lab 1's read resolves its function with `to_regprocedure`, so a missing
+    one reads as NULL and is reported `stale` without an error.)
     Each lab's read runs inside its own `connection.transaction()`. `connect()`
     has already opened the checkout's transaction by running `SET LOCAL`, so
     that block is a savepoint, not a top-level transaction: a failure rolls

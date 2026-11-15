@@ -38,7 +38,9 @@ from service.models import (
     RetrievalProfile,
     SearchFilters,
 )
+from service.participant_commands import APPLY_SQL
 from service.retrieval import get_retrieval_service, normalize_query
+from service.search_sql import FUSED_DEFINITION_SQL, FUSED_FUNCTION
 
 # Deep enough to hold the whole fused pool: the union can be no larger than the
 # three arm limits in db/config/retrieval.yaml added together, which stays far
@@ -203,16 +205,17 @@ class FusionComparisonService:
                 ),
             )
             definition_rows = connection.execute(
-                f"""
-                SELECT pg_get_functiondef(
-                    '{search_schema()}.search_hybrid_rrf(text,vector,jsonb,integer,'
-                    'integer,integer,integer,integer,real)'::regprocedure
-                ) AS definition
-                """
+                FUSED_DEFINITION_SQL, (f"{search_schema()}.{FUSED_FUNCTION}",)
             ).fetchall()
             unweighted_definition = (
-                str(definition_rows[0]["definition"]) if definition_rows else ""
+                definition_rows[0]["definition"] if definition_rows else None
             )
+            if unweighted_definition is None:
+                raise LabStateError(
+                    f"found no {search_schema()}.{FUSED_FUNCTION} in Aurora; fix: "
+                    f"apply the search SQL with {APPLY_SQL}, then compare fusion "
+                    "methods again"
+                )
             if "FROM fuzzy" not in unweighted_definition:
                 raise LabStateError(
                     f"found {search_schema()}.search_hybrid_rrf without its fuzzy "

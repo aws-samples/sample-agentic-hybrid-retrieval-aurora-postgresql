@@ -324,9 +324,10 @@ def test_applied_state_reads_the_catalog_served_by_the_api(monkeypatch, lab):
         "second_contribution": 1 / (k + 2),
     }
     assert read_applied_sql_state(lab, connection).state == "applied"
-    statement = connection.execute.call_args.args[0]
-    assert "mosaic_search." in statement
-    assert "mosaic_live_search" not in statement
+    sql, *params = connection.execute.call_args.args
+    named = " ".join([sql, *(str(value) for value in (params[0] if params else ()))])
+    assert "mosaic_search." in named
+    assert "mosaic_live_search" not in named
 
 
 PARTICIPANT_LAB3 = """    prompt = instructions + "\\nKeep the answer concise."

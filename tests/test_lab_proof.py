@@ -117,7 +117,7 @@ class _FakeConnection:
     def __init__(
         self,
         *,
-        lab_1_definition: str = SOLVED_LAB_1_DEFINITION,
+        lab_1_definition: str | None = SOLVED_LAB_1_DEFINITION,
         lab_1_error: Exception | None = None,
         rrf_correct: bool = True,
         turn: dict | None = None,
@@ -948,14 +948,31 @@ def test_a_saved_completion_is_reported_beside_the_state(
     assert labs[1].completed_at is None
 
 
+def test_a_missing_lab_1_function_reads_stale_and_names_the_apply(monkeypatch) -> None:
+    """`to_regprocedure` reads a missing function as NULL: a verdict, never a 500.
+
+    On 14 November 2026 a NULL definition reached the marker check and raised
+    AttributeError, and `GET /api/labs/state` answered 500 after an apply.
+    """
+    connection = _FakeConnection(lab_1_definition=None)
+    _use(monkeypatch, connection)
+
+    state = lab_proof.lab_states()
+
+    assert state.labs[0].database_state == "stale"
+    assert "Aurora has no" in state.labs[0].detail
+    assert "search_hybrid_rrf" in state.labs[0].detail
+    assert "applying it updates Aurora" in state.labs[0].detail
+    assert state.labs[1].database_state == "applied"
+
+
 def test_a_database_error_on_one_lab_leaves_the_next_lab_readable(
     monkeypatch,
 ) -> None:
     """Each lab's Aurora read is contained, so lab 1 cannot poison lab 2.
 
-    `_lab_1_database_state` casts a signature to `regprocedure`: a missing or
-    re-headed `search_hybrid_rrf` raises `UndefinedFunction`, which without
-    containment both 500s the route and aborts the transaction lab 2 reads in.
+    A database error on one lab's read (here `UndefinedFunction`) would, without
+    containment, both 500 the route and abort the transaction lab 2 reads in.
     """
     connection = _FakeConnection(
         lab_1_error=psycopg.errors.UndefinedFunction("function does not exist")
