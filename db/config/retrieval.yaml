@@ -113,14 +113,19 @@ hnsw:
   # scan_mem_multiplier` (4MB): max_scan_tuples measured 0 rows at 20K to 1M
   # alike, and 4 and 8 measured no better than 2.
   #
-  # Re-measured 2026-09-22 on reviews-2023-500k-v1 (500,000 rows): the planner
-  # does not use HNSW for any category-filtered lab request. It picks the
-  # (category_key, product_id) btree and sorts exactly, so these four settings do
-  # not affect those requests. With HNSW forced (enable_sort = off) under the
-  # headphones filter, these settings return a full 150 rows at recall 0.467 against
-  # exact; multiplier 8 changes nothing, and max_scan_tuples 200K raises recall to
-  # 0.780. Here max_scan_tuples is a constraint. Lab 1 measures this live with
-  # scripts/lab_exercise.py.
+  # On the served reviews-2023-v2 catalog (553,911 rows) PostgreSQL chooses the
+  # plan per request. Measured on a fresh event on 2026-10-22: under Lab 1's
+  # headphones filter (42,538 eligible) search_semantic scans
+  # product_search_vector_idx and then applies the filter, returning 118 of the
+  # exact 150 for "headphones that help me focus when working from home". Under
+  # Lab 2's monitors filter (6,830 eligible) it reads product_search_kind_idx and
+  # sorts every match by exact distance, so these four settings do not affect that
+  # request. In the 2026-11-09 benchmark (docs/current-scale-benchmarks.md, 73
+  # anchors, top 10) max_scan_tuples, not scan memory, was the main limit for
+  # narrow filters: doubling scan memory moved the three narrowest presets by 0.3
+  # to 0.6 rows. The optional Scale & HNSW exercise measures recall live with
+  # scripts/lab_exercise.py grade --lab 1. Figures from the retired
+  # reviews-2023-500k-v1 catalog are in docs/abstract-delivery-map.md.
   scan_mem_multiplier: 2
 media:
   premium_products: 120
