@@ -220,13 +220,19 @@ details[open] > .product-receipt-card .receipt-states {
   line-height: 1.4;
 }
 
+/* The quote is the evidence for the value above it, so it wraps rather than clipping:
+   on one line, a 1024px window cut the ViewSonic's quote before its 90W. Three lines
+   hold any quote that starts near its figure; a longer one shows its title. */
 .receipt-states q {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
   overflow: hidden;
+  overflow-wrap: anywhere;
   color: var(--ink-soft);
   font-size: 12px;
   font-weight: 400;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .receipt-states p {

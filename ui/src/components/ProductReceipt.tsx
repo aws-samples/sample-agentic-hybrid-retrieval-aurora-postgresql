@@ -21,9 +21,9 @@ const QUOTE_LEAD = 28;
 
 /**
  * The listing's line from a few words before the figure it states, so the receipt's
- * one-line quote shows the figure: the ViewSonic's "DITCH THE DOCK: Ethernet RJ45 and
- * USB-C connectivity for fast data, audio and video transfer, 90W charging over one
- * cable" was cut off before its 90W. The whole line stays in the quote's title.
+ * quote, at most three lines, shows the figure: the ViewSonic's "DITCH THE DOCK: Ethernet
+ * RJ45 and USB-C connectivity for fast data, audio and video transfer, 90W charging over
+ * one cable" was cut off before its 90W. The whole line stays in the quote's title.
  */
 function quoteFromFigure(quote: string, value: ProductSpec["value"]): string {
   if (typeof value !== "number") return quote;

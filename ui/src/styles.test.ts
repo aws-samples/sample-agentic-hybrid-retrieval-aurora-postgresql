@@ -187,7 +187,28 @@ export function unpinnedGridTracks(sheets: Sheet[]): string[] {
   });
 }
 
+/**
+ * Quotes shown as the evidence for a value, which must wrap rather than clip. Measured on
+ * 2026-11-15: on one line, Shop's receipt cut the ViewSonic's "90W charging over one cable"
+ * after "90W charging" in a 960px window and before "90W" at 1024px, so the quote no longer
+ * showed what it was there to prove.
+ */
+const WRAPPED_EVIDENCE = [".receipt-states q"] as const;
+
+/** Evidence quotes that are gone, or held to one line with `white-space: nowrap`. */
+export function clippedEvidenceQuotes(sheets: Sheet[]): string[] {
+  const text = sheets.map((sheet) => sheet.text).join("\n");
+  return WRAPPED_EVIDENCE.filter((selector) => {
+    const block = new RegExp(`^\\${selector} \\{([^]*?)^\\}`, "m").exec(text);
+    return !block || /white-space:\s*nowrap/.test(block[1]);
+  });
+}
+
 describe("stylesheet vocabulary", () => {
+  it("lets a quote shown as evidence wrap instead of clipping it to one line", async () => {
+    expect(clippedEvidenceQuotes(await readSheets())).toEqual([]);
+  });
+
   it("references only custom properties that something defines", async () => {
     expect(undefinedReferences(await readSheets())).toEqual([]);
   });
@@ -286,5 +307,11 @@ describe("stylesheet vocabulary", () => {
     expect(unpinnedGridTracks(unpinned)).toEqual([".shop-alex-profile"]);
     expect(unpinnedGridTracks([{ name: "shop-editorial.css", text: ".shop-alex-profile {\n  display: block;\n}" }])).toEqual([]);
     expect(unpinnedGridTracks([{ name: "unrelated.css", text: ".other { display: block; }" }])).toEqual([".shop-alex-profile"]);
+    // The receipt quote as it stood before 2026-11-15, held to one line, is caught; so is
+    // a sheet that drops the rule.
+    const oneLine = ".receipt-states q {\n  overflow: hidden;\n  text-overflow: ellipsis;\n  white-space: nowrap;\n}";
+    expect(clippedEvidenceQuotes([{ name: "world.css", text: oneLine }])).toEqual([".receipt-states q"]);
+    expect(clippedEvidenceQuotes([{ name: "world.css", text: ".other { color: red; }" }])).toEqual([".receipt-states q"]);
+    expect(clippedEvidenceQuotes([{ name: "world.css", text: ".receipt-states q {\n  -webkit-line-clamp: 3;\n}" }])).toEqual([]);
   });
 });
