@@ -14,6 +14,7 @@ from service import db
 ROOT = Path(__file__).resolve().parents[1]
 CASES = json.loads((ROOT / "data/cited_line_cases.json").read_text())
 RUN_ID = UUID("794c29f6-b200-4ae4-8fc7-856c3fd9c5a5")
+STARTED = datetime(2026, 11, 15, 0, 10, tzinfo=UTC)
 ANSWER = (
     "The ViewSonic VG2756-4K's integrated USB hub connects and charges peripherals over a "
     "single cable [1]. Its listing states 90W charging over one cable [1], below the 100W "
@@ -62,6 +63,11 @@ class Connection:
 
     def fetchone(self):
         return self.row
+
+
+def started(monkeypatch, at=STARTED):
+    """Lab 3's start time as the reader reads it, without a start record on disk."""
+    monkeypatch.setattr("service.agent_deploys.lab_3_started_at", lambda _root: at)
 
 
 def use(monkeypatch, row):
@@ -136,13 +142,19 @@ def test_a_run_without_that_citation_names_the_way_out(
 def test_without_a_run_id_it_reads_the_setup_run_completion_grades(monkeypatch, capsys):
     """A later question from Ask Mosaic or Playground must not take the graded run's place."""
     connection = use(monkeypatch, run())
-    monkeypatch.setattr(
-        read_citation, "graded_setup_run_id", lambda _connection: RUN_ID
-    )
+    started(monkeypatch)
+    picked = []
+
+    def pick(_connection, started_at):
+        picked.append(started_at)
+        return RUN_ID
+
+    monkeypatch.setattr(read_citation, "graded_setup_run_id", pick)
 
     assert read_citation.main(["1"]) == 0
 
     assert connection.params == {"run_id": RUN_ID}
+    assert picked == [STARTED], "picked from runs since Lab 3 started"
     out = capsys.readouterr().out
     assert out.startswith(f"Run {RUN_ID}")
     assert "Alex's setup run, the one completion grades." in out.splitlines()[1]
@@ -156,7 +168,7 @@ def test_a_named_run_does_not_claim_to_be_the_graded_one(monkeypatch, capsys):
     monkeypatch.setattr(
         read_citation,
         "graded_setup_run_id",
-        lambda _c: pytest.fail("looked up the default"),
+        lambda *_a: pytest.fail("looked up the default"),
     )
 
     assert read_citation.main(["1", "--run-id", str(RUN_ID)]) == 0
@@ -166,7 +178,8 @@ def test_a_named_run_does_not_claim_to_be_the_graded_one(monkeypatch, capsys):
 
 def test_with_no_setup_run_it_names_the_setup_request(monkeypatch, capsys):
     use(monkeypatch, None)
-    monkeypatch.setattr(read_citation, "graded_setup_run_id", lambda _connection: None)
+    started(monkeypatch)
+    monkeypatch.setattr(read_citation, "graded_setup_run_id", lambda *_a: None)
 
     assert read_citation.main(["1"]) == 2
 
@@ -182,14 +195,14 @@ def test_the_default_is_the_graders_own_pick(monkeypatch):
     seen = {}
 
     def pick(connection, request, started_at, follow_up):
-        seen.update(request=request, follow_up=follow_up)
+        seen.update(request=request, started_at=started_at, follow_up=follow_up)
         return grade_setup_run.SetupRunPick(run={"agent_turn_id": RUN_ID})
 
     monkeypatch.setattr(grade_setup_run, "pick_setup_run", pick)
-    monkeypatch.setattr("service.agent_deploys.lab_3_started_at", lambda _root: None)
 
-    assert read_citation.graded_setup_run_id(object()) == RUN_ID
+    assert read_citation.graded_setup_run_id(object(), STARTED) == RUN_ID
     assert "Steelcase Gesture" in seen["request"] and "100W" in seen["follow_up"]
+    assert seen["started_at"] == STARTED
 
 
 def test_a_quote_inside_a_paragraph_starts_its_own_marked_line():
@@ -240,6 +253,7 @@ def test_an_unreachable_aurora_names_a_retry_of_the_same_command(
         yield
 
     monkeypatch.setattr(db, "connect", connect)
+    started(monkeypatch)
     argv = ["3"] + (["--run-id", str(named)] if named else [])
 
     assert read_citation.main(argv) == 2
@@ -273,3 +287,55 @@ def test_an_unreadable_lab_3_start_record_points_to_the_run_id_not_a_reset(
     assert err.startswith("Citation rule: the saved start of Lab 3 cannot be read")
     assert "reset" not in err and "Traceback" not in err
     assert err.rstrip().endswith(read_citation.read_citation_command("1", "RUN_ID"))
+
+
+@pytest.mark.parametrize("named", [None, RUN_ID])
+def test_an_empty_database_setting_names_the_terminal_not_the_start_record(
+    monkeypatch, capsys, named
+):
+    """With the Run ID already given, advice to give it would loop."""
+    from service.db import DatabaseNotConfigured
+
+    @contextmanager
+    def connect():
+        raise DatabaseNotConfigured("DATABASE_URL is not configured")
+        yield
+
+    monkeypatch.setattr(db, "connect", connect)
+    started(monkeypatch)
+    argv = ["1"] + (["--run-id", str(named)] if named else [])
+
+    assert read_citation.main(argv) == 2
+
+    err = capsys.readouterr().err
+    assert err.startswith(
+        "Citation rule: DATABASE_URL is empty in this terminal, so Aurora cannot be "
+        "reached."
+    )
+    assert "start of Lab 3" not in err and "open a new terminal" in err
+    pinned = str(named) if named else None
+    assert err.rstrip().endswith(read_citation.read_citation_command("1", pinned))
+
+
+def test_before_lab_3_starts_no_run_is_called_the_graded_one(monkeypatch, capsys):
+    """Completion refuses a run from before the start, so the reader cannot pick one."""
+    monkeypatch.setattr(
+        db, "connect", lambda: pytest.fail("a run picked before the start is refused")
+    )
+    started(monkeypatch, None)
+
+    assert read_citation.main(["1"]) == 2
+
+    err = capsys.readouterr().err
+    assert err.startswith("Citation rule: Lab 3 has not started")
+    assert err.rstrip().endswith(read_citation.read_citation_command("1", "RUN_ID"))
+
+
+def test_before_lab_3_starts_a_named_run_still_reads(monkeypatch, capsys):
+    use(monkeypatch, run())
+    started(monkeypatch, None)
+
+    assert read_citation.main(["1", "--run-id", str(RUN_ID)]) == 0
+
+    out = capsys.readouterr().out
+    assert out.startswith(f"Run {RUN_ID}") and "completion grades" not in out

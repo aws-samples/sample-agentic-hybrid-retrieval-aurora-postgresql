@@ -6,7 +6,8 @@
 It prints the answer's sentences that cite [NUMBER], then the record that citation names, in
 full, with the line `ask_agent.py` quoted marked. Without --run-id it reads Alex's setup run
 that Lab 3 completion grades, chosen by `grade_setup_run.py`'s own rule, so a later question
-from Ask Mosaic or Playground cannot take its place. It reads what the run saved in Aurora:
+from Ask Mosaic or Playground cannot take its place; before Lab 3 starts no run is graded,
+so an earlier answer is read by its Run ID. It reads what the run saved in Aurora:
 the answer, and the records its successful `synthesize_cited_answer` step cited. Nothing is
 asked again, so the record is the one the answer was checked against.
 """
@@ -16,6 +17,7 @@ from __future__ import annotations
 import argparse
 import re
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 from uuid import UUID
@@ -26,7 +28,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scripts.ask_agent import LINE_CHARS as WIDTH
 from scripts.cited_lines import cited_excerpt, without_review_markup
-from scripts.terminal_text import BOLD, next_step, separate_next, tidy, tint, wrap_words
+from scripts.terminal_text import (
+    BOLD,
+    REOPEN_TERMINAL,
+    next_step,
+    separate_next,
+    tidy,
+    tint,
+    wrap_words,
+)
+from service.db import DatabaseNotConfigured
 from service.participant_commands import ask_setup_command, read_citation_command
 
 _SENTENCE = re.compile(r"(?<=[.!?])\s+|\n+")
@@ -56,20 +67,45 @@ def saved_run(connection: Any, run_id: UUID) -> dict[str, Any] | None:
     ).fetchone()
 
 
-def graded_setup_run_id(connection: Any) -> UUID | None:
+def graded_setup_run_id(connection: Any, started_at: datetime) -> UUID | None:
     """The setup run Lab 3 completion grades, by `grade_setup_run.py`'s own rule."""
-    from scripts.grade_setup_run import ROOT, pick_setup_run
-    from service.agent_deploys import lab_3_started_at
+    from scripts.grade_setup_run import pick_setup_run
     from service.lab_checks import mission_for_lab
 
     mission = mission_for_lab(3)
     pick = pick_setup_run(
         connection,
         mission["query"],
-        lab_3_started_at(ROOT),
+        started_at,
         follow_up=mission["changed_requirement"]["query"],
     )
     return pick.run["agent_turn_id"] if pick.run else None
+
+
+def lab_3_start() -> tuple[datetime | None, str | None]:
+    """When Lab 3 started, which the default run needs, or why it has no default run."""
+    from scripts import grade_setup_run
+    from scripts.lab_entry import StartRecordError
+    from service.agent_deploys import lab_3_started_at
+
+    try:
+        started = lab_3_started_at(grade_setup_run.ROOT)
+    except StartRecordError:
+        # The record's own fix is a reset, which discards the participant's agent.py.
+        # Reading a citation needs only the run, which its Run ID names without the record.
+        return None, (
+            "Citation rule: the saved start of Lab 3 cannot be read, so the setup run "
+            "completion grades cannot be picked for you; fix: name the run yourself with "
+            "--run-id and the Run ID that ask_agent.py printed for the answer"
+        )
+    if started is None:
+        # Before the start, the run the grader would pick is one it then refuses.
+        return None, (
+            "Citation rule: Lab 3 has not started, so completion grades no setup run "
+            "yet; fix: name the run yourself with --run-id and the Run ID that "
+            "ask_agent.py printed for the answer"
+        )
+    return started, None
 
 
 def citing_sentences(answer: str, number: int) -> list[str]:
@@ -201,36 +237,29 @@ def main(argv: list[str] | None = None) -> int:
     rerun = read_citation_command(
         str(args.number), str(args.run_id) if args.run_id else None
     )
+    started = None
+    if args.run_id is None:
+        started, unpicked = lab_3_start()
+        if unpicked:
+            named = read_citation_command(str(args.number), "RUN_ID")
+            print(separate_next(unpicked, named), file=sys.stderr)
+            return 2
     try:
         with connect() as connection:
-            run_id = args.run_id or graded_setup_run_id(connection)
+            run_id = args.run_id or graded_setup_run_id(connection, started)
             run = saved_run(connection, run_id) if run_id else None
-    except (RuntimeError, ValueError):
-        # The start record's own fix is a reset, which discards the participant's agent.py.
-        # Reading a citation needs only the run, which its Run ID names without the record.
-        reason = (
-            "Citation rule: the saved start of Lab 3 cannot be read, so the setup run "
-            "completion grades cannot be picked for you; fix: name the run yourself with "
-            "--run-id and the Run ID that ask_agent.py printed for the answer"
+    except (DatabaseNotConfigured, psycopg.Error) as error:
+        cause = (
+            "DATABASE_URL is empty in this terminal, so Aurora cannot be reached"
+            if isinstance(error, DatabaseNotConfigured)
+            else f"Aurora did not answer ({type(error).__name__})"
         )
         print(
-            separate_next(reason, read_citation_command(str(args.number), "RUN_ID")),
+            f"Citation rule: {cause}. This is an environment problem, not a mistake in "
+            "your work.",
             file=sys.stderr,
         )
-        return 2
-    except psycopg.Error as error:
-        message = (
-            f"Citation rule: Aurora did not answer ({type(error).__name__}). This is an "
-            "environment problem, not a mistake in your work."
-        )
-        print(message, file=sys.stderr)
-        next_step(
-            "open a new terminal from the Terminal menu, which loads the workshop "
-            "settings, and run this command again; if it repeats, tell your "
-            "facilitator:",
-            rerun,
-            stream=sys.stderr,
-        )
+        next_step(REOPEN_TERMINAL, rerun, stream=sys.stderr)
         return 2
     reason = problem(run, args.run_id, args.number)
     if reason:
