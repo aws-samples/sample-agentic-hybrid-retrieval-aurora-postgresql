@@ -2573,3 +2573,15 @@ def test_the_alternatives_heading_makes_no_claim_about_the_products_under_it():
 
     assert "strong option" not in SYSTEM_PROMPT.lower()
     assert "do not put one under Other matches" in SYSTEM_PROMPT
+
+
+def test_the_cited_answer_never_gives_a_reviewer_a_gender():
+    """Falsifier: on 14 November 2026 a setup answer called the chair's reviewer "she".
+
+    The review (product 1540761) never says who wrote it, and the answer check reads
+    product claims, not pronouns, so the prompt is the only guard.
+    """
+    from service.synthesis import SYSTEM_PROMPT
+
+    prompt = " ".join(SYSTEM_PROMPT.split())
+    assert "Call the writer the reviewer or they, never he or she" in prompt
