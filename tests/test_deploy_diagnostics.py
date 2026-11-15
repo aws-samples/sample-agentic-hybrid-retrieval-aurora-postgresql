@@ -595,7 +595,9 @@ def test_resources_puts_a_blank_line_before_its_next(monkeypatch, capsys):
     assert deploy.main() == 0
 
     out = capsys.readouterr().out
-    assert "  a line\n\nNext: when your deploy finishes, run this again" in out
+    assert (
+        "  a line\n\nNext: while a deploy runs, run this again after it finishes" in out
+    )
 
 
 def test_a_failed_action_ends_with_a_next_that_names_the_retry(monkeypatch, capsys):

@@ -701,8 +701,8 @@ def resources() -> None:
     print(
         "\n"
         + fill_words(
-            "Next: when your deploy finishes, run this again; the Retrieval agent runtime "
-            "shows a new version and update time.",
+            "Next: while a deploy runs, run this again after it finishes; the Retrieval "
+            "agent runtime then shows a new version and update time.",
             LINE_CHARS,
         )
     )
