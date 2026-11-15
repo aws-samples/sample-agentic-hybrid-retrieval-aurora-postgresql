@@ -44,6 +44,7 @@ from service.participant_commands import (
     grade_setup_run_command,
     reset_command,
     start_command,
+    start_record_recovery,
     validate_applied_command,
 )
 
@@ -58,6 +59,26 @@ Say = Callable[[str], None]
 
 class LabEntryError(RuntimeError):
     """A start that cannot proceed, with what the participant should do next."""
+
+
+class StartRecordError(LabEntryError, ValueError):
+    """A lab's start record cannot be read; its fix keeps the participant's edits.
+
+    It is also a ValueError: the commands that read Lab 3's start time report it beside an
+    unreadable deploy record, which is one.
+    """
+
+    def __init__(self, lab: int, problem: str) -> None:
+        self.lab = lab
+        self.problem = problem
+        _, (save, reset, restore, runs) = start_record_recovery(lab)
+        kept = "agent" if lab == 3 else f"Lab {lab} SQL"
+        again = " and ask both Lab 3 questions again" if lab == 3 else ""
+        super().__init__(
+            f"Lab {lab} start record rule: .local/lab-{lab}/start.json cannot be read "
+            f"({problem}); fix: save your {kept} with {save}, run {reset}, put it back "
+            f"with {restore}, then run {runs}{again}."
+        )
 
 
 def record_path(lab: int, repo: Path = REPO) -> Path:
@@ -82,16 +103,39 @@ def started_clock(recorded: str) -> str:
 
 
 def load_record(lab: int, repo: Path = REPO) -> dict[str, Any] | None:
+    """The lab's start record, or None before its start.
+
+    Raises:
+        StartRecordError: The record is cut off, hand-edited or another lab's.
+    """
     path = record_path(lab, repo)
     if not path.exists():
         return None
-    record = json.loads(path.read_text())
-    if record.get("version") != RECORD_VERSION or record.get("lab") != lab:
-        raise LabEntryError(
-            f"Lab entry rule: {path} is not a Lab {lab} start record; fix: reset "
-            f"the lab with {reset_command(lab)}."
-        )
+    try:
+        record = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as error:
+        raise StartRecordError(lab, type(error).__name__) from error
+    if problem := _record_problem(lab, record):
+        raise StartRecordError(lab, problem)
     return record
+
+
+def _record_problem(lab: int, record: Any) -> str | None:
+    """What makes a parsed start record unusable, in words, or None."""
+    if not isinstance(record, dict):
+        return f"it holds a JSON {type(record).__name__}, not a record"
+    if (record.get("lab"), record.get("version")) != (lab, RECORD_VERSION):
+        return (
+            f"it is marked lab {record.get('lab')}, version {record.get('version')}, "
+            f"not lab {lab}, version {RECORD_VERSION}"
+        )
+    started = record.get("completed_at")
+    try:
+        if started:
+            datetime.fromisoformat(started)
+    except (TypeError, ValueError):
+        return f"its start time {started!r} is not a time"
+    return None
 
 
 def _save(lab: int, repo: Path, record: dict[str, Any]) -> None:

@@ -18,15 +18,9 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
-from service.participant_commands import (
-    DEPLOY_AGENT,
-    grade_setup_run_command,
-    reset_command,
-)
+from service.participant_commands import DEPLOY_AGENT, grade_setup_run_command
 
 ROOT = Path(__file__).resolve().parents[1]
-SAVE_AGENT = "cp labs/lab3_reason/agent.py ~/my-agent.py"
-RESTORE_AGENT = "cp ~/my-agent.py labs/lab3_reason/agent.py"
 
 
 @dataclass(frozen=True)
@@ -117,22 +111,16 @@ def record_deploy(
 
 
 def lab_3_started_at(root: Path | None = None) -> datetime | None:
-    """When Lab 3 last started (Lab 2's hand-off, a start or a reset), or None."""
+    """When Lab 3 last started (Lab 2's hand-off, a start or a reset), or None.
+
+    Raises:
+        StartRecordError: The start record cannot be read. It is a ValueError whose fix
+            saves the participant's agent around the reset that rewrites the record.
+    """
     from scripts.lab_entry import load_record
 
-    try:
-        started = (load_record(3, root or ROOT) or {}).get("completed_at")
-        return _aware(datetime.fromisoformat(started)) if started else None
-    except (OSError, AttributeError, TypeError, ValueError) as error:
-        # A hand-edited, truncated or unreadable record would otherwise be a bare 500. The
-        # reset that rewrites it also restores the starting agent.py, so the fix saves the
-        # participant's own agent around it.
-        raise ValueError(
-            f"Lab 3 start record rule: the saved start of Lab 3 cannot be read "
-            f"({type(error).__name__}); fix: save your agent with {SAVE_AGENT}, run "
-            f"{reset_command(3)}, put it back with {RESTORE_AGENT}, then run "
-            f"{DEPLOY_AGENT} and ask both Lab 3 questions again."
-        ) from error
+    started = (load_record(3, root or ROOT) or {}).get("completed_at")
+    return _aware(datetime.fromisoformat(started)) if started else None
 
 
 def _clock(moment: datetime) -> str:

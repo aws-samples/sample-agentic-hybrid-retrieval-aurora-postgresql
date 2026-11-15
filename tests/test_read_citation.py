@@ -251,7 +251,10 @@ def test_an_unreachable_aurora_names_a_retry_of_the_same_command(
     assert err.rstrip().endswith(read_citation.read_citation_command("3", pinned))
 
 
-@pytest.mark.parametrize("record", ["{", '{"version": 1, "lab": 2}'])
+@pytest.mark.parametrize(
+    "record",
+    ["{", '{"version": 1, "lab": 2}', '{"version": 7, "lab": 3}', "[]"],
+)
 def test_an_unreadable_lab_3_start_record_points_to_the_run_id_not_a_reset(
     monkeypatch, capsys, tmp_path, record
 ):

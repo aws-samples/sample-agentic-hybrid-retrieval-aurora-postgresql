@@ -413,12 +413,23 @@ def test_the_verdict_comes_before_the_next_step(monkeypatch, capsys, tmp_path) -
     assert len(parts) == 4
 
 
-def test_a_truncated_lab_3_start_record_names_its_reset(
-    monkeypatch, capsys, workspace, tmp_path
+DAMAGED_STARTS = [
+    "{",
+    '{"version": 1, "lab": 2, "steps": {}}',
+    '{"version": 7, "lab": 3, "steps": {}}',
+    '{"version": 1, "lab": 3, "steps": {}, "completed_at": "soon"}',
+    "[]",
+]
+
+
+@pytest.mark.parametrize("record", DAMAGED_STARTS)
+def test_a_damaged_lab_3_start_record_names_the_reset_that_keeps_the_agent(
+    monkeypatch, capsys, workspace, tmp_path, record
 ) -> None:
+    """Cut off, another lab's, another version's, an unreadable time: one fix for all."""
     started = tmp_path / ".local" / "lab-3" / "start.json"
     started.parent.mkdir(parents=True)
-    started.write_text("{")
+    started.write_text(record)
     monkeypatch.setattr("service.agent_deploys.lab_3_started_at", REAL_LAB_3_STARTED_AT)
     monkeypatch.setattr(sys, "argv", ["grade_setup_run.py"])
 

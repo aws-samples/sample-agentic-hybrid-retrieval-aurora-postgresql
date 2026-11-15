@@ -67,6 +67,7 @@ from service.participant_commands import (
     reset_command,
     skip_to_command,
     start_command,
+    start_record_recovery,
     validate_applied_command,
 )
 from service.search_sql import FUSED_DEFINITION_SQL, FUSED_FUNCTION
@@ -1057,11 +1058,18 @@ def status_line(lab: int, *, repo: Path = REPO) -> str:
     The shipped seams for Labs 2 and 3 are repaired, so before a start they
     would read SOLVED for work nobody has done.
     """
-    from scripts.lab_entry import FAULT_AT_ENTRY, load_record
+    from scripts.lab_entry import FAULT_AT_ENTRY, StartRecordError, load_record
 
     if missing := missing_file_problem(lab, repo):
         return missing.line
-    record = load_record(lab, repo)
+    try:
+        record = load_record(lab, repo)
+    except StartRecordError as error:
+        # One lab's damaged record must not hide the other labs' states.
+        return (
+            f"Lab {lab}: {START_RECORD_UNREADABLE} - .local/lab-{lab}/start.json "
+            f"({error.problem})"
+        )
     if record is None and lab in FAULT_AT_ENTRY:
         return f"Lab {lab}: NOT STARTED"
     if record is not None and not record.get("completed_at"):
@@ -1090,6 +1098,7 @@ def _lab_3_passed_since(deployed_at: datetime, repo: Path) -> bool:
 
 
 LAB_3_SOLVED = "Lab 3: SOLVED"
+START_RECORD_UNREADABLE = "START RECORD UNREADABLE"
 
 
 def lab_3_solved(repo: Path = REPO) -> bool:
@@ -1098,8 +1107,13 @@ def lab_3_solved(repo: Path = REPO) -> bool:
 
 
 def _lab_3_status(repo: Path) -> str:
-    """Lab 3 is solved by a passing run of the participant's deployed agent, not by source."""
+    """Lab 3 is solved by a passing run of the code Runtime runs, which is the code saved.
+
+    An edit after a passing grade, even a valid one, is code Runtime does not run yet, so
+    it reads as not deployed: asking the agent refuses until the deploy, too.
+    """
     from service.agent_deploys import lab_3_started_at, load_deploys
+    from service.lab_validation_receipt import application_digest
 
     if not lab_source_is_repaired(3, repo=repo):
         return "Lab 3: BROKEN"
@@ -1110,7 +1124,14 @@ def _lab_3_status(repo: Path) -> str:
         return f"Lab 3: {error}"
     if not deploys:
         return f"Lab 3: REPAIRED, NOT DEPLOYED. Next: deploy with {DEPLOY_AGENT}."
-    if _lab_3_passed_since(deploys[-1].deployed_at, repo):
+    latest = deploys[-1]
+    if latest.application_sha256 != application_digest(repo):
+        return (
+            "Lab 3: REPAIRED, NOT DEPLOYED - your code changed after your deploy at "
+            f"{latest.deployed_at.astimezone(UTC):%H:%M} UTC. Next: deploy with "
+            f"{DEPLOY_AGENT}."
+        )
+    if _lab_3_passed_since(latest.deployed_at, repo):
         return LAB_3_SOLVED
     return (
         f"Lab 3: DEPLOYED, NOT YET PROVED. Next: check completion with "
@@ -1295,6 +1316,9 @@ def _status_next(lines: list[str]) -> None:
             continue
         if "FILE MISSING" in line:
             next_step("put back its starting code:", reset_command(lab))
+        elif START_RECORD_UNREADABLE in line:
+            steps, commands = start_record_recovery(lab)
+            next_step(steps, *commands)
         elif "START INTERRUPTED" in line or (lab == 1 and "NOT STARTED" in line):
             next_step("finish the start; your edits are kept:", start_command(lab))
         elif "NOT STARTED" in line:
@@ -1302,6 +1326,11 @@ def _status_next(lines: list[str]) -> None:
             next_step(f"Lab {lab - 1}'s hand-off prepares Lab {lab}:", handoff)
         elif lab == 3 and "NOT DEPLOYED" in line:
             next_step("deploy your Retrieval agent:", DEPLOY_AGENT)
+        elif lab == 3 and "Deploy record rule" in line:
+            next_step(
+                "deploy your Retrieval agent, which writes the record again:",
+                DEPLOY_AGENT,
+            )
         elif lab == 3 and "NOT YET PROVED" in line:
             # The check reads the saved runs and names any still missing; status
             # cannot tell which, and asking a saved one again costs a minute.

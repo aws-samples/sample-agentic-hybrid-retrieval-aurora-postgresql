@@ -84,6 +84,30 @@ def reset_command(lab: int) -> str:
     return f"uv run python scripts/lab_state.py reset --lab {lab}"
 
 
+def start_record_recovery(lab: int) -> tuple[str, tuple[str, str, str, str]]:
+    """Rewrite a lab's unreadable start record and keep its edits: a sentence, its commands.
+
+    Only the reset rewrites the record, and it also restores the lab's starting code, so
+    the participant's file is copied aside first and put back after it. The commands are
+    the copy, the reset, the copy back, then the deploy or apply that runs the file.
+    """
+    from service.lab_files import LAB_FILES
+
+    path = LAB_FILES[lab]
+    kept = f"~/my-{path.name}"
+    runs = (DEPLOY_AGENT, "deploy it") if lab == 3 else (APPLY_SQL, "apply it")
+    sentence = (
+        "copy your lab file aside, reset the lab, which rewrites its start record, copy "
+        f"your file back, then {runs[1]}:"
+    )
+    return sentence, (
+        f"cp {path} {kept}",
+        reset_command(lab),
+        f"cp {kept} {path}",
+        runs[0],
+    )
+
+
 def apply_solution_command(lab: int) -> str:
     return f"uv run python scripts/lab_state.py apply-solution --lab {lab}"
 

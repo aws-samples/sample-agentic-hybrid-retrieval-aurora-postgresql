@@ -1,3 +1,4 @@
+import hashlib
 import json
 import subprocess
 from pathlib import Path
@@ -13,7 +14,11 @@ from scripts.lab_state import (
     set_lab_state,
 )
 from service.lab_files import solution_path
-from service.participant_commands import DIFF_ANSWER, apply_solution_command
+from service.participant_commands import (
+    DEPLOY_AGENT,
+    DIFF_ANSWER,
+    apply_solution_command,
+)
 
 PARTICIPANT_CHANNEL = """    UNION ALL
     SELECT product_id, 'fuzzy'::text AS channel, fuzzy_rank AS source_rank,
@@ -471,7 +476,14 @@ def test_status_reports_the_participants_lab_not_the_shipped_seam(lab_repo) -> N
     )
     set_lab_state(2, solved=False, repo=lab_repo)
     record.write_text(
-        json.dumps({"version": 1, "lab": 2, "steps": {}, "completed_at": "now"})
+        json.dumps(
+            {
+                "version": 1,
+                "lab": 2,
+                "steps": {},
+                "completed_at": "2026-11-15T10:00:00+00:00",
+            }
+        )
     )
     assert status_line(2, repo=lab_repo) == "Lab 2: BROKEN"
 
@@ -1245,7 +1257,23 @@ def _lab_3_started(repo: Path, at: str = "2026-10-29T10:00:00+00:00") -> None:
     )
 
 
+@pytest.fixture
+def deployed_code(monkeypatch) -> None:
+    """A test workspace's deployed-code digest is its agent.py's, which an edit changes.
+
+    The real digest also covers `service/` and the scripts, which the workspace lacks.
+    """
+
+    def digest(root: Path) -> str:
+        return hashlib.sha256((root / LABS[3][0]).read_bytes()).hexdigest()
+
+    monkeypatch.setattr("service.lab_validation_receipt.application_digest", digest)
+
+
 def _lab_3_deployed(repo: Path, at: str) -> None:
+    """Record a deploy of the workspace's code as it is now."""
+    from service import lab_validation_receipt
+
     deploys = repo / ".local" / "agentcore" / "deploys.json"
     deploys.parent.mkdir(parents=True, exist_ok=True)
     deploys.write_text(
@@ -1254,7 +1282,9 @@ def _lab_3_deployed(repo: Path, at: str) -> None:
                 {
                     "deployed_at": at,
                     "runtime_version": "2",
-                    "application_sha256": "a" * 64,
+                    "application_sha256": lab_validation_receipt.application_digest(
+                        repo
+                    ),
                 }
             ]
         )
@@ -1268,7 +1298,7 @@ def _lab_3_graded(repo: Path, verdict: str, at: str) -> None:
 
 
 def test_lab_3_is_solved_only_after_the_deployed_agent_passed_completion(
-    lab_repo: Path,
+    lab_repo: Path, deployed_code
 ) -> None:
     from scripts.lab_state import status_line
     from service.participant_commands import grade_setup_run_command
@@ -1290,7 +1320,9 @@ def test_lab_3_is_solved_only_after_the_deployed_agent_passed_completion(
     assert status_line(3, repo=lab_repo) == "Lab 3: SOLVED"
 
 
-def test_lab_3_reads_complete_only_while_status_reads_solved(lab_repo: Path) -> None:
+def test_lab_3_reads_complete_only_while_status_reads_solved(
+    lab_repo: Path, deployed_code
+) -> None:
     """The `Next:` lines after an answer or a recheck follow the same rule as `status`."""
     from scripts.lab_state import lab_3_solved
 
@@ -1304,7 +1336,7 @@ def test_lab_3_reads_complete_only_while_status_reads_solved(lab_repo: Path) -> 
     assert not lab_3_solved(lab_repo)
 
 
-def test_lab_3_with_unrepaired_source_is_broken(lab_repo: Path) -> None:
+def test_lab_3_with_unrepaired_source_is_broken(lab_repo: Path, deployed_code) -> None:
     from scripts.lab_state import status_line
 
     _lab_3_started(lab_repo)
@@ -1312,6 +1344,80 @@ def test_lab_3_with_unrepaired_source_is_broken(lab_repo: Path) -> None:
     _lab_3_deployed(lab_repo, "2026-10-29T11:00:00+00:00")
 
     assert status_line(3, repo=lab_repo) == "Lab 3: BROKEN"
+
+
+@pytest.mark.parametrize("lab", [1, 2, 3])
+@pytest.mark.parametrize(
+    "record",
+    ["{", '{"version": 1, "lab": 9, "steps": {}}', '{"version": 7, "steps": {}}'],
+    ids=["cut off", "another lab", "another version"],
+)
+def test_a_damaged_start_record_names_the_reset_that_keeps_the_edits(
+    lab_repo: Path, capsys, lab, record
+) -> None:
+    """The other labs still report, and the fix copies the lab file around the reset."""
+    from scripts.lab_state import _status_next, status_line
+    from service.participant_commands import reset_command
+
+    for other in {1, 2, 3} - {lab}:
+        (lab_repo / f".local/lab-{other}").mkdir(parents=True, exist_ok=True)
+    path = lab_repo / f".local/lab-{lab}/start.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(record.replace('"version": 7', f'"version": 7, "lab": {lab}'))
+
+    lines = [status_line(each, repo=lab_repo) for each in (1, 2, 3)]
+
+    assert lines[lab - 1].startswith(
+        f"Lab {lab}: START RECORD UNREADABLE - .local/lab-{lab}/start.json ("
+    )
+    assert all(
+        "START RECORD" not in line for i, line in enumerate(lines) if i != lab - 1
+    )
+    _status_next(
+        ["Lab 1: SOLVED", "Lab 2: SOLVED", "Lab 3: SOLVED"][: lab - 1]
+        + lines[lab - 1 :]
+    )
+    out = capsys.readouterr().out
+    exercise = LABS[lab][0]
+    kept = f"~/my-{Path(exercise).name}"
+    runs = DEPLOY_AGENT if lab == 3 else "scripts/apply_search_functions.py"
+    saved, reset, restored, ran = (
+        out.index(f"cp {exercise} {kept}"),
+        out.index(reset_command(lab)),
+        out.index(f"cp {kept} {exercise}"),
+        out.index(runs),
+    )
+    assert saved < reset < restored < ran
+
+
+def test_an_edit_after_a_passing_grade_reads_not_deployed_until_it_is(
+    lab_repo: Path, deployed_code
+) -> None:
+    """Runtime runs the passing code, not the edit, so asking the agent refuses until a deploy."""
+    from scripts.lab_state import LAB_3_SOLVED, status_line
+    from service.agent_deploys import deploy_due
+
+    _lab_3_started(lab_repo)
+    _lab_3_deployed(lab_repo, "2026-10-29T11:00:00+00:00")
+    _lab_3_graded(lab_repo, "PASS", "2026-10-29T11:30:00+00:00")
+    assert status_line(3, repo=lab_repo) == LAB_3_SOLVED
+    agent = lab_repo / LABS[3][0]
+    passing = agent.read_bytes()
+    agent.write_text(
+        agent.read_text().replace(
+            "system_prompt=instructions,",
+            'system_prompt=instructions + "\\nSearch monitors before chairs.",',
+        )
+    )
+    assert lab_source_is_repaired(3, repo=lab_repo), "the edit is a valid one"
+
+    assert status_line(3, repo=lab_repo) == (
+        "Lab 3: REPAIRED, NOT DEPLOYED - your code changed after your deploy at 11:00 "
+        f"UTC. Next: deploy with {DEPLOY_AGENT}."
+    )
+    assert deploy_due(lab_repo), "the question gate agrees"
+    agent.write_bytes(passing)
+    assert status_line(3, repo=lab_repo) == LAB_3_SOLVED
 
 
 def test_a_lab_file_is_untouched_only_while_it_holds_the_exercise_fault(
