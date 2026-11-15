@@ -118,8 +118,8 @@ Mosaic application, Code Editor and model access for each participant.
 
 1. Open **Getting started** in your Workshop Studio guide.
 2. Open Code Editor beside the guide and follow [START_HERE.md](START_HERE.md).
-3. Run the catalog readiness check, save Lab 1's failing search, and begin Lab 1 in
-   `psql`.
+3. Run the catalog readiness check, save Lab 1's failing search, and begin Lab 1 by
+   opening `hybrid_search.sql` in Code Editor.
 
 Claude Code in the prepared terminal acts as a coding coach. [AGENTS.md](AGENTS.md),
 loaded through [CLAUDE.md](CLAUDE.md), gives it the lab map, validation commands and

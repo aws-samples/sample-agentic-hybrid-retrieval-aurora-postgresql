@@ -24,7 +24,7 @@ from scripts.lab_state import (
     lab_source_is_repaired,
     set_lab_state,
 )
-from service.participant_commands import start_command
+from service.participant_commands import advance_command, start_command
 
 PARTICIPANT_LAB_2 = "SELECT 1.0 / (rrf_k + source_rank)"
 
@@ -652,7 +652,7 @@ def test_lab_2_handoff_refuses_before_lab_2_has_started(repo, aurora, lab_2_chec
 
     message = str(refused.value)
     assert message.startswith("Lab 2 cannot hand off yet.")
-    assert f"Next: run {start_command(2)}" in message
+    assert f"Next: run {advance_command(1)}" in message
     assert lab_2_checks == []
     assert lab_entry.load_record(3, repo) is None
 
@@ -866,3 +866,19 @@ def test_a_damaged_start_record_says_what_is_wrong_in_words(
     assert not re.search(
         r"Error|Exception|\b(str|dict|NoneType|int)\b", str(raised.value)
     )
+
+
+def test_entry_command_names_the_hand_off_that_prepares_a_lab(tmp_path):
+    assert lab_entry.entry_command(1, tmp_path) == start_command(1)
+    assert lab_entry.entry_command(2, tmp_path) == advance_command(1)
+    assert lab_entry.entry_command(3, tmp_path) == advance_command(1)
+
+    lab_entry._save(
+        2,
+        tmp_path,
+        {"lab": 2, "version": 1, "completed_at": "2026-11-15T10:00:00+00:00"},
+    )
+    assert lab_entry.entry_command(3, tmp_path) == advance_command(2)
+
+    lab_entry._save(3, tmp_path, {"lab": 3, "version": 1, "steps": {}})
+    assert lab_entry.entry_command(3, tmp_path) == start_command(3)

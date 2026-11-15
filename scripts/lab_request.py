@@ -30,7 +30,6 @@ from service.participant_commands import (
     grade_exercise_command,
     grade_setup_run_command,
     repeat_request_command,
-    start_command,
 )
 
 NEW_TERMINAL = (
@@ -276,9 +275,12 @@ def _without_before(lab: int, output: Path) -> str:
             f"is checked on your own saved run instead: {grade_setup_run_command()}"
         )
     if not record.get("completed_at"):
+        from scripts.lab_entry import entry_command
+
         raise LabValidationError(
             f"Lab {lab} has not started, so there is no saved failing request to "
-            f"compare with.\nNext: {start_command(lab)}\nThen: {repeat_request_command(lab)}"
+            f"compare with.\nNext: {entry_command(lab, output.parents[1])}\n"
+            f"Then: {repeat_request_command(lab)}"
         )
     if (record.get("steps", {}).get("evidence") or {}).get("search_event_id"):
         return (

@@ -37,6 +37,7 @@ from service.lab_files import LAB1_SQL, LAB2_SQL
 from service.participant_commands import (
     ADVANCE_TO_LAB_3,
     APPLY_SQL,
+    advance_command,
     grade_setup_run_command,
     proof_steps_text,
     prove_lab_command,
@@ -385,3 +386,13 @@ def test_the_playground_names_what_is_wrong_in_an_unrepaired_block(repo):
         f"Lab 1 is not repaired: in {LAB1_SQL}, the marked block holds only comments"
     )
     assert detail.endswith(f"then prove it with {proof_steps_text(1)}.")
+
+
+def test_an_after_run_of_lab_2_before_the_hand_off_names_the_hand_off(tmp_path):
+    with pytest.raises(LabValidationError) as refused:
+        lab_request._without_before(2, tmp_path / ".local" / "lab-2")
+
+    assert str(refused.value) == (
+        "Lab 2 has not started, so there is no saved failing request to compare with.\n"
+        f"Next: {advance_command(1)}\nThen: {repeat_request_command(2)}"
+    )

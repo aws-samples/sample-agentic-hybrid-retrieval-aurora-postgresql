@@ -10,9 +10,10 @@ opens **01 - Retrieve**, **02 - Rank and rerank**, **03 - Reason** and
 | [2 · Rank and rerank](lab2_rank/) | `rrf_contribution.sql`: `LAB2_EDIT` block | `uv run python scripts/apply_search_functions.py` |
 | [3 · Reason](lab3_reason/) | `agent.py`: `LAB3_EDIT` block | `uv run python scripts/deploy_agentcore.py deploy` |
 
-Each README follows **Broken → Diagnose → Fix → Prove**. Start with
-`uv run python scripts/lab_state.py start --lab N`, keep the saved request,
-and find the cause in it before editing. Saving a file
+Each README follows **Broken → Diagnose → Fix → Prove**. Lab 1 begins with the
+request Getting started saved. Labs 2 and 3 are prepared by the previous lab's
+hand-off (`uv run python scripts/lab_state.py advance --lab 1`, then `--lab 2`), which
+installs the next fault. Keep the saved request and find the cause in it before editing. Saving a file
 does not update Aurora or Runtime. Complete the guide's proof before moving on.
 
 <details>

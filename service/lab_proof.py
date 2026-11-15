@@ -40,6 +40,7 @@ import psycopg
 from scripts.lab_entry import (
     FAULT_AT_ENTRY,
     completion_path,
+    entry_command,
     load_record,
 )
 from scripts.lab_state import (
@@ -236,7 +237,7 @@ def _entry(lab_id: int, repo: Path) -> tuple[str | None, str | None]:
         return None, None
     record = load_record(lab_id, repo)
     if record is None:
-        return "not_started", start_command(lab_id)
+        return "not_started", entry_command(lab_id, repo)
     if not record.get("completed_at"):
         return "incomplete", start_command(lab_id)
     return "started", None
@@ -258,7 +259,7 @@ def entry_check(
         passed = False
         detail = (
             f"Lab {lab_id} has not started, so these checks would test the "
-            f"reference answer the workshop ships. Next: run {start_command(lab_id)}, "
+            f"reference answer the workshop ships. Next: run {entry_command(lab_id, repo)}, "
             "repair the fault it installs, then prove the lab again."
         )
     elif run_created_at is not None and run_created_at < started_at:
@@ -284,6 +285,12 @@ def entry_check(
     )
 
 
+def _entry_effect(lab_id: int, command: str) -> str:
+    if command == start_command(lab_id):
+        return "it installs this lab's fault once"
+    return "that hand-off prepares this lab, installing its fault once"
+
+
 def _lab_state(lab_id: int, connection: Any, repo: Path | None) -> LabStateRecord:
     root = repo or LAB_SOURCE_ROOT
     solved = lab_source_is_repaired(lab_id, repo=root)
@@ -293,7 +300,7 @@ def _lab_state(lab_id: int, connection: Any, repo: Path | None) -> LabStateRecor
     if entry_state == "not_started":
         detail = (
             f"Lab {lab_id} has not started. Next: run {next_step} in Code Editor; "
-            "it installs this lab's fault once and keeps your earlier repairs."
+            f"{_entry_effect(lab_id, next_step)} and keeps your earlier repairs."
         )
     elif entry_state == "incomplete":
         detail = (

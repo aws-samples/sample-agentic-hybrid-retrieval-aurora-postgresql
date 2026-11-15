@@ -85,6 +85,33 @@ def record_path(lab: int, repo: Path = REPO) -> Path:
     return repo / ".local" / f"lab-{lab}" / "start.json"
 
 
+def entry_command(lab: int, repo: Path = REPO) -> str:
+    """The command that enters a lab that has not started, as the guide names it.
+
+    Lab 1 starts itself. Labs 2 and 3 are prepared by the earlier lab's hand-off, so
+    `start` there only finishes a start that a hand-off began and was cut off.
+    """
+    if lab == 1:
+        return start_command(1)
+    try:
+        begun = load_record(lab, repo) is not None
+    except StartRecordError:
+        begun = True
+    if begun:
+        return start_command(lab)
+    if lab == 3 and not _handed_off_into(2, repo):
+        return entry_command(2, repo)
+    return ADVANCE_TO_LAB_2 if lab == 2 else ADVANCE_TO_LAB_3
+
+
+def _handed_off_into(lab: int, repo: Path) -> bool:
+    try:
+        record = load_record(lab, repo)
+    except StartRecordError:
+        return False
+    return bool(record and record.get("completed_at"))
+
+
 def completion_path(lab: int, repo: Path = REPO) -> Path:
     return repo / ".local" / f"lab-{lab}" / "completion.json"
 

@@ -46,6 +46,7 @@ from service.participant_commands import (
     APPLY_SQL,
     DEPLOY_AGENT,
     VERIFY_AGENT,
+    advance_command,
     start_command,
 )
 from service.scorecard import retrieval_scorecard
@@ -712,7 +713,8 @@ def test_an_unentered_lab_cannot_pass_on_the_reference_it_ships(
 
     started = next(check for check in proof.checks if check.name == "lab_started")
     assert not started.passed
-    assert start_command(lab) in started.detail
+    assert start_command(lab) not in started.detail
+    assert advance_command(1) in started.detail
     assert proof.entry_state == "not_started"
     assert proof.status == "fail"
 
@@ -932,7 +934,8 @@ def test_an_unentered_lab_says_how_to_start_not_that_it_is_solved(
 
     assert labs[1].source_state == "solved"
     assert labs[1].entry_state == "not_started"
-    assert labs[1].next_step == start_command(2)
+    assert labs[1].next_step == advance_command(1)
+    assert advance_command(1) in labs[1].detail
     assert "has not started" in labs[1].detail
     assert labs[2].entry_state == "incomplete"
     assert labs[2].next_step == start_command(3)

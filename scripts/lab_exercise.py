@@ -875,10 +875,10 @@ def main(
         next_step("hand off to Lab 3:", ADVANCE_TO_LAB_3)
         return 0
     work = args.work or default_work(args.lab)
-    if args.lab in (2, 3) and not args.work:
-        if missing := lab_state.missing_file_problem(args.lab, REPO):
-            print(separate_next(missing.line))
-            return 2
+    missing = lab_state.missing_file_problem(args.lab, REPO)
+    if missing and args.lab in (2, 3) and not args.work:
+        print(separate_next(missing.line))
+        return 2
     # A grade Aurora cut off is run again on the same run, not on a newer pick.
     retry = (
         grade_setup_run_command(run_id) if run_id else grade_exercise_command(args.lab)
