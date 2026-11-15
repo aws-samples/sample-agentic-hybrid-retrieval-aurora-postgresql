@@ -875,8 +875,10 @@ def main(
         next_step("hand off to Lab 3:", ADVANCE_TO_LAB_3)
         return 0
     work = args.work or default_work(args.lab)
-    missing = lab_state.missing_file_problem(args.lab, REPO)
-    if missing and args.lab in (2, 3) and not args.work:
+    shipped_file_gone = not work.exists() and args.lab in (2, 3) and not args.work
+    if shipped_file_gone and (
+        missing := lab_state.missing_file_problem(args.lab, REPO)
+    ):
         print(separate_next(missing.line))
         return 2
     # A grade Aurora cut off is run again on the same run, not on a newer pick.
@@ -887,9 +889,13 @@ def main(
         report = grade(args.lab, work, run_id)
     except ExerciseError as error:
         print(verdict(f"Lab {args.lab} exercise: CANNOT GRADE - {error}"))
-        next_step(
-            "fix what it names, then grade again:", grade_exercise_command(args.lab)
-        )
+        if "Next: " not in str(error):
+            next_step(
+                "fix what it names, then grade again:",
+                grade_setup_run_command(run_id)
+                if args.lab == 3
+                else grade_exercise_command(args.lab),
+            )
         return 2
     except (DatabaseNotConfigured, psycopg.Error) as error:
         return aurora_unavailable(args.lab, error, retry)

@@ -489,3 +489,26 @@ def test_a_missing_lab_1_recall_file_still_says_to_save_it(
     assert lab_exercise.main(["grade", "--lab", "1"]) == 2
 
     assert "save your work there first" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    "reason", ["the saved run has no answer", "the agent is not built. Next: build it"]
+)
+def test_a_lab_3_cannot_grade_prints_one_next_naming_the_setup_run_command(
+    reason, monkeypatch, capsys
+):
+    from service.participant_commands import grade_setup_run_command
+
+    def refuse(lab, work, run_id=None):
+        raise ExerciseError(reason)
+
+    monkeypatch.setattr(lab_exercise, "grade", refuse)
+    monkeypatch.setattr(lab_exercise.lab_state, "missing_file_problem", lambda *a: None)
+
+    assert lab_exercise.main(["grade", "--lab", "3"]) == 2
+
+    out = capsys.readouterr().out
+    assert out.count("Next:") == 1
+    assert "grade --lab 3" not in out
+    if "Next: build it" not in out:
+        assert grade_setup_run_command() in out
