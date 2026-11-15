@@ -11,6 +11,7 @@ from uuid import uuid4
 import pytest
 
 from scripts import grade_setup_run
+from service.agent_deploys import lab_3_started_at as REAL_LAB_3_STARTED_AT
 from service.lab_checks import mission_for_lab
 from service.participant_commands import ask_100w_command, ask_setup_command
 
@@ -410,3 +411,19 @@ def test_the_verdict_comes_before_the_next_step(monkeypatch, capsys, tmp_path) -
     assert parts[2].startswith("Lab 3 exercise: PASS")
     assert parts[3] == "Next: the guide's Wrap-up. Lab 3's required work is complete."
     assert len(parts) == 4
+
+
+def test_a_truncated_lab_3_start_record_names_its_reset(
+    monkeypatch, capsys, workspace, tmp_path
+) -> None:
+    started = tmp_path / ".local" / "lab-3" / "start.json"
+    started.parent.mkdir(parents=True)
+    started.write_text("{")
+    monkeypatch.setattr("service.agent_deploys.lab_3_started_at", REAL_LAB_3_STARTED_AT)
+    monkeypatch.setattr(sys, "argv", ["grade_setup_run.py"])
+
+    assert grade_setup_run.main() == 2
+
+    out = capsys.readouterr().out
+    assert out.startswith("Lab 3 exercise: CANNOT GRADE - Lab 3 start record rule")
+    assert "lab_state.py reset --lab 3" in out and workspace == []

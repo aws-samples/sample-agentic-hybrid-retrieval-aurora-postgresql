@@ -196,8 +196,8 @@ def main() -> int:
                 return 2
             run_id = pick.run["agent_turn_id"]
             pending = pick.pending_answers
-    except RuntimeError as error:
-        # An unreadable Lab 3 start record names its own fix.
+    except (RuntimeError, ValueError) as error:
+        # An unreadable Lab 3 start record (a ValueError) names its own fix.
         print(verdict(f"Lab 3 exercise: CANNOT GRADE - {error}"))
         next_step(
             "fix what it names, then run this command again:", grade_setup_run_command()
