@@ -93,7 +93,8 @@ def test_it_prints_every_sentence_citing_the_number_and_marks_the_quoted_line(
     assert (
         marked.startswith("DITCH THE DOCK") and "90W charging over one cable" in marked
     )
-    assert "Categories:" not in out and "Description:" not in out
+    assert "Categories: Electronics > Computers & Accessories > Monitors" in out
+    assert "Description:" not in out
     assert "[1] product_spec  1551237  meta_Electronics.jsonl @ fdb89c37616d" in out
     assert out.rstrip().endswith(read_citation.read_citation_command("2", str(RUN_ID)))
 
@@ -213,7 +214,7 @@ def test_a_quote_inside_a_paragraph_starts_its_own_marked_line():
     ]
 
 
-def test_the_record_drops_its_ingest_labels_and_reads_markup_as_the_site_shows_it():
+def test_the_record_keeps_every_line_and_reads_markup_as_the_site_shows_it():
     lines = read_citation.record_lines(
         "Title: Example Dock\n\nCategories: Electronics > Docks\n\nDescription:\n"
         "[[VIDEOID:abc]] Works with my old [[ASIN:B0TEST Example Laptop]].<br />Charges at 90W."
@@ -221,6 +222,55 @@ def test_the_record_drops_its_ingest_labels_and_reads_markup_as_the_site_shows_i
 
     assert lines == [
         "Example Dock",
+        "Categories: Electronics > Docks",
         "Works with my old Example Laptop.",
         "Charges at 90W.",
     ]
+
+
+@pytest.mark.parametrize("named", [None, RUN_ID])
+def test_an_unreachable_aurora_names_a_retry_of_the_same_command(
+    monkeypatch, capsys, named
+):
+    import psycopg
+
+    @contextmanager
+    def connect():
+        raise psycopg.OperationalError("connection timeout expired")
+        yield
+
+    monkeypatch.setattr(db, "connect", connect)
+    argv = ["3"] + (["--run-id", str(named)] if named else [])
+
+    assert read_citation.main(argv) == 2
+
+    err = capsys.readouterr().err
+    assert err.startswith("Citation rule: Aurora did not answer (OperationalError).")
+    assert "Traceback" not in err and "tell your facilitator" in err
+    pinned = str(named) if named else None
+    assert err.rstrip().endswith(read_citation.read_citation_command("3", pinned))
+
+
+@pytest.mark.parametrize(
+    ("record", "said"),
+    [
+        ("{", "the saved start of Lab 3 cannot be read (JSONDecodeError)"),
+        ('{"version": 1, "lab": 2}', "is not a Lab 3 start record"),
+    ],
+)
+def test_an_unreadable_lab_3_start_record_names_its_reset(
+    monkeypatch, capsys, tmp_path, record, said
+):
+    from scripts import grade_setup_run
+
+    started = tmp_path / ".local" / "lab-3" / "start.json"
+    started.parent.mkdir(parents=True)
+    started.write_text(record)
+    monkeypatch.setattr(grade_setup_run, "ROOT", tmp_path)
+    use(monkeypatch, run())
+
+    assert read_citation.main(["1"]) == 2
+
+    err = capsys.readouterr().err
+    assert err.startswith("Citation rule: ") and said in err
+    assert "lab_state.py reset --lab 3" in err and "Traceback" not in err

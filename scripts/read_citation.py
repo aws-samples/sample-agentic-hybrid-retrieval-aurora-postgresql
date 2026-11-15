@@ -20,6 +20,8 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID
 
+import psycopg
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scripts.ask_agent import LINE_CHARS as WIDTH
@@ -77,12 +79,13 @@ def citing_sentences(answer: str, number: int) -> list[str]:
 
 
 def record_lines(quote: str) -> list[str]:
-    """The record as a shopper reads it: its name and lines, without ingest labels."""
+    """Every line of the record, its categories included, as the site shows the text.
+
+    Only the Title and Description labels go: the name and the text read without them.
+    """
     lines = re.split(r"<br\s*/?>|\n", without_review_markup(quote), flags=re.IGNORECASE)
     kept = [_LABEL.sub("", line.strip()) for line in lines]
-    return [
-        line for line in kept if line and not line.lower().startswith("categories:")
-    ]
+    return [line for line in kept if line]
 
 
 def render(
@@ -195,13 +198,30 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     from service.db import connect
 
+    rerun = read_citation_command(
+        str(args.number), str(args.run_id) if args.run_id else None
+    )
     try:
         with connect() as connection:
             run_id = args.run_id or graded_setup_run_id(connection)
             run = saved_run(connection, run_id) if run_id else None
-    except ValueError as error:
-        # An unreadable Lab 3 start record names its own fix.
+    except (RuntimeError, ValueError) as error:
+        # An unreadable or foreign Lab 3 start record names its own fix.
         print(separate_next(f"Citation rule: {error}"), file=sys.stderr)
+        return 2
+    except psycopg.Error as error:
+        message = (
+            f"Citation rule: Aurora did not answer ({type(error).__name__}). This is an "
+            "environment problem, not a mistake in your work."
+        )
+        print(message, file=sys.stderr)
+        next_step(
+            "open a new terminal from the Terminal menu, which loads the workshop "
+            "settings, and run this command again; if it repeats, tell your "
+            "facilitator:",
+            rerun,
+            stream=sys.stderr,
+        )
         return 2
     reason = problem(run, args.run_id, args.number)
     if reason:
