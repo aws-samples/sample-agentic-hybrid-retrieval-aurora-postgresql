@@ -22,7 +22,11 @@ from scripts.lab_request import request_payload
 from scripts.prove_lab import LabValidationError, _request
 from scripts.terminal_text import next_step, separate_next, tidy
 from service.lab_checks import mission_for_lab
-from service.participant_commands import COMPARE_SETTINGS, RERANK_OFF_ON
+from service.participant_commands import (
+    COMPARE_SETTINGS,
+    RERANK_OFF_ON,
+    validate_applied_command,
+)
 
 TITLE_CHARS = 40
 
@@ -104,6 +108,17 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     print(render(pages[False], pages[True], mission["target_product_ids"][0]))
     status = pages[True]["diagnostics"]["rerank_status"]
+    if status == "disabled":
+        # Events require reranking, so the search itself ran and held no candidates.
+        print(
+            "\nReranking did not run because the search returned no candidates, so "
+            "there was nothing to rerank."
+        )
+        next_step(
+            "check your saved Lab 2 SQL against the SQL Aurora runs:",
+            validate_applied_command(2),
+        )
+        return 1
     if status != "applied":
         # A deployment that lets search fall back answers without reranking; the right
         # column is then retrieval's own order again, so it shows nothing about reranking.

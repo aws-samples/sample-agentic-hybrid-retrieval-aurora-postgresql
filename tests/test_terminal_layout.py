@@ -754,6 +754,54 @@ def test_rerank_off_on_ends_with_the_comparison_of_settings(
     assert_ends_with_next(out, COMPARE_SETTINGS)
 
 
+@pytest.mark.parametrize(
+    ("status", "said", "next_command"),
+    [
+        ("disabled", "the search returned no candidates", "validate_applied"),
+        ("unavailable", "wait a minute and run it again", "rerun"),
+    ],
+)
+def test_rerank_off_on_says_why_reranking_did_not_run(
+    monkeypatch, capsys, status, said, next_command
+) -> None:
+    import importlib.util
+
+    from service.participant_commands import (
+        RERANK_OFF_ON,
+        validate_applied_command,
+    )
+
+    script = REPO / "labs" / "lab2_rank" / "rerank_off_on.py"
+    spec = importlib.util.spec_from_file_location("rerank_not_run", script)
+    off_on = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(off_on)
+
+    def page(rerank_status):
+        return {
+            "results": [],
+            "diagnostics": {
+                "rerank_status": rerank_status,
+                "total_latency_ms": 5,
+                "stage_timings_ms": {},
+            },
+        }
+
+    monkeypatch.setattr(off_on, "_request", lambda *_a, **_k: page(status))
+
+    assert off_on.main([]) == 1
+
+    out = capsys.readouterr().out
+    assert said in out
+    expected = (
+        validate_applied_command(2)
+        if next_command == "validate_applied"
+        else RERANK_OFF_ON
+    )
+    assert out.rstrip().endswith(expected)
+    if status == "disabled":
+        assert "wait a minute" not in out and "tell your facilitator" not in out
+
+
 @pytest.fixture
 def apply_command(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
     """`apply_search_functions.py` with Aurora's connection and the settings check replaced."""
