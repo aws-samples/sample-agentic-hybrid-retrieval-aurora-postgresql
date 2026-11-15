@@ -198,6 +198,18 @@ def test_lab2_accepts_floating_reciprocal_rank_in_its_common_forms(formula):
             "divides whole numbers",
         ),
         ("SELECT 1 / CAST(rrf_k + source_rank AS integer)", "not in the form"),
+        (
+            "SELECT CAST((1 AS double precision) / (rrf_k + source_rank)",
+            "not in the form",
+        ),
+        (
+            "SELECT CAST(1 AS double precision)) / (rrf_k + source_rank)",
+            "not in the form",
+        ),
+        (
+            "SELECT 1.0 / CAST((rrf_k + source_rank AS double precision)",
+            "not in the form",
+        ),
         (LAB2_STARTER, "never reads source_rank"),
         ("SELECT 1.0 / (rrf_k * source_rank)", "not in the form the check recognizes"),
     ],

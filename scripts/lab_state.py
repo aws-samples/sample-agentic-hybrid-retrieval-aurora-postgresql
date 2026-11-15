@@ -473,7 +473,8 @@ def _sql_tokens(source: str) -> list[str]:
 _LAB2_TYPE = r"(?:double precision|float8|float|numeric|decimal)"
 _LAB2_CAST = rf" :: {_LAB2_TYPE}"
 _LAB2_CAST_CALL = re.compile(
-    r"cast \( (?:\( )?(?P<operand>\S+(?: \+ \S+)?|\S+ / \( \S+ \+ \S+ \))(?: \))?"
+    r"cast \( (?P<group>\( )?(?P<operand>\S+(?: \+ \S+)?|\S+ / \( \S+ \+ \S+ \))"
+    r"(?(group) \))"
     rf" as (?P<type>{_LAB2_TYPE}) \)"
 )
 _LAB2_FORMULA = re.compile(
