@@ -3,7 +3,7 @@ import { specFacts } from "../format";
 import { isWeightedFusion } from "../fusion";
 import { FINAL_LABEL, FUSED_LABEL, armLanguage } from "../retrievalLanguage";
 import type { RetrievalArm } from "../retrievalLanguage";
-import type { ProductSummary, RetrievalDiagnostics } from "../types";
+import type { ProductSpec, ProductSummary, RetrievalDiagnostics } from "../types";
 
 /**
  * "Cohere Rerank relevance score" only when the recorded model id says so;
@@ -14,6 +14,22 @@ function rerankRelevanceLabel(modelId: string | null | undefined): string {
   return modelId && /cohere/i.test(modelId)
     ? "Cohere Rerank relevance score"
     : "relevance score";
+}
+
+/** Characters of the listing's line kept before a figure that sits further in. */
+const QUOTE_LEAD = 28;
+
+/**
+ * The listing's line from a few words before the figure it states, so the receipt's
+ * one-line quote shows the figure: the ViewSonic's "DITCH THE DOCK: Ethernet RJ45 and
+ * USB-C connectivity for fast data, audio and video transfer, 90W charging over one
+ * cable" was cut off before its 90W. The whole line stays in the quote's title.
+ */
+function quoteFromFigure(quote: string, value: ProductSpec["value"]): string {
+  if (typeof value !== "number") return quote;
+  const figure = new RegExp(`(?<![\\d.])${String(value).replace(".", "\\.")}(?!\\d)`).exec(quote);
+  if (!figure || figure.index <= QUOTE_LEAD) return quote;
+  return `…${quote.slice(quote.lastIndexOf(" ", figure.index - QUOTE_LEAD) + 1)}`;
 }
 
 const ARM_WEIGHT: Record<RetrievalArm, "weight_fts" | "weight_fuzzy" | "weight_semantic"> = {
@@ -64,7 +80,10 @@ export function ProductReceiptBody({
 }) {
   const signals = product.signals;
   if (!signals) return null;
-  const facts = specFacts(product.specs, 4);
+  const facts = specFacts(product.specs, 4).map((fact) => ({
+    ...fact,
+    shown: quoteFromFigure(fact.quote, product.specs?.[fact.key]?.value ?? ""),
+  }));
   const fusedPool = diagnostics?.candidate_counts.fused_pool;
   let line = 0;
   const settle = () => ({ "--line": line++ }) as CSSProperties;
@@ -128,7 +147,7 @@ export function ProductReceiptBody({
             {facts.map((fact) => (
               <div key={fact.key}>
                 <dt>{fact.label}</dt>
-                <dd>{fact.value}<q title={fact.quote}>{fact.quote}</q></dd>
+                <dd>{fact.value}<q title={fact.quote}>{fact.shown}</q></dd>
               </div>
             ))}
           </dl>

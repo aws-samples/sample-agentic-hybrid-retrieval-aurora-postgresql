@@ -140,6 +140,27 @@ describe("ProductReceiptBody", () => {
     expect(within(states).getByText("27-inch UHD monitor")).toBeTruthy();
   });
 
+  it("starts a long line's quote near the figure it states, keeping the whole line as its title", () => {
+    // The ViewSonic VG2756-4K's own listing line (product 1551237).
+    const line = "DITCH THE DOCK: Ethernet RJ45 and USB-C connectivity for fast data, audio and video transfer, 90W charging over one cable";
+    render(
+      <ProductReceiptBody
+        product={product(signals, {
+          size_in: { value: 27, source: "features", quote: "VERSATILE MONITOR: 27 Inch 4K (3840x2160p) IPS monitor" },
+          usb_c_power_w: { value: 90, source: "features", quote: line },
+        })}
+      />,
+    );
+
+    const states = screen.getByRole("region", { name: "What the listing states" });
+    const quotes = [...states.querySelectorAll("q")];
+    expect(quotes.map((quote) => quote.textContent)).toEqual([
+      "VERSATILE MONITOR: 27 Inch 4K (3840x2160p) IPS monitor",
+      "…data, audio and video transfer, 90W charging over one cable",
+    ]);
+    expect(quotes[1].title).toBe(line);
+  });
+
   it("leaves out the listing section when the listing states nothing typed", () => {
     render(<ProductReceiptBody product={product(signals)} />);
 
