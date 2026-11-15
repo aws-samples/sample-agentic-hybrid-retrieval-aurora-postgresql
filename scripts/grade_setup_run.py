@@ -213,7 +213,7 @@ def main() -> int:
             verdict(fill_words(f"Lab 3 exercise: CANNOT GRADE - {error.finding}", 100))
         )
         sentence, commands = start_record_recovery(3)
-        next_step(sentence, *commands)
+        next_step(sentence, *commands, "Then ask both Lab 3 questions again.")
         return 2
     except (RuntimeError, ValueError) as error:
         # An unreadable Lab 3 start record names its own fix.
