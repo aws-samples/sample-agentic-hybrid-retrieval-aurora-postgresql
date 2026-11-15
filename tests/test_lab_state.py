@@ -1463,3 +1463,81 @@ def test_a_database_fault_exit_names_the_cause_not_the_exception_class():
         "Could not check the workshop database: connection refused (SQLSTATE none)"
         in message
     )
+
+
+def _lab_3_deployed_unchecked(repo: Path) -> None:
+    deploys = repo / ".local" / "agentcore" / "deploys.json"
+    deploys.parent.mkdir(parents=True, exist_ok=True)
+    deploys.write_text(
+        json.dumps(
+            [
+                {
+                    "deployed_at": "2026-10-29T11:00:00+00:00",
+                    "runtime_version": "2",
+                    "application_sha256": "0" * 64,
+                }
+            ]
+        )
+    )
+
+
+def _git_repo(repo: Path) -> None:
+    import subprocess
+
+    def git(*args: str) -> None:
+        subprocess.run(["git", "-C", str(repo), *args], check=True, capture_output=True)
+
+    (repo / "db/sql").mkdir(parents=True, exist_ok=True)
+    (repo / "db/sql/00_extensions.sql").write_text("-- shipped\n")
+    git("init", "-q")
+    git("add", ".")
+    git(
+        "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "x"
+    )
+
+
+@pytest.mark.parametrize(
+    ("change", "state", "command"),
+    [
+        ("add", "UNEXPECTED FILE (db/sql/99_extra.sql)", "rm db/sql/99_extra.sql"),
+        (
+            "delete",
+            "SHIPPED FILE DELETED (db/sql/00_extensions.sql)",
+            "git restore db/sql/00_extensions.sql",
+        ),
+    ],
+)
+def test_status_names_a_stray_or_missing_shipped_file_in_words(
+    lab_repo: Path, capsys, change, state, command
+) -> None:
+    from scripts.lab_state import _status_next, status_line
+
+    _lab_3_started(lab_repo)
+    _lab_3_deployed_unchecked(lab_repo)
+    _git_repo(lab_repo)
+    if change == "add":
+        (lab_repo / "db/sql/99_extra.sql").write_text("-- mine\n")
+    else:
+        (lab_repo / "db/sql/00_extensions.sql").unlink()
+
+    line = status_line(3, repo=lab_repo)
+
+    assert line.startswith(f"Lab 3: {state}")
+    assert "RetrievalFingerprintError" not in line and "_EXPECTED" not in line
+    _status_next(["Lab 1: SOLVED", "Lab 2: SOLVED", line])
+    out = capsys.readouterr().out
+    assert command in out and out.count("Next:") == 1
+
+
+def test_status_without_git_still_says_a_shipped_file_is_off_in_words(
+    lab_repo: Path,
+) -> None:
+    from scripts.lab_state import status_line
+
+    _lab_3_started(lab_repo)
+    _lab_3_deployed_unchecked(lab_repo)
+
+    line = status_line(3, repo=lab_repo)
+
+    assert line.startswith("Lab 3: SHIPPED FILES CHANGED")
+    assert "RetrievalFingerprintError" not in line

@@ -39,6 +39,7 @@ from service.lab_files import (
     LAB1_SQL,
     LAB2_SQL,
     LAB3_AGENT,
+    _git,
     committed_text,
     shipped_files,
     shipped_text,
@@ -52,6 +53,7 @@ from service.participant_commands import (
     DIFF,
     DIFF_ANSWER,
     LIST_TOOLS,
+    STATUS,
     USUAL_SECONDS,
     apply_solution_command,
     ask_100w_command,
@@ -1125,6 +1127,31 @@ def lab_3_solved(repo: Path = REPO) -> bool:
     return status_line(3, repo=repo) == LAB_3_SOLVED
 
 
+UNEXPECTED_FILE = "UNEXPECTED FILE"
+SHIPPED_FILE_MISSING = "SHIPPED FILE DELETED"
+SHIPPED_FILES_CHANGED = "SHIPPED FILES CHANGED"
+# Where an added SQL file or a deleted shipped file changes what the deploy check hashes.
+_SHIPPED_DIRS = ("db", "service", "scripts", "data/evals")
+
+
+def _shipped_files_line(repo: Path) -> str:
+    """Lab 3's state when the shipped files differ from the workshop's, naming the file.
+
+    The deploy check hashes every SQL file under db/sql and the other files the workshop
+    ships, so one added or deleted file stops it from reading the code.
+    """
+    listed, _ = _git(
+        repo, "status", "--porcelain", "--untracked-files=all", "--", *_SHIPPED_DIRS
+    )
+    for row in (listed or b"").decode("utf-8", errors="replace").splitlines():
+        code, path = row[:2], row[3:]
+        if code == "??" and path.startswith("db/sql/"):
+            return f"Lab 3: {UNEXPECTED_FILE} ({path})"
+        if "D" in code:
+            return f"Lab 3: {SHIPPED_FILE_MISSING} ({path})"
+    return f"Lab 3: {SHIPPED_FILES_CHANGED}"
+
+
 def _lab_3_status(repo: Path) -> str:
     """Lab 3 is solved by a passing run of the code Runtime runs, which is the code saved.
 
@@ -1133,6 +1160,7 @@ def _lab_3_status(repo: Path) -> str:
     """
     from service.agent_deploys import lab_3_started_at, load_deploys
     from service.lab_validation_receipt import application_digest
+    from service.retrieval_fingerprint import RetrievalFingerprintError
 
     if not lab_source_is_repaired(3, repo=repo):
         return "Lab 3: BROKEN"
@@ -1144,7 +1172,11 @@ def _lab_3_status(repo: Path) -> str:
     if not deploys:
         return f"Lab 3: REPAIRED, NOT DEPLOYED. Next: deploy with {DEPLOY_AGENT}."
     latest = deploys[-1]
-    if latest.application_sha256 != application_digest(repo):
+    try:
+        current = application_digest(repo)
+    except RetrievalFingerprintError:
+        return _shipped_files_line(repo)
+    if latest.application_sha256 != current:
         return (
             "Lab 3: REPAIRED, NOT DEPLOYED - your code changed after your deploy at "
             f"{latest.deployed_at.astimezone(UTC):%H:%M} UTC. Next: deploy with "
@@ -1328,6 +1360,11 @@ def skip_to_lab(lab: int) -> int:
     return 0
 
 
+def _named_path(line: str) -> str:
+    """The path in the parentheses of a status line."""
+    return line.partition("(")[2].partition(")")[0]
+
+
 def _status_next(lines: list[str]) -> None:
     """Print the step after a status report: the first lab that is not solved yet."""
     for lab, line in zip(LABS, lines, strict=True):
@@ -1343,6 +1380,25 @@ def _status_next(lines: list[str]) -> None:
         elif "NOT STARTED" in line:
             handoff = ADVANCE_TO_LAB_2 if lab == 2 else ADVANCE_TO_LAB_3
             next_step(f"Lab {lab - 1}'s hand-off prepares Lab {lab}:", handoff)
+        elif lab == 3 and UNEXPECTED_FILE in line:
+            path = _named_path(line)
+            next_step(
+                "remove the file you added, then check again:", f"rm {path}", STATUS
+            )
+        elif lab == 3 and SHIPPED_FILE_MISSING in line:
+            path = _named_path(line)
+            next_step(
+                "put the file back from Git, then check again:",
+                f"git restore {path}",
+                STATUS,
+            )
+        elif lab == 3 and SHIPPED_FILES_CHANGED in line:
+            next_step(
+                "see which file you added or deleted, remove or restore it, then check "
+                "again:",
+                "git status --short",
+                STATUS,
+            )
         elif lab == 3 and "NOT DEPLOYED" in line:
             next_step("deploy your Retrieval agent:", DEPLOY_AGENT)
         elif lab == 3 and "Deploy record rule" in line:
