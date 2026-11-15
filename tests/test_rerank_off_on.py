@@ -101,6 +101,28 @@ def test_a_failed_search_is_reported_and_exits_non_zero(monkeypatch, capsys):
     assert "HTTP 503" in capsys.readouterr().err
 
 
+def test_a_search_that_fell_back_without_reranking_is_not_the_comparison(
+    monkeypatch, capsys
+):
+    """With fallback allowed, an unavailable reranker answers; the pages then match."""
+    fell_back = {
+        **OFF,
+        "diagnostics": {**OFF["diagnostics"], "rerank_status": "unavailable"},
+    }
+    monkeypatch.setattr(
+        off_on,
+        "_request",
+        lambda _url, _path, payload=None: fell_back if payload["rerank"] else OFF,
+    )
+
+    assert off_on.main([]) == 1
+
+    out = capsys.readouterr().out
+    assert "Reranking did not run on the second search (status: unavailable)" in out
+    assert out.rstrip().endswith(off_on.RERANK_OFF_ON)
+    assert off_on.COMPARE_SETTINGS not in out
+
+
 @pytest.mark.parametrize("argv", [["--help"]])
 def test_help_names_the_purpose(argv, capsys):
     with pytest.raises(SystemExit):

@@ -103,6 +103,19 @@ def main(argv: list[str] | None = None) -> int:
         print(separate_next(f"Search failed: {error}", RERANK_OFF_ON), file=sys.stderr)
         return 1
     print(render(pages[False], pages[True], mission["target_product_ids"][0]))
+    status = pages[True]["diagnostics"]["rerank_status"]
+    if status != "applied":
+        # A deployment that lets search fall back answers without reranking; the right
+        # column is then retrieval's own order again, so it shows nothing about reranking.
+        print(
+            f"\nReranking did not run on the second search (status: {status}), so the "
+            "two pages cannot show what reranking changes."
+        )
+        next_step(
+            "wait a minute and run it again; if it repeats, tell your facilitator:",
+            RERANK_OFF_ON,
+        )
+        return 1
     next_step(
         "test whether changing k helps more right answers reach reranking:",
         COMPARE_SETTINGS,
