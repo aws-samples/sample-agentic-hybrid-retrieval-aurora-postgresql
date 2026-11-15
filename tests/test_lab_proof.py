@@ -42,7 +42,12 @@ from service.models import (
     RetrievalProfile,
     SearchResponse,
 )
-from service.participant_commands import APPLY_SQL, DEPLOY_AGENT, start_command
+from service.participant_commands import (
+    APPLY_SQL,
+    DEPLOY_AGENT,
+    VERIFY_AGENT,
+    start_command,
+)
 from service.scorecard import retrieval_scorecard
 
 INDEPENDENT_FILE = "service/catalog.py"
@@ -1300,4 +1305,51 @@ def test_a_run_made_by_code_no_longer_deployed_is_not_credited(
     check = _deployment_check(proof)
     assert proof.status == "fail"
     assert not check.passed
+    assert "ask_agent.py" in check.detail
+
+
+def test_an_edit_after_the_deploy_is_named_without_asking_the_agent(
+    monkeypatch,
+) -> None:
+    """Code Editor's code changed after the deploy: Runtime would refuse to answer.
+
+    The check names the edit as `status` does, from the deploy record, instead of
+    asking the deployed agent and reporting the refusal's exception class.
+    """
+    _managed_run(monkeypatch, searched_with=CURRENT_SQL)
+    monkeypatch.setattr(
+        "service.lab_validation_receipt.application_digest",
+        lambda *_root: EARLIER_APPLICATION,
+    )
+
+    def asked() -> dict:
+        raise AssertionError("the deployed agent must not be asked")
+
+    monkeypatch.setattr("service.agentcore_transport.deployed_status", asked)
+
+    check = _deployment_check(lab_proof.completion_proof(3, agent_run_id=AGENT_RUN_ID))
+
+    assert not check.passed
+    assert "changed after your deploy at 00:05 UTC" in check.detail
+    assert DEPLOY_AGENT in check.detail and "ask_agent.py" in check.detail
+    assert "Error" not in check.detail
+
+
+def test_a_deployment_check_the_agent_refuses_names_no_exception_class(
+    monkeypatch,
+) -> None:
+    from service.agent_setup import AgentSetupError
+
+    _managed_run(monkeypatch, searched_with=CURRENT_SQL)
+
+    def refused() -> dict:
+        raise AgentSetupError("The deployed Retrieval agent rejected this request.")
+
+    monkeypatch.setattr("service.agentcore_transport.deployed_status", refused)
+
+    check = _deployment_check(lab_proof.completion_proof(3, agent_run_id=AGENT_RUN_ID))
+
+    assert not check.passed
+    assert "AgentSetupError" not in check.detail and "Error" not in check.detail
+    assert VERIFY_AGENT in check.detail and DEPLOY_AGENT in check.detail
     assert "ask_agent.py" in check.detail

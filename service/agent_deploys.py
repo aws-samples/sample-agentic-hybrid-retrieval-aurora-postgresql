@@ -165,13 +165,31 @@ def ask_problem(workspace_sha256: str, *, root: Path | None = None) -> str | Non
             "agent this account was prepared with. "
             f"Next: deploy with {DEPLOY_AGENT}, then ask your question again."
         )
-    latest = since[-1]
-    if latest.application_sha256 != workspace_sha256:
+    edited = undeployed_edit(workspace_sha256, root=root)
+    if edited is not None:
         return (
-            f"Your code in Code Editor changed after your deploy at {_clock(latest.deployed_at)}, "
+            f"Your code in Code Editor changed after your deploy at {_clock(edited.deployed_at)}, "
             "so AgentCore Runtime still runs the earlier code. "
             f"Next: deploy with {DEPLOY_AGENT}, then ask your question again."
         )
+    return None
+
+
+def undeployed_edit(
+    workspace_sha256: str, *, root: Path | None = None
+) -> Deploy | None:
+    """The deploy since Lab 3 started that Code Editor's code has changed since, or None.
+
+    None before the start and before the first deploy since it, too: those are
+    `ask_problem`'s and `run_deploy_problem`'s to report. Runtime refuses a request
+    from code other than the workspace's, so this answers without asking it.
+    """
+    started = lab_3_started_at(root)
+    if started is None:
+        return None
+    since = _since(started, root)
+    if since and since[-1].application_sha256 != workspace_sha256:
+        return since[-1]
     return None
 
 

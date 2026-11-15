@@ -78,6 +78,7 @@ from service.participant_commands import (
     APPLY_SQL,
     DEPLOY_AGENT,
     DIFF,
+    VERIFY_AGENT,
     ask_setup_command,
     proof_steps_text,
     start_command,
@@ -565,78 +566,41 @@ def _managed_agent_checks(
     hold, so each of its searches must have recorded the current lab files.
     Empty when no Runtime is configured, as in offline and local runs.
     """
-    from service import agentcore_transport, gateway_tools
-    from service.agent_deploys import run_deploy_problem
+    from service import agentcore_transport
+    from service.agent_deploys import undeployed_edit
 
     if not managed:
         return []
-    from service.lab_validation_receipt import (
-        application_digest,
-        participant_sql_digest,
-    )
-    from service.search_sql import applied_sql_digest
+    from service.lab_validation_receipt import application_digest
 
     deployed = False
     detail = "Your Retrieval agent and SQL tools match the code in Code Editor, and Aurora runs your SQL."
     failure = f"Your deployed Retrieval agent or SQL tools do not match this run. Next: deploy with {DEPLOY_AGENT} in Code Editor, then ask Alex's question again."
     try:
-        status = agentcore_transport.deployed_status()
-        if rows and rows.searches:
-            gateway_tools.call_tool(
-                "explain_retrieval",
-                {"search_event_id": str(rows.searches[0]["search_event_id"])},
+        workspace_code = application_digest()
+        edited = undeployed_edit(workspace_code, root=root)
+        if edited is not None:
+            # Runtime refuses requests from code other than the workspace's, so asking
+            # it would only report the refusal; the deploy record names the edit, as
+            # `status` does.
+            failure = (
+                "Your code in Code Editor changed after your deploy at "
+                f"{edited.deployed_at.astimezone(UTC):%H:%M} UTC, so AgentCore Runtime "
+                f"still runs the earlier code. Next: deploy with {DEPLOY_AGENT} in Code "
+                f"Editor, then ask Alex's setup request again:\n{ask_setup_command()}"
             )
-            workspace_sql = participant_sql_digest()
-            with connect() as connection:
-                sql_applied = applied_sql_digest(connection) == workspace_sql
-            workspace_code = application_digest()
-            code_deployed = status.get("application_sha256") == workspace_code
-            run_code = _as_dict(rows.turn.get("extracted_intent")).get(
-                "application_sha256"
-            )
-            run_on_current_code = run_code == workspace_code
-            run_sql = _run_sql_digests(rows)
-            run_on_current_sql = run_sql == [workspace_sql]
-            not_own_deploy = run_deploy_problem(
-                rows.turn["created_at"], run_code, root=root
-            )
-            deployed = (
-                code_deployed
-                and sql_applied
-                and run_on_current_sql
-                and run_on_current_code
-                and not_own_deploy is None
-            )
-            if code_deployed and not sql_applied:
-                failure = (
-                    "Aurora runs search SQL different from your lab files in Code Editor. "
-                    f"Next: apply it with {APPLY_SQL}, then ask Alex's setup request again:\n"
-                    f"{ask_setup_command()}"
+        else:
+            status = agentcore_transport.deployed_status()
+            if rows and rows.searches:
+                deployed, found = _run_matches_deployment(
+                    rows, status, workspace_code, root
                 )
-            elif code_deployed and not run_on_current_sql:
-                failure = (
-                    f"This run searched with SQL {', '.join(d[:12] for d in run_sql)}, "
-                    f"not your lab files' {workspace_sql[:12]}: it was saved before "
-                    "your last apply. Next: ask Alex's setup request again:\n"
-                    f"{ask_setup_command()}\nthen grade the new run."
-                )
-            elif code_deployed and not run_on_current_code:
-                made_by = (
-                    f"was made by Retrieval agent code {run_code[:12]}, not the "
-                    f"deployed {workspace_code[:12]}: it was saved before your last deploy"
-                    if isinstance(run_code, str)
-                    else "does not record which Retrieval agent code made it"
-                )
-                failure = (
-                    f"This run {made_by}. Next: ask Alex's setup request again:\n"
-                    f"{ask_setup_command()}\nthen grade the new run."
-                )
-            elif not_own_deploy is not None:
-                failure = not_own_deploy
-    except (RuntimeError, ValueError) as error:
+                failure = found or failure
+    except (RuntimeError, ValueError):
         failure = (
-            f"Deployment check failed ({type(error).__name__}). Next: deploy with "
-            f"{DEPLOY_AGENT} in Code Editor, then ask Alex's setup request again:\n"
+            "Your deployed Retrieval agent did not answer the deployment check. Next: "
+            f"check it with {VERIFY_AGENT} in Code Editor; if it reports changed code, "
+            f"deploy with {DEPLOY_AGENT}. Then ask Alex's setup request again:\n"
             f"{ask_setup_command()}"
         )
     return [
@@ -647,6 +611,53 @@ def _managed_agent_checks(
             detail=detail if deployed else failure,
         )
     ]
+
+
+def _run_matches_deployment(
+    rows: AgentTurnRows, status: Mapping[str, Any], workspace_code: str, root: Path
+) -> tuple[bool, str | None]:
+    """Whether the run, Gateway, Aurora and Runtime all carry today's work, and why not."""
+    from service import gateway_tools
+    from service.agent_deploys import run_deploy_problem
+    from service.lab_validation_receipt import participant_sql_digest
+    from service.search_sql import applied_sql_digest
+
+    gateway_tools.call_tool(
+        "explain_retrieval",
+        {"search_event_id": str(rows.searches[0]["search_event_id"])},
+    )
+    workspace_sql = participant_sql_digest()
+    with connect() as connection:
+        sql_applied = applied_sql_digest(connection) == workspace_sql
+    code_deployed = status.get("application_sha256") == workspace_code
+    run_code = _as_dict(rows.turn.get("extracted_intent")).get("application_sha256")
+    run_sql = _run_sql_digests(rows)
+    not_own_deploy = run_deploy_problem(rows.turn["created_at"], run_code, root=root)
+    if code_deployed and not sql_applied:
+        return False, (
+            "Aurora runs search SQL different from your lab files in Code Editor. "
+            f"Next: apply it with {APPLY_SQL}, then ask Alex's setup request again:\n"
+            f"{ask_setup_command()}"
+        )
+    if code_deployed and run_sql != [workspace_sql]:
+        return False, (
+            f"This run searched with SQL {', '.join(d[:12] for d in run_sql)}, "
+            f"not your lab files' {workspace_sql[:12]}: it was saved before "
+            "your last apply. Next: ask Alex's setup request again:\n"
+            f"{ask_setup_command()}\nthen grade the new run."
+        )
+    if code_deployed and run_code != workspace_code:
+        made_by = (
+            f"was made by Retrieval agent code {run_code[:12]}, not the "
+            f"deployed {workspace_code[:12]}: it was saved before your last deploy"
+            if isinstance(run_code, str)
+            else "does not record which Retrieval agent code made it"
+        )
+        return False, (
+            f"This run {made_by}. Next: ask Alex's setup request again:\n"
+            f"{ask_setup_command()}\nthen grade the new run."
+        )
+    return code_deployed and not_own_deploy is None, not_own_deploy
 
 
 def completion_proof(
