@@ -100,8 +100,9 @@ Runtime and Gateway are required for the workshop's Lab 3; see
 The optional telemetry exporter does not replace participant lab proofs.
 
 Gateway tracing requires account-level **CloudWatch Transaction Search** and
-Gateway trace delivery to be configured. The workshop currently configures
-neither. A working Gateway call or an Aurora receipt is not evidence that a
+Gateway trace delivery to be configured. The workshop stack turns Transaction
+Search on (see [the managed agent](agentcore-runtime.md)) but does not configure
+Gateway trace delivery. A working Gateway call or an Aurora receipt is not evidence that a
 CloudWatch trace was delivered. Follow the official
 [AgentCore observability setup](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/observability-configure.html)
 when adding this optional operator capability, and verify actual spans before

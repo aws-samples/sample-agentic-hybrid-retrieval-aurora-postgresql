@@ -73,8 +73,8 @@ inside the production validators:
 
 The query text, filters, targets, bad observation, good observation, and
 participant edit are owned by `data/evals/mosaic_labs_missions.json`. Workshop
-Studio renders the three required requests, names all five controls, and checks
-every rendered payload for drift.
+Studio renders the three required requests with their required supporting checks, and
+checks every rendered payload for drift.
 
 ## Teaching narrative
 
@@ -244,7 +244,7 @@ plans and measured comparisons beside the lab that uses them.
 | 04:00-05:30 | Rank | Ask how we know fusion worked if a monitor finishes well. Participants will restore `1 / (k + rank)` and defend a setting on judged queries. | Technical |
 | 05:30-07:00 | Reason | Preview the final request below. Do not start a long Retrieval agent run in the opening. | Lead |
 | 07:00-08:30 | Who owns each decision | Aurora retrieves, filters and saves records. Bedrock supplies embeddings, reranking and the Retrieval agent's model. The application validates tool calls and citations. Show one saved search ID. | Aurora presenter |
-| 08:30-10:00 | Your work and its proof | Open the guide and both work surfaces. Observe, diagnose, repair, repeat the same request, explain the change. Required work finishes by minute 55. | Lead |
+| 08:30-10:00 | Your work and its proof | Open the guide and both work surfaces. Observe, diagnose, repair, repeat the same request, explain the change. Required work finishes by the end of the hour. | Lead |
 
 Lab 3's request, from the manifest:
 
@@ -414,4 +414,4 @@ uv run python scripts/grade_setup_run.py
 The receipt binds the deployed code and current settings. It is regraded from
 Aurora; a facilitator demonstration does not complete a participant's exercise.
 
-Offer Session & Memory first in the five-minute wrap-up; extraction is asynchronous, so do not promise a completed extraction in that time. [Build a retrieval tool](build-retrieval-tool.md) is the alternative: its four hints preserve the final two-budget proof and agent call. HNSW is the other option. Use [the delivery map](abstract-delivery-map.md) to distinguish what attendees implement from what they inspect.
+Offer Session & Memory first once the required work is done; optional exercises are untimed, and extraction is asynchronous, so do not promise a completed extraction. [Build a retrieval tool](build-retrieval-tool.md) is the alternative: its four hints preserve the final two-budget proof and agent call. HNSW is the other option. Use [the delivery map](abstract-delivery-map.md) to distinguish what attendees implement from what they inspect.

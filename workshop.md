@@ -172,13 +172,13 @@ and spacing do not count as a difference.
 
 ### Lab 2: contributions and admission to reranking
 
-In **2a - Rank**, load `.local/lab-2/context.psql` in its own paste. Compare
+In **Exercise: Give each position its own score**, load `.local/lab-2/context.psql` in its own paste. Compare
 the intended monitor's semantic and fused positions, then compare actual
 contributions with the formula. Participants repair only `LAB2_EDIT` in
 `labs/lab2_rank/rrf_contribution.sql`, apply, repeat and grade the saved request.
 Read their actual ranks; do not demand a recorded example's exact positions.
 
-In **2b - Rerank**, distinguish reaching the shortlist from reaching the page.
+In **See what reranking changes**, distinguish reaching the shortlist from reaching the page.
 `uv run python labs/lab2_rank/rerank_off_on.py` runs the request with reranking
 off, then on; it shows a gain on size and resolution, not proof
 of charging compatibility. If reranking did not run on the second search, it says so, exits
@@ -280,7 +280,7 @@ separately from listening noise cancellation.
 
 Ask the guide's changed 100W requirement against the monitor's 90W record.
 The Retrieval agent must acknowledge the mismatch and any unknown compatibility.
-Prove the **original setup run**, then finish the Conclusion checks. Completion
+Prove the **original setup run**, then finish the Wrap-up. Completion
 reuses the saved answer; a deployed endpoint alone is not a participant pass.
 
 ## Keep the architecture explanation short

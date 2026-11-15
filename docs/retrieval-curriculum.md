@@ -29,7 +29,7 @@ inside the broken boundary still works:
 |---:|---|---|---|
 | 0-15 min | Introduction / Overview / Presentation | Meet Alex, frame the four phases and architecture | `typo-recovery` before repair |
 | 15-30 min | Retrieve | Reconnect one candidate arm and prove target recovery without weakening eligibility | `typo-recovery`, with control anchors |
-| 30-40 min | Rank (2a) and Rerank (2b) | Repair one RRF formula and keep the suitable monitor inside the reranker input | `rank-with-evidence`, with control anchors |
+| 30-40 min | Rank (give each position its own score) and Rerank (see what reranking changes) | Repair one RRF formula and keep the suitable monitor inside the reranker input | `rank-with-evidence`, with control anchors |
 | 40-60 min | Reason | Assemble and deploy the Retrieval agent, complete the setup with cited evidence, and run the completion gate | `agentic-research`, with one evidence control |
 
 The stable IDs remain evaluation identifiers and ownership keys for the gaps in the starting code.

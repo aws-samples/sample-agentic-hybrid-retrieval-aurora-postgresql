@@ -50,6 +50,13 @@ no fixed number. Current measurements on `reviews-2023-v2` are in
 `data/benchmarks/hnsw_measured.json`; they use a different query sample and method, so
 they are not a like-for-like replacement for these figures.
 
+The same catalog's HNSW scan settings, measured on 2026-09-22 on 500,000 rows, are also
+historical. With HNSW forced (`enable_sort = off`) under the headphones filter, the
+settings that shipped then returned a full 150 rows at recall 0.467 against exact;
+raising `max_scan_tuples` to 200K lifted recall to 0.780, and `scan_mem_multiplier` 8
+changed nothing. The planner did not use HNSW for any category-filtered lab request on
+that catalog, so these settings did not affect those requests.
+
 ## Where each promise is delivered
 
 | Promise | Where participants encounter it | What they do |
@@ -69,7 +76,7 @@ they are not a like-for-like replacement for these figures.
 | Compare sources | Reason; Check the sources | Count cited specifications and reviews against imported reviews and source rating counts |
 | Explain ranking signals | Rank; agent activity | Inspect source positions, fusion contributions and the explanation tool |
 | Synthesize cited answers | Reason | Ask Alex's question, open a citation and change a requirement in a follow-up |
-| Working code, schema patterns, ranking templates | Conclusion: Use it in your own agent | Download the agent skill and the SQL and guide; the full checkout supplies SQL, evaluations and citation checks |
+| Working code, schema patterns, ranking templates | Wrap-up: Take it home | Download the agent skill and the SQL and guide; the full checkout supplies SQL, evaluations and citation checks |
 
 The completion gate remains inside Lab 3. Its saved-run option repeats the checks against current Aurora records without issuing two additional model calls. It rejects changed code or settings, missing runs, a rebroken seam and changed citation records.
 

@@ -24,8 +24,12 @@ model charges; model calls and retry budgets are deliberately bounded.
 SQL values use bound parameters. Dynamic identifiers come from application
 allowlists or validated workshop configuration, not model-authored SQL. Aurora
 connections use certificate and hostname verification. The runtime role has
-catalog SELECT access plus the specific diagnostic/session write grants; schema
-installation and exercise repair use the workshop administration identity.
+catalog SELECT access plus the specific diagnostic/session write grants, and
+INSERT and UPDATE on `mosaic.product_evidence`: `get_product_evidence` registers
+a product's staged source records there so each returned record can be cited
+(`deploy/mosaic-bootstrap.sh` grants it). No tool accepts evidence text from the
+model; the registered text comes from the staged catalog. Schema installation and
+exercise repair use the workshop administration identity.
 
 Logs at application and bootstrap boundaries report exception types or bounded,
 redacted messages. Credentials must not appear in commands, generated reports or
@@ -56,7 +60,8 @@ claimed by this workshop release.
 MCP is the tool interface; a skill provides workflow instructions and references.
 Neither inherently permits nor prevents writes. The Mosaic adapters expose
 bounded retrieval operations rather than arbitrary SQL. The runtime database
-role has catalog SELECT and explicit diagnostic/session write privileges; the
+role has catalog SELECT, INSERT and UPDATE on `mosaic.product_evidence`, and
+explicit diagnostic/session write privileges; the
 agent host needs tool access, not that database credential. Keep those grants
 separate from the administration identity used to install or repair the workshop.
 
