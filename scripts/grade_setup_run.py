@@ -191,6 +191,10 @@ def main() -> int:
     run_id = args.run_id
     pending = {}
     try:
+        # A named run is graded against the same start, so an unreadable one stops both.
+        from service.agent_deploys import lab_3_started_at
+
+        lab_3_started_at(ROOT)
         if run_id is None:
             pick = _pick_run()
             if pick.run is None:

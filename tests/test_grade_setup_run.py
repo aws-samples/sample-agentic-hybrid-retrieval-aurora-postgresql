@@ -422,16 +422,18 @@ DAMAGED_STARTS = [
 ]
 
 
+@pytest.mark.parametrize("named", [False, True], ids=["newest run", "--run-id"])
 @pytest.mark.parametrize("record", DAMAGED_STARTS)
 def test_a_damaged_lab_3_start_record_names_the_reset_that_keeps_the_agent(
-    monkeypatch, capsys, workspace, tmp_path, record
+    monkeypatch, capsys, workspace, tmp_path, record, named
 ) -> None:
     """Cut off, another lab's, another version's, an unreadable time: one fix for all."""
     started = tmp_path / ".local" / "lab-3" / "start.json"
     started.parent.mkdir(parents=True)
     started.write_text(record)
     monkeypatch.setattr("service.agent_deploys.lab_3_started_at", REAL_LAB_3_STARTED_AT)
-    monkeypatch.setattr(sys, "argv", ["grade_setup_run.py"])
+    argv = ["grade_setup_run.py"] + (["--run-id", str(uuid4())] if named else [])
+    monkeypatch.setattr(sys, "argv", argv)
 
     assert grade_setup_run.main() == 2
 
