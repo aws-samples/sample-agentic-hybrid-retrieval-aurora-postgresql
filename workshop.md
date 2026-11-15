@@ -308,6 +308,8 @@ CloudWatch log names the cause, such as Bedrock throttling.
 
 - Inspect the saved result, lab state and diff first. Coding help starts with
   the current lab's **Stuck?** hint and stays within its exercise.
+- Each lab's **Coach** tab holds two prompts for Claude Code: the first explains and
+  gives a hint without editing, the second makes the change.
 - Start resumes safely after interruption. Reset discards only the selected
   lab's edits. `finish --lab N`, under **Running behind**, installs the reference answer
   and runs the lab's checks; Lab 3 stops at deploy, so the participant still asks and completes.

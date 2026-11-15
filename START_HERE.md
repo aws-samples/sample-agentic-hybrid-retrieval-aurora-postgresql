@@ -35,10 +35,11 @@ root. If the groups are missing, open
 **File → Open Workspace from File…**.
 
 Claude Code runs in this terminal as a coding coach: type `claude`, then paste the
-**Coach** prompt from a **Stuck?** block.
+first **Coach** prompt from a **Stuck?** block. It explains and gives a hint; the second
+prompt makes the change.
 
 The lab READMEs are short reminders. The guide has the exact requests, the
-checks, and a **Stuck?** block wherever you edit, with hints, a prompt for the
+checks, and a **Stuck?** block wherever you edit, with hints, two prompts for the
 coding coach and the answer. Your saved runs are in `.local/lab-N/`. To see which
 lines of your lab files differ from the reference answer without changing
 anything, run `uv run python scripts/diff.py`; it does not print the answer.
