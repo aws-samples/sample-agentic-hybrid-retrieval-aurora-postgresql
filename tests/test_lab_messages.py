@@ -151,12 +151,12 @@ def test_a_handoff_failure_repeats_the_handoff_not_the_bare_check():
     assert prove_lab_command(2) not in in_place
 
 
-def _start_record(output: Path, evidence: dict) -> None:
+def _start_record(output: Path, evidence: dict, lab: int = 1) -> None:
     output.mkdir(parents=True, exist_ok=True)
     (output / "start.json").write_text(
         json.dumps(
             {
-                "lab": 1,
+                "lab": lab,
                 "version": 1,
                 "completed_at": "2026-10-10T12:00:00+00:00",
                 "steps": {"evidence": evidence},
@@ -185,7 +185,7 @@ def test_an_after_run_of_a_lab_started_repaired_shows_the_search_alone(tmp_path)
 
 
 def test_an_after_run_with_a_lost_before_file_says_which_file(tmp_path):
-    _start_record(tmp_path, {"state": "done", "search_event_id": "run-1"})
+    _start_record(tmp_path, {"state": "done", "search_event_id": "run-1"}, lab=2)
 
     note = lab_request._without_before(2, tmp_path)
 
