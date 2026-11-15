@@ -850,6 +850,24 @@ _COMMITTED_MEASUREMENTS = (
 )
 
 
+def _stale_measurement_problem(artifact, name, methodology_key, compute_methodology):
+    """Why a measurement was not made by this tree, or None when it was."""
+    fingerprint = compute_retrieval_fingerprint()
+    if artifact["retrieval_fingerprint"] != fingerprint:
+        return (
+            f"{name} was measured at retrieval fingerprint "
+            f"{artifact['retrieval_fingerprint'][:8]} but this tree computes "
+            f"{fingerprint[:8]}; fix: re-measure and commit it"
+        )
+    methodology = compute_methodology()
+    if artifact[methodology_key] != methodology:
+        return (
+            f"{name} carries {methodology_key} {artifact[methodology_key][:8]} but this "
+            f"tree computes {methodology[:8]}; fix: re-measure and commit it"
+        )
+    return None
+
+
 @pytest.mark.parametrize(
     ("name", "methodology_key", "compute_methodology"), _COMMITTED_MEASUREMENTS
 )
@@ -858,16 +876,40 @@ def test_committed_measurement_carries_the_fingerprint_this_tree_computes(
 ):
     """A measurement committed under an older tree cannot pass for the current one.
 
-    Red-at-birth: the stage ablation was committed under fingerprint 774205f5 while
-    the tree computes 6edeb56f. It stays red until the owner re-measures on Aurora.
+    It stays red after any change to a file the fingerprint covers, until the
+    measurement is repeated on Aurora and committed.
     """
     artifact = json.loads((REPO / "data" / "evals" / name).read_text(encoding="utf-8"))
-    assert artifact["retrieval_fingerprint"] == compute_retrieval_fingerprint(), (
-        f"{name} was measured at retrieval fingerprint "
-        f"{artifact['retrieval_fingerprint'][:8]} but this tree computes "
-        f"{compute_retrieval_fingerprint()[:8]}; fix: re-measure and commit it"
+
+    assert (
+        _stale_measurement_problem(artifact, name, methodology_key, compute_methodology)
+        is None
     )
-    assert artifact[methodology_key] == compute_methodology(), (
-        f"{name} carries {methodology_key} {artifact[methodology_key][:8]} but this tree "
-        f"computes {compute_methodology()[:8]}; fix: re-measure and commit it"
+
+
+@pytest.mark.parametrize(
+    ("name", "methodology_key", "compute_methodology"), _COMMITTED_MEASUREMENTS
+)
+@pytest.mark.parametrize("stale", ["retrieval_fingerprint", "methodology"])
+def test_a_stale_measurement_is_refused_naming_what_to_do(
+    name, methodology_key, compute_methodology, stale
+):
+    """Permanent falsifier: a tree-matching artifact passes, a stale field fails."""
+    artifact = {
+        "retrieval_fingerprint": compute_retrieval_fingerprint(),
+        methodology_key: compute_methodology(),
+    }
+    assert (
+        _stale_measurement_problem(artifact, name, methodology_key, compute_methodology)
+        is None
     )
+    artifact[
+        "retrieval_fingerprint" if stale == "retrieval_fingerprint" else methodology_key
+    ] = "0" * 64
+
+    problem = _stale_measurement_problem(
+        artifact, name, methodology_key, compute_methodology
+    )
+
+    assert problem is not None and "re-measure and commit it" in problem
+    assert name in problem and "00000000" in problem
