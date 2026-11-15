@@ -48,6 +48,12 @@ STATE_COLORS = {
     "REPAIRED, NOT DEPLOYED": YELLOW,
     "DEPLOYED, NOT YET PROVED": YELLOW,
 }
+#: The step after Aurora does not answer a participant command: a new terminal reloads the
+#: workshop settings, and a repeat is the facilitator's to diagnose.
+REOPEN_TERMINAL = (
+    "open a new terminal from the Terminal menu, which loads the workshop settings, and "
+    "run this command again; if it repeats, tell your facilitator:"
+)
 #: Set while `finish` or `skip-to` runs a command, which then leaves the next step to them.
 RUN_BY = "MOSAIC_RUN_BY"
 NEXT_WIDTH = 100

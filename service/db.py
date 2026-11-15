@@ -20,6 +20,10 @@ _pool: ConnectionPool | None = None
 _pool_lock = threading.Lock()
 
 
+class DatabaseNotConfigured(RuntimeError):
+    """DATABASE_URL is empty, so no connection can open; the prepared terminal sets it."""
+
+
 def _configure(connection: psycopg.Connection) -> None:
     """Register vector adapters when a new connection enters the pool."""
     register_vector(connection)
@@ -42,7 +46,7 @@ def get_pool() -> ConnectionPool:
         if _pool is None:
             settings = get_settings()
             if not settings.database_url:
-                raise RuntimeError("DATABASE_URL is not configured")
+                raise DatabaseNotConfigured("DATABASE_URL is not configured")
             _pool = ConnectionPool(
                 settings.database_url,
                 min_size=0,

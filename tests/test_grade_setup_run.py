@@ -102,7 +102,7 @@ def workspace(monkeypatch, tmp_path):
     monkeypatch.setattr(grade_setup_run, "follow_up_saved", lambda *_a: False)
     graded = []
 
-    def grade(argv: list[str], *, pending_answers=None) -> int:
+    def grade(argv: list[str], *, pending_answers=None, run_id=None) -> int:
         graded.append(argv)
         return 0
 
@@ -444,3 +444,134 @@ def test_a_damaged_lab_3_start_record_names_the_reset_that_keeps_the_agent(
         out.index("reset --lab 3"),
     )
     assert saved < reset < out.index("cp ~/my-agent.py labs/lab3_reason/agent.py")
+
+
+@pytest.fixture
+def proof(monkeypatch, tmp_path):
+    """The real grade after the pick, with the proof and decision record faked.
+
+    Returns the Run IDs the proof was asked for, in order.
+    """
+    from types import SimpleNamespace
+
+    from scripts import lab_exercise
+
+    monkeypatch.setattr(grade_setup_run, "ROOT", tmp_path)
+    monkeypatch.setattr(grade_setup_run, "load_dotenv", lambda _path: None)
+    monkeypatch.setattr(
+        "service.agent_deploys.lab_3_started_at", lambda _root=None: STARTED
+    )
+    monkeypatch.setattr("service.agent_deploys.deploy_due", lambda *_a, **_k: False)
+    monkeypatch.setattr(grade_setup_run, "follow_up_saved", lambda *_a: False)
+    monkeypatch.setattr(lab_exercise, "REPO", tmp_path)
+    work = tmp_path / "agent.py"
+    work.write_text("# participant agent")
+    monkeypatch.setattr(lab_exercise, "default_work", lambda _lab: work)
+    monkeypatch.setattr(lab_exercise.lab_state, "lab3_problem", lambda: None)
+    monkeypatch.setattr("service.agentcore_transport.runtime_arn", lambda: "arn")
+    monkeypatch.setattr(lab_exercise, "record_decision", lambda *_: None)
+    asked: list[str] = []
+
+    def completion_proof(lab, *, agent_run_id):
+        asked.append(str(agent_run_id))
+        return SimpleNamespace(checks=[], status="pass")
+
+    monkeypatch.setattr("service.lab_proof.completion_proof", completion_proof)
+    return asked
+
+
+def test_a_second_grade_saving_its_run_meanwhile_does_not_change_this_ones(
+    monkeypatch, capsys, proof
+) -> None:
+    """Another terminal can rewrite the saved context between this pick and its proof."""
+    mine, theirs = uuid4(), uuid4()
+    save = grade_setup_run.save_context
+
+    def save_then_theirs(output, run_id):
+        save(output, run_id)
+        save(output, str(theirs))
+
+    monkeypatch.setattr(grade_setup_run, "save_context", save_then_theirs)
+    monkeypatch.setattr(sys, "argv", ["grade_setup_run.py", "--run-id", str(mine)])
+
+    assert grade_setup_run.main() == 0
+
+    assert proof == [str(mine)]
+    receipt = json.loads(
+        (grade_setup_run.ROOT / ".local/lab-3/exercise-receipt.json").read_text()
+    )
+    assert receipt["agent_run_id"] == str(mine)
+
+
+@pytest.mark.parametrize("named", [True, False])
+def test_aurora_timing_out_after_the_pick_names_a_retry_of_that_run(
+    monkeypatch, capsys, proof, named
+) -> None:
+    from psycopg_pool import PoolTimeout
+
+    from service.participant_commands import grade_setup_run_command
+
+    picked = _run(5, "grounded")
+    _turns(monkeypatch, [picked])
+
+    def timed_out(lab, *, agent_run_id):
+        raise PoolTimeout("couldn't get a connection after 30.00 sec")
+
+    monkeypatch.setattr("service.lab_proof.completion_proof", timed_out)
+    argv = ["grade_setup_run.py"]
+    if named:
+        argv += ["--run-id", str(picked["agent_turn_id"])]
+    monkeypatch.setattr(sys, "argv", argv)
+
+    assert grade_setup_run.main() == 2
+
+    out = capsys.readouterr().out
+    assert "Lab 3 exercise: CANNOT GRADE - Aurora did not answer (PoolTimeout)." in out
+    assert "Traceback" not in out and "tell your facilitator" in out
+    assert out.endswith(grade_setup_run_command(str(picked["agent_turn_id"])) + "\n")
+    assert not (grade_setup_run.ROOT / ".local/lab-3/exercise-receipt.json").exists()
+
+
+def test_a_decision_aurora_cannot_save_prints_no_verdict(
+    monkeypatch, capsys, proof
+) -> None:
+    """The grade's verdict prints only once its record is saved, never beside a failure."""
+    import psycopg
+
+    from scripts import lab_exercise
+
+    def refused(*_args):
+        raise psycopg.OperationalError("connection timeout expired")
+
+    monkeypatch.setattr(lab_exercise, "record_decision", refused)
+    named = uuid4()
+    monkeypatch.setattr(sys, "argv", ["grade_setup_run.py", "--run-id", str(named)])
+
+    assert grade_setup_run.main() == 2
+
+    out = capsys.readouterr().out
+    assert "PASS" not in out and "Your Retrieval agent is live" not in out
+    assert "CANNOT GRADE - Aurora did not answer (OperationalError)." in out
+    assert not (grade_setup_run.ROOT / ".local/lab-3/exercise-receipt.json").exists()
+
+
+def test_an_empty_database_setting_names_the_prepared_terminal(
+    monkeypatch, capsys, workspace
+) -> None:
+    from service.db import DatabaseNotConfigured
+
+    @contextmanager
+    def connect():
+        raise DatabaseNotConfigured("DATABASE_URL is not configured")
+        yield
+
+    monkeypatch.setattr("service.db.connect", connect)
+    monkeypatch.setattr(sys, "argv", ["grade_setup_run.py"])
+
+    assert grade_setup_run.main() == 2
+
+    out = capsys.readouterr().out
+    assert out.startswith(
+        "Lab 3 exercise: CANNOT GRADE - DATABASE_URL is empty in this terminal"
+    )
+    assert "open a new terminal from the Terminal menu" in out and workspace == []

@@ -31,6 +31,7 @@ from scripts import lab_exercise
 from scripts.lab_request import sql_context
 from scripts.terminal_text import next_step, tidy, verdict
 from service.config import get_settings
+from service.db import DatabaseNotConfigured
 from service.lab_followup import follow_up_saved
 from service.participant_commands import grade_setup_run_command, lab3_steps
 
@@ -196,29 +197,21 @@ def main() -> int:
                 return 2
             run_id = pick.run["agent_turn_id"]
             pending = pick.pending_answers
+    except (DatabaseNotConfigured, psycopg.Error) as error:
+        return lab_exercise.aurora_unavailable(3, error, grade_setup_run_command())
     except (RuntimeError, ValueError) as error:
-        # An unreadable Lab 3 start record (a ValueError) names its own fix.
+        # An unreadable Lab 3 start record names its own fix.
         print(verdict(f"Lab 3 exercise: CANNOT GRADE - {error}"))
         next_step(
             "fix what it names, then run this command again:", grade_setup_run_command()
         )
         return 2
-    except psycopg.Error as error:
-        print(
-            verdict(
-                "Lab 3 exercise: CANNOT GRADE - Aurora did not answer "
-                f"({type(error).__name__})."
-            )
-        )
-        next_step(
-            "open a new terminal from the Terminal menu, which loads the workshop "
-            "settings, and run this command again; if it repeats, tell your "
-            "facilitator:",
-            grade_setup_run_command(),
-        )
-        return 2
     save_context(ROOT / ".local/lab-3", str(run_id))
-    return lab_exercise.main(["grade", "--lab", "3"], pending_answers=pending)
+    # The pick goes to the grade itself: the context file is the participant's to read,
+    # and a second grade in another terminal can rewrite it before this one reads it.
+    return lab_exercise.main(
+        ["grade", "--lab", "3"], pending_answers=pending, run_id=str(run_id)
+    )
 
 
 def save_context(output: Path, run_id: str) -> None:

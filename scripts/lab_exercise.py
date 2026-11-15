@@ -33,11 +33,13 @@ from typing import Any
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
+import psycopg
 from psycopg.rows import dict_row
 
 from scripts import lab2_tuning, lab_state
 from scripts.terminal_text import (
     CONTRIBUTION_COLORS,
+    REOPEN_TERMINAL,
     fill_words,
     next_step,
     tidy,
@@ -45,6 +47,7 @@ from scripts.terminal_text import (
     wrap_words,
 )
 from service.catalog_runtime import LIVE_INDEXES
+from service.db import DatabaseNotConfigured
 from service.lab_files import LAB2_SQL
 from service.participant_commands import (
     ADVANCE_TO_LAB_3,
@@ -522,8 +525,15 @@ def grade_lab2(values: dict[str, str]) -> dict[str, Any]:
     return report
 
 
-def grade_lab3(path: Path) -> dict[str, Any]:
-    """Check the participant's deployed agent and the answer they just produced."""
+def grade_lab3(path: Path, run_id: str | None = None) -> dict[str, Any]:
+    """Check the participant's deployed agent and the answer they just produced.
+
+    Args:
+        path: The agent file the participant saved.
+        run_id: The setup run to grade; without it, the run the lab's saved context names.
+            `grade_setup_run.py` passes its pick, so a second grade writing the context
+            meanwhile cannot change which run this one checks.
+    """
     from uuid import UUID
 
     from service.agentcore_transport import runtime_arn
@@ -545,8 +555,8 @@ def grade_lab3(path: Path) -> dict[str, Any]:
             "AgentCore Runtime is not connected. Ask your facilitator to check this "
             "workshop's deployment."
         )
-    values = load_context(3)
-    proof = completion_proof(3, agent_run_id=UUID(values["lab_agent_id"]))
+    run_id = run_id or load_context(3)["lab_agent_id"]
+    proof = completion_proof(3, agent_run_id=UUID(run_id))
     failures = [check.detail for check in proof.checks if not check.passed]
     asked = next(
         (c for c in proof.checks if c.name == "canonical mission request answered"),
@@ -573,15 +583,22 @@ def grade_lab3(path: Path) -> dict[str, Any]:
         "follow_up": deploy or not failed or bool(failed & FOLLOW_UP_CHECKS),
     }
     return {
-        "agent_run_id": values["lab_agent_id"],
+        "agent_run_id": run_id,
         "failures": failures,
         "needs": needs,
     }
 
 
 def record_decision(lab: int, report: dict[str, Any], values: dict[str, str]) -> None:
-    """Save the graded attempt in Aurora so the finale can read it back."""
-    run_id = values.get("lab_search_id") or values.get("lab_agent_id")
+    """Save the graded attempt in Aurora so the finale can read it back.
+
+    A Lab 3 report names the run it graded; the saved context can name a later one.
+    """
+    run_id = (
+        report.get("agent_run_id")
+        or values.get("lab_search_id")
+        or values.get("lab_agent_id")
+    )
     with _connect() as connection:
         connection.execute(DECISION_TABLE_SQL)
         connection.execute(
@@ -749,14 +766,14 @@ def _grade_next(lab: int, passed: bool, needs: dict[str, bool] | None = None) ->
         next_step(f"fix what FAIL names above, then {steps}", *commands)
 
 
-def grade(lab: int, work: Path) -> dict[str, Any]:
-    """Grade one lab's written work and return the report."""
+def grade(lab: int, work: Path, run_id: str | None = None) -> dict[str, Any]:
+    """Grade one lab's written work, or for Lab 3 its setup run, and return the report."""
     if not work.exists():
         raise ExerciseError(
             f"{_shown(work)} does not exist; save your work there first"
         )
     if lab == 3:
-        return grade_lab3(work)
+        return grade_lab3(work, run_id)
     values = load_context(lab)
     if lab == 2:
         return grade_lab2(values)
@@ -804,6 +821,18 @@ def argument_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def aurora_unavailable(lab: int, error: Exception, retry: str) -> int:
+    """Report a grade Aurora could not complete, and the same grade to run again."""
+    cause = (
+        "DATABASE_URL is empty in this terminal, so Aurora cannot be reached"
+        if isinstance(error, DatabaseNotConfigured)
+        else f"Aurora did not answer ({type(error).__name__})"
+    )
+    print(verdict(f"Lab {lab} exercise: CANNOT GRADE - {cause}."))
+    next_step(REOPEN_TERMINAL, retry)
+    return 2
+
+
 def wait_for_saved_answer(question: str, run_id: str) -> int:
     """Report an outstanding required turn without sending a second request."""
     label = "100W" if question == "follow_up" else "setup"
@@ -819,8 +848,18 @@ def wait_for_saved_answer(question: str, run_id: str) -> int:
 
 @tidy
 def main(
-    argv: list[str] | None = None, *, pending_answers: dict[str, str] | None = None
+    argv: list[str] | None = None,
+    *,
+    pending_answers: dict[str, str] | None = None,
+    run_id: str | None = None,
 ) -> int:
+    """Grade or compare one lab from the command line.
+
+    Args:
+        argv: The command's arguments; the process's own when omitted.
+        pending_answers: Lab 3 runs still within their time limit, by question.
+        run_id: The Lab 3 setup run `grade_setup_run.py` picked or was given.
+    """
     from dotenv import load_dotenv
 
     load_dotenv(REPO / ".env")
@@ -835,23 +874,28 @@ def main(
         next_step("hand off to Lab 3:", ADVANCE_TO_LAB_3)
         return 0
     work = args.work or default_work(args.lab)
+    # A grade Aurora cut off is run again on the same run, not on a newer pick.
+    retry = (
+        grade_setup_run_command(run_id) if run_id else grade_exercise_command(args.lab)
+    )
     try:
-        report = grade(args.lab, work)
+        report = grade(args.lab, work, run_id)
     except ExerciseError as error:
         print(verdict(f"Lab {args.lab} exercise: CANNOT GRADE - {error}"))
         next_step(
             "fix what it names, then grade again:", grade_exercise_command(args.lab)
         )
         return 2
+    except (DatabaseNotConfigured, psycopg.Error) as error:
+        return aurora_unavailable(args.lab, error, retry)
     # The setup picker can see a retry still running. A passing saved pair is
     # immediately usable; only a retry that could fix this grade warrants waiting.
     if args.lab == 3 and pending_answers and report["failures"]:
         needs = report["needs"]
         if not needs["deploy"]:
-            for question, run_id in pending_answers.items():
+            for question, pending_id in pending_answers.items():
                 if needs[question]:
-                    return wait_for_saved_answer(question, run_id)
-    {1: _print_lab1, 2: _print_lab2, 3: _print_lab3}[args.lab](report)
+                    return wait_for_saved_answer(question, pending_id)
     report.update(
         lab=args.lab,
         work=_shown(work),
@@ -863,8 +907,13 @@ def main(
         args.lab
     ]
     context = REPO / f".local/lab-{args.lab}/context.json"
-    if context.exists():
-        record_decision(args.lab, report, json.loads(context.read_text()))
+    try:
+        # Recorded before anything prints, so a cut-off write shows no verdict at all.
+        if context.exists():
+            record_decision(args.lab, report, json.loads(context.read_text()))
+    except (DatabaseNotConfigured, psycopg.Error) as error:
+        return aurora_unavailable(args.lab, error, retry)
+    {1: _print_lab1, 2: _print_lab2, 3: _print_lab3}[args.lab](report)
     receipt = REPO / f".local/lab-{args.lab}/exercise-receipt.json"
     receipt.parent.mkdir(parents=True, exist_ok=True)
     receipt.write_text(json.dumps(report, indent=2, default=str) + "\n")
