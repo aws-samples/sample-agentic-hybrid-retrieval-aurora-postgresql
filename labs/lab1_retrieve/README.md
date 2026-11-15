@@ -30,7 +30,7 @@ until you apply it:
 uv run python scripts/apply_search_functions.py
 ```
 
-## Prove the Logitech is first again
+## Prove fuzzy matching puts the Logitech back on the shortlist
 
 Repeat the identical request:
 
