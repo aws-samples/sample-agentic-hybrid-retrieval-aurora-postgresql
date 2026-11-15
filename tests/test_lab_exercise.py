@@ -535,3 +535,45 @@ def test_compare_names_an_unreachable_aurora_in_words_and_the_same_comparison(
     )
     assert "OperationalError" not in out and "Traceback" not in out
     assert out.count("Next:") == 1 and out.endswith(COMPARE_SETTINGS + "\n")
+
+
+class _RecordingConnection:
+    def __init__(self):
+        self.inserted = []
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_exc):
+        return False
+
+    def execute(self, sql, params=None):
+        if params:
+            self.inserted.append(params)
+
+
+@pytest.mark.parametrize(
+    ("report_run", "values", "expected"),
+    [
+        (
+            "agent-run",
+            {"lab_search_id": "search", "lab_agent_id": "saved"},
+            "agent-run",
+        ),
+        (None, {"lab_search_id": "search", "lab_agent_id": "saved"}, "search"),
+        (None, {"lab_agent_id": "saved"}, "saved"),
+    ],
+    ids=["the graded run wins", "then the saved search", "then the saved agent run"],
+)
+def test_the_recorded_decision_names_the_run_in_that_order(
+    monkeypatch, report_run, values, expected
+):
+    connection = _RecordingConnection()
+    monkeypatch.setattr(lab_exercise, "_connect", lambda: connection)
+    report = {"exercise": "managed_agent", "work_sha256": "w", "verdict": "PASS"}
+    if report_run:
+        report["agent_run_id"] = report_run
+
+    lab_exercise.record_decision(3, report, values)
+
+    assert [row[2] for row in connection.inserted] == [expected]

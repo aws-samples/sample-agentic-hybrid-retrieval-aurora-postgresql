@@ -1541,3 +1541,20 @@ def test_status_without_git_still_says_a_shipped_file_is_off_in_words(
 
     assert line.startswith("Lab 3: SHIPPED FILES CHANGED")
     assert "RetrievalFingerprintError" not in line
+
+
+def test_a_deploy_record_that_cannot_be_read_names_the_deploy_that_rewrites_it(capsys):
+    from scripts.lab_state import _status_next
+
+    _status_next(
+        [
+            "Lab 1: SOLVED",
+            "Lab 2: SOLVED",
+            "Lab 3: Deploy record rule: .local/agentcore/deploys.json cannot be read "
+            "(it is cut off or is not JSON); fix: deploy with X.",
+        ]
+    )
+
+    out = capsys.readouterr().out
+    assert "deploy your Retrieval agent, which writes the record again:" in out
+    assert out.rstrip().endswith(DEPLOY_AGENT) and out.count("Next:") == 1
