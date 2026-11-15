@@ -25,12 +25,24 @@ function formatter(currency: string): Intl.NumberFormat {
 }
 
 /**
- * Catalog text as it was ingested keeps the source site's `<br />` tags. In a
- * line of prose each run of them reads as one space, so a shopper never sees
- * the markup.
+ * A review's text as a shopper reads it on the source site. Amazon's review text
+ * marks an attached video as `[[VIDEOID:...]]`, which reads as nothing, and a
+ * linked product as `[[ASIN:B0... name]]`, which reads as its name.
+ * `scripts/cited_lines.py` applies the same rule in the terminal.
  */
-export function withoutBreakTags(text: string): string {
-  return text.replace(/(?:\s*<br\s*\/?\s*>\s*)+/gi, " ").trim();
+export function withoutReviewMarkup(text: string): string {
+  return text
+    .replace(/\[\[VIDEOID:[^\]]*\]\]\s*/g, "")
+    .replace(/\[\[ASIN:[^\]\s]*\s*([^\]]*)\]\]/g, "$1");
+}
+
+/**
+ * Catalog text as it was ingested keeps the source site's `<br />` tags and a
+ * review's markup. In a line of prose each run of tags reads as one space, so a
+ * shopper never sees either.
+ */
+export function readableCatalogText(text: string): string {
+  return withoutReviewMarkup(text).replace(/(?:\s*<br\s*\/?\s*>\s*)+/gi, " ").trim();
 }
 
 /** `34900` -> `"$349.00"`. Division happens once, at the point of display. */

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatCategoryKey, specFacts, withoutBreakTags } from "./format";
+import { formatCategoryKey, specFacts, readableCatalogText } from "./format";
 
 describe("specFacts", () => {
   const monitor = {
@@ -41,14 +41,24 @@ describe("formatCategoryKey", () => {
   });
 });
 
-describe("withoutBreakTags", () => {
+describe("readableCatalogText", () => {
   it("reads a review's break tags as single spaces", () => {
     const body = "I primarily purchased this model for the docking station.<br /><br />What I like..<br />1. Single USB C cable";
-    expect(withoutBreakTags(body)).toBe("I primarily purchased this model for the docking station. What I like.. 1. Single USB C cable");
+    expect(readableCatalogText(body)).toBe("I primarily purchased this model for the docking station. What I like.. 1. Single USB C cable");
   });
 
   it("accepts every spelling of the tag and leaves other text alone", () => {
-    expect(withoutBreakTags("a<br>b<BR/>c< br / >d")).toBe("a b c< br / >d");
-    expect(withoutBreakTags("No markup here.")).toBe("No markup here.");
+    expect(readableCatalogText("a<br>b<BR/>c< br / >d")).toBe("a b c< br / >d");
+    expect(readableCatalogText("No markup here.")).toBe("No markup here.");
+  });
+
+  it("drops a review's video marker and reads a product link as its name", () => {
+    // Both markers as the catalog's own reviews carry them (products 1546887 and 1145558).
+    expect(readableCatalogText("[[VIDEOID:d68855ad1da20acef81650d950487c29]] I bought this to use as a second monitor."))
+      .toBe("I bought this to use as a second monitor.");
+    expect(readableCatalogText("Deeper than my old [[ASIN:B003XU6H8I Bose IE2 audio headphones]] with better isolation."))
+      .toBe("Deeper than my old Bose IE2 audio headphones with better isolation.");
+    expect(readableCatalogText("A link with no name [[ASIN:B003XU6H8I]] reads as nothing."))
+      .toBe("A link with no name  reads as nothing.");
   });
 });

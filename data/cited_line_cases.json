@@ -1,5 +1,5 @@
 {
-  "description": "The line each citation was cited for. ui/src/components/ask-mosaic/quoteLines.ts (Ask Mosaic, Playground) and scripts/cited_lines.py (ask_agent.py) must both choose `line`, mark exactly `marked` in it and report `unstated`. The ViewSonic records are the catalog's own text for product 1551237 (Amazon Reviews 2023), the listing and review the recorded 100W answer cited; the others are written to isolate one rule each.",
+  "description": "The line of a cited record that Mosaic finds closest to the claim citing it: a citation covers its whole record, and the agent chooses no line. ui/src/components/ask-mosaic/quoteLines.ts (Ask Mosaic, Playground) and scripts/cited_lines.py (ask_agent.py) must both choose `line`, mark exactly `marked` in it and report `unstated`. The ViewSonic records are the catalog's own text for product 1551237 (Amazon Reviews 2023), the listing and review the recorded 100W answer cited. The two marker reviews are the catalog's own text for products 1546887 and 1145558, whose review markup a walk on 14 November 2026 saw quoted; the others are written to isolate one rule each.",
   "records": {
     "viewsonic_listing": {
       "evidence_type": "product_spec",
@@ -20,6 +20,14 @@
     "title_only_figure": {
       "evidence_type": "product_spec",
       "quote": "Title: Example 32 Inch Monitor\n\nDescription:\nA monitor for a home office.\nIt has a USB hub for accessories."
+    },
+    "review_with_video_marker": {
+      "evidence_type": "customer_review",
+      "quote": "[[VIDEOID:d68855ad1da20acef81650d950487c29]] I bought this to use as a second monitor, I usually do not do a lot of my professional work on the second monitor but use it for extra space, documents, email, and development. However that being said it is better than what I need for this purpose for the price, I would not have an issue doing some simple design work on it as well. I have only had it a few days so will update my review as time goes on if anything changes.<br /><br />It was simple to calibrate the only thing I do not like is all the controls are on the back and I prefer them on the bottom or on the front where I can access them easier. That is just my personal preference and is not a deal breaker once I have it calibrated. I generally never change the controls again.<br /><br />I have attached a video showing the desktop with my dynamic wallpaper playing."
+    },
+    "review_with_product_link": {
+      "evidence_type": "customer_review",
+      "quote": "Frankly, I'm a little disappointed by these headphones.  I consider myself to be a bit of an audiophile, so I wanted to purchase some in-ear headphones with spectacular sound, and they most certainly deliver on that front.  The audio is much more crisp and deep than my old [[ASIN:B003XU6H8I Bose IE2 audio headphones]] with much better sound isolation.<br /><br />However, it is equally important to me that headphones are comfortable and these are not.  The first 30-45 minutes of use is fine, no discomfort whatsoever.  But after this point, the in-ear support loops tend to cause my ear to ache and feel irritated due to their firmness. Additionally, it took quite a while for me to determine which earphone tips were the best fit for me.  Often the tips were too large (even the smallest ones) and would create an uncomfortable air pressure in my ears when inserting them due to how they sealed off my ear.  I ended up using two different sizes for each ear which has so far yielded the best results.<br /><br />My bottom-line opinion: if comfort is not a huge factor, you don't plan on sleeping with them in, or if you plan on wearing them for less than 45 minutes at a time, these will be great for you.  As I said, the audio quality is great, but it's relief to my ears when I get to take them out."
     }
   },
   "cases": [
@@ -138,6 +146,24 @@
       "number": 1,
       "answer": "The VG2756-4K's USB hub handles connecting 3 peripherals [1].",
       "line": "That’s not all, the integrated USB hub also provides single-cable simplicity for connecting and charging your peripherals and accessories.",
+      "marked": [],
+      "unstated": []
+    },
+    {
+      "name": "a review's video marker is not quoted",
+      "record": "review_with_video_marker",
+      "number": 1,
+      "answer": "One reviewer uses it as a second monitor for documents, email and development [1].",
+      "line": "I bought this to use as a second monitor, I usually do not do a lot of my professional work on the second monitor but use it for extra space, documents, email, and development.",
+      "marked": [],
+      "unstated": []
+    },
+    {
+      "name": "a review's product link reads as the product's name",
+      "record": "review_with_product_link",
+      "number": 1,
+      "answer": "One reviewer finds the sound more crisp and deep than their old Bose IE2 headphones [1].",
+      "line": "The audio is much more crisp and deep than my old Bose IE2 audio headphones with much better sound isolation.",
       "marked": [],
       "unstated": []
     }

@@ -34,7 +34,7 @@ from urllib.request import Request, urlopen
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from scripts.cited_lines import cited_excerpt, clip_around
+from scripts.cited_lines import cited_excerpt, clip_around, without_review_markup
 from scripts.lab_state import lab_3_solved
 from scripts.progress import Waiting, bar, can_redraw
 from scripts.prove_lab import LabValidationError, error_detail
@@ -283,11 +283,11 @@ def _clip(text: str, limit: int) -> str:
 
 
 def _quote(text: str) -> str:
-    return _clip(text, QUOTE_CHARS)
+    return _clip(without_review_markup(text), QUOTE_CHARS)
 
 
 def _cited_quote(citation: dict[str, Any], answer: str) -> list[str]:
-    """The record's line the answer cited, its figure in bold, and any figure it never states.
+    """The record's line closest to the claim, its figure in bold, and any figure it never states.
 
     Ask Mosaic quotes the same line (`scripts/cited_lines.py`). A record with no quotable
     line, only a title, keeps its opening words.

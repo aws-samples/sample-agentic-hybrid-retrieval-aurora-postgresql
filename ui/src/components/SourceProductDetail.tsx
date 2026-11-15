@@ -3,7 +3,7 @@ import { ExternalLink, Heart, Sparkles, Star } from "lucide-react";
 import { useState } from "react";
 import { Link } from "wouter";
 import { useCommerce } from "../commerce";
-import { formatAttributeLabel, formatAttributeValue, formatPrice, leafCategory, specFacts } from "../format";
+import { formatAttributeLabel, formatAttributeValue, formatPrice, leafCategory, specFacts, withoutReviewMarkup } from "../format";
 import { productImage } from "../media";
 import type { ProductDetail, ProductSummary } from "../types";
 import { ProductCard } from "./ProductCard";
@@ -11,7 +11,7 @@ import { ErrorState, LoadingState } from "./States";
 
 function ExpandableText({ text }: { text: string }) {
   const [expanded, setExpanded] = useState(false);
-  const displayText = text.replace(/<br\s*\/?\s*>/gi, "\n");
+  const displayText = withoutReviewMarkup(text).replace(/<br\s*\/?\s*>/gi, "\n");
   return (
     <div className="source-expandable-text">
       <p className={!expanded && text.length > 320 ? "source-text-preview" : ""}>{displayText}</p>

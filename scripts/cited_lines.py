@@ -1,9 +1,12 @@
-"""The line of an evidence record that a citation was cited for, as the terminal prints it.
+"""The line of a cited record closest to the claim citing it, as the terminal prints it.
+
+A citation covers its whole record; the agent chooses no line. This picks the one to show.
 
 Ask Mosaic and Playground choose the same line in `ui/src/components/ask-mosaic/
 quoteLines.ts`; `data/cited_line_cases.json` holds both to one set of cases, and the unit
 spellings are the answer check's own (`service.synthesis.UNIT_ALIASES`). A record is stored
-as ingested, with `Title:` and `Categories:` headers and `<br />` breaks; neither is quoted.
+as ingested, with `Title:` and `Categories:` headers, `<br />` breaks and a review's
+`[[VIDEOID:...]]` and `[[ASIN:...]]` markup; none of it is quoted.
 """
 
 from __future__ import annotations
@@ -14,6 +17,8 @@ from dataclasses import dataclass, field
 from service.synthesis import UNIT_ALIASES
 
 _HEADER = re.compile(r"^(?:title|categories)\s*:", re.IGNORECASE)
+_VIDEO_MARKER = re.compile(r"\[\[VIDEOID:[^\]]*\]\]\s*")
+_PRODUCT_LINK = re.compile(r"\[\[ASIN:[^\]\s]*\s*([^\]]*)\]\]")
 _DESCRIPTION_LABEL = re.compile(r"^description\s*:\s*", re.IGNORECASE)
 # A sentence end, then a capital or digit; sellers also run sentences together ("more.A new").
 _SENTENCE_END = re.compile(r"(?<=[a-z0-9”\")][.!?])(?:\s+|(?=[A-Z]))(?=[A-Z0-9“\"(])")
@@ -91,10 +96,21 @@ class CitedExcerpt:
     unstated: list[str] = field(default_factory=list)
 
 
+def without_review_markup(text: str) -> str:
+    """A review's text as a shopper reads it on the source site.
+
+    Amazon's review text marks an attached video as `[[VIDEOID:...]]`, which reads as
+    nothing, and a linked product as `[[ASIN:B0... name]]`, which reads as its name.
+    """
+    return _PRODUCT_LINK.sub(r"\1", _VIDEO_MARKER.sub("", text))
+
+
 def record_sentences(quote: str) -> list[str]:
     """Sentences and spec lines of a record, boilerplate and markup removed."""
     lines = []
-    for raw in re.split(r"<br\s*/?>|\n", quote, flags=re.IGNORECASE):
+    for raw in re.split(
+        r"<br\s*/?>|\n", without_review_markup(quote), flags=re.IGNORECASE
+    ):
         line = _DESCRIPTION_LABEL.sub("", raw.strip())
         if line and not _HEADER.match(line):
             lines.extend(part.strip() for part in _SENTENCE_END.split(line))

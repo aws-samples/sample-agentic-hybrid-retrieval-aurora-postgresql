@@ -12,7 +12,7 @@ import {
   formatPrice,
   isPurchasable,
   leafCategory,
-  withoutBreakTags,
+  readableCatalogText,
 } from "../format";
 import { listingPriceCents } from "../format";
 import { productImage } from "../media";
@@ -285,7 +285,7 @@ export function ProductDrawer({
 
                   {review ? (
                     <blockquote>
-                      <p>“{withoutBreakTags(review.body)}”</p>
+                      <p>“{readableCatalogText(review.body)}”</p>
                       <cite>
                         {review.source_name}
                         {review.verified_purchase ? " · Verified purchase" : ""}

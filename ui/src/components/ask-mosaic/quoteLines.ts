@@ -1,4 +1,5 @@
 import type { AgentCitation } from "../../types";
+import { withoutReviewMarkup } from "../../format";
 import { isReview } from "./comparison";
 import unitAliases from "./unitAliases.json";
 
@@ -7,7 +8,8 @@ import unitAliases from "./unitAliases.json";
  *
  * A record is stored as it was ingested: a listing starts with `Title:` and
  * `Categories:` headers and a `Description:` label, and a review can carry
- * `<br />` breaks. Neither is something to quote at a shopper. Every line
+ * `<br />` breaks and `[[VIDEOID:...]]` or `[[ASIN:...]]` markup. None of it is
+ * something to quote at a shopper. Every line
  * returned here is an exact piece of the record's own words, cut at sentence
  * ends, so a fragment never stands in for a sentence.
  */
@@ -20,7 +22,7 @@ const MIN_LINE = 12;
 
 /** Sentences and spec lines of a record, boilerplate and markup removed. */
 export function recordSentences(quote: string): string[] {
-  return quote
+  return withoutReviewMarkup(quote)
     .split(/<br\s*\/?>|\n/i)
     .map((line) => line.trim().replace(DESCRIPTION_LABEL, ""))
     .filter((line) => line && !HEADER.test(line))
@@ -154,11 +156,11 @@ export function citedExcerpt(citation: AgentCitation, answer: string): CitedExce
 
 /**
  * Every line of a record, for “Read the whole listing”: the title as the product's name,
- * then the description and features in full. Only the ingest labels, the category path
- * and `<br />` breaks are left out.
+ * then the description and features in full. Only the ingest labels, the category path,
+ * `<br />` breaks and a review's markup are left out.
  */
 export function recordText(quote: string): string[] {
-  return quote
+  return withoutReviewMarkup(quote)
     .split(/<br\s*\/?>|\n/i)
     .map((line) => line.trim().replace(/^(?:title|description)\s*:\s*/i, ""))
     .filter((line) => line && !/^categories\s*:/i.test(line));

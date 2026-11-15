@@ -170,9 +170,20 @@ def test_a_quote_shows_the_source_line_breaks_as_spaces():
 
     text = ask_agent.render(run)
 
-    # A break ends a line, as a sentence does; the line the answer cited is quoted whole.
+    # A break ends a line, as a sentence does; the line closest to the claim is quoted whole.
     assert '"Charges my laptop."' in text
     assert "<br" not in text.lower()
+
+
+def test_a_short_review_quote_drops_its_video_marker():
+    """A review too short to quote a line keeps its opening words, without its markup."""
+    run = grounded()
+    run["citations"][1]["quote"] = "[[VIDEOID:d68855ad1da20acef81650d950487c29]] Great."
+
+    text = ask_agent.render(run)
+
+    assert '"Great."' in text
+    assert "VIDEOID" not in text
 
 
 def test_a_declined_answer_names_its_reason_and_says_nothing_was_cited():

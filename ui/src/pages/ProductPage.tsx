@@ -25,7 +25,7 @@ import { catalogReturnPath } from "../navigation";
 import { ProductCard } from "../components/ProductCard";
 import { SourceProductDetail } from "../components/SourceProductDetail";
 import { ErrorState, LoadingState, NotFoundState } from "../components/States";
-import { productFacts, formatAttributeLabel, formatAttributeValue, formatAvailability, formatPrice, isPurchasable, leafCategory, withoutBreakTags } from "../format";
+import { productFacts, formatAttributeLabel, formatAttributeValue, formatAvailability, formatPrice, isPurchasable, leafCategory, readableCatalogText } from "../format";
 import { productImage, productImageMap } from "../media";
 import type { ProductDetail, ProductSummary } from "../types";
 
@@ -403,7 +403,7 @@ export function ProductPage() {
             </dl>
             {product.reviews.length ? (
               <blockquote>
-                <p>“{withoutBreakTags(product.reviews[0].body)}”</p>
+                <p>“{readableCatalogText(product.reviews[0].body)}”</p>
                 <cite>
                   {product.reviews[0].source_name}
                   {product.reviews[0].verified_purchase ? " · Verified purchase" : ""}
@@ -462,7 +462,7 @@ export function ProductPage() {
                   </div>
                 ) : null}
                 {review.title ? <strong>{review.title}</strong> : null}
-                <p>{withoutBreakTags(review.body)}</p>
+                <p>{readableCatalogText(review.body)}</p>
                 <cite>
                   {review.source_name}
                   {review.verified_purchase ? " · Verified purchase" : ""}
@@ -477,7 +477,7 @@ export function ProductPage() {
               {product.questions.map((question) => (
                 <blockquote key={question.question_id}>
                   <strong>{question.question}</strong>
-                  <p>{withoutBreakTags(question.answer)}</p>
+                  <p>{readableCatalogText(question.answer)}</p>
                   <cite>
                     {question.source_name} · another customer&apos;s answer
                     {question.other_answers > 0 ? ` · ${question.other_answers} more` : ""}
