@@ -118,12 +118,19 @@ def record_sentences(quote: str) -> list[str]:
 
 
 def cited_claim(answer: str, number: int) -> str:
-    """The clause of the answer that carries citation `number`, without citation marks."""
-    at = answer.find(f"[{number}]")
-    if at < 0:
-        return ""
-    clause = _BOUNDARY.split(answer[:at])[-1]
-    return re.sub(r"\[\d+\]", "", clause).strip()
+    """Every clause of the answer that carries citation `number`, without citation marks.
+
+    A record gets one excerpt, so it has to serve each sentence that cites it: with only the
+    first, a USB-hub sentence before a 90W one (both citing [1]) picked a line with no wattage.
+    """
+    marker = f"[{number}]"
+    clauses = []
+    at = answer.find(marker)
+    while at >= 0:
+        clause = _BOUNDARY.split(answer[:at])[-1]
+        clauses.append(re.sub(r"\[\d+\]", "", clause).strip())
+        at = answer.find(marker, at + len(marker))
+    return " ".join(clause for clause in dict.fromkeys(clauses) if clause)
 
 
 def _terms(text: str) -> set[str]:

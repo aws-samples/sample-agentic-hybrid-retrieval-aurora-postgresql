@@ -33,13 +33,19 @@ export function recordSentences(quote: string): string[] {
 
 const BOUNDARY = /(?<=[.!?])\s+(?=[A-Z#])|[;\n]/;
 
-/** The clause of the answer that carries citation `number`, without other citation marks. */
+/**
+ * Every clause of the answer that carries citation `number`, without citation marks. A record
+ * gets one excerpt, so it has to serve each sentence that cites it: with only the first, a
+ * USB-hub sentence before a 90W one (both citing [1]) picked a line with no wattage.
+ */
 export function citedClaim(answer: string, number: number): string {
-  const at = answer.indexOf(`[${number}]`);
-  if (at < 0) return "";
-  const before = answer.slice(0, at);
-  const clause = before.split(BOUNDARY).at(-1) ?? "";
-  return clause.replace(/\[\d+\]/g, "").trim();
+  const marker = `[${number}]`;
+  const clauses: string[] = [];
+  for (let at = answer.indexOf(marker); at >= 0; at = answer.indexOf(marker, at + marker.length)) {
+    const clause = answer.slice(0, at).split(BOUNDARY).at(-1) ?? "";
+    clauses.push(clause.replace(/\[\d+\]/g, "").trim());
+  }
+  return [...new Set(clauses)].filter(Boolean).join(" ");
 }
 
 const STOPWORDS = new Set([

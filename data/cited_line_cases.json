@@ -166,6 +166,17 @@
       "line": "The audio is much more crisp and deep than my old Bose IE2 audio headphones with much better sound isolation.",
       "marked": [],
       "unstated": []
+    },
+    {
+      "name": "a record cited by two sentences serves both, whichever comes first",
+      "record": "viewsonic_listing",
+      "number": 1,
+      "answer": "The ViewSonic VG2756-4K's integrated USB hub connects and charges peripherals over a single cable [1]. Its listing states 90W charging over one cable [1], below the 100W this laptop needs.",
+      "line": "DITCH THE DOCK: Ethernet RJ45 and USB-C connectivity for fast data, audio and video transfer, 90W charging over one cable",
+      "marked": [
+        "90W"
+      ],
+      "unstated": []
     }
   ]
 }
