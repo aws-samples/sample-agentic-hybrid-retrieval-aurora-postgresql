@@ -1479,52 +1479,125 @@ def _lab_3_deployed_unchecked(repo: Path) -> None:
     )
 
 
-def _git_repo(repo: Path) -> None:
+def _git(repo: Path, *args: str) -> None:
     import subprocess
 
-    def git(*args: str) -> None:
-        subprocess.run(["git", "-C", str(repo), *args], check=True, capture_output=True)
+    subprocess.run(["git", "-C", str(repo), *args], check=True, capture_output=True)
 
-    (repo / "db/sql").mkdir(parents=True, exist_ok=True)
-    (repo / "db/sql/00_extensions.sql").write_text("-- shipped\n")
-    git("init", "-q")
-    git("add", ".")
-    git(
-        "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "x"
+
+@pytest.fixture
+def complete_tree(tmp_path: Path) -> Path:
+    """Every file the deploy check hashes, copied from this checkout and committed.
+
+    The tree is whole, so the check passes until a test changes one file: a status
+    line that names the wrong cause then fails the test.
+    """
+    from service.lab_validation_receipt import _code_files
+    from service.retrieval_fingerprint import _category_files
+
+    files = [
+        path
+        for group in (*_category_files(REPO).values(), tuple(_code_files(REPO)))
+        for path in group
+    ]
+    for source in files:
+        destination = tmp_path / source.relative_to(REPO)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        copy2(source, destination)
+    _lab_3_started(tmp_path)
+    _git(tmp_path, "init", "-q")
+    _git(tmp_path, "add", "-f", ".")
+    _git(
+        tmp_path,
+        "-c",
+        "user.name=t",
+        "-c",
+        "user.email=t@example.com",
+        "commit",
+        "-q",
+        "-m",
+        "tree",
     )
+    from service.lab_validation_receipt import application_digest
+
+    deploys = tmp_path / ".local" / "agentcore" / "deploys.json"
+    deploys.parent.mkdir(parents=True, exist_ok=True)
+    deploys.write_text(
+        json.dumps(
+            [
+                {
+                    "deployed_at": "2026-10-29T11:00:00+00:00",
+                    "runtime_version": "2",
+                    "application_sha256": application_digest(tmp_path),
+                }
+            ]
+        )
+    )
+    return tmp_path
+
+
+def test_a_complete_tree_reads_as_deployed_not_as_a_shipped_file_problem(
+    complete_tree: Path,
+) -> None:
+    from scripts.lab_state import status_line
+
+    assert status_line(3, repo=complete_tree).startswith("Lab 3: DEPLOYED, NOT YET")
 
 
 @pytest.mark.parametrize(
-    ("change", "state", "command"),
+    ("change", "state"),
     [
-        ("add", "UNEXPECTED FILE (db/sql/99_extra.sql)", "rm db/sql/99_extra.sql"),
+        (("add", "db/sql/99_extra.sql"), "UNEXPECTED FILE (db/sql/99_extra.sql)"),
+        (("add", "db/sql/my notes.sql"), "UNEXPECTED FILE (db/sql/my notes.sql)"),
         (
-            "delete",
+            ("delete", "db/sql/00_extensions.sql"),
             "SHIPPED FILE DELETED (db/sql/00_extensions.sql)",
-            "git restore db/sql/00_extensions.sql",
+        ),
+        (("delete", "uv.lock"), "SHIPPED FILE DELETED (uv.lock)"),
+        (
+            ("delete", "scripts/package_agentcore.py"),
+            "SHIPPED FILE DELETED (scripts/package_agentcore.py)",
+        ),
+        (
+            ("delete", "labs/lab1_retrieve/hybrid_search.sql"),
+            "SHIPPED FILE DELETED (labs/lab1_retrieve/hybrid_search.sql)",
         ),
     ],
+    ids=["added", "added with a space", "sql deleted", "lock", "script", "lab file"],
 )
-def test_status_names_a_stray_or_missing_shipped_file_in_words(
-    lab_repo: Path, capsys, change, state, command
+@pytest.mark.parametrize("harmless_note", [False, True], ids=["alone", "with a note"])
+@pytest.mark.parametrize("git", [True, False], ids=["git", "no git"])
+def test_status_names_the_file_that_stops_the_deploy_check(
+    complete_tree: Path, capsys, change, state, harmless_note, git
 ) -> None:
     from scripts.lab_state import _status_next, status_line
 
-    _lab_3_started(lab_repo)
-    _lab_3_deployed_unchecked(lab_repo)
-    _git_repo(lab_repo)
-    if change == "add":
-        (lab_repo / "db/sql/99_extra.sql").write_text("-- mine\n")
+    kind, name = change
+    if kind == "delete":
+        (complete_tree / name).unlink()
     else:
-        (lab_repo / "db/sql/00_extensions.sql").unlink()
+        (complete_tree / name).write_text("-- mine\n")
+    if harmless_note:
+        (complete_tree / "db/sql/notes.txt").write_text("a harmless note\n")
+    if not git:
+        if kind == "add":
+            pytest.skip("an added file is named from Git's list of shipped files")
+        from shutil import rmtree
 
-    line = status_line(3, repo=lab_repo)
+        rmtree(complete_tree / ".git")
 
-    assert line.startswith(f"Lab 3: {state}")
-    assert "RetrievalFingerprintError" not in line and "_EXPECTED" not in line
+    line = status_line(3, repo=complete_tree)
+
+    # Without Git nothing says which SQL file db/sql shipped, so a deleted one is unnamed.
+    if not git and name == "db/sql/00_extensions.sql":
+        assert line == "Lab 3: SHIPPED FILES CHANGED"
+        return
+    assert line == f"Lab 3: {state}"
     _status_next(["Lab 1: SOLVED", "Lab 2: SOLVED", line])
     out = capsys.readouterr().out
-    assert command in out and out.count("Next:") == 1
+    assert out.count("Next:") == 1
+    assert ("rm " if kind == "add" else "git restore ") in out
+    assert "notes.txt" not in line
 
 
 def test_status_without_git_still_says_a_shipped_file_is_off_in_words(
@@ -1537,7 +1610,7 @@ def test_status_without_git_still_says_a_shipped_file_is_off_in_words(
 
     line = status_line(3, repo=lab_repo)
 
-    assert line.startswith("Lab 3: SHIPPED FILES CHANGED")
+    assert line.startswith("Lab 3: SHIPPED FILE DELETED (db/config/retrieval.yaml)")
     assert "RetrievalFingerprintError" not in line
 
 

@@ -1130,25 +1130,40 @@ def lab_3_solved(repo: Path = REPO) -> bool:
 UNEXPECTED_FILE = "UNEXPECTED FILE"
 SHIPPED_FILE_MISSING = "SHIPPED FILE DELETED"
 SHIPPED_FILES_CHANGED = "SHIPPED FILES CHANGED"
-# Where an added SQL file or a deleted shipped file changes what the deploy check hashes.
-_SHIPPED_DIRS = ("db", "service", "scripts", "data/evals")
 
 
 def _shipped_files_line(repo: Path) -> str:
-    """Lab 3's state when the shipped files differ from the workshop's, naming the file.
+    """Lab 3's state when a file the deploy check hashes is gone or added, naming it.
 
-    The deploy check hashes every SQL file under db/sql and the other files the workshop
-    ships, so one added or deleted file stops it from reading the code.
+    The file comes from the check's own manifest: a listed file that is no longer there,
+    or a SQL file under db/sql that Git does not track. Git's status would also name
+    harmless files, such as a note saved beside the SQL.
     """
-    listed, _ = _git(
-        repo, "status", "--porcelain", "--untracked-files=all", "--", *_SHIPPED_DIRS
-    )
-    for row in (listed or b"").decode("utf-8", errors="replace").splitlines():
-        code, path = row[:2], row[3:]
-        if code == "??" and path.startswith("db/sql/"):
-            return f"Lab 3: {UNEXPECTED_FILE} ({path})"
-        if "D" in code:
-            return f"Lab 3: {SHIPPED_FILE_MISSING} ({path})"
+    from service.lab_validation_receipt import _code_files
+    from service.retrieval_fingerprint import _category_files
+
+    listed = [
+        *(path for group in _category_files(repo).values() for path in group),
+        *_code_files(repo),
+    ]
+    shipped, _ = _git(repo, "ls-files", "-z", "--", "db/sql")
+    tracked = {
+        name for name in (shipped or b"").decode("utf-8", "replace").split("\0") if name
+    }
+    absent = [path for path in listed if not path.is_file()]
+    absent += [repo / name for name in sorted(tracked) if not (repo / name).is_file()]
+    if absent:
+        return (
+            f"Lab 3: {SHIPPED_FILE_MISSING} ({absent[0].relative_to(repo).as_posix()})"
+        )
+    if tracked:
+        added = sorted(
+            path.relative_to(repo).as_posix()
+            for path in (repo / "db" / "sql").rglob("*.sql")
+            if path.relative_to(repo).as_posix() not in tracked
+        )
+        if added:
+            return f"Lab 3: {UNEXPECTED_FILE} ({added[0]})"
     return f"Lab 3: {SHIPPED_FILES_CHANGED}"
 
 
@@ -1174,7 +1189,7 @@ def _lab_3_status(repo: Path) -> str:
     latest = deploys[-1]
     try:
         current = application_digest(repo)
-    except RetrievalFingerprintError:
+    except (RetrievalFingerprintError, OSError):
         return _shipped_files_line(repo)
     if latest.application_sha256 != current:
         return (
