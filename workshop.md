@@ -181,8 +181,9 @@ Read their actual ranks; do not demand a recorded example's exact positions.
 In **See what reranking changes**, distinguish reaching the shortlist from reaching the page.
 `uv run python labs/lab2_rank/rerank_off_on.py` runs the request with reranking
 off, then on; it shows a gain on size and resolution, not proof
-of charging compatibility. If reranking did not run on the second search, it says so, exits
-non-zero and names itself again rather than the next exercise. The request filters Electronics and Monitor; its
+of charging compatibility. If reranking did not run on the second search, it says so and exits
+non-zero. When the search returned no candidates it points to
+`lab_state.py validate --lab 2`; otherwise it names itself again. The request filters Electronics and Monitor; its
 size, resolution and power requirements are search text, not SQL predicates.
 
 Run the judged-query comparison and ask which setting to test next and what
@@ -231,11 +232,16 @@ To read a cited record whole, participants run
 (`--run-id` reads another, and is needed before Lab 3 starts, when no run is graded), so a
 later question from Ask Mosaic or Playground cannot take its place. It prints the answer's sentences that cite that number and the record the run saved,
 its quoted line marked, and asks nothing again.
+Ctrl+C in any of these commands stops it with "Stopped before it finished.", the same
+command to run again (never a connection string) and exit status 130.
 Once `status` reads Lab 3 SOLVED, an answer's `Next:` and a
 `deploy_agentcore.py verify` recheck's name the guide's next step instead of the completion
 check or the setup request; a new deploy makes Lab 3 unproved again, and an edit to the agent
 after a pass reads `REPAIRED, NOT DEPLOYED` until it is deployed. A lab whose start record
-cannot be read reads `START RECORD UNREADABLE`; its `Next:` lines copy the lab file aside,
+cannot be read reads `START RECORD UNREADABLE`; a file the deploy check needs that was
+added under `db/sql` or deleted reads `UNEXPECTED FILE` or `SHIPPED FILE DELETED` on Lab 3
+(`SHIPPED FILES CHANGED` when Git cannot say which), with the `rm` or `git restore` that
+fixes it; its `Next:` lines copy the lab file aside,
 reset the lab, copy the file back and then apply or deploy it, so no edit is lost. One drafting call rewrites a draft its checks refuse up to
 twice before the agent hears of it. When a call still ends refused, that
 `synthesize_cited_answer` step reads `refused` in yellow, not `error`, with
