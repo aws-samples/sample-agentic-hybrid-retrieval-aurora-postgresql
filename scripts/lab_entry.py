@@ -35,7 +35,7 @@ from scripts.lab_state import (
     set_lab_state,
     source_problem,
 )
-from scripts.terminal_text import GREEN, tint, verdict
+from scripts.terminal_text import GREEN, fill_words, next_text, tint, verdict
 from service.participant_commands import (
     ADVANCE_TO_LAB_2,
     ADVANCE_TO_LAB_3,
@@ -71,13 +71,16 @@ class StartRecordError(LabEntryError, ValueError):
     def __init__(self, lab: int, problem: str) -> None:
         self.lab = lab
         self.problem = problem
-        _, (save, reset, restore, runs) = start_record_recovery(lab)
-        kept = "agent" if lab == 3 else f"Lab {lab} SQL"
-        again = " and ask both Lab 3 questions again" if lab == 3 else ""
-        super().__init__(
+        sentence, commands = start_record_recovery(lab)
+        self.finding = (
             f"Lab {lab} start record rule: .local/lab-{lab}/start.json cannot be read "
-            f"({problem}); fix: save your {kept} with {save}, run {reset}, put it back "
-            f"with {restore}, then run {runs}{again}."
+            f"({problem})."
+        )
+        again = ["Then ask both Lab 3 questions again."] if lab == 3 else []
+        super().__init__(
+            "\n\n".join(
+                [fill_words(self.finding, 100), next_text(sentence, *commands), *again]
+            )
         )
 
 

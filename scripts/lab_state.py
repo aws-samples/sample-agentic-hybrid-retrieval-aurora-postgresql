@@ -1460,10 +1460,13 @@ def _run_action(args: argparse.Namespace) -> int:
             print(verdict(state, words=STATE_COLORS))
         _status_next(lines)
         return 0
-    if args.action == "finish":
-        return finish_lab(args.lab)
-    if args.action == "skip-to":
-        return skip_to_lab(args.lab)
+    if args.action in {"finish", "skip-to"}:
+        from scripts.lab_entry import StartRecordError
+
+        try:
+            return (finish_lab if args.action == "finish" else skip_to_lab)(args.lab)
+        except StartRecordError as error:
+            raise SystemExit(str(error)) from error
     if args.action == "reset" and args.source_only:
         # Provisioning installs Lab 1's fault before the API exists, then
         # applies it itself. Only the named lab's seam changes.

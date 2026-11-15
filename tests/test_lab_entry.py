@@ -882,3 +882,23 @@ def test_entry_command_names_the_hand_off_that_prepares_a_lab(tmp_path):
 
     lab_entry._save(3, tmp_path, {"lab": 3, "version": 1, "steps": {}})
     assert lab_entry.entry_command(3, tmp_path) == start_command(3)
+
+
+def test_the_start_record_recovery_puts_each_command_on_its_own_line():
+    error = lab_entry.StartRecordError(3, "it is cut off or is not JSON")
+
+    lines = str(error).splitlines()
+
+    assert lines[0] == (
+        "Lab 3 start record rule: .local/lab-3/start.json cannot be read "
+        "(it is cut off or is not JSON)."
+    )
+    commands = [line for line in lines if line.startswith(("cp ", "uv run "))]
+    assert commands == [
+        "cp labs/lab3_reason/agent.py ~/my-agent.py",
+        "uv run python scripts/lab_state.py reset --lab 3",
+        "cp ~/my-agent.py labs/lab3_reason/agent.py",
+        "uv run python scripts/deploy_agentcore.py deploy",
+    ]
+    assert max(len(line) for line in lines) <= 100
+    assert str(error).count("Next:") == 1

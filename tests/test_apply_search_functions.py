@@ -327,3 +327,20 @@ def test_applying_an_edited_or_repaired_exercise_adds_no_note(apply_command, cap
     out = capsys.readouterr().out
     assert "Applied participant SQL" in out
     assert "Note:" not in out
+
+
+def test_a_damaged_lab_2_record_after_an_apply_is_plain_words_not_a_traceback(
+    monkeypatch, tmp_path
+):
+    record = tmp_path / ".local" / "lab-2" / "start.json"
+    record.parent.mkdir(parents=True)
+    record.write_text("{")
+    monkeypatch.setattr(apply_search_functions, "ROOT", tmp_path)
+    monkeypatch.setattr(apply_search_functions, "_apply_and_configure", lambda: None)
+
+    with pytest.raises(SystemExit) as stopped:
+        apply_search_functions.main()
+
+    message = str(stopped.value)
+    assert "Lab 2 start record rule" in message
+    assert "lab_state.py reset --lab 2" in message and message.count("Next:") == 1

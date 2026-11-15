@@ -113,6 +113,12 @@ def verdict(
     )
 
 
+def next_text(prose: str, *lines: str) -> str:
+    """The text of a `Next:` paragraph: wrapped prose, then each command on its own line."""
+    wrapped = wrap_words(f"Next: {prose}", NEXT_WIDTH, subsequent_indent="      ")
+    return "\n".join([*wrapped, *lines])
+
+
 def next_step(prose: str, *lines: str, stream: TextIO | None = None) -> None:
     """Print a command's last lines: a blank line, then `Next:` and the step that follows.
 
@@ -127,8 +133,7 @@ def next_step(prose: str, *lines: str, stream: TextIO | None = None) -> None:
     """
     if os.environ.get(RUN_BY):
         return
-    wrapped = wrap_words(f"Next: {prose}", NEXT_WIDTH, subsequent_indent="      ")
-    print("\n" + "\n".join([*wrapped, *lines]), file=stream or sys.stdout, flush=True)
+    print("\n" + next_text(prose, *lines), file=stream or sys.stdout, flush=True)
 
 
 _INLINE_NEXT = re.compile(r"(?:(?<=\S) |\n)(?=Next: )")

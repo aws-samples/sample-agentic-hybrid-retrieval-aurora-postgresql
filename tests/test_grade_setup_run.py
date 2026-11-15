@@ -439,6 +439,7 @@ def test_a_damaged_lab_3_start_record_names_the_reset_that_keeps_the_agent(
 
     out = capsys.readouterr().out
     assert out.startswith("Lab 3 exercise: CANNOT GRADE - Lab 3 start record rule")
+    assert out.count("Next:") == 1 and max(map(len, out.splitlines())) <= 120
     assert "lab_state.py reset --lab 3" in out and workspace == []
     # The reset restores the starting agent.py, so the fix saves the participant's first.
     saved, reset = (

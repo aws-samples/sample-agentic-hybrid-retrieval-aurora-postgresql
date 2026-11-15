@@ -245,9 +245,14 @@ def _applied_next() -> None:
 
 @tidy
 def main() -> None:
+    from scripts.lab_entry import StartRecordError
+
     with next_on_failure(APPLY_SQL):
         _apply_and_configure()
-    _applied_next()
+    try:
+        _applied_next()
+    except StartRecordError as error:
+        raise SystemExit(f"The SQL was applied. {error}") from error
 
 
 def _apply_and_configure() -> None:

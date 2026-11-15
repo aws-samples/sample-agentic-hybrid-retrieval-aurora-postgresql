@@ -28,12 +28,17 @@ import psycopg
 from dotenv import load_dotenv
 
 from scripts import lab_exercise
+from scripts.lab_entry import StartRecordError
 from scripts.lab_request import sql_context
-from scripts.terminal_text import next_step, tidy, verdict
+from scripts.terminal_text import fill_words, next_step, tidy, verdict
 from service.config import get_settings
 from service.db import DatabaseNotConfigured
 from service.lab_followup import follow_up_saved
-from service.participant_commands import grade_setup_run_command, lab3_steps
+from service.participant_commands import (
+    grade_setup_run_command,
+    lab3_steps,
+    start_record_recovery,
+)
 
 # Runs are compared in Python, with the completion check's own rule for "the same
 # request"; a participant asks a handful, so a bounded window holds them all.
@@ -203,6 +208,13 @@ def main() -> int:
             pending = pick.pending_answers
     except (DatabaseNotConfigured, psycopg.Error) as error:
         return lab_exercise.aurora_unavailable(3, error, grade_setup_run_command())
+    except StartRecordError as error:
+        print(
+            verdict(fill_words(f"Lab 3 exercise: CANNOT GRADE - {error.finding}", 100))
+        )
+        sentence, commands = start_record_recovery(3)
+        next_step(sentence, *commands)
+        return 2
     except (RuntimeError, ValueError) as error:
         # An unreadable Lab 3 start record names its own fix.
         print(verdict(f"Lab 3 exercise: CANNOT GRADE - {error}"))

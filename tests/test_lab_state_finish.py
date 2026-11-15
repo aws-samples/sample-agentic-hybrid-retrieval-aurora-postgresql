@@ -210,3 +210,29 @@ def test_the_bar_counts_finished_steps():
     assert bar(0, 5) == "[░░░░░░░░░░░░░░░░░░░░]   0%"
     assert bar(2, 5) == "[████████░░░░░░░░░░░░]  40%"
     assert bar(5, 5) == "[████████████████████] 100%"
+
+
+@pytest.mark.parametrize(
+    ("argv", "damaged_lab"),
+    [(["finish", "--lab", "2"], 2), (["skip-to", "--lab", "3"], 2)],
+    ids=["finish", "skip-to"],
+)
+def test_a_damaged_start_record_stops_finish_and_skip_to_in_words(
+    monkeypatch, tmp_path, argv, damaged_lab
+):
+    record = tmp_path / ".local" / f"lab-{damaged_lab}" / "start.json"
+    record.parent.mkdir(parents=True)
+    record.write_text("{")
+    monkeypatch.setattr(lab_state, "REPO", tmp_path)
+    monkeypatch.setattr(sys, "argv", ["lab_state.py", *argv])
+    monkeypatch.setattr(
+        lab_state, "_run_steps", lambda *a, **k: pytest.fail("ran steps")
+    )
+
+    with pytest.raises(SystemExit) as stopped:
+        lab_state.main()
+
+    message = str(stopped.value)
+    assert f"Lab {damaged_lab} start record rule" in message
+    assert f"lab_state.py reset --lab {damaged_lab}" in message
+    assert "Traceback" not in message and message.count("Next:") == 1
