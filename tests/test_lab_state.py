@@ -1550,8 +1550,10 @@ def test_a_deploy_record_that_cannot_be_read_names_the_deploy_that_rewrites_it(c
         [
             "Lab 1: SOLVED",
             "Lab 2: SOLVED",
-            "Lab 3: Deploy record rule: .local/agentcore/deploys.json cannot be read "
-            "(it is cut off or is not JSON); fix: deploy with X.",
+            (
+                "Lab 3: Deploy record rule: .local/agentcore/deploys.json cannot be "
+                "read (it is cut off or is not JSON); fix: deploy with X."
+            ),
         ]
     )
 
