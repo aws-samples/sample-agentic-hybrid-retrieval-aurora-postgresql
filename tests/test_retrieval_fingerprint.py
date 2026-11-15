@@ -14,6 +14,7 @@ test-only override parameter on production code.
 
 from __future__ import annotations
 
+import json
 import shutil
 from pathlib import Path
 
@@ -833,3 +834,40 @@ def test_scorecard_import_closure_is_covered_or_explicitly_excluded():
                     pending.append(path)
     assert len(visited) >= 15, "the import-closure traversal must actually run"
     assert visited - covered - excluded == set()
+
+
+_COMMITTED_MEASUREMENTS = (
+    (
+        "canonical_scorecard.json",
+        "scorecard_methodology_sha256",
+        compute_scorecard_methodology_sha256,
+    ),
+    (
+        "canonical_stage_ablation.json",
+        "ablation_methodology_sha256",
+        compute_ablation_methodology_sha256,
+    ),
+)
+
+
+@pytest.mark.parametrize(
+    ("name", "methodology_key", "compute_methodology"), _COMMITTED_MEASUREMENTS
+)
+def test_committed_measurement_carries_the_fingerprint_this_tree_computes(
+    name, methodology_key, compute_methodology
+):
+    """A measurement committed under an older tree cannot pass for the current one.
+
+    Red-at-birth: the stage ablation was committed under fingerprint 774205f5 while
+    the tree computes 6edeb56f. It stays red until the owner re-measures on Aurora.
+    """
+    artifact = json.loads((REPO / "data" / "evals" / name).read_text(encoding="utf-8"))
+    assert artifact["retrieval_fingerprint"] == compute_retrieval_fingerprint(), (
+        f"{name} was measured at retrieval fingerprint "
+        f"{artifact['retrieval_fingerprint'][:8]} but this tree computes "
+        f"{compute_retrieval_fingerprint()[:8]}; fix: re-measure and commit it"
+    )
+    assert artifact[methodology_key] == compute_methodology(), (
+        f"{name} carries {methodology_key} {artifact[methodology_key][:8]} but this tree "
+        f"computes {compute_methodology()[:8]}; fix: re-measure and commit it"
+    )
