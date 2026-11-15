@@ -24,7 +24,14 @@ def _start_lab_3(root) -> None:
     path = root / ".local" / "lab-3" / "start.json"
     path.parent.mkdir(parents=True)
     path.write_text(
-        json.dumps({"version": 1, "lab": 3, "completed_at": STARTED.isoformat()})
+        json.dumps(
+            {
+                "version": 1,
+                "lab": 3,
+                "steps": {},
+                "completed_at": STARTED.isoformat(),
+            }
+        )
     )
 
 
