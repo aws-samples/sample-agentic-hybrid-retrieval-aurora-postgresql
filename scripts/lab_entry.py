@@ -113,17 +113,31 @@ def load_record(lab: int, repo: Path = REPO) -> dict[str, Any] | None:
         return None
     try:
         record = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError) as error:
-        raise StartRecordError(lab, type(error).__name__) from error
+    except OSError as error:
+        reason = (error.strerror or "no reason given").lower()
+        raise StartRecordError(lab, f"it cannot be opened: {reason}") from error
+    except ValueError as error:
+        raise StartRecordError(lab, "it is cut off or is not JSON") from error
     if problem := _record_problem(lab, record):
         raise StartRecordError(lab, problem)
     return record
 
 
+# What json.loads returns for each JSON value, in the words the record's reader knows.
+_JSON_KINDS: dict[type, str] = {
+    list: "a JSON list",
+    str: "a JSON string",
+    int: "a JSON number",
+    float: "a JSON number",
+    bool: "JSON true or false",
+    type(None): "JSON null",
+}
+
+
 def _record_problem(lab: int, record: Any) -> str | None:
     """What makes a parsed start record unusable, in words, or None."""
     if not isinstance(record, dict):
-        return f"it holds a JSON {type(record).__name__}, not a record"
+        return f"it holds {_JSON_KINDS.get(type(record), 'a JSON value')}, not a record"
     if (record.get("lab"), record.get("version")) != (lab, RECORD_VERSION):
         return (
             f"it is marked lab {record.get('lab')}, version {record.get('version')}, "

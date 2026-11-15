@@ -834,3 +834,35 @@ def test_restart_with_the_lab_1_folder_deleted_names_it_and_changes_nothing(
     assert "Lab 1: FILE MISSING" in str(refused.value)
     assert _seam_file(2, shipped_labs).read_bytes() == lab_2
     assert not lab_entry.record_path(2, shipped_labs).exists()
+
+
+@pytest.mark.parametrize(
+    ("text", "problem"),
+    [
+        ("{", "it is cut off or is not JSON"),
+        (b"\xff\xfe", "it is cut off or is not JSON"),
+        ('"started"', "it holds a JSON string, not a record"),
+        ("[]", "it holds a JSON list, not a record"),
+        ("3", "it holds a JSON number, not a record"),
+        ("null", "it holds JSON null, not a record"),
+    ],
+    ids=["cut-off", "not-text", "string", "list", "number", "null"],
+)
+def test_a_damaged_start_record_says_what_is_wrong_in_words(
+    tmp_path: Path, text: str | bytes, problem: str
+) -> None:
+    """The reason reads as a sentence, never a Python exception or type name."""
+    path = lab_entry.record_path(1, tmp_path)
+    path.parent.mkdir(parents=True)
+    if isinstance(text, bytes):
+        path.write_bytes(text)
+    else:
+        path.write_text(text, encoding="utf-8")
+
+    with pytest.raises(lab_entry.StartRecordError) as raised:
+        lab_entry.load_record(1, tmp_path)
+
+    assert raised.value.problem == problem
+    assert not re.search(
+        r"Error|Exception|\b(str|dict|NoneType|int)\b", str(raised.value)
+    )
