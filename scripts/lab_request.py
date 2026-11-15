@@ -22,6 +22,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from scripts.investigate_lab import paired_searches
+from scripts.lab_entry import StartRecordError
 from scripts.lab_state import lab_ready_step
 from scripts.prove_lab import LabValidationError, _request, _require, _search
 from scripts.terminal_text import (
@@ -280,7 +281,9 @@ def _without_before(lab: int, output: Path) -> str:
     """Say why there is no Before to compare, or refuse when the lab never started."""
     path = output / "before-state.json"
     record_path = output / "start.json"
-    record = json.loads(record_path.read_text()) if record_path.exists() else {}
+    from scripts.lab_entry import read_record
+
+    record = read_record(record_path, lab) or {}
     if lab == 3:
         raise LabValidationError(
             f"there is no saved failing Retrieval agent turn in {path} to compare with. Lab 3 "
@@ -291,7 +294,7 @@ def _without_before(lab: int, output: Path) -> str:
 
         raise LabValidationError(
             f"Lab {lab} has not started, so there is no saved failing request to "
-            f"compare with.\nNext: {entry_command(lab, output.parents[1])}\n"
+            f"compare with.\nNext: {entry_command(lab, ROOT)}\n"
             f"Then: {repeat_request_command(lab)}"
         )
     if (record.get("steps", {}).get("evidence") or {}).get("search_event_id"):
@@ -573,6 +576,8 @@ def main() -> int:
             )
         except LabValidationError as error:
             raise SystemExit(f"Lab {args.lab}: {error}") from error
+        except StartRecordError as error:
+            raise SystemExit(str(error)) from error
         except (DatabaseNotConfigured, psycopg.Error) as error:
             raise SystemExit(
                 f"Lab {args.lab}: {aurora_cause(error)}. This is an environment problem, "

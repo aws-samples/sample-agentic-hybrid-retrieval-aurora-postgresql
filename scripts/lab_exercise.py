@@ -37,6 +37,7 @@ import psycopg
 from psycopg.rows import dict_row
 
 from scripts import lab2_tuning, lab_state
+from scripts.lab_entry import StartRecordError
 from scripts.terminal_text import (
     CONTRIBUTION_COLORS,
     REOPEN_TERMINAL,
@@ -63,6 +64,7 @@ from service.participant_commands import (
     grade_setup_run_command,
     lab3_steps,
     repeat_request_command,
+    start_record_recovery,
 )
 
 SCORE_TOLERANCE = 1e-9
@@ -743,7 +745,14 @@ def _grade_next(lab: int, passed: bool, needs: dict[str, bool] | None = None) ->
                 grade_exercise_command(1),
             )
     elif lab == 2:
-        if passed and lab_state.handed_off(2):
+        try:
+            handed_off = passed and lab_state.handed_off(2)
+        except StartRecordError as error:
+            print(fill_words(error.finding, 100))
+            sentence, commands = start_record_recovery(error.lab)
+            next_step(sentence, *commands)
+            return
+        if handed_off:
             # A recheck after the hand-off: the reranking comparison is long done.
             next_step(
                 "Lab 2 has already handed off. Recheck Lab 3 as well:",

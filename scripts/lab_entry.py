@@ -138,7 +138,15 @@ def load_record(lab: int, repo: Path = REPO) -> dict[str, Any] | None:
     Raises:
         StartRecordError: The record is cut off, hand-edited or another lab's.
     """
-    path = record_path(lab, repo)
+    return read_record(record_path(lab, repo), lab)
+
+
+def read_record(path: Path, lab: int) -> dict[str, Any] | None:
+    """The start record saved at `path`, or None when there is no file.
+
+    Raises:
+        StartRecordError: The record is cut off, hand-edited or another lab's.
+    """
     if not path.exists():
         return None
     try:

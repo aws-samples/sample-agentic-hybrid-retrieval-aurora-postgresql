@@ -156,6 +156,8 @@ def _start_record(output: Path, evidence: dict) -> None:
     (output / "start.json").write_text(
         json.dumps(
             {
+                "lab": 1,
+                "version": 1,
                 "completed_at": "2026-10-10T12:00:00+00:00",
                 "steps": {"evidence": evidence},
             }
@@ -396,3 +398,44 @@ def test_an_after_run_of_lab_2_before_the_hand_off_names_the_hand_off(tmp_path):
         "Lab 2 has not started, so there is no saved failing request to compare with.\n"
         f"Next: {advance_command(1)}\nThen: {repeat_request_command(2)}"
     )
+
+
+@pytest.mark.parametrize("text", ["{", "[]", '{"lab": 1, "version": 1, "steps": []}'])
+def test_an_after_run_with_a_damaged_start_record_is_a_start_record_error(
+    tmp_path, text
+):
+    from scripts.lab_entry import StartRecordError
+
+    (tmp_path / "start.json").write_text(text)
+
+    with pytest.raises(StartRecordError):
+        lab_request._without_before(1, tmp_path)
+
+
+def test_a_relative_output_folder_still_names_the_hand_off(monkeypatch, tmp_path):
+    monkeypatch.setattr(lab_request, "ROOT", tmp_path)
+    monkeypatch.chdir(tmp_path)
+
+    with pytest.raises(LabValidationError) as refused:
+        lab_request._without_before(2, Path("lab-2"))
+
+    assert f"Next: {advance_command(1)}" in str(refused.value)
+
+
+def test_send_stops_on_a_damaged_start_record_in_plain_words(monkeypatch):
+    import sys
+
+    def damaged(*_args, **_kwargs):
+        raise lab_request.StartRecordError(2, "it is cut off or is not JSON")
+
+    monkeypatch.setattr(lab_request, "prepare", damaged)
+    monkeypatch.setattr(
+        sys, "argv", ["lab_request.py", "send", "--lab", "2", "--phase", "after"]
+    )
+
+    with pytest.raises(SystemExit) as stopped:
+        lab_request.main()
+
+    message = str(stopped.value)
+    assert "Lab 2 start record rule" in message and message.count("Next:") == 1
+    assert "Traceback" not in message

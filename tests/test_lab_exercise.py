@@ -596,3 +596,20 @@ def test_a_cannot_grade_with_its_own_next_is_laid_out_in_paragraphs(
     assert lines[next_line - 1] == ""
     assert DEPLOY_AGENT in lines
     assert out.count("Next:") == 1
+
+
+def test_a_passing_lab_2_grade_with_a_damaged_lab_3_record_says_so_in_words(
+    monkeypatch, capsys
+):
+    from scripts.lab_entry import StartRecordError
+
+    def damaged(lab):
+        raise StartRecordError(3, "it is cut off or is not JSON")
+
+    monkeypatch.setattr(lab_exercise.lab_state, "handed_off", damaged)
+
+    lab_exercise._grade_next(2, True, None)
+
+    out = capsys.readouterr().out
+    assert "Lab 3 start record rule" in out and "reset --lab 3" in out
+    assert out.count("Next:") == 1
