@@ -223,7 +223,13 @@ tell them to wait for a pending run, or name the question that still needs a cur
 Ask Mosaic does the same for those two questions: a broken answer stream shows the
 completion command and the run ID in place of **Ask again**.
 They ask the 100W follow-up the same way;
-each call is its own run. Once `status` reads Lab 3 SOLVED, an answer's `Next:` and a
+each call is its own run.
+To read a cited record whole, participants run
+`uv run python scripts/read_citation.py NUMBER`. It reads the setup run completion grades
+(`--run-id` reads another), so a later question from Ask Mosaic or Playground cannot take its
+place. It prints the answer's sentences that cite that number and the record the run saved,
+its quoted line marked, and asks nothing again.
+Once `status` reads Lab 3 SOLVED, an answer's `Next:` and a
 `deploy_agentcore.py verify` recheck's name the guide's next step instead of the completion
 check or the setup request; a new deploy makes Lab 3 unproved again. One drafting call rewrites a draft its checks refuse up to
 twice before the agent hears of it. When a call still ends refused, that

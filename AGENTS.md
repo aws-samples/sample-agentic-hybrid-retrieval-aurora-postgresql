@@ -105,6 +105,7 @@ The Makefile wraps them for maintainers only.
 | See the agent and tools runtimes, Gateway and Memory a deploy updates (read-only Get calls) | `uv run python scripts/deploy_agentcore.py resources` |
 | Ask the deployed agent from the terminal: answer, tool trace, citations, outcome, decline reason and Run ID. Lab 3's setup request and 100W follow-up use it; Ask Mosaic is the optional browser view | `uv run python scripts/ask_agent.py "QUESTION"` |
 | Run one sentence through the agent's answer checks, citing a product's listing as [1] (generates and saves nothing) | `uv run python scripts/check_claim.py PRODUCT_ID "SENTENCE [1]"` |
+| Read the whole record behind one citation of Alex's setup run that completion grades (or `--run-id RUN_ID`), with the line its quote comes from marked (asks nothing again) | `uv run python scripts/read_citation.py NUMBER` |
 | Grade the participant's newest setup run since Lab 3 started (or one named with `--run-id <run-id>`) | `uv run python scripts/grade_setup_run.py` |
 | Inspect the diff for whitespace errors | `git diff --check` |
 

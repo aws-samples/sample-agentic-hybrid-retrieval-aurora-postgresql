@@ -31,6 +31,12 @@ def check_claim_command(product_id: int, sentence: str) -> str:
     return f'uv run python scripts/check_claim.py {product_id} "{sentence}"'
 
 
+def read_citation_command(number: str = "NUMBER", run_id: str | None = None) -> str:
+    """Read the whole record behind one citation of the graded setup run, or of `run_id`."""
+    pinned = f" --run-id {run_id}" if run_id else ""
+    return f"uv run python scripts/read_citation.py {number}{pinned}"
+
+
 def ask_agent_command(question: str) -> str:
     return f'uv run python scripts/ask_agent.py "{question}"'
 

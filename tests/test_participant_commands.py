@@ -38,6 +38,7 @@ PARTICIPANT_SCRIPTS = (
     "lab_state.py",
     "lab_request.py",
     "prove_lab.py",
+    "read_citation.py",
 )
 PARTICIPANT_DOCS = ("README.md", "START_HERE.md", "workshop.md", "AGENTS.md")
 
@@ -108,6 +109,7 @@ def _commands() -> list[str]:
         commands.COMPARE_SETTINGS,
         commands.RERANK_OFF_ON,
         commands.HNSW_GRADE,
+        commands.read_citation_command(),
     ]
 
 
