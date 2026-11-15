@@ -344,3 +344,5 @@ def test_a_damaged_lab_2_record_after_an_apply_is_plain_words_not_a_traceback(
     message = str(stopped.value)
     assert "Lab 2 start record rule" in message
     assert "lab_state.py reset --lab 2" in message and message.count("Next:") == 1
+    assert message.startswith("The SQL was applied.\n\n")
+    assert max(map(len, message.splitlines())) <= 100

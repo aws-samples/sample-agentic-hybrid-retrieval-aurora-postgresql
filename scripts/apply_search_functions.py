@@ -252,7 +252,7 @@ def main() -> None:
     try:
         _applied_next()
     except StartRecordError as error:
-        raise SystemExit(f"The SQL was applied. {error}") from error
+        raise SystemExit(f"The SQL was applied.\n\n{error}") from error
 
 
 def _apply_and_configure() -> None:

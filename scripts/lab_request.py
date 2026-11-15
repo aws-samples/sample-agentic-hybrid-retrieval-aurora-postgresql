@@ -30,8 +30,10 @@ from scripts.terminal_text import (
     RED,
     REOPEN_TERMINAL,
     aurora_cause,
+    fill_words,
     next_on_failure,
     next_step,
+    next_text,
     tidy,
     tint,
 )
@@ -580,8 +582,13 @@ def main() -> int:
             raise SystemExit(str(error)) from error
         except (DatabaseNotConfigured, psycopg.Error) as error:
             raise SystemExit(
-                f"Lab {args.lab}: {aurora_cause(error)}. This is an environment problem, "
-                f"not a mistake in your work.\n\nNext: {REOPEN_TERMINAL}\n{rerun}"
+                fill_words(
+                    f"Lab {args.lab}: {aurora_cause(error)}. This is an environment "
+                    "problem, not a mistake in your work.",
+                    100,
+                )
+                + "\n\n"
+                + next_text(REOPEN_TERMINAL, rerun)
             ) from error
     _send_next(args.lab, args.phase, saved)
     return 0

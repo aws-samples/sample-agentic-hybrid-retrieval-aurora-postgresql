@@ -468,3 +468,5 @@ def test_send_names_an_unreachable_aurora_in_words_and_its_own_rerun(
     assert message.endswith(
         "uv run python scripts/lab_request.py send --lab 1 --phase after"
     )
+    assert max(map(len, message.splitlines())) <= 100
+    assert "\n\nNext: " in message
