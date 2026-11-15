@@ -104,7 +104,7 @@ it("looks the title up when a mission has no short name and the run does not ret
 it("uses the guide's section name, not an invented stage", async () => {
   const absent = { ...seedRun, results: seedRun.results.slice(1) };
   render(<RankLabCard mission={mission} response={absent} outcome={{ ...outcome, tone: "broken" }} playgroundHref="/labs/retrieval" onSearchAgain={() => {}} />);
-  await screen.findByText("Lab 2 / Send Alex’s monitor request");
+  await screen.findByText("Lab 2 / Trace Alex’s monitor request");
   expect(screen.queryByText(/See it fail/)).toBeNull();
 });
 

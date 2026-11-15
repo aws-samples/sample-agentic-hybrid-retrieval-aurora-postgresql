@@ -58,7 +58,7 @@ export const RankLabCard = forwardRef<HTMLElement, {
     title = "Finish preparing the ranking exercise";
     detail = "Run the guide’s preparation command again. It resumes where it stopped and keeps your edits.";
   } else if (lab?.entry_state === "started") {
-    status = "Lab 2 / Send Alex’s monitor request";
+    status = "Lab 2 / Trace Alex’s monitor request";
     if (!Number.isFinite(occurred) || !Number.isFinite(started)) {
       stale = true;
       title = "Search timing not verified";

@@ -7,7 +7,7 @@ Alex starts his home office with the Logitech Zone 900 headphones. His
 mistyped listing ID returned other headphones; find where the intended one
 disappears.
 
-## Send Alex's mistyped ID
+## Trace Alex's mistyped ID
 
 Getting started saved Alex's mistyped request with
 `uv run python scripts/lab_state.py start --lab 1`. In `psql`, load it with

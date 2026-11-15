@@ -7,7 +7,7 @@ Alex has found his headphones. Now he needs a monitor with USB-C charging.
 Keep your retrieval repair and inspect the monitor request that Lab 1's
 handoff saved: does the intended listing survive ranking?
 
-## Send Alex's monitor request
+## Trace Alex's monitor request
 
 In `psql`, load `.local/lab-2/context.psql` with `\i` in its own paste. Follow
 the guide's query to compare the ViewSonic VG2756-4K's semantic position with
