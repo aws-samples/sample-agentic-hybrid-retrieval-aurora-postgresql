@@ -173,6 +173,12 @@ def test_a_comment_added_after_apply_still_counts_as_applied(lab_repo):
         "SELECT 1.0 / (source_rank + rrf_k) AS contribution",
         "SELECT 1::float / (rrf_k + source_rank)",
         "SELECT 1 / (rrf_k + source_rank)::double precision",
+        "SELECT 1.0 / CAST(rrf_k + source_rank AS double precision)",
+        "SELECT CAST(1 AS double precision) / (rrf_k + source_rank)",
+        "SELECT 1.0 / ((rrf_k + source_rank)::double precision)",
+        "SELECT 1e0 / (rrf_k + source_rank)",
+        "SELECT 1 / (CAST(rrf_k AS numeric) + source_rank)",
+        "SELECT CAST(1.0 / (rrf_k + source_rank) AS double precision)",
     ],
 )
 def test_lab2_accepts_floating_reciprocal_rank_in_its_common_forms(formula):
@@ -187,6 +193,11 @@ def test_lab2_accepts_floating_reciprocal_rank_in_its_common_forms(formula):
             "SELECT (1 / (rrf_k + source_rank))::double precision",
             "divides whole numbers",
         ),
+        (
+            "SELECT CAST(1 / (rrf_k + source_rank) AS double precision)",
+            "divides whole numbers",
+        ),
+        ("SELECT 1 / CAST(rrf_k + source_rank AS integer)", "not in the form"),
         (LAB2_STARTER, "never reads source_rank"),
         ("SELECT 1.0 / (rrf_k * source_rank)", "not in the form the check recognizes"),
     ],

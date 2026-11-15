@@ -458,7 +458,7 @@ def set_lab_state(
 def _sql_tokens(source: str) -> list[str]:
     pattern = (
         r"--[^\n]*|/\*.*?\*/|'(?:''|[^'])*'|\"(?:\"\"|[^\"])*\"|"
-        r"[A-Za-z_]\w*|\d+(?:\.\d+)?|::|<>|!=|<=|>=|\S"
+        r"\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|[A-Za-z_]\w*|::|<>|!=|<=|>=|\S"
     )
     return [
         token if token.startswith(("'", '"')) else token.lower()
@@ -467,13 +467,31 @@ def _sql_tokens(source: str) -> list[str]:
     ]
 
 
-_LAB2_CAST = r" :: (?:double precision|float8|float|numeric|decimal)"
-_LAB2_FORMULA = re.compile(
-    rf"select (?P<open>\( )?(?P<numerator>1(?:\.0+)?)(?P<numerator_cast>{_LAB2_CAST})?"
-    rf" / \( (?P<left>rrf_k|source_rank)(?P<left_cast>{_LAB2_CAST})?"
-    rf" \+ (?P<right>rrf_k|source_rank)(?P<right_cast>{_LAB2_CAST})? \)"
-    rf"(?P<close> \))?(?P<tail_cast>{_LAB2_CAST})?(?: as [a-z_]\w*)?(?: ;)?"
+_LAB2_TYPE = r"(?:double precision|float8|float|numeric|decimal)"
+_LAB2_CAST = rf" :: {_LAB2_TYPE}"
+_LAB2_CAST_CALL = re.compile(
+    r"cast \( (?:\( )?(?P<operand>\S+(?: \+ \S+)?|\S+ / \( \S+ \+ \S+ \))(?: \))?"
+    rf" as (?P<type>{_LAB2_TYPE}) \)"
 )
+_LAB2_FORMULA = re.compile(
+    rf"select (?P<open>\( )?(?P<numerator>1(?:\.0+)?(?:e0)?)(?P<numerator_cast>{_LAB2_CAST})?"
+    rf" / (?P<group>\( )?\( (?P<left>rrf_k|source_rank)(?P<left_cast>{_LAB2_CAST})?"
+    rf" \+ (?P<right>rrf_k|source_rank)(?P<right_cast>{_LAB2_CAST})? \)"
+    rf"(?P<sum_cast>{_LAB2_CAST})?(?(group) \))"
+    rf"(?(open) \))(?P<tail_cast>{_LAB2_CAST})?(?: as [a-z_]\w*)?(?: ;)?"
+)
+
+
+def _lab2_with_casts_as_operators(tokens: list[str]) -> str:
+    """Join tokens, writing each CAST(x AS type) call as the equivalent x::type."""
+
+    def operator_form(call: re.Match[str]) -> str:
+        operand = call["operand"]
+        if " " in operand:
+            operand = f"( {operand} )"
+        return f"{operand} :: {call['type']}"
+
+    return _LAB2_CAST_CALL.sub(operator_form, " ".join(tokens))
 
 
 def lab2_contract_problem(source: str) -> str | None:
@@ -495,12 +513,8 @@ def lab2_contract_problem(source: str) -> str | None:
     if markers:
         return markers
     tokens = _sql_tokens(source.split(start, 1)[1].split(end, 1)[0])
-    match = _LAB2_FORMULA.fullmatch(" ".join(tokens))
-    if (
-        match is None
-        or {match["left"], match["right"]} != {"rrf_k", "source_rank"}
-        or bool(match["open"]) != bool(match["close"])
-    ):
+    match = _LAB2_FORMULA.fullmatch(_lab2_with_casts_as_operators(tokens))
+    if match is None or {match["left"], match["right"]} != {"rrf_k", "source_rank"}:
         if "source_rank" not in tokens:
             return (
                 "the marked block never reads source_rank, so every position earns "
@@ -514,7 +528,11 @@ def lab2_contract_problem(source: str) -> str | None:
     # sum, so it makes the division itself decimal.
     decimal = (
         "." in match["numerator"]
-        or any(match[name] for name in ("numerator_cast", "left_cast", "right_cast"))
+        or "e" in match["numerator"]
+        or any(
+            match[name]
+            for name in ("numerator_cast", "left_cast", "right_cast", "sum_cast")
+        )
         or (match["tail_cast"] and not match["open"])
     )
     if decimal:
