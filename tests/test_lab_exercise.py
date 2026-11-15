@@ -574,3 +574,25 @@ def test_the_recorded_decision_names_the_run_in_that_order(
     lab_exercise.record_decision(3, report, values)
 
     assert [row[2] for row in connection.inserted] == [expected]
+
+
+def test_a_cannot_grade_with_its_own_next_is_laid_out_in_paragraphs(
+    monkeypatch, capsys
+):
+    from service.agent_setup import AGENT_STARTER_MESSAGE
+    from service.participant_commands import DEPLOY_AGENT
+
+    def refuse(lab, work, run_id=None):
+        raise ExerciseError(AGENT_STARTER_MESSAGE)
+
+    monkeypatch.setattr(lab_exercise, "grade", refuse)
+
+    assert lab_exercise.main(["grade", "--lab", "3"]) == 2
+
+    out = capsys.readouterr().out
+    lines = out.splitlines()
+    assert max(map(len, lines)) <= 100
+    next_line = next(i for i, line in enumerate(lines) if line.startswith("Next:"))
+    assert lines[next_line - 1] == ""
+    assert DEPLOY_AGENT in lines
+    assert out.count("Next:") == 1

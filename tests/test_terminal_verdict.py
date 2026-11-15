@@ -507,3 +507,14 @@ def test_aurora_cause_names_a_rejected_statement_with_its_sqlstate():
         "Aurora did not answer (SQLSTATE 57P01: terminating connection)"
     )
     assert aurora_cause(RuntimeError("x")) == "Aurora did not answer"
+
+
+def test_lay_out_next_keeps_the_finding_then_the_prose_then_each_command_alone():
+    from scripts.terminal_text import lay_out_next
+
+    assert lay_out_next(
+        "It failed. Next: deploy with uv run python scripts/x.py deploy, then ask again."
+    ) == (
+        "It failed.\n\nNext: deploy with\nuv run python scripts/x.py deploy\nThen ask again."
+    )
+    assert lay_out_next("Only a finding.") == "Only a finding."

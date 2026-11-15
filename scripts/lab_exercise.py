@@ -42,6 +42,7 @@ from scripts.terminal_text import (
     REOPEN_TERMINAL,
     aurora_cause,
     fill_words,
+    lay_out_next,
     next_step,
     separate_next,
     tidy,
@@ -888,7 +889,7 @@ def main(
     try:
         report = grade(args.lab, work, run_id)
     except ExerciseError as error:
-        print(verdict(f"Lab {args.lab} exercise: CANNOT GRADE - {error}"))
+        print(verdict(lay_out_next(f"Lab {args.lab} exercise: CANNOT GRADE - {error}")))
         if "Next: " not in str(error):
             next_step(
                 "fix what it names, then grade again:",

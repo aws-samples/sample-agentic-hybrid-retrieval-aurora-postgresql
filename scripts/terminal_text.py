@@ -118,6 +118,49 @@ def next_text(prose: str, *lines: str) -> str:
     return "\n".join([*wrapped, *lines])
 
 
+_COMMAND_IN_PROSE = re.compile(
+    r"uv run python [^,;]*?(?=[,;]|\.(?:\s|$)|\s+(?:then|and|or)\s|$)"
+)
+
+
+def lay_out_next(message: str) -> str:
+    """A message whose `Next:` sits inline, as wrapped paragraphs with commands alone.
+
+    The finding comes first, then a blank line, then the `Next:` prose wrapped to the
+    width of `next_step`, with each `uv run python` command on a line of its own.
+    A message with no `Next:` is only wrapped.
+    """
+    finding, marker, after = message.partition("Next: ")
+    if not marker:
+        return fill_words(message, NEXT_WIDTH)
+    lines: list[str] = []
+    cursor = 0
+    prose = after
+    pieces: list[tuple[str, str]] = []
+    for found in _COMMAND_IN_PROSE.finditer(prose):
+        pieces.append((prose[cursor : found.start()], found.group()))
+        cursor = found.end()
+    tail = prose[cursor:]
+    if pieces:
+        tail = tail.lstrip(",;. ")
+        tail = tail[:1].upper() + tail[1:]
+    first = True
+    for words, command in pieces:
+        text = f"Next: {words}".rstrip() if first else words.strip()
+        if text.strip() and text.strip() != "Next:" or first:
+            lines += wrap_words(
+                text, NEXT_WIDTH, subsequent_indent="      " if first else ""
+            )
+        lines.append(command)
+        first = False
+    if tail.strip() or (first and not pieces):
+        text = f"Next: {tail}" if first else tail.strip()
+        lines += wrap_words(
+            text, NEXT_WIDTH, subsequent_indent="      " if first else ""
+        )
+    return fill_words(finding.strip(), NEXT_WIDTH) + "\n\n" + "\n".join(lines)
+
+
 def next_step(prose: str, *lines: str, stream: TextIO | None = None) -> None:
     """Print a command's last lines: a blank line, then `Next:` and the step that follows.
 
