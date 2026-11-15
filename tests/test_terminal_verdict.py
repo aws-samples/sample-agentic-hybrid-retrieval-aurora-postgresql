@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -330,3 +331,126 @@ def test_cause_in_words_names_the_cause_never_the_exception_class(error, words):
 
     assert cause_in_words(error) == words
     assert type(error).__name__ not in cause_in_words(error)
+
+
+DSN = "postgresql://admin:s3cr3t-pass@db.example.internal:5432/mosaic_catalog"
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        ["validate", "--lab", "1", "--database-url", DSN],
+        ["validate", "--lab", "1", f"--database-url={DSN}"],
+        ["validate", "--lab", "1", DSN],
+    ],
+    ids=["flag", "equals", "bare"],
+)
+def test_ctrl_c_never_echoes_a_connection_string(monkeypatch, capsys, arguments):
+    monkeypatch.setattr(sys, "argv", ["scripts/lab_state.py", *arguments])
+
+    @tidy
+    def interrupted() -> int:
+        raise KeyboardInterrupt
+
+    assert interrupted() == 130
+
+    out = capsys.readouterr().out
+    assert "s3cr3t" not in out and "db.example.internal" not in out
+    assert '"$DATABASE_URL"' in out
+
+
+def test_ctrl_c_quotes_a_question_with_an_apostrophe_as_the_guide_does(
+    monkeypatch, capsys
+):
+    monkeypatch.setattr(sys, "argv", ["scripts/diff.py", "What's the best monitor?"])
+
+    @tidy
+    def interrupted() -> int:
+        raise KeyboardInterrupt
+
+    interrupted()
+
+    assert 'scripts/diff.py "What\'s the best monitor?"\n' in capsys.readouterr().out
+
+
+def test_ctrl_c_in_a_child_of_finish_prints_nothing_twice(monkeypatch, capsys):
+    monkeypatch.setenv("MOSAIC_RUN_BY", "finish")
+
+    @tidy
+    def interrupted() -> int:
+        raise KeyboardInterrupt
+
+    assert interrupted() == 130
+    assert capsys.readouterr().out == ""
+
+
+def test_ctrl_c_names_the_module_a_command_was_run_as(monkeypatch, capsys):
+    import types
+
+    root = Path(__file__).resolve().parents[1]
+    origin = str(root / "scripts" / "check_builder_tool.py")
+    main_module = types.SimpleNamespace(
+        __spec__=types.SimpleNamespace(name="scripts.check_builder_tool", origin=origin)
+    )
+    monkeypatch.setitem(sys.modules, "__main__", main_module)
+    monkeypatch.setattr(sys, "argv", [origin, "--module", "my tool.py"])
+
+    @tidy
+    def interrupted() -> int:
+        raise KeyboardInterrupt
+
+    interrupted()
+
+    assert (
+        'uv run python -m scripts.check_builder_tool --module "my tool.py"\n'
+        in capsys.readouterr().out
+    )
+
+
+_INTERRUPTED_RUN = """
+import runpy, sys
+{patch}
+sys.argv = {argv!r}
+runpy.run_path({script!r}, run_name="__main__")
+"""
+
+
+@pytest.mark.parametrize(
+    ("script", "argv_tail", "patch"),
+    [
+        (
+            "scripts/apply_search_functions.py",
+            [],
+            "import psycopg\npsycopg.connect = lambda *a, **k: (_ for _ in ()).throw(KeyboardInterrupt())",
+        ),
+        (
+            "scripts/check_builder_tool.py",
+            ["--module", "x.py"],
+            "import importlib.util as u\nu.spec_from_file_location = lambda *a, **k: (_ for _ in ()).throw(KeyboardInterrupt())",
+        ),
+    ],
+    ids=["apply_search_functions", "check_builder_tool"],
+)
+def test_ctrl_c_exits_130_from_the_command_line_not_zero(script, argv_tail, patch):
+    import subprocess
+
+    root = Path(__file__).resolve().parents[1]
+    code = _INTERRUPTED_RUN.format(
+        patch=patch, argv=[script, *argv_tail], script=str(root / script)
+    )
+    run = subprocess.run(
+        [sys.executable, "-c", code],
+        cwd=root,
+        env={
+            **os.environ,
+            "PYTHONPATH": str(root),
+            "DATABASE_URL": "postgresql://u:p@h/d",
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert run.returncode == 130, run.stderr
+    assert "Stopped before it finished." in run.stdout
+    assert "Traceback" not in run.stderr

@@ -310,4 +310,4 @@ def _apply_and_configure() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

@@ -19,7 +19,6 @@ from __future__ import annotations
 import functools
 import os
 import re
-import shlex
 import sys
 import textwrap
 from collections.abc import Callable, Iterator
@@ -241,14 +240,62 @@ def aurora_cause(error: BaseException) -> str:
     return f"Aurora did not answer ({cause_in_words(error)})"
 
 
+_DATABASE_URL_TEXT = '"$DATABASE_URL"'
+_DSN = re.compile(r"^[a-z][a-z0-9+.-]*://[^\s]*@", re.IGNORECASE)
+_SAFE_WORD = re.compile(r"^[A-Za-z0-9_@%+=:,./-]+$")
+
+
+def _quoted(word: str) -> str:
+    """One argument as a participant types it: double quotes when it has spaces or marks."""
+    if word and _SAFE_WORD.match(word):
+        return word
+    escaped = re.sub(r'(["\\$`])', r"\\\1", word)
+    return f'"{escaped}"'
+
+
+def _argument_words(arguments: list[str]) -> list[str]:
+    """The arguments to show again, with a connection string never among them."""
+    shown: list[str] = []
+    redact_next = False
+    for argument in arguments:
+        if redact_next:
+            shown.append(_DATABASE_URL_TEXT)
+            redact_next = False
+        elif argument == "--database-url":
+            shown.append(argument)
+            redact_next = True
+        elif argument.startswith("--database-url=") or _DSN.match(argument):
+            flag = "--database-url=" if argument.startswith("--database-url=") else ""
+            shown.append(f"{flag}{_DATABASE_URL_TEXT}")
+        else:
+            shown.append(_quoted(argument))
+    return shown
+
+
 def _same_command() -> str:
-    """The command this process was started with, as a participant types it."""
-    script = Path(sys.argv[0]).resolve()
-    try:
-        shown = script.relative_to(Path(__file__).resolve().parents[1]).as_posix()
-    except ValueError:
-        shown = sys.argv[0]
-    return shlex.join(["uv", "run", "python", shown, *sys.argv[1:]])
+    """The command this process was started with, as a participant types it.
+
+    A connection string never appears: `--database-url` shows the `"$DATABASE_URL"` the
+    guide types in its place.
+    """
+    main_module = sys.modules.get("__main__")
+    spec = getattr(main_module, "__spec__", None)
+    ran_as_module = (
+        spec is not None
+        and spec.origin
+        and Path(spec.origin).resolve() == Path(sys.argv[0]).resolve()
+    )
+    if ran_as_module:
+        target = ["-m", spec.name]
+    else:
+        script = Path(sys.argv[0]).resolve()
+        try:
+            target = [
+                script.relative_to(Path(__file__).resolve().parents[1]).as_posix()
+            ]
+        except ValueError:
+            target = [script.name]
+    return " ".join(["uv run python", *target, *_argument_words(sys.argv[1:])])
 
 
 def tidy(main: Callable[..., int | None]) -> Callable[..., int | None]:
@@ -267,8 +314,9 @@ def tidy(main: Callable[..., int | None]) -> Callable[..., int | None]:
         try:
             return main(*args, **kwargs)
         except KeyboardInterrupt:
-            print("\nStopped before it finished.")
-            next_step("run the same command again:", _same_command())
+            if not os.environ.get(RUN_BY):
+                print("\nStopped before it finished.")
+                next_step("run the same command again:", _same_command())
             return 130
         finally:
             sys.stdout = saved
