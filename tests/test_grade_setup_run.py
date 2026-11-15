@@ -296,7 +296,7 @@ def test_an_unreachable_aurora_is_reported_without_a_traceback(
 
     out = capsys.readouterr().out
     assert out.startswith("Lab 3 exercise: CANNOT GRADE - Aurora did not answer")
-    assert "OperationalError" in out and "Traceback" not in out
+    assert "OperationalError" not in out and "Traceback" not in out
     assert workspace == []
 
 
@@ -526,7 +526,7 @@ def test_aurora_timing_out_after_the_pick_names_a_retry_of_that_run(
     assert grade_setup_run.main() == 2
 
     out = capsys.readouterr().out
-    assert "Lab 3 exercise: CANNOT GRADE - Aurora did not answer (PoolTimeout)." in out
+    assert "Lab 3 exercise: CANNOT GRADE - Aurora did not answer (timed out)." in out
     assert "Traceback" not in out and "tell your facilitator" in out
     assert out.endswith(grade_setup_run_command(str(picked["agent_turn_id"])) + "\n")
     assert not (grade_setup_run.ROOT / ".local/lab-3/exercise-receipt.json").exists()
@@ -551,7 +551,7 @@ def test_a_decision_aurora_cannot_save_prints_no_verdict(
 
     out = capsys.readouterr().out
     assert "PASS" not in out and "Your Retrieval agent is live" not in out
-    assert "CANNOT GRADE - Aurora did not answer (OperationalError)." in out
+    assert "CANNOT GRADE - Aurora did not answer (timed out)." in out
     assert not (grade_setup_run.ROOT / ".local/lab-3/exercise-receipt.json").exists()
 
 

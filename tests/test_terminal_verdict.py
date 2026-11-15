@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import json
 import sys
 from pathlib import Path
 
@@ -300,3 +301,32 @@ def test_tidy_names_a_script_run_by_absolute_path_relative_to_the_repository(
 
     assert interrupted() == 130
     assert "uv run python scripts/diff.py --answer\n" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    ("error", "words"),
+    [
+        (TimeoutError("slow"), "timed out"),
+        (
+            type("PoolTimeout", (Exception,), {})("couldn't get a connection"),
+            "timed out",
+        ),
+        (ConnectionRefusedError("no"), "connection refused"),
+        (
+            type("OperationalError", (Exception,), {})("connection refused by host"),
+            "connection refused",
+        ),
+        (ConnectionResetError("reset"), "connection cut off"),
+        (
+            type("OperationalError", (Exception,), {})("server closed the connection"),
+            "connection cut off",
+        ),
+        (json.JSONDecodeError("Expecting value", "{", 1), "reply cut off or not JSON"),
+        (RuntimeError("secret detail"), "no reason it can name"),
+    ],
+)
+def test_cause_in_words_names_the_cause_never_the_exception_class(error, words):
+    from scripts.terminal_text import cause_in_words
+
+    assert cause_in_words(error) == words
+    assert type(error).__name__ not in cause_in_words(error)

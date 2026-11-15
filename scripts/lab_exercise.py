@@ -40,6 +40,7 @@ from scripts import lab2_tuning, lab_state
 from scripts.terminal_text import (
     CONTRIBUTION_COLORS,
     REOPEN_TERMINAL,
+    cause_in_words,
     fill_words,
     next_step,
     separate_next,
@@ -827,7 +828,7 @@ def aurora_unavailable(lab: int, error: Exception, retry: str) -> int:
     cause = (
         "DATABASE_URL is empty in this terminal, so Aurora cannot be reached"
         if isinstance(error, DatabaseNotConfigured)
-        else f"Aurora did not answer ({type(error).__name__})"
+        else f"Aurora did not answer ({cause_in_words(error)})"
     )
     print(verdict(f"Lab {lab} exercise: CANNOT GRADE - {cause}."))
     next_step(REOPEN_TERMINAL, retry)

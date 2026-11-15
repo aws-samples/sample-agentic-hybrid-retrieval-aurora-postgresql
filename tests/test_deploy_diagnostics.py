@@ -166,7 +166,7 @@ def test_unrelated_os_error_is_not_called_an_image_failure(monkeypatch, capsys):
     assert run_main(monkeypatch, "verify", PermissionError("deployment.json")) == 1
     shown = capsys.readouterr().err
     assert "image" not in shown.lower()
-    assert "PermissionError" in shown and "deployment.json" in shown
+    assert "PermissionError" not in shown and "deployment.json" in shown
 
 
 def image_fixture(monkeypatch, run):
@@ -622,3 +622,18 @@ def test_deploy_of_a_deleted_agent_file_names_reset_not_a_python_error(
     assert "Lab 3: FILE MISSING (labs/lab3_reason/agent.py)" in err
     assert "uv run python scripts/lab_state.py reset --lab 3" in err
     assert "FileNotFoundError" not in err and "correct that problem" not in err
+
+
+def test_a_network_failure_and_a_file_failure_name_causes_not_exception_classes():
+    from botocore.exceptions import EndpointConnectionError
+
+    network = deploy.explain_failure(
+        EndpointConnectionError(endpoint_url="https://example.invalid"), DEPLOY_AGENT
+    )
+    assert "EndpointConnectionError" not in network and DEPLOY_AGENT in network
+
+    locked = PermissionError(13, "Permission denied", "/home/example/work/.env.next")
+    local = deploy.explain_failure(locked, DEPLOY_AGENT)
+    assert "PermissionError" not in local and "/home/example" not in local
+    assert "permission denied" in local.lower() and ".env.next" in local
+    assert DEPLOY_AGENT in local

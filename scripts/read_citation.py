@@ -31,6 +31,7 @@ from scripts.cited_lines import cited_excerpt, without_review_markup
 from scripts.terminal_text import (
     BOLD,
     REOPEN_TERMINAL,
+    cause_in_words,
     next_step,
     separate_next,
     tidy,
@@ -252,7 +253,7 @@ def main(argv: list[str] | None = None) -> int:
         cause = (
             "DATABASE_URL is empty in this terminal, so Aurora cannot be reached"
             if isinstance(error, DatabaseNotConfigured)
-            else f"Aurora did not answer ({type(error).__name__})"
+            else f"Aurora did not answer ({cause_in_words(error)})"
         )
         print(
             f"Citation rule: {cause}. This is an environment problem, not a mistake in "

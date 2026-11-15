@@ -804,7 +804,7 @@ def test_a_stream_that_breaks_mid_answer_is_a_clean_exit_not_a_traceback(
     captured = capsys.readouterr()
     assert code == 1
     assert "broke off mid-answer" in captured.err
-    assert type(failure).__name__ in captured.err
+    assert type(failure).__name__ not in captured.err
     assert "may still have saved this run" in captured.err
     assert "Traceback" not in captured.err
 

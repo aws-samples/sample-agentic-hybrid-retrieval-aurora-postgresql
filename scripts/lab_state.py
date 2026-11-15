@@ -24,6 +24,7 @@ from scripts.progress import Progress
 from scripts.terminal_text import (
     RUN_BY,
     STATE_COLORS,
+    cause_in_words,
     fill_words,
     next_on_failure,
     next_step,
@@ -1544,10 +1545,10 @@ def database_fault_exit(error, doing: str) -> SystemExit:
     sqlstate = error.sqlstate or error.diag.sqlstate or "none"
     if is_environment_fault(error):
         return SystemExit(
-            f"Could not {doing}: {type(error).__name__} (SQLSTATE {sqlstate}).\n"
+            f"Could not {doing}: {cause_in_words(error)} (SQLSTATE {sqlstate}).\n"
             f"{FACILITATOR_ADVICE}"
         )
-    reason = (error.diag.message_primary or type(error).__name__).strip()
+    reason = (error.diag.message_primary or cause_in_words(error)).strip()
     return SystemExit(
         f"Could not {doing}: Aurora rejected it with SQLSTATE {sqlstate}: {reason}\n"
         "Next: if you changed lines outside the marked LAB blocks, undo those changes "

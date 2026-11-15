@@ -42,6 +42,21 @@ def deploys_path(root: Path | None = None) -> Path:
     return (root or ROOT) / ".local" / "agentcore" / "deploys.json"
 
 
+def _shown(path: Path, root: Path | None) -> str:
+    return path.relative_to(root or ROOT).as_posix()
+
+
+def _unreadable(error: Exception) -> str:
+    """Why a deploy record cannot be read, in words."""
+    if isinstance(error, KeyError):
+        return f"a row has no {error.args[0]}"
+    if isinstance(error, json.JSONDecodeError):
+        return "it is cut off or is not JSON"
+    if isinstance(error, TypeError):
+        return "it is not a list of deploys"
+    return "a time in it is not a time"
+
+
 def load_deploys(root: Path | None = None) -> list[Deploy]:
     """Every recorded deploy, oldest first.
 
@@ -65,7 +80,7 @@ def load_deploys(root: Path | None = None) -> list[Deploy]:
         )
     except (ValueError, KeyError, TypeError) as error:
         raise ValueError(
-            f"Deploy record rule: {path} cannot be read ({type(error).__name__}); "
+            f"Deploy record rule: {_shown(path, root)} cannot be read ({_unreadable(error)}); "
             f"fix: deploy with {DEPLOY_AGENT}, which writes it again."
         ) from error
     return deploys

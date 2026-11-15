@@ -194,6 +194,38 @@ class _Tidy:
         return getattr(self._wrapped, name)
 
 
+_TIMEOUT_CLASSES = {"QueryCanceled", "ConnectTimeoutError", "ReadTimeoutError"}
+_CUT_OFF_CLASSES = {
+    "ConnectionError",
+    "OperationalError",
+    "InterfaceError",
+    "IncompleteRead",
+    "RemoteDisconnected",
+    "HTTPException",
+}
+
+
+def cause_in_words(error: BaseException) -> str:
+    """Why a call failed, in words a participant can read, never the exception's class name."""
+    classes = {cls.__name__ for cls in type(error).__mro__}
+    text = str(error).lower()
+    if (
+        "timeout" in text
+        or "timed out" in text
+        or any(name.endswith("Timeout") for name in classes)
+        or classes & _TIMEOUT_CLASSES
+        or isinstance(error, TimeoutError)
+    ):
+        return "timed out"
+    if "refused" in text or isinstance(error, ConnectionRefusedError):
+        return "connection refused"
+    if classes & _CUT_OFF_CLASSES:
+        return "connection cut off"
+    if "JSONDecodeError" in classes:
+        return "reply cut off or not JSON"
+    return "no reason it can name"
+
+
 def _same_command() -> str:
     """The command this process was started with, as a participant types it."""
     script = Path(sys.argv[0]).resolve()

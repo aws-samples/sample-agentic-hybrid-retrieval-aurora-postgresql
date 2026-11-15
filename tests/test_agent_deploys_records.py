@@ -69,3 +69,26 @@ def test_an_unreadable_lab_3_start_record_names_the_reset(content):
     path.write_text(content)
     with pytest.raises(ValueError, match=r"lab_state\.py reset --lab 3"):
         reference_agent_notice()
+
+
+@pytest.mark.parametrize(
+    ("text", "reason"),
+    [
+        ("[{", "cut off or is not JSON"),
+        ('[{"deployed_at": "2026-11-15T10:00:00+00:00"}]', "has no runtime_version"),
+        ('{"not": "a list"}', "is not a list of deploys"),
+    ],
+)
+def test_an_unreadable_deploy_record_names_its_cause_in_words(tmp_path, text, reason):
+    path = agent_deploys.deploys_path(tmp_path)
+    path.parent.mkdir(parents=True)
+    path.write_text(text)
+
+    with pytest.raises(ValueError) as raised:
+        agent_deploys.load_deploys(tmp_path)
+
+    message = str(raised.value)
+    assert reason in message
+    assert ".local/agentcore/deploys.json" in message and str(tmp_path) not in message
+    for name in ("JSONDecodeError", "KeyError", "TypeError", "ValueError"):
+        assert name not in message

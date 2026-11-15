@@ -7,8 +7,8 @@ from scripts.prove_lab import applied_sql_problem
 from service.config import get_settings
 from service.participant_commands import (
     ADVANCE_TO_LAB_2,
+    advance_command,
     grade_setup_run_command,
-    start_command,
 )
 
 PLAN = [{"Plan": {"Node Type": "Append"}}]
@@ -725,7 +725,7 @@ def test_an_unentered_lab_is_not_validated(monkeypatch, tmp_path) -> None:
     )
     monkeypatch.setattr("sys.argv", ["prove_lab.py", "--lab", "2"])
 
-    with pytest.raises(SystemExit, match=re.escape(start_command(2))):
+    with pytest.raises(SystemExit, match=re.escape(advance_command(1))):
         prove_lab.main()
 
 

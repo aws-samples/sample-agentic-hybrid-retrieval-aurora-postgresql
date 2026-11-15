@@ -28,6 +28,7 @@ from scripts.progress import Progress
 from scripts.terminal_text import (
     GREEN,
     STEP_COLORS,
+    cause_in_words,
     fill_words,
     next_step,
     separate_next,
@@ -719,6 +720,25 @@ def retry_command(action: str) -> str:
     return f"uv run python scripts/deploy_agentcore.py {action}"
 
 
+def _local_cause(error: Exception) -> str:
+    """A file or process failure in words, with a repo-relative path and no class name."""
+    if isinstance(error, subprocess.CalledProcessError):
+        return f"a command exited with status {error.returncode}"
+    if isinstance(error, subprocess.TimeoutExpired):
+        return "a command timed out"
+    if not isinstance(error, OSError):
+        return safe_text(error)
+    reason = (error.strerror or safe_text(error)).lower()
+    if not error.filename:
+        return reason
+    named = Path(str(error.filename))
+    try:
+        named = named.resolve().relative_to(ROOT)
+    except ValueError:
+        named = Path(named.name)
+    return f"{reason} ({named.as_posix()})"
+
+
 def explain_failure(error: Exception, retry: str) -> str:
     """Name the AWS code, message and next command without leaking secrets."""
     if isinstance(error, ClientError):
@@ -736,14 +756,14 @@ def explain_failure(error: Exception, retry: str) -> str:
         )
     if isinstance(error, BotoCoreError):
         return (
-            f"AWS rule: the request failed ({type(error).__name__}): "
+            f"AWS rule: the request failed ({cause_in_words(error)}): "
             f"{safe_text(error)}; fix: check the Code Editor's network connection, "
             f"then retry {retry}."
         )
     if isinstance(error, (OSError, subprocess.SubprocessError)):
         return (
-            f"Local file or process rule: {type(error).__name__}: {safe_text(error)}; "
-            f"fix: correct that problem, then retry {retry}."
+            f"Local file or process rule: {_local_cause(error)}; "
+            f"fix: free or restore what it names, then retry {retry}."
         )
     return safe_text(error, 1500)
 

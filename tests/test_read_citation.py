@@ -259,7 +259,7 @@ def test_an_unreachable_aurora_names_a_retry_of_the_same_command(
     assert read_citation.main(argv) == 2
 
     err = capsys.readouterr().err
-    assert err.startswith("Citation rule: Aurora did not answer (OperationalError).")
+    assert err.startswith("Citation rule: Aurora did not answer (timed out).")
     assert "Traceback" not in err and "tell your facilitator" in err
     pinned = str(named) if named else None
     assert err.rstrip().endswith(read_citation.read_citation_command("3", pinned))
