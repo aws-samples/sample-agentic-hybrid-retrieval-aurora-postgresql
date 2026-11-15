@@ -130,7 +130,14 @@ def main() -> None:
     )
     args = parser.parse_args()
     if args.starter:
-        write_starter(args.starter)
+        try:
+            write_starter(args.starter)
+        except FileExistsError:
+            print(
+                f"{args.starter} already exists, so it was kept and your edits are "
+                "unchanged. Implement call_filters and registered_tools in it."
+            )
+            return
         print(f"Created {args.starter}. Implement call_filters and registered_tools.")
         return
     if not args.query or args.brand is None:

@@ -2,6 +2,7 @@
 
 import io
 import re
+import sys
 import zipfile
 from pathlib import Path
 
@@ -266,3 +267,18 @@ def test_a_failing_tool_ends_with_a_next_that_checks_it_again(
     assert "\n\nNext: fix what the message above names, then run this again:\n" in err
     assert err.rstrip("\n").endswith(check_builder_tool_command(str(starter)))
     assert err.startswith("Build check failed: ")
+
+
+def test_an_existing_starter_is_kept_and_said_so(tmp_path, monkeypatch, capsys):
+    destination = tmp_path / "participant.py"
+    destination.write_text("# my edits\n")
+    monkeypatch.setattr(
+        sys, "argv", ["call_headphones.py", "--starter", str(destination)]
+    )
+
+    call_headphones.main()
+
+    assert destination.read_text() == "# my edits\n"
+    out = capsys.readouterr().out
+    assert "already exists, so it was kept" in out
+    assert "FileExistsError" not in out and "Created" not in out
