@@ -427,3 +427,9 @@ def test_a_truncated_lab_3_start_record_names_its_reset(
     out = capsys.readouterr().out
     assert out.startswith("Lab 3 exercise: CANNOT GRADE - Lab 3 start record rule")
     assert "lab_state.py reset --lab 3" in out and workspace == []
+    # The reset restores the starting agent.py, so the fix saves the participant's first.
+    saved, reset = (
+        out.index("cp labs/lab3_reason/agent.py ~/my-agent.py"),
+        out.index("reset --lab 3"),
+    )
+    assert saved < reset < out.index("cp ~/my-agent.py labs/lab3_reason/agent.py")
