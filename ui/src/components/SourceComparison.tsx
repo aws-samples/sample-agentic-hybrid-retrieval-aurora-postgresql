@@ -8,7 +8,7 @@ export function SourceComparison({ answer }: { answer: AgentResponse }) {
   if (answer.retrieved_evidence === undefined) return <p className="inspector-note">This saved response contains citations only. Start a new run to compare all the sources the Retrieval agent reads.</p>;
   return <div className="inspector-source-comparison">
     <p>Specifications describe the product. Reviews describe an experience. Check whether each source supports the benefit Alex needs.</p>
-    <p className="inspector-note">Mosaic’s catalog and reviews are sample data. “Cited” means the answer refers to that record; it does not prove every claim.</p>
+    <p className="inspector-note">Mosaic’s listings and reviews are real records from Amazon Reviews 2023; current prices and availability may differ. “Cited” means the answer refers to that record; it does not prove every claim.</p>
     {answer.recommendations.map((product, index) => {
       const records = answer.retrieved_evidence!.filter((record) => record.product_id === product.product_id);
       const specs = records.filter((record) => record.evidence_type === "product_spec");

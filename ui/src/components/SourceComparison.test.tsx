@@ -17,7 +17,7 @@ it("compares the actual read records and separates a cited specification from an
   const review = screen.getByRole("region", { name: `${product.title}: Review` });
   expect(within(review).getByText("Read, not cited")).toBeTruthy();
   expect(within(review).getByText("Fit may vary with your setup.")).toBeTruthy();
-  expect(screen.getByText(/catalog and reviews are sample data/)).toBeTruthy();
+  expect(screen.getByText(/listings and reviews are real records from Amazon Reviews 2023/)).toBeTruthy();
   expect(screen.queryByText("Another product's source")).toBeNull();
 });
 
