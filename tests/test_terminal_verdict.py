@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -268,3 +269,34 @@ def test_separate_next_adds_the_rerun_when_the_message_names_none():
         "It broke.\n\nNext: fix what the message above names, then run this again:\nuv run python x.py"
     )
     assert separate_next("It broke.") == "It broke."
+
+
+def test_tidy_turns_ctrl_c_into_a_stop_and_the_same_command_again(monkeypatch, capsys):
+    monkeypatch.setattr(sys, "argv", ["scripts/lab_state.py", "advance", "--lab", "1"])
+
+    @tidy
+    def interrupted() -> int:
+        raise KeyboardInterrupt
+
+    assert interrupted() == 130
+
+    out = capsys.readouterr().out
+    assert out == (
+        "Stopped before it finished.\n\nNext: run the same command again:\n"
+        "uv run python scripts/lab_state.py advance --lab 1\n"
+    )
+    assert "Traceback" not in out
+
+
+def test_tidy_names_a_script_run_by_absolute_path_relative_to_the_repository(
+    monkeypatch, capsys
+):
+    root = Path(__file__).resolve().parents[1]
+    monkeypatch.setattr(sys, "argv", [str(root / "scripts" / "diff.py"), "--answer"])
+
+    @tidy
+    def interrupted() -> int:
+        raise KeyboardInterrupt
+
+    assert interrupted() == 130
+    assert "uv run python scripts/diff.py --answer\n" in capsys.readouterr().out

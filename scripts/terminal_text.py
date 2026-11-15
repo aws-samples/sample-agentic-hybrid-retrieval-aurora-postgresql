@@ -19,10 +19,12 @@ from __future__ import annotations
 import functools
 import os
 import re
+import shlex
 import sys
 import textwrap
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
+from pathlib import Path
 from typing import Any, TextIO
 
 GREEN, RED, YELLOW = "1;32", "1;31", "1;33"
@@ -192,8 +194,22 @@ class _Tidy:
         return getattr(self._wrapped, name)
 
 
+def _same_command() -> str:
+    """The command this process was started with, as a participant types it."""
+    script = Path(sys.argv[0]).resolve()
+    try:
+        shown = script.relative_to(Path(__file__).resolve().parents[1]).as_posix()
+    except ValueError:
+        shown = sys.argv[0]
+    return shlex.join(["uv", "run", "python", shown, *sys.argv[1:]])
+
+
 def tidy(main: Callable[..., int | None]) -> Callable[..., int | None]:
-    """`main` with stdout tidied by `_Tidy`; a call nested in a tidied command joins it."""
+    """`main` with stdout tidied by `_Tidy`; a call nested in a tidied command joins it.
+
+    Ctrl+C in the outermost call stops the command in plain words, names the same command
+    to run again and exits 130, rather than printing a traceback.
+    """
 
     @functools.wraps(main)
     def tidied(*args: Any, **kwargs: Any) -> int | None:
@@ -203,6 +219,10 @@ def tidy(main: Callable[..., int | None]) -> Callable[..., int | None]:
         sys.stdout = _Tidy(saved)
         try:
             return main(*args, **kwargs)
+        except KeyboardInterrupt:
+            print("\nStopped before it finished.")
+            next_step("run the same command again:", _same_command())
+            return 130
         finally:
             sys.stdout = saved
 
