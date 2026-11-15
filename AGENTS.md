@@ -83,7 +83,7 @@ The Makefile wraps them for maintainers only.
 
 | Purpose | Command |
 |---|---|
-| Inspect the current source/applied lab state; Lab 3 reads SOLVED only after your deployed agent passed completion (otherwise "BROKEN", "REPAIRED, NOT DEPLOYED" or "DEPLOYED, NOT YET PROVED") | `uv run python scripts/lab_state.py status` |
+| Inspect the current source/applied lab state; Lab 3 reads SOLVED only while Runtime runs the code saved in Code Editor and that deploy passed completion (otherwise "BROKEN", "REPAIRED, NOT DEPLOYED", which an edit after a pass also reads, or "DEPLOYED, NOT YET PROVED"); a lab whose start record cannot be read shows "START RECORD UNREADABLE", and `Next:` copies its lab file aside, resets the lab and copies the file back | `uv run python scripts/lab_state.py status` |
 | Enter a lab: save its failing request; Labs 2 and 3 also install their fault once | `uv run python scripts/lab_state.py start --lab N` |
 | Hand off Lab 1: validate its repair, save passing evidence and prepare Lab 2 without discarding edits; a repaired saved file that Aurora does not run yet is applied first | `uv run python scripts/lab_state.py advance --lab 1` |
 | Hand off Lab 2: validate its repair, save passing evidence and install the Retrieval agent's starting code for Lab 3 without discarding edits; a repaired saved file that Aurora does not run yet is applied first | `uv run python scripts/lab_state.py advance --lab 2` |
@@ -106,7 +106,7 @@ The Makefile wraps them for maintainers only.
 | See the agent and tools runtimes, Gateway and Memory a deploy updates (read-only Get calls) | `uv run python scripts/deploy_agentcore.py resources` |
 | Ask the deployed agent from the terminal: answer, tool trace, citations, outcome, decline reason and Run ID. Lab 3's setup request and 100W follow-up use it; Ask Mosaic is the optional browser view | `uv run python scripts/ask_agent.py "QUESTION"` |
 | Run one sentence through the agent's answer checks, citing a product's listing as [1] (generates and saves nothing) | `uv run python scripts/check_claim.py PRODUCT_ID "SENTENCE [1]"` |
-| Read the whole record behind one citation of Alex's setup run that completion grades (or `--run-id RUN_ID`), with the line its quote comes from marked (asks nothing again) | `uv run python scripts/read_citation.py NUMBER` |
+| Read the whole record behind one citation of Alex's setup run that completion grades (or `--run-id RUN_ID`, the only way before Lab 3 starts), with the line its quote comes from marked (asks nothing again) | `uv run python scripts/read_citation.py NUMBER` |
 | Grade the participant's newest setup run since Lab 3 started (or one named with `--run-id <run-id>`) | `uv run python scripts/grade_setup_run.py` |
 | Inspect the diff for whitespace errors | `git diff --check` |
 
