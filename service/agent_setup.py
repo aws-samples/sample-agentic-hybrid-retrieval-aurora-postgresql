@@ -9,6 +9,10 @@ class AgentSetupError(RuntimeError):
     """An actionable setup problem safe to show without credentials or AWS payloads."""
 
 
+class RuntimeRunsEarlierCode(AgentSetupError):
+    """Runtime refused a status call because it runs code other than the workspace's."""
+
+
 AGENT_STARTER_MESSAGE = (
     "Your Retrieval agent is not built yet. Open labs/lab3_reason/agent.py in Code Editor and "
     "complete create_agent with the supplied model, tools, instructions and hooks. "

@@ -55,7 +55,7 @@ from scripts.lab_state import (
     source_problem,
 )
 from service import lab_checks
-from service.agent_setup import AgentSetupError
+from service.agent_setup import RuntimeRunsEarlierCode
 from service.catalog import get_evidence_record
 from service.config import get_settings
 from service.db import connect
@@ -605,7 +605,7 @@ def _managed_agent_checks(
                     rows, status, workspace_code, root
                 )
                 failure = found or failure
-    except (AgentSetupError, StartRecordError) as error:
+    except (RuntimeRunsEarlierCode, StartRecordError) as error:
         failure = str(error)
     except (RuntimeError, ValueError) as error:
         failure = (

@@ -18,7 +18,11 @@ from fastapi import HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field
 from starlette.responses import StreamingResponse
 
-from service.agent_setup import AgentSetupError, agent_setup_message
+from service.agent_setup import (
+    AgentSetupError,
+    RuntimeRunsEarlierCode,
+    agent_setup_message,
+)
 from service.config import get_settings
 from service.models import AgentRequest, AgentResponse
 from service.participant_commands import DEPLOY_AGENT, VERIFY_AGENT, reset_command
@@ -154,7 +158,7 @@ def invoke(
             if operation == "status":
                 # The status call carries no conversation, so a conflict here is
                 # Runtime refusing code other than the workspace's.
-                raise AgentSetupError(
+                raise RuntimeRunsEarlierCode(
                     f"AgentCore Runtime runs earlier code; deploy with {DEPLOY_AGENT}, "
                     f"then recheck with {VERIFY_AGENT}."
                 ) from error

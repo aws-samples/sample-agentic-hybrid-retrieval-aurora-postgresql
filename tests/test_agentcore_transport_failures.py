@@ -113,7 +113,7 @@ def test_a_409_on_the_status_call_says_runtime_runs_earlier_code(
 ):
     from botocore.exceptions import ClientError
 
-    from service.agent_setup import AgentSetupError
+    from service.agent_setup import RuntimeRunsEarlierCode
     from service.participant_commands import DEPLOY_AGENT
 
     monkeypatch.setenv("MOSAIC_AGENTCORE_RUNTIME_ARN", ARN)
@@ -122,7 +122,7 @@ def test_a_409_on_the_status_call_says_runtime_runs_earlier_code(
         "InvokeAgentRuntime",
     )
 
-    with pytest.raises(AgentSetupError) as refused:
+    with pytest.raises(RuntimeRunsEarlierCode) as refused:
         transport.deployed_status()
 
     message = str(refused.value)

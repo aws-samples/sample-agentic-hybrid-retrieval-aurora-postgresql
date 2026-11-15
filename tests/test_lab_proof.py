@@ -1341,10 +1341,15 @@ def test_an_edit_after_the_deploy_is_named_without_asking_the_agent(
 def test_a_deployment_check_the_agent_refuses_names_no_exception_class(
     monkeypatch,
 ) -> None:
+    from service.agent_setup import AgentSetupError
+
     _managed_run(monkeypatch, searched_with=CURRENT_SQL)
 
     def refused() -> dict:
-        raise RuntimeError("ConnectionClosedError: socket 10.0.0.7 closed")
+        raise AgentSetupError(
+            "Mosaic could not run the deployed Retrieval agent (EndpointConnectionError). "
+            "Next: retry your question; ConnectionClosedError 10.0.0.7"
+        )
 
     monkeypatch.setattr("service.agentcore_transport.deployed_status", refused)
 
@@ -1370,12 +1375,12 @@ def test_a_deployment_check_the_agent_refuses_names_no_exception_class(
 def test_a_refusal_that_names_its_own_fix_reaches_the_participant_whole(
     monkeypatch, refusal
 ) -> None:
-    from service.agent_setup import AgentSetupError
+    from service.agent_setup import RuntimeRunsEarlierCode
 
     _managed_run(monkeypatch, searched_with=CURRENT_SQL)
     refusal = refusal.removeprefix("AgentSetupError: ").replace("DEPLOY", DEPLOY_AGENT)
     error = (
-        AgentSetupError(refusal)
+        RuntimeRunsEarlierCode(refusal)
         if refusal.startswith("AgentCore")
         else ValueError(refusal)
     )
