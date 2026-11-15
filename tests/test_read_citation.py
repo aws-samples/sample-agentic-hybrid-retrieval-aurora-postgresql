@@ -251,16 +251,11 @@ def test_an_unreachable_aurora_names_a_retry_of_the_same_command(
     assert err.rstrip().endswith(read_citation.read_citation_command("3", pinned))
 
 
-@pytest.mark.parametrize(
-    ("record", "said"),
-    [
-        ("{", "the saved start of Lab 3 cannot be read (JSONDecodeError)"),
-        ('{"version": 1, "lab": 2}', "is not a Lab 3 start record"),
-    ],
-)
-def test_an_unreadable_lab_3_start_record_names_its_reset(
-    monkeypatch, capsys, tmp_path, record, said
+@pytest.mark.parametrize("record", ["{", '{"version": 1, "lab": 2}'])
+def test_an_unreadable_lab_3_start_record_points_to_the_run_id_not_a_reset(
+    monkeypatch, capsys, tmp_path, record
 ):
+    """A reset would discard agent.py; the Run ID reads the same saved answer without it."""
     from scripts import grade_setup_run
 
     started = tmp_path / ".local" / "lab-3" / "start.json"
@@ -272,5 +267,6 @@ def test_an_unreadable_lab_3_start_record_names_its_reset(
     assert read_citation.main(["1"]) == 2
 
     err = capsys.readouterr().err
-    assert err.startswith("Citation rule: ") and said in err
-    assert "lab_state.py reset --lab 3" in err and "Traceback" not in err
+    assert err.startswith("Citation rule: the saved start of Lab 3 cannot be read")
+    assert "reset" not in err and "Traceback" not in err
+    assert err.rstrip().endswith(read_citation.read_citation_command("1", "RUN_ID"))

@@ -205,9 +205,18 @@ def main(argv: list[str] | None = None) -> int:
         with connect() as connection:
             run_id = args.run_id or graded_setup_run_id(connection)
             run = saved_run(connection, run_id) if run_id else None
-    except (RuntimeError, ValueError) as error:
-        # An unreadable or foreign Lab 3 start record names its own fix.
-        print(separate_next(f"Citation rule: {error}"), file=sys.stderr)
+    except (RuntimeError, ValueError):
+        # The start record's own fix is a reset, which discards the participant's agent.py.
+        # Reading a citation needs only the run, which its Run ID names without the record.
+        reason = (
+            "Citation rule: the saved start of Lab 3 cannot be read, so the setup run "
+            "completion grades cannot be picked for you; fix: name the run yourself with "
+            "--run-id and the Run ID that ask_agent.py printed for the answer"
+        )
+        print(
+            separate_next(reason, read_citation_command(str(args.number), "RUN_ID")),
+            file=sys.stderr,
+        )
         return 2
     except psycopg.Error as error:
         message = (
