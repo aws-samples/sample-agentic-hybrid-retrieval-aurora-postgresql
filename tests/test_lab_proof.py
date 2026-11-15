@@ -1393,3 +1393,15 @@ def test_a_refusal_that_names_its_own_fix_reaches_the_participant_whole(
     check = _deployment_check(lab_proof.completion_proof(3, agent_run_id=AGENT_RUN_ID))
 
     assert not check.passed and check.detail == refusal
+
+
+def test_an_unstarted_lab_3_names_the_lab_the_earlier_hand_off_prepares(
+    monkeypatch, lab_repo: Path
+) -> None:
+    _use(monkeypatch, _FakeConnection())
+
+    labs = lab_proof.lab_states(repo=lab_repo).labs
+
+    assert labs[2].next_step == advance_command(1)
+    assert "prepares Lab 2, which comes before this lab" in labs[2].detail
+    assert "prepares this lab" in labs[1].detail

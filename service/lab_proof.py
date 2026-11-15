@@ -290,7 +290,13 @@ def entry_check(
 def _entry_effect(lab_id: int, command: str) -> str:
     if command == start_command(lab_id):
         return "it installs this lab's fault once"
-    return "that hand-off prepares this lab, installing its fault once"
+    prepared = int(command.rsplit(" ", 1)[1]) + 1
+    if prepared == lab_id:
+        return "that hand-off prepares this lab, installing its fault once"
+    return (
+        f"that hand-off prepares Lab {prepared}, which comes before this lab, "
+        "installing its fault once"
+    )
 
 
 def _lab_state(lab_id: int, connection: Any, repo: Path | None) -> LabStateRecord:
