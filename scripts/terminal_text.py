@@ -226,6 +226,13 @@ def cause_in_words(error: BaseException) -> str:
     return "no reason it can name"
 
 
+def aurora_cause(error: BaseException) -> str:
+    """Why Aurora could not be reached, in words, for a database or an unset DATABASE_URL."""
+    if "DatabaseNotConfigured" in {cls.__name__ for cls in type(error).__mro__}:
+        return "DATABASE_URL is empty in this terminal, so Aurora cannot be reached"
+    return f"Aurora did not answer ({cause_in_words(error)})"
+
+
 def _same_command() -> str:
     """The command this process was started with, as a participant types it."""
     script = Path(sys.argv[0]).resolve()

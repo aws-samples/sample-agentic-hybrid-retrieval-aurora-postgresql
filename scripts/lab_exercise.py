@@ -40,7 +40,7 @@ from scripts import lab2_tuning, lab_state
 from scripts.terminal_text import (
     CONTRIBUTION_COLORS,
     REOPEN_TERMINAL,
-    cause_in_words,
+    aurora_cause,
     fill_words,
     next_step,
     separate_next,
@@ -825,12 +825,7 @@ def argument_parser() -> argparse.ArgumentParser:
 
 def aurora_unavailable(lab: int, error: Exception, retry: str) -> int:
     """Report a grade Aurora could not complete, and the same grade to run again."""
-    cause = (
-        "DATABASE_URL is empty in this terminal, so Aurora cannot be reached"
-        if isinstance(error, DatabaseNotConfigured)
-        else f"Aurora did not answer ({cause_in_words(error)})"
-    )
-    print(verdict(f"Lab {lab} exercise: CANNOT GRADE - {cause}."))
+    print(verdict(f"Lab {lab} exercise: CANNOT GRADE - {aurora_cause(error)}."))
     next_step(REOPEN_TERMINAL, retry)
     return 2
 
@@ -872,6 +867,10 @@ def main(
         except ExerciseError as error:
             print(f"Lab {args.lab} comparison: CANNOT MEASURE - {error}")
             next_step("fix what it names, then measure again:", COMPARE_SETTINGS)
+            return 2
+        except (DatabaseNotConfigured, psycopg.Error) as error:
+            print(f"Lab {args.lab} comparison: CANNOT MEASURE - {aurora_cause(error)}.")
+            next_step(REOPEN_TERMINAL, COMPARE_SETTINGS)
             return 2
         next_step("hand off to Lab 3:", ADVANCE_TO_LAB_3)
         return 0

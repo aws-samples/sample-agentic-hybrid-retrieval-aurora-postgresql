@@ -3,10 +3,13 @@
 import io
 import sys
 
+import psycopg
 import pytest
 
 from scripts import check_claim
+from service.db import DatabaseNotConfigured
 from service.models import EvidenceRecord, ProductSummary
+from service.participant_commands import check_claim_command
 
 VIEWSONIC = 1551237
 
@@ -175,3 +178,29 @@ def test_an_unknown_product_ends_with_a_next_that_uses_a_product_from_the_guide(
     err = capsys.readouterr().err
     assert "\n\nNext: " in err
     assert err.rstrip("\n").endswith('check_claim.py 1551237 "YOUR SENTENCE [1]"')
+
+
+@pytest.mark.parametrize(
+    ("failure", "words"),
+    [
+        (psycopg.OperationalError("connection refused"), "connection refused"),
+        (
+            DatabaseNotConfigured("DATABASE_URL is not configured"),
+            "DATABASE_URL is empty",
+        ),
+    ],
+)
+def test_an_unreachable_aurora_is_plain_words_and_the_same_check_again(
+    monkeypatch, capsys, failure, words
+):
+    def unreachable(ids):
+        raise failure
+
+    monkeypatch.setattr(check_claim, "get_product_summaries", unreachable)
+
+    assert check_claim.main([str(VIEWSONIC), "A sentence [1]"]) == 2
+
+    err = capsys.readouterr().err
+    assert words in err
+    assert type(failure).__name__ not in err and "Traceback" not in err
+    assert err.rstrip().endswith(check_claim_command(VIEWSONIC, "A sentence [1]"))

@@ -16,14 +16,26 @@ from urllib.error import HTTPError, URLError
 from urllib.request import urlopen
 from uuid import UUID
 
+import psycopg
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from scripts.investigate_lab import paired_searches
 from scripts.lab_state import lab_ready_step
 from scripts.prove_lab import LabValidationError, _request, _require, _search
-from scripts.terminal_text import GREEN, RED, next_on_failure, next_step, tidy, tint
+from scripts.terminal_text import (
+    GREEN,
+    RED,
+    REOPEN_TERMINAL,
+    aurora_cause,
+    next_on_failure,
+    next_step,
+    tidy,
+    tint,
+)
 from service import lab_checks
+from service.db import DatabaseNotConfigured
 from service.lab_checks import FACILITATOR
 from service.participant_commands import (
     ADVANCE_TO_LAB_2,
@@ -561,6 +573,11 @@ def main() -> int:
             )
         except LabValidationError as error:
             raise SystemExit(f"Lab {args.lab}: {error}") from error
+        except (DatabaseNotConfigured, psycopg.Error) as error:
+            raise SystemExit(
+                f"Lab {args.lab}: {aurora_cause(error)}. This is an environment problem, "
+                f"not a mistake in your work.\n\nNext: {REOPEN_TERMINAL}\n{rerun}"
+            ) from error
     _send_next(args.lab, args.phase, saved)
     return 0
 

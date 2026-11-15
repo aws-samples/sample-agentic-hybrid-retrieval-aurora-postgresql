@@ -6,12 +6,14 @@ from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import Mock
 
+import psycopg
 import pytest
 
 from scripts import lab_request
 from scripts.prove_lab import LabValidationError
 from scripts.terminal_text import GREEN, RED
 from service import lab_checks
+from service.db import DatabaseNotConfigured
 
 
 class Terminal(io.StringIO):
@@ -437,3 +439,29 @@ def test_lab_2_cannot_hide_lab_1_before_lab_2_starts(monkeypatch, tmp_path):
     )
 
     assert lab_request._lab_2_hides_lab_1() is False
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [psycopg.OperationalError("connection refused"), DatabaseNotConfigured("unset")],
+)
+def test_send_names_an_unreachable_aurora_in_words_and_its_own_rerun(
+    monkeypatch, failure
+):
+    def unreachable(*_args, **_kwargs):
+        raise failure
+
+    monkeypatch.setattr(lab_request, "prepare", unreachable)
+    monkeypatch.setattr(
+        "sys.argv", ["lab_request.py", "send", "--lab", "1", "--phase", "after"]
+    )
+
+    with pytest.raises(SystemExit) as stopped:
+        lab_request.main()
+
+    message = str(stopped.value)
+    assert type(failure).__name__ not in message
+    assert message.count("Next:") == 1
+    assert message.endswith(
+        "uv run python scripts/lab_request.py send --lab 1 --phase after"
+    )

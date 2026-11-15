@@ -31,7 +31,7 @@ from scripts.cited_lines import cited_excerpt, without_review_markup
 from scripts.terminal_text import (
     BOLD,
     REOPEN_TERMINAL,
-    cause_in_words,
+    aurora_cause,
     next_step,
     separate_next,
     tidy,
@@ -250,13 +250,8 @@ def main(argv: list[str] | None = None) -> int:
             run_id = args.run_id or graded_setup_run_id(connection, started)
             run = saved_run(connection, run_id) if run_id else None
     except (DatabaseNotConfigured, psycopg.Error) as error:
-        cause = (
-            "DATABASE_URL is empty in this terminal, so Aurora cannot be reached"
-            if isinstance(error, DatabaseNotConfigured)
-            else f"Aurora did not answer ({cause_in_words(error)})"
-        )
         print(
-            f"Citation rule: {cause}. This is an environment problem, not a mistake in "
+            f"Citation rule: {aurora_cause(error)}. This is an environment problem, not a mistake in "
             "your work.",
             file=sys.stderr,
         )

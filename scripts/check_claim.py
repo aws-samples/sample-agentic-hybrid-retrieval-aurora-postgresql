@@ -15,12 +15,21 @@ import argparse
 import sys
 from pathlib import Path
 
+import psycopg
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from scripts.terminal_text import next_step, separate_next, tidy, verdict
+from scripts.terminal_text import (
+    REOPEN_TERMINAL,
+    aurora_cause,
+    next_step,
+    separate_next,
+    tidy,
+    verdict,
+)
 from service.catalog import get_evidence_record, get_product_summaries
 from service.catalog_runtime import active_dataset
-from service.db import connect
+from service.db import DatabaseNotConfigured, connect
 from service.models import EvidenceRecord
 from service.participant_commands import check_claim_command
 from service.synthesis import SynthesisOutputError, validate_cited_answer
@@ -64,6 +73,23 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("product_id", type=int)
     parser.add_argument("sentence")
     args = parser.parse_args(argv)
+    try:
+        return _check_claim(args)
+    except (DatabaseNotConfigured, psycopg.Error) as error:
+        print(
+            f"Claim check rule: {aurora_cause(error)}. This is an environment problem, "
+            "not a mistake in your sentence.",
+            file=sys.stderr,
+        )
+        next_step(
+            REOPEN_TERMINAL,
+            check_claim_command(args.product_id, args.sentence),
+            stream=sys.stderr,
+        )
+        return 2
+
+
+def _check_claim(args: argparse.Namespace) -> int:
     products = get_product_summaries([args.product_id])
     own_sentence = check_claim_command(args.product_id, "YOUR SENTENCE [1]")
     if not products:

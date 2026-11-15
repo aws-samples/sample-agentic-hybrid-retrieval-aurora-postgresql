@@ -512,3 +512,26 @@ def test_a_lab_3_cannot_grade_prints_one_next_naming_the_setup_run_command(
     assert "grade --lab 3" not in out
     if "Next: build it" not in out:
         assert grade_setup_run_command() in out
+
+
+def test_compare_names_an_unreachable_aurora_in_words_and_the_same_comparison(
+    monkeypatch, capsys
+):
+    import psycopg
+
+    from service.participant_commands import COMPARE_SETTINGS
+
+    def unreachable(lab):
+        raise psycopg.OperationalError("connection refused")
+
+    monkeypatch.setattr(lab_exercise, "compare", unreachable)
+
+    assert lab_exercise.main(["compare", "--lab", "2"]) == 2
+
+    out = capsys.readouterr().out
+    assert (
+        "Lab 2 comparison: CANNOT MEASURE - Aurora did not answer (connection refused)"
+        in out
+    )
+    assert "OperationalError" not in out and "Traceback" not in out
+    assert out.count("Next:") == 1 and out.endswith(COMPARE_SETTINGS + "\n")
