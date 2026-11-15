@@ -876,7 +876,12 @@ def test_entry_command_names_the_hand_off_that_prepares_a_lab(tmp_path):
     lab_entry._save(
         2,
         tmp_path,
-        {"lab": 2, "version": 1, "completed_at": "2026-11-15T10:00:00+00:00"},
+        {
+            "lab": 2,
+            "version": 1,
+            "steps": {},
+            "completed_at": "2026-11-15T10:00:00+00:00",
+        },
     )
     assert lab_entry.entry_command(3, tmp_path) == advance_command(2)
 
@@ -902,3 +907,68 @@ def test_the_start_record_recovery_puts_each_command_on_its_own_line():
     ]
     assert max(len(line) for line in lines) <= 100
     assert str(error).count("Next:") == 1
+
+
+@pytest.mark.parametrize(
+    ("record", "problem"),
+    [
+        ("{}", "it has no lab number"),
+        ('{"lab": 1}', "it has no version number"),
+        ('{"lab": 1, "version": 1}', "it has no steps"),
+        (
+            '{"lab": 1, "version": 1, "steps": []}',
+            "its steps are a JSON list, not an object",
+        ),
+        (
+            '{"lab": 1, "version": 1, "steps": 3}',
+            "its steps are a JSON number, not an object",
+        ),
+        (
+            '{"lab": 1, "version": 1, "steps": {}, "completed_at": true}',
+            "its start time true is not a time",
+        ),
+        (
+            '{"lab": 1, "version": 1, "steps": {}, "completed_at": "soon"}',
+            'its start time "soon" is not a time',
+        ),
+        (
+            '{"lab": 1, "version": 1, "steps": {}, "completed_at": "2026-11-15T10:00:00"}',
+            'its start time "2026-11-15T10:00:00" has no time zone',
+        ),
+        ('{"lab": "x", "version": 2, "steps": {}}', 'it is marked lab "x"'),
+        (
+            '{"lab": true, "version": 1, "steps": {}}',
+            "it is marked lab true, version 1",
+        ),
+    ],
+)
+def test_a_start_record_that_would_crash_later_is_refused_now_in_words(
+    tmp_path: Path, record: str, problem: str
+) -> None:
+    path = lab_entry.record_path(1, tmp_path)
+    path.parent.mkdir(parents=True)
+    path.write_text(record)
+
+    with pytest.raises(lab_entry.StartRecordError) as raised:
+        lab_entry.load_record(1, tmp_path)
+
+    assert problem in raised.value.problem
+    assert not re.search(
+        r"\bNone\b|\bTrue\b|\bFalse\b|\{\}|\[\]|'", raised.value.problem
+    )
+
+
+def test_a_cannot_be_opened_start_record_names_the_reason(tmp_path: Path, monkeypatch):
+    path = lab_entry.record_path(1, tmp_path)
+    path.parent.mkdir(parents=True)
+    path.write_text("{}")
+
+    def refuse(self, *args, **kwargs):
+        raise PermissionError(13, "Permission denied", str(path))
+
+    monkeypatch.setattr(Path, "read_text", refuse)
+
+    with pytest.raises(lab_entry.StartRecordError) as raised:
+        lab_entry.load_record(1, tmp_path)
+
+    assert raised.value.problem == "it cannot be opened: permission denied"

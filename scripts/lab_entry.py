@@ -164,21 +164,48 @@ _JSON_KINDS: dict[type, str] = {
 }
 
 
+def _json_kind(value: Any) -> str:
+    return _JSON_KINDS.get(type(value), "a JSON object")
+
+
 def _record_problem(lab: int, record: Any) -> str | None:
-    """What makes a parsed start record unusable, in words, or None."""
+    """What makes a parsed start record unusable, in words, or None.
+
+    Every field the commands read later is checked here, so a hand-edited record is
+    refused once, with its fix, rather than crashing a later command.
+    """
     if not isinstance(record, dict):
-        return f"it holds {_JSON_KINDS.get(type(record), 'a JSON value')}, not a record"
-    if (record.get("lab"), record.get("version")) != (lab, RECORD_VERSION):
+        return f"it holds {_json_kind(record)}, not a record"
+    if record.get("lab") is None:
+        return "it has no lab number"
+    if record.get("version") is None:
+        return "it has no version number"
+    marked = (record["lab"], record["version"])
+    if marked != (lab, RECORD_VERSION) or any(isinstance(v, bool) for v in marked):
         return (
-            f"it is marked lab {record.get('lab')}, version {record.get('version')}, "
+            f"it is marked lab {json.dumps(marked[0])}, version {json.dumps(marked[1])}, "
             f"not lab {lab}, version {RECORD_VERSION}"
         )
-    started = record.get("completed_at")
+    if "steps" not in record:
+        return "it has no steps"
+    if not isinstance(record["steps"], dict):
+        return f"its steps are {_json_kind(record['steps'])}, not an object"
+    return _start_time_problem(record.get("completed_at"))
+
+
+def _start_time_problem(started: Any) -> str | None:
+    """What is wrong with a record's start time, or None when it is absent or a UTC-aware time."""
+    if started is None or started == "":
+        return None
+    shown = json.dumps(started)
+    if not isinstance(started, str):
+        return f"its start time {shown} is not a time"
     try:
-        if started:
-            datetime.fromisoformat(started)
-    except (TypeError, ValueError):
-        return f"its start time {started!r} is not a time"
+        moment = datetime.fromisoformat(started)
+    except ValueError:
+        return f"its start time {shown} is not a time"
+    if moment.tzinfo is None:
+        return f"its start time {shown} has no time zone, such as +00:00"
     return None
 
 
