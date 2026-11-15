@@ -106,3 +106,25 @@ def test_a_cut_runtime_stream_ends_with_an_error_frame(monkeypatch):
         "detail": "The connection to the Retrieval agent closed before its answer arrived.",
     }
     assert "secret" not in last
+
+
+def test_a_409_on_the_status_call_says_runtime_runs_earlier_code(
+    monkeypatch, source, runtime
+):
+    from botocore.exceptions import ClientError
+
+    from service.agent_setup import AgentSetupError
+    from service.participant_commands import DEPLOY_AGENT
+
+    monkeypatch.setenv("MOSAIC_AGENTCORE_RUNTIME_ARN", ARN)
+    runtime.invoke_agent_runtime.side_effect = ClientError(
+        {"Error": {"Code": "RuntimeClientError", "Message": "Runtime returned (409)"}},
+        "InvokeAgentRuntime",
+    )
+
+    with pytest.raises(AgentSetupError) as refused:
+        transport.deployed_status()
+
+    message = str(refused.value)
+    assert message.startswith("AgentCore Runtime runs earlier code; deploy with ")
+    assert DEPLOY_AGENT in message and "clear chat" not in message

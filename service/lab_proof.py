@@ -39,6 +39,7 @@ import psycopg
 
 from scripts.lab_entry import (
     FAULT_AT_ENTRY,
+    StartRecordError,
     completion_path,
     entry_command,
     load_record,
@@ -54,6 +55,7 @@ from scripts.lab_state import (
     source_problem,
 )
 from service import lab_checks
+from service.agent_setup import AgentSetupError
 from service.catalog import get_evidence_record
 from service.config import get_settings
 from service.db import connect
@@ -603,12 +605,17 @@ def _managed_agent_checks(
                     rows, status, workspace_code, root
                 )
                 failure = found or failure
-    except (RuntimeError, ValueError):
+    except (AgentSetupError, StartRecordError) as error:
+        failure = str(error)
+    except (RuntimeError, ValueError) as error:
         failure = (
-            "Your deployed Retrieval agent did not answer the deployment check. Next: "
-            f"check it with {VERIFY_AGENT} in Code Editor; if it reports changed code, "
-            f"deploy with {DEPLOY_AGENT}. Then ask Alex's setup request again:\n"
-            f"{ask_setup_command()}"
+            str(error)
+            if str(error).startswith("Deploy record rule")
+            else (
+                "Your deployed Retrieval agent did not answer the deployment check. "
+                f"Next: run {VERIFY_AGENT} in Code Editor, which names what it found, "
+                f"then ask Alex's setup request again:\n{ask_setup_command()}"
+            )
         )
     return [
         LabCheck(

@@ -151,6 +151,13 @@ def invoke(
             and error.response.get("Error", {}).get("Code") == "RuntimeClientError"
             and "(409)" in error.response["Error"].get("Message", "")
         ):
+            if operation == "status":
+                # The status call carries no conversation, so a conflict here is
+                # Runtime refusing code other than the workspace's.
+                raise AgentSetupError(
+                    f"AgentCore Runtime runs earlier code; deploy with {DEPLOY_AGENT}, "
+                    f"then recheck with {VERIFY_AGENT}."
+                ) from error
             # AgentCore exposes the HTTP conflict without its application body.
             # Both stale code and rejected conversation context can return 409.
             raise AgentSetupError(

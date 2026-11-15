@@ -1341,18 +1341,50 @@ def test_an_edit_after_the_deploy_is_named_without_asking_the_agent(
 def test_a_deployment_check_the_agent_refuses_names_no_exception_class(
     monkeypatch,
 ) -> None:
-    from service.agent_setup import AgentSetupError
-
     _managed_run(monkeypatch, searched_with=CURRENT_SQL)
 
     def refused() -> dict:
-        raise AgentSetupError("The deployed Retrieval agent rejected this request.")
+        raise RuntimeError("ConnectionClosedError: socket 10.0.0.7 closed")
 
     monkeypatch.setattr("service.agentcore_transport.deployed_status", refused)
 
     check = _deployment_check(lab_proof.completion_proof(3, agent_run_id=AGENT_RUN_ID))
 
     assert not check.passed
-    assert "AgentSetupError" not in check.detail and "Error" not in check.detail
-    assert VERIFY_AGENT in check.detail and DEPLOY_AGENT in check.detail
+    assert "Error" not in check.detail and "10.0.0.7" not in check.detail
+    assert VERIFY_AGENT in check.detail
+    assert "if it reports changed code" not in check.detail
     assert "ask_agent.py" in check.detail
+
+
+@pytest.mark.parametrize(
+    "refusal",
+    [
+        "AgentSetupError: AgentCore Runtime runs earlier code; deploy with DEPLOY.",
+        (
+            "Deploy record rule: .local/agentcore/deploys.json cannot be read (it is cut "
+            "off or is not JSON); fix: deploy with DEPLOY."
+        ),
+    ],
+)
+def test_a_refusal_that_names_its_own_fix_reaches_the_participant_whole(
+    monkeypatch, refusal
+) -> None:
+    from service.agent_setup import AgentSetupError
+
+    _managed_run(monkeypatch, searched_with=CURRENT_SQL)
+    refusal = refusal.removeprefix("AgentSetupError: ").replace("DEPLOY", DEPLOY_AGENT)
+    error = (
+        AgentSetupError(refusal)
+        if refusal.startswith("AgentCore")
+        else ValueError(refusal)
+    )
+
+    def refused() -> dict:
+        raise error
+
+    monkeypatch.setattr("service.agentcore_transport.deployed_status", refused)
+
+    check = _deployment_check(lab_proof.completion_proof(3, agent_run_id=AGENT_RUN_ID))
+
+    assert not check.passed and check.detail == refusal
