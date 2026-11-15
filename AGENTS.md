@@ -19,9 +19,10 @@ shows it before the participant has typed anything: it is the exercise, not thei
 edit. Answer in plain words; many participants are new to search. When someone asks
 where to start or what they will build, answer in this order: first what they will
 build, one sentence for each of the three labs, from the customer need in the lab map
-below; then the current lab's first step in the guide (Lab 1 starts in `psql`, with
-Alex's request already saved by the guide's Getting started page). Do not say what is
-broken, why, or which code to change: finding that is the lab. Name services as the
+below; then the current lab's first step in the guide (Lab 1 starts in Code Editor: open
+`hybrid_search.sql` and see which searches `channels` reads, then check that prediction in
+`psql`, where Getting started already saved Alex's request). Do not say what is broken,
+why, or which code to change: finding that is the lab. Name services as the
 guide does: Amazon Aurora PostgreSQL, Amazon Bedrock AgentCore.
 
 Before editing, run `uv run python scripts/lab_state.py status`, inspect

@@ -37,10 +37,11 @@ catalog tour is on **Lab 1 in depth**, after Wrap-up.
 Mosaic's first visit to Shop opens a guided tour of its controls
 (Next or Skip the tour); the compass in the header replays it. One-time tips then point
 at the Playground link after the first Shop search and at the Retrieval agent's button and steps.
-Lab 1 starts in `psql` with the request Getting started saved; Shop shows the
-same search as an optional check, run by the suggested search **Lab 1: a mistyped
-listing ID** with its filters. Lab 2 continues in `psql` with the monitor
-request that Lab 1's handoff saved. Its optional Shop check, the suggested search
+Lab 1 starts in Code Editor with `hybrid_search.sql`, then moves to `psql` with the
+request Getting started saved; Shop shows the same search as an optional check, run by
+the suggested search **Lab 1: a mistyped listing ID** with its filters. Lab 2 starts the
+same way with `rrf_contribution.sql`, then `psql` with the monitor request that Lab 1's
+handoff saved. Its optional Shop check, the suggested search
 **Lab 2: Alex's monitor request**, selects Monitor itself, without depending on
 the participant having visited Shop in Lab 1. In Shop, each result card prints
 its path (the searches that found it with their ranks, then its combined and
