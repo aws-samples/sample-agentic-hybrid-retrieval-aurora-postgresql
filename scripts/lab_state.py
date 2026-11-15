@@ -1602,12 +1602,13 @@ def database_fault_exit(error, doing: str) -> SystemExit:
     block, applied, are the one participant-made cause.
     """
     sqlstate = error.sqlstate or error.diag.sqlstate or "none"
+    reason = (error.diag.message_primary or "").strip()
     if is_environment_fault(error):
+        shown = reason or cause_in_words(error) or "Aurora could not be reached"
         return SystemExit(
-            f"Could not {doing}: {cause_in_words(error)} (SQLSTATE {sqlstate}).\n"
-            f"{FACILITATOR_ADVICE}"
+            f"Could not {doing}: {shown} (SQLSTATE {sqlstate}).\n{FACILITATOR_ADVICE}"
         )
-    reason = (error.diag.message_primary or cause_in_words(error)).strip()
+    reason = reason or cause_in_words(error)
     return SystemExit(
         f"Could not {doing}: Aurora rejected it with SQLSTATE {sqlstate}: {reason}\n"
         "Next: if you changed lines outside the marked LAB blocks, undo those changes "

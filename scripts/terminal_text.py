@@ -201,43 +201,92 @@ class _Tidy:
         return getattr(self._wrapped, name)
 
 
-_TIMEOUT_CLASSES = {"QueryCanceled", "ConnectTimeoutError", "ReadTimeoutError"}
-_CUT_OFF_CLASSES = {
-    "ConnectionError",
-    "OperationalError",
-    "InterfaceError",
-    "IncompleteRead",
-    "RemoteDisconnected",
-    "HTTPException",
-}
+def _sqlstate(error: BaseException) -> str | None:
+    return getattr(error, "sqlstate", None) or getattr(
+        getattr(error, "diag", None), "sqlstate", None
+    )
+
+
+def _server_message(error: BaseException) -> str:
+    """The server's own one-line reason for rejecting a statement."""
+    primary = getattr(getattr(error, "diag", None), "message_primary", None)
+    return (primary or (str(error).strip().splitlines() or [""])[0]).strip()
 
 
 def cause_in_words(error: BaseException) -> str:
-    """Why a call failed, in words a participant can read, never the exception's class name."""
-    classes = {cls.__name__ for cls in type(error).__mro__}
-    text = str(error).lower()
-    if (
-        "timeout" in text
-        or "timed out" in text
-        or any(name.endswith("Timeout") for name in classes)
-        or classes & _TIMEOUT_CLASSES
-        or isinstance(error, TimeoutError)
+    """Why a call failed, in words a participant can read; empty when nothing is known.
+
+    Decided from the exception's type and attributes, never its class name or the
+    wording of its message. A database error with a SQLSTATE names it with the server's
+    own reason, as `database_fault_exit` does.
+    """
+    import http.client
+    import json
+    import subprocess
+
+    from botocore import exceptions as aws
+    from psycopg import Error as DatabaseError
+    from psycopg import errors as database_errors
+    from psycopg_pool import PoolTimeout
+
+    if isinstance(error, DatabaseError) and (state := _sqlstate(error)):
+        return f"SQLSTATE {state}: {_server_message(error)}"
+    if isinstance(
+        error,
+        (
+            TimeoutError,
+            subprocess.TimeoutExpired,
+            PoolTimeout,
+            database_errors.ConnectionTimeout,
+            database_errors.QueryCanceled,
+            aws.ConnectTimeoutError,
+            aws.ReadTimeoutError,
+        ),
     ):
         return "timed out"
-    if "refused" in text or isinstance(error, ConnectionRefusedError):
+    if isinstance(error, ConnectionRefusedError):
         return "connection refused"
-    if classes & _CUT_OFF_CLASSES:
+    if isinstance(
+        error,
+        (
+            ConnectionError,
+            http.client.IncompleteRead,
+            http.client.RemoteDisconnected,
+            aws.ConnectionClosedError,
+        ),
+    ):
         return "connection cut off"
-    if "JSONDecodeError" in classes:
+    if isinstance(error, json.JSONDecodeError):
         return "reply cut off or not JSON"
-    return "no reason it can name"
+    if isinstance(error, aws.NoCredentialsError):
+        return "no AWS credentials were found"
+    if isinstance(error, aws.EndpointConnectionError):
+        return "AWS could not be reached"
+    if isinstance(error, DatabaseError):
+        return "the connection failed"
+    return ""
+
+
+def cause_clause(error: BaseException) -> str:
+    """` (cause)` for a message, or nothing when the cause is not known."""
+    cause = cause_in_words(error)
+    return f" ({cause})" if cause else ""
 
 
 def aurora_cause(error: BaseException) -> str:
-    """Why Aurora could not be reached, in words, for a database or an unset DATABASE_URL."""
+    """Why Aurora could not be used, in words, for a database or an unset DATABASE_URL."""
     if "DatabaseNotConfigured" in {cls.__name__ for cls in type(error).__mro__}:
         return "DATABASE_URL is empty in this terminal, so Aurora cannot be reached"
-    return f"Aurora did not answer ({cause_in_words(error)})"
+    from psycopg import Error as DatabaseError
+
+    if isinstance(error, DatabaseError) and _sqlstate(error):
+        from scripts.lab_state import is_environment_fault
+
+        verb = (
+            "did not answer" if is_environment_fault(error) else "rejected the request"
+        )
+        return f"Aurora {verb}{cause_clause(error)}"
+    return f"Aurora did not answer{cause_clause(error)}"
 
 
 _DATABASE_URL_TEXT = '"$DATABASE_URL"'

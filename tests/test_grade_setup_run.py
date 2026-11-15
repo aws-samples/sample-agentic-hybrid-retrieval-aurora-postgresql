@@ -286,7 +286,7 @@ def test_an_unreachable_aurora_is_reported_without_a_traceback(
 
     @contextmanager
     def connect():
-        raise psycopg.OperationalError("connection timeout expired")
+        raise psycopg.errors.ConnectionTimeout("connection timeout expired")
         yield
 
     monkeypatch.setattr("service.db.connect", connect)
@@ -371,7 +371,7 @@ def test_an_unreachable_aurora_ends_with_opening_a_new_terminal(
 
     @contextmanager
     def connect():
-        raise psycopg.OperationalError("connection timeout expired")
+        raise psycopg.errors.ConnectionTimeout("connection timeout expired")
         yield
 
     monkeypatch.setattr("service.db.connect", connect)
@@ -544,7 +544,7 @@ def test_a_decision_aurora_cannot_save_prints_no_verdict(
     from scripts import lab_exercise
 
     def refused(*_args):
-        raise psycopg.OperationalError("connection timeout expired")
+        raise psycopg.errors.ConnectionTimeout("connection timeout expired")
 
     monkeypatch.setattr(lab_exercise, "record_decision", refused)
     named = uuid4()

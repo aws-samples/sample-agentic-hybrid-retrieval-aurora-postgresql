@@ -304,32 +304,71 @@ def test_tidy_names_a_script_run_by_absolute_path_relative_to_the_repository(
     assert "uv run python scripts/diff.py --answer\n" in capsys.readouterr().out
 
 
+def _real_errors():
+    import http.client
+
+    import psycopg
+    from botocore import exceptions as aws
+    from psycopg import errors as pg
+    from psycopg_pool import PoolTimeout
+
+    return [
+        (TimeoutError("slow"), "timed out"),
+        (PoolTimeout("couldn't get a connection"), "timed out"),
+        (pg.ConnectionTimeout("connection timeout expired"), "timed out"),
+        (aws.ReadTimeoutError(endpoint_url="https://x.invalid"), "timed out"),
+        (ConnectionRefusedError("no"), "connection refused"),
+        (ConnectionResetError("reset"), "connection cut off"),
+        (http.client.RemoteDisconnected("closed"), "connection cut off"),
+        (json.JSONDecodeError("Expecting value", "{", 1), "reply cut off or not JSON"),
+        (aws.NoCredentialsError(), "no AWS credentials were found"),
+        (
+            aws.EndpointConnectionError(endpoint_url="https://x.invalid"),
+            "AWS could not be reached",
+        ),
+        # Wrong password, DNS and TLS failures are not "cut off": the cause is unknown.
+        (
+            psycopg.OperationalError("password authentication failed"),
+            "the connection failed",
+        ),
+        (
+            psycopg.OperationalError("could not translate host name"),
+            "the connection failed",
+        ),
+        (
+            pg.UndefinedFunction("function x does not exist"),
+            "SQLSTATE 42883: function x does not exist",
+        ),
+        (
+            pg.InsufficientPrivilege("permission denied for table"),
+            "SQLSTATE 42501: permission denied for table",
+        ),
+        (
+            pg.UndefinedTable("relation y does not exist"),
+            "SQLSTATE 42P01: relation y does not exist",
+        ),
+        (
+            pg.ReadOnlySqlTransaction("cannot execute INSERT"),
+            "SQLSTATE 25006: cannot execute INSERT",
+        ),
+        # The words of a message never decide the cause.
+        (RuntimeError("claim refused after a timeout"), ""),
+        (pg.RaiseException("claim refused"), "SQLSTATE P0001: claim refused"),
+    ]
+
+
 @pytest.mark.parametrize(
     ("error", "words"),
-    [
-        (TimeoutError("slow"), "timed out"),
-        (
-            type("PoolTimeout", (Exception,), {})("couldn't get a connection"),
-            "timed out",
-        ),
-        (ConnectionRefusedError("no"), "connection refused"),
-        (
-            type("OperationalError", (Exception,), {})("connection refused by host"),
-            "connection refused",
-        ),
-        (ConnectionResetError("reset"), "connection cut off"),
-        (
-            type("OperationalError", (Exception,), {})("server closed the connection"),
-            "connection cut off",
-        ),
-        (json.JSONDecodeError("Expecting value", "{", 1), "reply cut off or not JSON"),
-        (RuntimeError("secret detail"), "no reason it can name"),
-    ],
+    _real_errors(),
+    ids=lambda v: type(v).__name__ if isinstance(v, BaseException) else None,
 )
-def test_cause_in_words_names_the_cause_never_the_exception_class(error, words):
-    from scripts.terminal_text import cause_in_words
+def test_cause_in_words_names_the_cause_from_the_type_never_the_class_or_message(
+    error, words
+):
+    from scripts.terminal_text import cause_clause, cause_in_words
 
     assert cause_in_words(error) == words
+    assert cause_clause(error) == (f" ({words})" if words else "")
     assert type(error).__name__ not in cause_in_words(error)
 
 
@@ -454,3 +493,17 @@ def test_ctrl_c_exits_130_from_the_command_line_not_zero(script, argv_tail, patc
     assert run.returncode == 130, run.stderr
     assert "Stopped before it finished." in run.stdout
     assert "Traceback" not in run.stderr
+
+
+def test_aurora_cause_names_a_rejected_statement_with_its_sqlstate():
+    from psycopg import errors as pg
+
+    from scripts.terminal_text import aurora_cause
+
+    assert aurora_cause(pg.UndefinedFunction("function x does not exist")) == (
+        "Aurora rejected the request (SQLSTATE 42883: function x does not exist)"
+    )
+    assert aurora_cause(pg.AdminShutdown("terminating connection")) == (
+        "Aurora did not answer (SQLSTATE 57P01: terminating connection)"
+    )
+    assert aurora_cause(RuntimeError("x")) == "Aurora did not answer"

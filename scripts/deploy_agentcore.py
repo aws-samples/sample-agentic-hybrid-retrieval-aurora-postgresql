@@ -16,7 +16,7 @@ from urllib.parse import quote, quote_plus
 
 import boto3
 from botocore.config import Config
-from botocore.exceptions import BotoCoreError, ClientError
+from botocore.exceptions import BotoCoreError, ClientError, NoCredentialsError
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -28,7 +28,7 @@ from scripts.progress import Progress
 from scripts.terminal_text import (
     GREEN,
     STEP_COLORS,
-    cause_in_words,
+    cause_clause,
     fill_words,
     next_step,
     separate_next,
@@ -720,12 +720,18 @@ def retry_command(action: str) -> str:
     return f"uv run python scripts/deploy_agentcore.py {action}"
 
 
+def _command_name(command: object) -> str:
+    """The program a failed command ran, without its arguments, which may hold secrets."""
+    first = command[0] if isinstance(command, (list, tuple)) and command else command
+    return f"`{Path(str(first).split()[0]).name}`" if first else "a command"
+
+
 def _local_cause(error: Exception) -> str:
     """A file or process failure in words, with a repo-relative path and no class name."""
     if isinstance(error, subprocess.CalledProcessError):
-        return f"a command exited with status {error.returncode}"
+        return f"{_command_name(error.cmd)} exited with status {error.returncode}"
     if isinstance(error, subprocess.TimeoutExpired):
-        return "a command timed out"
+        return f"{_command_name(error.cmd)} timed out"
     if not isinstance(error, OSError):
         return safe_text(error)
     reason = (error.strerror or safe_text(error)).lower()
@@ -754,9 +760,15 @@ def explain_failure(error: Exception, retry: str) -> str:
             f"AWS rule: {error.operation_name} failed with {code}: "
             f"{safe_text(details.get('Message', 'no message supplied'))}; fix: {action}."
         )
+    if isinstance(error, NoCredentialsError):
+        return (
+            f"AWS rule: {safe_text(error)}; fix: open a new terminal from the Terminal "
+            f"menu, which loads the workshop settings, then retry {retry}; if it repeats, "
+            "tell your facilitator."
+        )
     if isinstance(error, BotoCoreError):
         return (
-            f"AWS rule: the request failed ({cause_in_words(error)}): "
+            f"AWS rule: the request failed{cause_clause(error)}: "
             f"{safe_text(error)}; fix: check the Code Editor's network connection, "
             f"then retry {retry}."
         )

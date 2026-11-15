@@ -637,3 +637,22 @@ def test_a_network_failure_and_a_file_failure_name_causes_not_exception_classes(
     assert "PermissionError" not in local and "/home/example" not in local
     assert "permission denied" in local.lower() and ".env.next" in local
     assert DEPLOY_AGENT in local
+
+
+def test_missing_credentials_are_not_blamed_on_the_network():
+    from botocore.exceptions import NoCredentialsError
+
+    message = deploy.explain_failure(NoCredentialsError(), DEPLOY_AGENT)
+
+    assert "network" not in message and "no reason" not in message
+    assert "open a new terminal" in message and DEPLOY_AGENT in message
+
+
+def test_a_failed_command_names_the_program_not_its_arguments():
+    failed = subprocess.CalledProcessError(
+        2, ["/usr/bin/docker", "login", "--password", "hunter2"]
+    )
+
+    message = deploy.explain_failure(failed, DEPLOY_AGENT)
+
+    assert "`docker` exited with status 2" in message and "hunter2" not in message

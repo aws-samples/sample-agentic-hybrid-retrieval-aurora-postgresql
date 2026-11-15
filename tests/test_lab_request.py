@@ -443,7 +443,10 @@ def test_lab_2_cannot_hide_lab_1_before_lab_2_starts(monkeypatch, tmp_path):
 
 @pytest.mark.parametrize(
     "failure",
-    [psycopg.OperationalError("connection refused"), DatabaseNotConfigured("unset")],
+    [
+        psycopg.errors.ConnectionTimeout("connection timeout expired"),
+        DatabaseNotConfigured("unset"),
+    ],
 )
 def test_send_names_an_unreachable_aurora_in_words_and_its_own_rerun(
     monkeypatch, failure

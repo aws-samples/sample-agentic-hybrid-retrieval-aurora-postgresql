@@ -567,7 +567,7 @@ def test_an_unreachable_aurora_exits_with_facilitator_advice_not_a_traceback(
 
     message = str(exit_info.value)
     assert "facilitator" in message
-    assert "OperationalError" not in message and "connection cut off" in message
+    assert "OperationalError" not in message and "the connection failed" in message
     assert "redacted" not in message
     assert "LAB1_EDIT" not in message
 
@@ -1454,15 +1454,13 @@ def test_a_database_fault_exit_names_the_cause_not_the_exception_class():
     from scripts.lab_state import database_fault_exit
 
     exit_ = database_fault_exit(
-        psycopg.OperationalError("connection refused"), "check the workshop database"
+        psycopg.errors.ConnectionTimeout("connection timeout expired"),
+        "check the workshop database",
     )
 
     message = str(exit_)
     assert "OperationalError" not in message
-    assert (
-        "Could not check the workshop database: connection refused (SQLSTATE none)"
-        in message
-    )
+    assert "Could not check the workshop database: timed out (SQLSTATE none)" in message
 
 
 def _lab_3_deployed_unchecked(repo: Path) -> None:

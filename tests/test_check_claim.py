@@ -183,7 +183,7 @@ def test_an_unknown_product_ends_with_a_next_that_uses_a_product_from_the_guide(
 @pytest.mark.parametrize(
     ("failure", "words"),
     [
-        (psycopg.OperationalError("connection refused"), "connection refused"),
+        (psycopg.errors.ConnectionTimeout("connection timeout expired"), "timed out"),
         (
             DatabaseNotConfigured("DATABASE_URL is not configured"),
             "DATABASE_URL is empty",

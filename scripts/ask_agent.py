@@ -44,7 +44,7 @@ from scripts.terminal_text import (
     OUTCOME_COLORS,
     RED,
     YELLOW,
-    cause_in_words,
+    cause_clause,
     fill_words,
     next_step,
     separate_next,
@@ -570,7 +570,7 @@ def ask(base_url: str, question: str, *, timeout: float) -> tuple[dict[str, Any]
         # The connection dropped or sent a broken event after the run began, so the
         # API may still have saved it.
         raise AnswerStreamLost(
-            f"{STREAM_PATH} broke off mid-answer ({cause_in_words(error)}). The "
+            f"{STREAM_PATH} broke off mid-answer{cause_clause(error)}. The "
             "Retrieval agent may still have saved this run."
         ) from error
     finally:

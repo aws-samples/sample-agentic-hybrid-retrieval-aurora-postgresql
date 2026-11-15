@@ -522,17 +522,14 @@ def test_compare_names_an_unreachable_aurora_in_words_and_the_same_comparison(
     from service.participant_commands import COMPARE_SETTINGS
 
     def unreachable(lab):
-        raise psycopg.OperationalError("connection refused")
+        raise psycopg.errors.ConnectionTimeout("connection timeout expired")
 
     monkeypatch.setattr(lab_exercise, "compare", unreachable)
 
     assert lab_exercise.main(["compare", "--lab", "2"]) == 2
 
     out = capsys.readouterr().out
-    assert (
-        "Lab 2 comparison: CANNOT MEASURE - Aurora did not answer (connection refused)"
-        in out
-    )
+    assert "Lab 2 comparison: CANNOT MEASURE - Aurora did not answer (timed out)" in out
     assert "OperationalError" not in out and "Traceback" not in out
     assert out.count("Next:") == 1 and out.endswith(COMPARE_SETTINGS + "\n")
 

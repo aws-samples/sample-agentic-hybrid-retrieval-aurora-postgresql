@@ -249,7 +249,7 @@ def test_an_unreachable_aurora_names_a_retry_of_the_same_command(
 
     @contextmanager
     def connect():
-        raise psycopg.OperationalError("connection timeout expired")
+        raise psycopg.errors.ConnectionTimeout("connection timeout expired")
         yield
 
     monkeypatch.setattr(db, "connect", connect)
