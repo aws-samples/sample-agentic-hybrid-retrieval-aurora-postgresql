@@ -28,7 +28,10 @@ def problem(result, calls, model, tools, instructions, hooks) -> str | None:
 def main() -> int:
     calls = []
 
-    def constructor(**kwargs):
+    def constructor(*args, **kwargs):
+        # strands' Agent takes these first four parameters in this order.
+        for name, value in zip(("model", "messages", "tools", "system_prompt"), args):
+            kwargs[name] = value
         calls.append(kwargs)
         return kwargs
 

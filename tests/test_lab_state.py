@@ -352,6 +352,22 @@ def test_lab3_accepts_extra_instructions_and_local_variable_names(lab_repo):
 @pytest.mark.parametrize(
     "body",
     [
+        "    return Agent(model, tools=tools, system_prompt=instructions, hooks=hooks)",
+        "    return Agent(model, None, tools, instructions, hooks=hooks)",
+    ],
+)
+def test_lab3_accepts_agent_arguments_passed_by_position(lab_repo, body):
+    from scripts.lab_state import _replace_block
+
+    path = lab_repo / LABS[3][0]
+    start, end, _, _ = LABS[3][1][0]
+    path.write_text(_replace_block(path.read_text(), start, end, body))
+    assert lab_source_is_repaired(3, repo=lab_repo)
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
         "    pass",
         "    raise NotImplementedError()",
         "    return {}",
