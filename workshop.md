@@ -234,7 +234,8 @@ To read a cited record whole, participants run
 `uv run python scripts/read_citation.py NUMBER`. It reads the setup run completion grades
 (`--run-id` reads another, and is needed before Lab 3 starts, when no run is graded), so a
 later question from Ask Mosaic or Playground cannot take its place. It prints the answer's sentences that cite that number and the record the run saved,
-its quoted line marked, and asks nothing again.
+its quoted line marked, then repeats the sentences and that line at the end, above `Next:`,
+so a long listing never pushes them out of view. It asks nothing again.
 Ctrl+C in any of these commands stops it with "Stopped before it finished.", the same
 command to run again (never a connection string) and exit status 130.
 Once `status` reads Lab 3 SOLVED, an answer's `Next:` and a

@@ -124,4 +124,5 @@ def test_a_citation_reading_bolds_its_two_headings_and_the_quoted_line(monkeypat
 
     assert _bold("THE ANSWER'S SENTENCES THAT CITE [1]") in painted
     assert any(line.startswith(_bold("THE WHOLE RECORD")) for line in painted)
+    assert _bold("TO JUDGE: THE SENTENCE CITING [1] AND THE LINE IT QUOTES") in painted
     assert [ESCAPES.sub("", line) for line in painted] == piped

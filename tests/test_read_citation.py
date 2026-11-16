@@ -94,7 +94,9 @@ def test_it_prints_every_sentence_citing_the_number_and_marks_the_quoted_line(
     assert "integrated USB hub connects and charges peripherals" in out
     assert "Its listing states 90W charging over one cable [1]" in out
     assert "reviewer reports passing battery" not in out, "[2]'s sentence is not [1]'s"
-    assert out.count("»") == 2, "the legend and exactly one record line"
+    assert out.count("»") == 3, (
+        "the legend, exactly one record line and the closing repeat"
+    )
     marked = " ".join(out.split("\n  » ", 1)[1].split("\n    ")[:2])
     assert (
         marked.startswith("DITCH THE DOCK") and "90W charging over one cable" in marked
@@ -215,10 +217,8 @@ def test_a_quote_inside_a_paragraph_starts_its_own_marked_line():
 
     out = read_citation.render({**run(), "assistant_message": answer}, quote)
 
-    body = out[
-        out.index(next(line for line in out if line.startswith("THE WHOLE RECORD")))
-        + 1 :
-    ]
+    start = out.index(next(line for line in out if line.startswith("THE WHOLE RECORD")))
+    body = out[start + 1 : out.index("", start)]
     assert body == [
         "    Dock",
         "    Opening words of the listing.",
@@ -339,3 +339,23 @@ def test_before_lab_3_starts_a_named_run_still_reads(monkeypatch, capsys):
 
     out = capsys.readouterr().out
     assert out.startswith(f"Run {RUN_ID}") and "completion grades" not in out
+
+
+def test_it_ends_with_the_sentence_and_the_quoted_line_so_a_long_record_hides_neither():
+    paragraph = "The quoted sentence states 90W charging."
+    quote = {
+        **citation(1, "product_spec", "viewsonic_listing"),
+        "quote": "Title: Dock\n"
+        + "\n".join(f"Feature line {n}." for n in range(60))
+        + f"\n{paragraph}\nLast line.",
+    }
+    answer = "It supports 90W charging [1]. Its reviewer liked it [2]."
+
+    out = read_citation.render({**run(), "assistant_message": answer}, quote)
+
+    assert out[-4:] == [
+        "",
+        "TO JUDGE: THE SENTENCE CITING [1] AND THE LINE IT QUOTES",
+        "  It supports 90W charging [1].",
+        "  » The quoted sentence states 90W charging.",
+    ]

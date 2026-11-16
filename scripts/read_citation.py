@@ -4,7 +4,8 @@
     uv run python scripts/read_citation.py NUMBER --run-id RUN_ID
 
 It prints the answer's sentences that cite [NUMBER], then the record that citation names, in
-full, with the line `ask_agent.py` quoted marked. Without --run-id it reads Alex's setup run
+full, with the line `ask_agent.py` quoted marked. It ends with the sentences and the marked
+line again, above `Next:`, so a long record never pushes them out of view. Without --run-id it reads Alex's setup run
 that Lab 3 completion grades, chosen by `grade_setup_run.py`'s own rule, so a later question
 from Ask Mosaic or Playground cannot take its place; before Lab 3 starts no run is graded,
 so an earlier answer is read by its Run ID. It reads what the run saved in Aurora:
@@ -125,10 +126,25 @@ def record_lines(quote: str) -> list[str]:
     return [line for line in kept if line]
 
 
+def _marked(text: str) -> list[str]:
+    """The quoted line, wrapped under `  » `, in bold on a terminal."""
+    wrapped = wrap_words(text, WIDTH, initial_indent="  » ", subsequent_indent="    ")
+    # Bold after wrapping: its escape codes would otherwise count as width.
+    return [w[:4].replace("»", tint("»", BOLD)) + tint(w[4:], BOLD) for w in wrapped]
+
+
+def _sentences(sentences: list[str]) -> list[str]:
+    out = []
+    for sentence in sentences:
+        out += wrap_words(sentence, WIDTH, initial_indent="  ", subsequent_indent="  ")
+    return out
+
+
 def render(
     run: dict[str, Any], citation: dict[str, Any], graded: bool = False
 ) -> list[str]:
-    """The cited sentences, the citation's header and the whole record, its quote marked."""
+    """The cited sentences, the citation's header, the whole record with its quote marked,
+    then the sentences and the marked line again."""
     answer = run["assistant_message"] or ""
     number = citation["number"]
     excerpt = cited_excerpt(citation["quote"], answer, number)
@@ -142,8 +158,8 @@ def render(
         )
     out.append("")
     out.append(tint(f"THE ANSWER'S SENTENCES THAT CITE [{number}]", BOLD))
-    for sentence in citing_sentences(answer, number):
-        out += wrap_words(sentence, WIDTH, initial_indent="  ", subsequent_indent="  ")
+    sentences = citing_sentences(answer, number)
+    out += _sentences(sentences)
     source = citation["source_uri"].rstrip("/").rsplit("/", 1)[-1]
     header = (
         f"[{number}] {citation['evidence_type']}  {citation['product_id']}  "
@@ -163,25 +179,22 @@ def render(
         # The quote can be one sentence inside a long paragraph: it starts its own line so
         # the marker points at it, with the paragraph's other words kept around it.
         before, _, after = line.partition(excerpt.line)
-        for text, lead in (
-            (before.strip(), "    "),
-            (excerpt.line, "  » "),
-            (after.strip(), "    "),
-        ):
-            if not text:
-                continue
-            wrapped = wrap_words(
-                text, WIDTH, initial_indent=lead, subsequent_indent="    "
-            )
+        for text in (before.strip(), excerpt.line, after.strip()):
             if text == excerpt.line:
-                # Bold after wrapping: its escape codes would otherwise count as width.
-                wrapped = [
-                    w[:4].replace("»", tint("»", BOLD)) + tint(w[4:], BOLD)
-                    for w in wrapped
-                ]
-            out += wrapped
+                out += _marked(text)
+            elif text:
+                out += wrap_words(
+                    text, WIDTH, initial_indent="    ", subsequent_indent="    "
+                )
     if excerpt.unstated:
         out.append(f"  No line in this record states {', '.join(excerpt.unstated)}.")
+    out += [
+        "",
+        tint(f"TO JUDGE: THE SENTENCE CITING [{number}] AND THE LINE IT QUOTES", BOLD),
+    ]
+    out += _sentences(sentences)
+    if excerpt.line:
+        out += _marked(excerpt.line)
     return out
 
 
