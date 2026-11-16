@@ -8,9 +8,10 @@ import sys
 
 import pytest
 
-from scripts import ask_agent, lab_exercise
+from scripts import ask_agent, lab_exercise, read_citation
 from scripts.terminal_text import BOLD, next_step
 from tests.test_ask_agent import grounded
+from tests.test_read_citation import run
 from tests.test_rerank_off_on import OFF, ON, TARGET, off_on
 
 ON_BOLD = f"\033[{BOLD}m"
@@ -112,3 +113,15 @@ def test_the_served_profile_is_bold_and_the_k_rows_keep_their_plain_signs(monkey
     assert out.startswith(_bold("Served profile: 128 exact matches reach reranking"))
     k_row = next(line for line in out.splitlines() if line.startswith("k = 120"))
     assert not ESCAPES.search(k_row)
+
+
+def test_a_citation_reading_bolds_its_two_headings_and_the_quoted_line(monkeypatch):
+    citation = run()["citations"][0]
+    piped = read_citation.render(run(), citation)
+    _on_a_terminal(monkeypatch)
+
+    painted = read_citation.render(run(), citation)
+
+    assert _bold("THE ANSWER'S SENTENCES THAT CITE [1]") in painted
+    assert any(line.startswith(_bold("THE WHOLE RECORD")) for line in painted)
+    assert [ESCAPES.sub("", line) for line in painted] == piped

@@ -141,7 +141,7 @@ def render(
             "Alex's setup run, the one completion grades. --run-id reads another run."
         )
     out.append("")
-    out.append(f"THE ANSWER'S SENTENCES THAT CITE [{number}]")
+    out.append(tint(f"THE ANSWER'S SENTENCES THAT CITE [{number}]", BOLD))
     for sentence in citing_sentences(answer, number):
         out += wrap_words(sentence, WIDTH, initial_indent="  ", subsequent_indent="  ")
     source = citation["source_uri"].rstrip("/").rsplit("/", 1)[-1]
@@ -149,7 +149,10 @@ def render(
         f"[{number}] {citation['evidence_type']}  {citation['product_id']}  "
         f"{source} @ {citation['revision'][:12]}"
     )
-    legend = f"THE WHOLE RECORD ({tint('»', BOLD)} marks the line the answer's quote comes from)"
+    legend = (
+        f"{tint('THE WHOLE RECORD', BOLD)} "
+        f"({tint('»', BOLD)} marks the line the answer's quote comes from)"
+    )
     out += ["", header, legend]
     for line in record_lines(citation["quote"]):
         if not excerpt.line or excerpt.line not in line:
