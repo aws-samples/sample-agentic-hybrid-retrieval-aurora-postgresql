@@ -196,11 +196,15 @@ def _build_and_exercise(uv: str) -> None:
             ]
         )
         python = virtualenv / "bin" / "python"
+        # --no-config: run from the repository, uv pip would read the root project's
+        # [tool.uv] settings, such as its override-dependencies, and add unhashed pins
+        # to an install that must use the adapter's own lock and nothing else.
         _run(
             [
                 uv,
                 "pip",
                 "install",
+                "--no-config",
                 "--python",
                 str(python),
                 "--require-hashes",
@@ -214,6 +218,7 @@ def _build_and_exercise(uv: str) -> None:
                 uv,
                 "pip",
                 "install",
+                "--no-config",
                 "--python",
                 str(python),
                 "--no-deps",
