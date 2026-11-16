@@ -145,9 +145,11 @@ A successful deploy or a plausible answer is not completion: each lab ends with 
 guide's checks against the same request, run on the state you applied or deployed.
 On a terminal each result is coloured: green for good (`PASS`, `passed`, `grounded`, a
 repaired request's `After:` line), red for bad (`FAIL`, `failed`, `error`) and yellow for
-needs attention (`CANNOT GRADE`, `declined`, a `refused` draft). The word always prints,
-and a log or pipe gets the plain line. Each command
-ends with a blank line and a `Next:` line naming the step after it.
+needs attention (`CANNOT GRADE`, `declined`, a `refused` draft). The lines to read first in
+a long output are bold: an answer's headings, its `Run ID` and each citation's
+`product_spec` or `customer_review`, the starred monitor, `Served profile`, a `prepared`
+line and `Next:`. The word always prints, and a log or pipe gets the plain line. Each
+command ends with a blank line and a `Next:` line naming the step after it.
 
 A search can call Amazon Bedrock twice, for the query embedding and for reranking, and
 waits 10 seconds for each attempt. If no attempt answers, the command stops with `This

@@ -35,7 +35,7 @@ from scripts.lab_state import (
     set_lab_state,
     source_problem,
 )
-from scripts.terminal_text import GREEN, fill_words, next_text, tint, verdict
+from scripts.terminal_text import BOLD, GREEN, fill_words, next_text, tint, verdict
 from service.participant_commands import (
     ADVANCE_TO_LAB_2,
     ADVANCE_TO_LAB_3,
@@ -637,7 +637,9 @@ def _advance_lab_2(
     say("\nPreparing Lab 3: install the Retrieval agent's starting code once.")
     record = start(3, api_url=api_url, dsn=dsn, repo=repo, say=say)
     say(
-        "\nLab 3: prepared. Continue in the Lab 3 guide. Your existing edits are preserved."
+        "\n"
+        + tint("Lab 3: prepared.", BOLD)
+        + " Continue in the Lab 3 guide. Your existing edits are preserved."
     )
     return record
 
@@ -716,10 +718,13 @@ def _advance_lab_1(
     say("\nPreparing Lab 2: install its fault once and save the starting request.")
     record = start(2, api_url=api_url, dsn=dsn, repo=repo, say=say, handoff=True)
     say(
-        "\nLab 2: already prepared; continue where you left off in the Lab 2 guide. "
-        "Your existing edits are preserved."
+        "\n"
+        + tint("Lab 2: already prepared;", BOLD)
+        + " continue where you left off in the Lab 2 guide. Your existing edits are preserved."
         if resumed
-        else "\nLab 2: prepared. Continue with the saved failure in the Lab 2 guide. "
+        else "\n"
+        + tint("Lab 2: prepared.", BOLD)
+        + " Continue with the saved failure in the Lab 2 guide. "
         "Your existing edits are preserved."
     )
     return record

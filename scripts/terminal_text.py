@@ -9,6 +9,10 @@ terminal it is coloured: green for good, red for bad, yellow for needs attention
 itself always prints: colour is never the only signal, and a log, a pipe or a saved receipt
 gets the plain line.
 
+A long output also marks the lines a participant reads first in bold: a section heading, the
+Run ID, the row of the product a lab checks, a `prepared` line and `Next:`. Bold means "look
+here", never good or bad, so it does not compete with the verdict colours.
+
 Every command also ends the same way, so a participant never has to go back to the guide: a
 blank line, then `Next:` and the step that follows. `tidy` keeps the blank lines between a
 command's parts to one each, and none before its first line.
@@ -175,7 +179,11 @@ def next_step(prose: str, *lines: str, stream: TextIO | None = None) -> None:
     """
     if os.environ.get(RUN_BY):
         return
-    print("\n" + next_text(prose, *lines), file=stream or sys.stdout, flush=True)
+    out = stream or sys.stdout
+    text = next_text(prose, *lines)
+    if use_color(out):
+        text = paint("Next:", BOLD, True) + text.removeprefix("Next:")
+    print("\n" + text, file=out, flush=True)
 
 
 _INLINE_NEXT = re.compile(r"(?:(?<=\S) |\n)(?=Next: )")

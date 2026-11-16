@@ -85,7 +85,7 @@ WAITING_ON = {
 
 
 def _section(title: str, lines: list[str]) -> list[str]:
-    return [title, *(lines or ["  none"])]
+    return [tint(title, BOLD), *(lines or ["  none"])]
 
 
 def _filters(filters: dict[str, Any]) -> str:
@@ -318,9 +318,10 @@ def _citations(response: dict[str, Any]) -> list[str]:
     lines = []
     for c in response["citations"]:
         source = c["source_uri"].rstrip("/").rsplit("/", 1)[-1]
+        kind = c["evidence_type"]
         lines.append(
-            f"  [{c['number']}] {c['evidence_type']:<16} {c['product_id']}  "
-            f"{source} @ {c['revision'][:12]}"
+            f"  [{c['number']}] {tint(kind, BOLD)}{' ' * max(0, 16 - len(kind))} "
+            f"{c['product_id']}  {source} @ {c['revision'][:12]}"
         )
         lines.extend(_cited_quote(c, response.get("answer") or ""))
     return lines
@@ -363,7 +364,7 @@ def render(response: dict[str, Any], *, answer: bool = True) -> str:
     closing = [verdict(f"OUTCOME: {response['outcome']}", words=OUTCOME_COLORS)]
     if response.get("decline_reason"):
         closing.append(f"DECLINE REASON: {response['decline_reason']}")
-    closing.append(f"Run ID: {response['agent_run_id']}")
+    closing.append(tint(f"Run ID: {response['agent_run_id']}", BOLD))
     parts = [
         *([_section("ANSWER", _answer_lines(response["answer"]))] if answer else []),
         _section("PLAN", _plan(response)),
@@ -459,7 +460,7 @@ class _Run:
     def answer_start(self) -> None:
         if self.live:
             self._answered()
-            print("ANSWER", flush=True)
+            print(tint("ANSWER", BOLD), flush=True)
             self.answer_shown = True
 
     def answer_delta(self, delta: str) -> None:

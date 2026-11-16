@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import io
 import json
+import re
 import sys
 from contextlib import contextmanager
 from pathlib import Path
@@ -359,10 +360,7 @@ def test_a_pass_line_is_green_on_a_terminal_and_plain_when_piped(
 
     assert f"\033[{GREEN}mPASS\033[0m: check" in outputs["tty"]
     assert "\033" not in outputs["pipe"]
-    assert (
-        outputs["tty"].replace(f"\033[{GREEN}m", "").replace("\033[0m", "")
-        == outputs["pipe"]
-    )
+    assert re.sub(r"\033\[[0-9;]*m", "", outputs["tty"]) == outputs["pipe"]
 
 
 def test_start_ends_with_the_first_step_of_the_lab_it_prepared() -> None:

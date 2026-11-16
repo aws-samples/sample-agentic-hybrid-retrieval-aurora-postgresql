@@ -219,7 +219,9 @@ the tool trace with the search SQL Aurora ran, the products, each citation with 
 record line closest to the claim (a cited figure in bold, and a note naming any figure the
 record never states; Ask Mosaic and Playground quote and mark the same line), the outcome
 and the **Run ID**, each under its own heading after a blank line, and
-a closing `Next:` line. After the setup answer it directs participants to check a
+a closing `Next:` line. On a terminal the headings, the Run ID, each citation's `product_spec` or
+`customer_review` and the `Next:` label are bold, so a participant finds them without reading
+every line. After the setup answer it directs participants to check a
 listing claim and a review claim in CITATIONS. It gives the 100W follow-up command if
 that answer still needs to be saved, then the completion command. If the terminal loses either answer,
 participants wait a minute and run the completion check. It can find the saved answer,

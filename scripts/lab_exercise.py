@@ -39,6 +39,7 @@ from psycopg.rows import dict_row
 from scripts import lab2_tuning, lab_state
 from scripts.lab_entry import StartRecordError
 from scripts.terminal_text import (
+    BOLD,
     CONTRIBUTION_COLORS,
     REOPEN_TERMINAL,
     aurora_cause,
@@ -47,6 +48,7 @@ from scripts.terminal_text import (
     next_step,
     separate_next,
     tidy,
+    tint,
     verdict,
     wrap_words,
 )
@@ -671,10 +673,10 @@ def _position(rank: int | None) -> str:
 def print_comparison(table: dict) -> None:
     """Print the measured effect of each derived change, for the participant to judge."""
     base = table["baseline"]
+    served = f"Served profile: {base['exact_in_cutoff']} exact matches reach reranking"
     print(
-        f"Served profile: {base['exact_in_cutoff']} exact matches reach reranking "
-        f"across the judged queries; {base['billed_search_units_per_query']} estimated "
-        "rerank unit per query."
+        f"{tint(served, BOLD)} across the judged queries; "
+        f"{base['billed_search_units_per_query']} estimated rerank unit per query."
     )
     print(
         f"\n{'Change':<18}{'Exact found':>12}{'Better':>8}{'Worse':>7}"

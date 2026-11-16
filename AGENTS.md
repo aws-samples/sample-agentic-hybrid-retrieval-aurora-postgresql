@@ -112,7 +112,8 @@ The Makefile wraps them for maintainers only.
 
 Each command above ends with a blank line and a `Next:` line that names the step after it
 (on a failure, the recovery step), so point a participant to that line before the guide.
-Output is coloured only on a terminal; a pipe or `NO_COLOR` gets the same words plain.
+Output is coloured only on a terminal, with verdicts in green, red or yellow and the lines to
+read first in bold; a pipe or `NO_COLOR` gets the same words plain.
 
 A SQL file edit alone does not update Aurora; an agent edit alone does not
 update Runtime. Proof must use the newly applied/deployed state. From Lab 3's start,

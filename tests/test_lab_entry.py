@@ -7,8 +7,10 @@ the prerequisite logic run as shipped, on a copy of the checkout.
 
 from __future__ import annotations
 
+import io
 import json
 import re
+import sys
 from contextlib import contextmanager
 from pathlib import Path
 from shutil import copy2
@@ -644,6 +646,27 @@ def test_lab_2_handoff_saves_passing_evidence_then_installs_the_lab_3_starter(
     )
     assert any("Your Retrieval agent is not built yet" in line for line in lines)
     assert lines[-1].startswith("\nLab 3: prepared.")
+
+
+def test_the_lab_3_prepared_line_is_bold_on_a_terminal(
+    lab_2_repaired, aurora, lab_2_checks, monkeypatch
+):
+    class Terminal(io.StringIO):
+        def isatty(self) -> bool:
+            return True
+
+    monkeypatch.setenv("TERM", "xterm-256color")
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    monkeypatch.setattr(sys, "stdout", Terminal())
+    lines = []
+
+    lab_entry.advance(
+        2, api_url="http://api", dsn="aurora", repo=lab_2_repaired, say=lines.append
+    )
+
+    assert lines[-1].startswith(
+        "\n\033[1mLab 3: prepared.\033[0m Continue in the Lab 3 guide."
+    )
 
 
 def test_lab_2_handoff_refuses_before_lab_2_has_started(repo, aurora, lab_2_checks):

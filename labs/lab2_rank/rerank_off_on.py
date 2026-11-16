@@ -20,7 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from scripts.lab_request import request_payload
 from scripts.prove_lab import LabValidationError, _request
-from scripts.terminal_text import next_step, separate_next, tidy
+from scripts.terminal_text import BOLD, next_step, separate_next, tidy, tint
 from service.lab_checks import mission_for_lab
 from service.participant_commands import (
     COMPARE_SETTINGS,
@@ -75,13 +75,15 @@ def render(off: dict[str, Any], on: dict[str, Any], target: int) -> str:
         ],
     )
     count = max(len(off["results"]), len(on["results"]))
-    pages = table(
-        ["#", "Without reranking", "With reranking"],
-        [
-            [f"{index + 1:>2}", _title(off, index, target), _title(on, index, target)]
-            for index in range(count)
-        ],
-    )
+    rows = [
+        [f"{index + 1:>2}", _title(off, index, target), _title(on, index, target)]
+        for index in range(count)
+    ]
+    pages = table(["#", "Without reranking", "With reranking"], rows)
+    # Bold after the widths are measured, so the escape codes cannot shift a column.
+    marked = {title for row in rows for title in row[1:] if title.startswith("* ")}
+    for title in marked:
+        pages = [line.replace(title, tint(title, BOLD)) for line in pages]
     legend = f"* = product {target}, the monitor Lab 2 checks"
     return "\n".join([*timing, "", *pages, legend])
 
