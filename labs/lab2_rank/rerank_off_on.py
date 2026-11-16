@@ -106,7 +106,10 @@ def main(argv: list[str] | None = None) -> int:
                 args.api_url, "/api/search", {**payload, "rerank": rerank}
             )
     except LabValidationError as error:
-        print(separate_next(f"Search failed: {error}", RERANK_OFF_ON), file=sys.stderr)
+        print(
+            separate_next(f"Search failed: {error}", RERANK_OFF_ON, stream=sys.stderr),
+            file=sys.stderr,
+        )
         return 1
     print(render(pages[False], pages[True], mission["target_product_ids"][0]))
     status = pages[True]["diagnostics"]["rerank_status"]

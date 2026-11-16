@@ -891,7 +891,7 @@ def main(
     if shipped_file_gone and (
         missing := lab_state.missing_file_problem(args.lab, REPO)
     ):
-        print(separate_next(missing.line))
+        print(separate_next(missing.line, stream=sys.stdout))
         return 2
     # A grade Aurora cut off is run again on the same run, not on a newer pick.
     retry = (
@@ -900,7 +900,10 @@ def main(
     try:
         report = grade(args.lab, work, run_id)
     except ExerciseError as error:
-        print(verdict(lay_out_next(f"Lab {args.lab} exercise: CANNOT GRADE - {error}")))
+        laid_out = lay_out_next(
+            f"Lab {args.lab} exercise: CANNOT GRADE - {error}", stream=sys.stdout
+        )
+        print(verdict(laid_out))
         if "Next: " not in str(error):
             next_step(
                 "fix what it names, then grade again:",

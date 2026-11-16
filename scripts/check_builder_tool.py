@@ -190,7 +190,7 @@ def main() -> None:
     ) as error:
         progress.fail()
         failure = verdict(
-            separate_next(str(error), rerun),
+            separate_next(str(error), rerun, stream=sys.stderr),
             sys.stderr,
             words={"Build check failed": RED},
         )

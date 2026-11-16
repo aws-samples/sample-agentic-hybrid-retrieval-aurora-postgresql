@@ -1487,7 +1487,8 @@ def main() -> int:
             separate_next(
                 f"Lab rule: {args.action} needs --lab, with one of {valid}. "
                 f"Next: run uv run python scripts/lab_state.py {args.action} --lab N, "
-                f"for example uv run python scripts/lab_state.py {args.action} --lab 1."
+                f"for example uv run python scripts/lab_state.py {args.action} --lab 1.",
+                stream=sys.stderr,
             )
         )
     rerun = f"uv run python scripts/lab_state.py {args.action} --lab {args.lab}"
@@ -1553,7 +1554,7 @@ def _run_action(args: argparse.Namespace) -> int:
 def _validate_command(lab: int, database_url: str | None, *, repo: Path = REPO) -> int:
     """Check one lab's saved source and, for a SQL lab, the block Aurora runs."""
     if missing := missing_file_problem(lab, repo):
-        raise SystemExit(separate_next(missing.line))
+        raise SystemExit(separate_next(missing.line, stream=sys.stderr))
     if lab == 3:
         if not lab_source_is_repaired(3):
             from service.agent_setup import AGENT_STARTER_MESSAGE

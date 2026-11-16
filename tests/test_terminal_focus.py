@@ -126,3 +126,31 @@ def test_a_citation_reading_bolds_its_two_headings_and_the_quoted_line(monkeypat
     assert any(line.startswith(_bold("THE WHOLE RECORD")) for line in painted)
     assert _bold("TO JUDGE: THE SENTENCE CITING [1] AND THE LINE IT QUOTES") in painted
     assert [ESCAPES.sub("", line) for line in painted] == piped
+
+
+def test_an_error_paths_next_is_bold_on_a_terminal_and_plain_in_a_pipe():
+    from scripts.terminal_text import lay_out_next, separate_next
+
+    message = "Lab rule: something is missing."
+    for helper in (
+        lambda stream: separate_next(message, "uv run python x.py", stream=stream),
+        lambda stream: lay_out_next(
+            f"{message} Next: run uv run python x.py", stream=stream
+        ),
+    ):
+        painted, piped, unset = helper(Terminal()), helper(io.StringIO()), helper(None)
+        assert _bold("Next:") in painted
+        assert "\033" not in piped and piped == unset
+        assert ESCAPES.sub("", painted) == piped
+
+
+def test_read_citations_failure_prints_a_bold_next_to_a_terminals_stderr(monkeypatch):
+    from tests.test_read_citation import RUN_ID, use
+
+    use(monkeypatch, None)
+    screen = Terminal()
+    monkeypatch.setattr(sys, "stderr", screen)
+
+    assert read_citation.main(["1", "--run-id", str(RUN_ID)]) == 2
+
+    assert f"\n\n{_bold('Next:')} " in screen.getvalue()

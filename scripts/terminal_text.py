@@ -116,6 +116,16 @@ def verdict(
     )
 
 
+_NEXT_AT_LINE_START = re.compile(r"(?m)^Next:")
+
+
+def bold_next(text: str, stream: TextIO | None) -> str:
+    """Bold each `Next:` that starts a line, when stream is a terminal; the words never change."""
+    if stream is None or not use_color(stream):
+        return text
+    return _NEXT_AT_LINE_START.sub(paint("Next:", BOLD, True), text)
+
+
 def next_text(prose: str, *lines: str) -> str:
     """The text of a `Next:` paragraph: wrapped prose, then each command on its own line."""
     wrapped = wrap_words(f"Next: {prose}", NEXT_WIDTH, subsequent_indent="      ")
@@ -127,13 +137,17 @@ _COMMAND_IN_PROSE = re.compile(
 )
 
 
-def lay_out_next(message: str) -> str:
+def lay_out_next(message: str, *, stream: TextIO | None = None) -> str:
     """A message whose `Next:` sits inline, as wrapped paragraphs with commands alone.
 
     The finding comes first, then a blank line, then the `Next:` prose wrapped to the
     width of `next_step`, with each `uv run python` command on a line of its own.
-    A message with no `Next:` is only wrapped.
+    A message with no `Next:` is only wrapped. With stream, `Next:` is bold on a terminal.
     """
+    return bold_next(_lay_out_next(message), stream)
+
+
+def _lay_out_next(message: str) -> str:
     finding, marker, after = message.partition("Next: ")
     if not marker:
         return fill_words(message, NEXT_WIDTH)
@@ -180,21 +194,25 @@ def next_step(prose: str, *lines: str, stream: TextIO | None = None) -> None:
     if os.environ.get(RUN_BY):
         return
     out = stream or sys.stdout
-    text = next_text(prose, *lines)
-    if use_color(out):
-        text = paint("Next:", BOLD, True) + text.removeprefix("Next:")
-    print("\n" + text, file=out, flush=True)
+    print("\n" + bold_next(next_text(prose, *lines), out), file=out, flush=True)
 
 
 _INLINE_NEXT = re.compile(r"(?:(?<=\S) |\n)(?=Next: )")
 
 
-def separate_next(message: str, rerun: str | None = None) -> str:
+def separate_next(
+    message: str, rerun: str | None = None, *, stream: TextIO | None = None
+) -> str:
     """A failure message with its `Next:` in a paragraph of its own, last.
 
     A message with no `Next:` gets one telling the participant to fix what it names and run
     `rerun` again, when given. A message that lists several (one per problem) is unchanged.
+    With stream, each line-starting `Next:` is bold when that stream is a terminal.
     """
+    return bold_next(_separate_next(message, rerun), stream)
+
+
+def _separate_next(message: str, rerun: str | None) -> str:
     if message.count("Next: ") > 1 or "\n\nNext: " in message:
         return message
     if "Next: " in message:
@@ -215,7 +233,9 @@ def next_on_failure(rerun: str | None = None) -> Iterator[None]:
         yield
     except SystemExit as error:
         if isinstance(error.code, str):
-            raise SystemExit(separate_next(error.code, rerun)) from error
+            raise SystemExit(
+                separate_next(error.code, rerun, stream=sys.stderr)
+            ) from error
         raise
 
 

@@ -680,7 +680,10 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     except LabValidationError as error:
         message = f"Retrieval agent request failed: {error}"
-        print(separate_next(message, ask_agent_command(args.question)), file=sys.stderr)
+        print(
+            separate_next(message, ask_agent_command(args.question), stream=sys.stderr),
+            file=sys.stderr,
+        )
         return 1
     except KeyboardInterrupt:
         # Only the wait stops: the API keeps the turn and saves its answer when it finishes.

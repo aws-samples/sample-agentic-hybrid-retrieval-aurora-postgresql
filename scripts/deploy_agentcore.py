@@ -946,7 +946,10 @@ def main() -> int:
         TimeoutError,
     ) as error:
         retry = retry_command(args.action)
-        print(separate_next(explain_failure(error, retry), retry), file=sys.stderr)
+        print(
+            separate_next(explain_failure(error, retry), retry, stream=sys.stderr),
+            file=sys.stderr,
+        )
         return 1
 
 

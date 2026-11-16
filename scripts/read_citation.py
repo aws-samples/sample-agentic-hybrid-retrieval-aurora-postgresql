@@ -259,7 +259,7 @@ def main(argv: list[str] | None = None) -> int:
         started, unpicked = lab_3_start()
         if unpicked:
             named = read_citation_command(str(args.number), "RUN_ID")
-            print(separate_next(unpicked, named), file=sys.stderr)
+            print(separate_next(unpicked, named, stream=sys.stderr), file=sys.stderr)
             return 2
     try:
         with connect() as connection:
@@ -275,7 +275,10 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     reason = problem(run, args.run_id, args.number)
     if reason:
-        print(separate_next(reason, _rerun(run, args.run_id)), file=sys.stderr)
+        print(
+            separate_next(reason, _rerun(run, args.run_id), stream=sys.stderr),
+            file=sys.stderr,
+        )
         return 2
     citation = next(c for c in run["citations"] if c["number"] == args.number)
     print("\n".join(render(run, citation, graded=args.run_id is None)))

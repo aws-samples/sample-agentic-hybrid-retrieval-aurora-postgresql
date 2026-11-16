@@ -99,6 +99,7 @@ def _check_claim(args: argparse.Namespace) -> int:
                 "fix: use a product ID from your run, such as 1551237 for the ViewSonic "
                 "VG2756-4K",
                 check_claim_command(1551237, "YOUR SENTENCE [1]"),
+                stream=sys.stderr,
             ),
             file=sys.stderr,
         )
@@ -115,6 +116,7 @@ def _check_claim(args: argparse.Namespace) -> int:
                 "record to cite as [1]; fix: use a product ID from your run's PRODUCTS "
                 "list",
                 check_claim_command(1551237, "YOUR SENTENCE [1]"),
+                stream=sys.stderr,
             ),
             file=sys.stderr,
         )
