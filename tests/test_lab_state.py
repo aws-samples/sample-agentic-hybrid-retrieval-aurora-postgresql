@@ -1631,3 +1631,50 @@ def test_a_deploy_record_that_cannot_be_read_names_the_deploy_that_rewrites_it(c
     out = capsys.readouterr().out
     assert "deploy your Retrieval agent, which writes the record again:" in out
     assert out.rstrip().endswith(DEPLOY_AGENT) and out.count("Next:") == 1
+
+
+def _code_on_the_end_marker_line(source: str, end: str) -> str:
+    """A paste that ended inside the end marker's line: the block's last line joins it."""
+    before, marker, after = source.partition(end)
+    last_newline = before.rstrip(" ").rfind("\n")
+    joined = before[:last_newline] + "    " + marker + after
+    assert joined.count(end) == 1 and joined != source
+    return joined
+
+
+@pytest.mark.parametrize("lab", [1, 2, 3])
+def test_reset_puts_back_an_end_marker_line_a_paste_left_code_on(
+    lab_repo: Path, lab: int
+) -> None:
+    set_lab_state(lab, solved=True, repo=lab_repo)
+    path = lab_repo / LABS[lab].exercise
+    end = LABS[lab].blocks[0].end
+    path.write_text(_code_on_the_end_marker_line(path.read_text(), end))
+
+    set_lab_state(lab, solved=False, repo=lab_repo)
+
+    restored = path.read_text()
+    reference = (REPO / solution_path(Path(LABS[lab].exercise))).read_text()
+    marker_line = next(line for line in reference.splitlines() if end in line)
+    assert next(line for line in restored.splitlines() if end in line) == marker_line
+    assert LABS[lab].blocks[0].broken.strip() in restored
+    if lab == 3:
+        compile(restored, str(path), "exec")
+
+
+def test_diff_names_code_left_on_lab_3s_end_marker_line(lab_repo: Path) -> None:
+    set_lab_state(3, solved=True, repo=lab_repo)
+    path = lab_repo / LABS[3].exercise
+    path.write_text(
+        path.read_text().replace(
+            "        callback_handler=None,\n    )\n    # LAB3_EDIT_END",
+            "        callback_handler=None,\n    )    # LAB3_EDIT_END",
+        )
+    )
+
+    report, differs = lab_diff(3, repo=lab_repo)
+
+    assert differs
+    assert "Outside the markers" in report
+    assert ")    # LAB3_EDIT_END" in report
+    assert "reset --lab 3" in report

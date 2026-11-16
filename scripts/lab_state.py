@@ -212,6 +212,27 @@ def _replace_block(
     )
 
 
+def _marker_line(source: str, marker: str) -> tuple[int, int]:
+    """Where the whole line holding marker starts and ends in source."""
+    at = source.index(marker)
+    end = source.find("\n", at)
+    return source.rfind("\n", 0, at) + 1, len(source) if end == -1 else end
+
+
+def _restore_marker_lines(source: str, reference: str, markers: list[str]) -> str:
+    """Put each marker's whole line back as the reference file holds it.
+
+    A paste that ends inside a marker's line leaves code on it, such as `)` before
+    `# LAB3_EDIT_END`. Replacing only the block between the markers would keep that
+    code, and the reset meant to repair the file would leave it broken.
+    """
+    for marker in markers:
+        first, last = _marker_line(reference, marker)
+        start, end = _marker_line(source, marker)
+        source = source[:start] + reference[first:last] + source[end:]
+    return source
+
+
 def _block_span(
     source: str, start: str, end: str, *, path: Path
 ) -> tuple[int, list[str]]:
@@ -273,7 +294,10 @@ def _outside_markers(source: str, blocks: list[Block]) -> tuple[list[str], list[
     for start, end, _fixed, _broken in blocks:
         first = next(index for index, line in enumerate(lines) if start in line)
         last = next(index for index, line in enumerate(lines) if end in line)
-        inside.update(range(first, last + 1))
+        # The marker lines stay outside, so code left on one shows as a difference;
+        # trailing spaces there are invisible in an editor and do not.
+        lines[first], lines[last] = lines[first].rstrip(), lines[last].rstrip()
+        inside.update(range(first + 1, last))
     kept = [index for index in range(len(lines)) if index not in inside]
     return [lines[index] for index in kept], [index + 1 for index in kept]
 
@@ -453,6 +477,11 @@ def set_lab_state(
         source = shipped_text(solution_path(Path(relative_path)), REPO)
     for start, end, fixed, broken in blocks:
         source = _replace_block(source, start, end, fixed if solved else broken)
+    source = _restore_marker_lines(
+        source,
+        shipped_text(solution_path(Path(relative_path)), REPO),
+        [marker for start, end, _, _ in blocks for marker in (start, end)],
+    )
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(source, encoding="utf-8")
     return path
