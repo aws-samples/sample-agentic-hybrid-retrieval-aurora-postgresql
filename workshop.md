@@ -203,7 +203,7 @@ rules and hooks; an instruction of their own is optional. Deploy using the guide
 
 The resource tour during the deployment wait is
 optional. The deploy shows each of its five steps against its usual time, 1:11
-to 1:33 in all, and says when a step is still working past it. Seek room support
+to 1:35 in all, and says when a step is still working past it. Seek room support
 after five minutes without completion; this is a support cue, not a deployment
 timeout. `finish` and `skip-to` show the same: each step's usual time and how
 long is left.

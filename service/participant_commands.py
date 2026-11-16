@@ -233,14 +233,15 @@ def proof_steps_text(lab: int) -> str:
 # longest measured where a step's time varies: the deploy's verification took 13 s on a
 # participant's first deploy and 26 to 27 s on seven later ones on the 10 November 2026 event,
 # while its other steps took the same time on all eight. It took 29 s and then 27 s on the
-# 10 November walk of release 59cc5923229175e4 and 27 s on 11 November, and 35 s on the
-# 16 November test event's deploy of source 9059234f, so the longest shown is 35 s.
+# 10 November walk of release 59cc5923229175e4 and 27 s on 11 November, and 35 s and 37 s on
+# the 16 November test event's deploys of sources 9059234f and e84d8dc3, so the longest shown
+# is 37 s.
 DEPLOY_PHASE_SECONDS: tuple[float | tuple[float, float], ...] = (
     5,
     16,
     16,
     21,
-    (13, 35),
+    (13, 37),
 )
 USUAL_SECONDS: dict[str, float | tuple[float, float]] = {
     start_command(1): 5,
