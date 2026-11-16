@@ -19,7 +19,7 @@ in the CloudFormation templates under `deploy/cloudformation/`.
 | Amazon Aurora PostgreSQL | A new encrypted cluster, engine version 18.6, with one writer instance, `db.r8g.2xlarge` by default (`db.r8g.xlarge` and `db.r8g.4xlarge` are also allowed). It holds the catalog, vectors and audit records. |
 | Code Editor host | One `c6g.2xlarge` EC2 instance by default with a 50 GB volume, in a private subnet with no public IP. It runs Code Editor, the Mosaic API and the storefront. An editor launcher (a Lambda function) tries other allowed instance types and zones if the first has no capacity. |
 | Networking | A new VPC with public and private subnets and one NAT gateway, so the host can reach AWS APIs and download packages. |
-| Amazon CloudFront | Two distributions, one for Code Editor and one for Mosaic, reaching the host through CloudFront VPC origins. In `us-east-1` an AWS WAF web ACL is attached to them. Other Regions get no web ACL, because CloudFront-scoped WAF resources exist only in `us-east-1`. |
+| Amazon CloudFront | Two distributions, one for Code Editor and one for Mosaic, reaching the host through CloudFront VPC origins. In `us-east-1` an AWS WAF web ACL is attached to the Mosaic distribution. It blocks known bad inputs and rate-limits the API. The Code Editor distribution has no web ACL. Its connection token guards it. Other Regions get no web ACL, because CloudFront-scoped WAF resources exist only in `us-east-1`. |
 | Amazon Bedrock AgentCore | A Runtime for the Retrieval agent, a Runtime for the SQL tools, a Gateway that exposes the tools, and a Memory resource. |
 | Amazon ECR and AWS KMS | A repository for the runtime container image, and account-local KMS keys. |
 | AWS Lambda | Four functions: the editor launcher and three helpers for credentials, tracing and runtime logging. |
@@ -126,7 +126,7 @@ is much narrower than what the stack needs to create these resources.
 **A Region.** Use `us-east-1`. It is the Region where the workshop is validated end
 to end. `us-west-2` also deploys, with two differences you should expect:
 
-- It has no WAF web ACL on the CloudFront distributions.
+- It has no WAF web ACL on the Mosaic distribution.
 - Cohere Embed v4 has no on-demand access in `us-west-2`. The workshop uses the
   `us.cohere.embed-v4:0` inference profile, which serves the call from another Region.
   A Bedrock impairment in that Region can therefore fail searches in a `us-west-2` stack.
@@ -543,6 +543,13 @@ Some things outlive the stack and the staging environment, and you remove them y
   erase that history. An account where Transaction Search was already on is left as it
   was. The teardown command prints the setting's state and which of the two groups remain;
   confirm with `aws xray get-trace-segment-destination`.
+
+**What they cost.** Each log group you keep bills for the data it stores, $0.03 per GB-month
+([Amazon CloudWatch pricing](https://aws.amazon.com/cloudwatch/pricing/)). A bucket kept for
+another deployment bills about $0.06 a month for the 2.5 GB catalog bundle, at $0.023 per
+GB-month ([Amazon S3 pricing](https://aws.amazon.com/s3/pricing/)). KMS keys cost nothing while
+they are scheduled for deletion ([AWS KMS pricing](https://aws.amazon.com/kms/pricing/)). The VPC
+and the network interface of step 3 cost nothing. List prices in us-east-1 on 15 November 2026.
 
 Your fork stays until you delete it on GitHub.
 

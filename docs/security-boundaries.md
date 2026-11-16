@@ -3,9 +3,10 @@
 Mosaic is a disposable, single-participant workshop application with a real
 source-product catalog. It is not a shared-tenant storefront or an authentication example.
 The Code Editor requires its generated credential. The Mosaic storefront is
-intentionally reachable without a login; its CloudFront origin header and WAF
-protect the origin and limit traffic, not the identity of a shopper. Do not
-load customer data or expose one workshop instance to multiple trust domains.
+intentionally reachable without a login; its CloudFront origin header and, in
+`us-east-1`, a WAF web ACL protect the origin and limit traffic, not the identity of a
+shopper. Do not load customer data or expose one workshop instance to multiple trust
+domains.
 
 Browser memory sessions use server-checked shopper/session ownership. Reusing a
 request ID with different content is rejected; retries reuse the same Aurora
