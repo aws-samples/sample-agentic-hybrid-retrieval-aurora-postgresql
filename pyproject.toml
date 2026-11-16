@@ -19,6 +19,9 @@ dependencies = [
 
 [project.optional-dependencies]
 agentcore-observability = [
+    # Dependabot alert 110 (GHSA-mf5v-w3w3-f6cg) stays open by exception: this release and
+    # opentelemetry-sdk 1.45.1 pin opentelemetry-api==1.45.1, and forcing 1.45.2 fails the
+    # bootstrap's uv pip check. Exit: the first release that allows opentelemetry-api>=1.45.2.
     "aws-opentelemetry-distro==0.22.0",
 ]
 

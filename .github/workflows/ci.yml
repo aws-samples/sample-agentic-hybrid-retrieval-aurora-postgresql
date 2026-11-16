@@ -53,6 +53,9 @@ jobs:
         run: |
           python -m pip install --disable-pip-version-check uv==0.11.21
           uv sync --frozen
+          # The bootstrap runs the same check on every event host, so a lock that installs
+          # declared-incompatible versions fails here, not in a participant's provisioning.
+          uv pip check
 
       # Every gate below is its own step guarded by !cancelled(), so one red
       # gate reports itself without hiding the others. They used to share a
