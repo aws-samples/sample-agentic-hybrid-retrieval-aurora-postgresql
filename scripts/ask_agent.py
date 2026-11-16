@@ -617,9 +617,12 @@ def _lost_answer_next(question: str, *, stopped: bool = False) -> None:
 
 
 def _answered_next(question: str, response: dict[str, Any]) -> None:
-    """Print the step after an answer: the guide's follow-up, or the completion check."""
+    """Point to the source check, follow-up, or grading step for this answer."""
     from service.lab_checks import mission_for_lab, same_request
 
+    check_sources = (
+        "check a listing claim and a review claim against their sources in CITATIONS."
+    )
     if lab_3_solved():
         next_step(
             "the guide's next step. Lab 3 is complete, so this run needs no "
@@ -637,12 +640,13 @@ def _answered_next(question: str, response: dict[str, Any]) -> None:
     elif follow_up_saved_now():
         # A setup request asked again after a failed check: the 100W answer from the
         # deployed code still counts, and asking it again costs about a minute.
-        next_step("check completion:", grade_setup_run_command())
+        next_step(check_sources, "Then check completion:", grade_setup_run_command())
     else:
         next_step(
-            "ask whether the ViewSonic meets a new need for 100W charging:",
+            check_sources,
+            "Then ask whether the ViewSonic meets the new 100W requirement:",
             ask_100w_command(),
-            "then check completion with:",
+            "Then check completion:",
             grade_setup_run_command(),
         )
 

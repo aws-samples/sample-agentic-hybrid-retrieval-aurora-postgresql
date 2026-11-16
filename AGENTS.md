@@ -20,7 +20,7 @@ edit. Answer in plain words; many participants are new to search. When someone a
 where to start or what they will build, answer in this order: first what they will
 build, one sentence for each of the three labs, from the customer need in the lab map
 below; then the current lab's first step in the guide (Lab 1 starts in Code Editor: open
-`hybrid_search.sql` and see which searches `channels` reads, then check that prediction in
+`hybrid_search.sql` and see which searches `channels` reads, then check that in
 `psql`, where Getting started already saved Alex's request). Do not say what is broken,
 why, or which code to change: finding that is the lab. Name services as the
 guide does: Amazon Aurora PostgreSQL, Amazon Bedrock AgentCore.

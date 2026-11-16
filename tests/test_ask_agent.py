@@ -1127,13 +1127,14 @@ def test_an_answer_ends_with_a_blank_line_and_the_next_step(monkeypatch, capsys)
     out = capsys.readouterr().out
     assert "\n\n\n" not in out and not out.startswith("\n")
     assert out.endswith(
-        f"\n\nNext: ask whether the ViewSonic meets a new need for 100W charging:\n"
-        f"{ask_100w_command()}\nthen check completion with:\n"
+        "\n\nNext: check a listing claim and a review claim against their sources in CITATIONS.\n"
+        "Then ask whether the ViewSonic meets the new 100W requirement:\n"
+        f"{ask_100w_command()}\nThen check completion:\n"
         f"{grade_setup_run_command()}\n"
     )
 
 
-def test_a_setup_answer_after_a_saved_100w_answer_goes_straight_to_the_check(
+def test_a_setup_answer_after_a_saved_100w_answer_prompts_review_then_grading(
     monkeypatch, capsys
 ):
     """Asking the setup request again must not send anyone to the 100W question again."""
@@ -1146,7 +1147,10 @@ def test_a_setup_answer_after_a_saved_100w_answer_goes_straight_to_the_check(
     assert ask_agent.main([mission_for_lab(3)["query"]]) == 0
 
     out = capsys.readouterr().out
-    assert out.endswith(f"\n\nNext: check completion:\n{grade_setup_run_command()}\n")
+    assert out.endswith(
+        "\n\nNext: check a listing claim and a review claim against their sources in CITATIONS.\n"
+        f"Then check completion:\n{grade_setup_run_command()}\n"
+    )
     assert ask_100w_command() not in out
 
 

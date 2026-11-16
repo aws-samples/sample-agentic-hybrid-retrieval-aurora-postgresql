@@ -63,9 +63,10 @@ the same request. Your repairs carry forward from one lab to the next.
 | **Lab 3: Reason - Build and deploy the Retrieval agent** | Can your Retrieval agent complete Alex's setup, support each choice with sources, and respond when his requirements change? | [`labs/lab3_reason/`](labs/lab3_reason/) |
 
 Labs 1 and 2 are SQL exercises: you diagnose in `psql`, repair the marked SQL file and
-apply it to Aurora. In Lab 3 you build the Retrieval agent in Python, deploy it to
-AgentCore Runtime and check its answers from the terminal. Completion checks both
-the saved setup answer and the 100W follow-up against the records each run retrieved. Optional exercises cover
+apply it to Aurora. In Lab 3 you build the Retrieval agent in Python and deploy it to
+AgentCore Runtime. Ask it to complete Alex's setup. Check one claim against a listing
+and one against a review. Then ask whether the monitor can supply 100W and grade both
+saved answers from the terminal. Optional exercises cover
 AgentCore Memory, a smaller and faster HNSW index for filtered semantic search, weighted
 rank fusion and building your own retrieval tool.
 

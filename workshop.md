@@ -48,10 +48,10 @@ its path (the searches that found it with their ranks, then its combined and
 final positions), and Why this match puts each search's 1 ÷ (k + position) value
 beside the contribution the search recorded.
 Lab 2 ends with `advance --lab 2`, which proves Lab 2 and installs the
-Retrieval agent's starting code. Lab 3 stays in the terminal: deploy, ask the setup
-request and the 100W follow-up with `scripts/ask_agent.py`, then complete with
-`scripts/grade_setup_run.py`, which checks the saved setup and 100W runs. Ask Mosaic is an
-optional view of the same runs.
+Retrieval agent's starting code. In Lab 3, participants deploy the agent and ask it to
+complete Alex's setup from the terminal. They compare one claim with its listing and one
+with its review, then ask about the new 100W requirement. `scripts/grade_setup_run.py`
+checks both saved runs. Ask Mosaic can run the same questions in the browser.
 
 Each lab opens with its time and a link to **Running behind**. That section's
 collapsed **Use the reference answer (replaces your exercise)** command runs
@@ -201,7 +201,7 @@ Discover Gateway tools, then complete `create_agent` inside `LAB3_EDIT` in
 `labs/lab3_reason/agent.py`. Participants keep the supplied model, tools, source
 rules and hooks; an instruction of their own is optional. Deploy using the guide.
 
-Use the deployment wait to predict the 100W answer. The resource tour is
+The resource tour during the deployment wait is
 optional. The deploy shows each of its five steps against its usual time, 1:11
 to 1:28 in all, and says when a step is still working past it. Seek room support
 after five minutes without completion; this is a support cue, not a deployment
@@ -219,8 +219,9 @@ the tool trace with the search SQL Aurora ran, the products, each citation with 
 record line closest to the claim (a cited figure in bold, and a note naming any figure the
 record never states; Ask Mosaic and Playground quote and mark the same line), the outcome
 and the **Run ID**, each under its own heading after a blank line, and
-a closing `Next:` line that names the 100W follow-up, or only the completion check when a 100W
-answer from the deployed code is already saved. If the terminal loses either answer,
+a closing `Next:` line. After the setup answer it directs participants to check a
+listing claim and a review claim in CITATIONS. It gives the 100W follow-up command if
+that answer still needs to be saved, then the completion command. If the terminal loses either answer,
 participants wait a minute and run the completion check. It can find the saved answer,
 tell them to wait for a pending run, or name the question that still needs a current answer.
 Ask Mosaic does the same for those two questions: a broken answer stream shows the
