@@ -444,6 +444,28 @@ def test_workshop_bootstrap_keeps_the_agentcore_exporter_out_of_the_base_install
     assert "aws-opentelemetry-distro" in project
 
 
+def test_the_opentelemetry_api_override_holds_the_patched_release_until_the_distro_moves():
+    """Alert 110's fix overrides aws-opentelemetry-distro 0.22.0's exact API pin.
+
+    The distro check fails when the distro is upgraded: that is the override's exit
+    condition, so a later upgrade cannot keep a stale override by accident.
+    """
+    import tomllib
+
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text())
+    lock = tomllib.loads((ROOT / "uv.lock").read_text())
+    locked = {package["name"]: package["version"] for package in lock["package"]}
+
+    assert project["tool"]["uv"]["override-dependencies"] == [
+        "opentelemetry-api==1.45.2"
+    ]
+    assert locked["opentelemetry-api"] == "1.45.2"
+    assert locked["aws-opentelemetry-distro"] == "0.22.0", (
+        "aws-opentelemetry-distro moved: if it now pins opentelemetry-api>=1.45.2, delete "
+        "the [tool.uv] override in pyproject.toml and this test"
+    )
+
+
 def test_api_declares_the_turn_telemetry_route():
     from service.main import app
 

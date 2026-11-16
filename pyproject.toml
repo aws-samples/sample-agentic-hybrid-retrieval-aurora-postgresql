@@ -52,3 +52,10 @@ target-version = "py313"
 [tool.ruff.format]
 # Its bytes are hashed into the Lambda package name that the main template pins.
 exclude = ["deploy/cloudformation/editor_launcher.py"]
+
+[tool.uv]
+# Dependabot alert 110 (GHSA-mf5v-w3w3-f6cg, CVE-2026-126360): opentelemetry-api 1.45.1 and older
+# parse a traceparent header in quadratic time. aws-opentelemetry-distro 0.22.0, the newest release,
+# pins opentelemetry-api==1.45.1, so the patch release is forced here; only that package moves.
+# Exit: delete this override when an aws-opentelemetry-distro release pins opentelemetry-api>=1.45.2.
+override-dependencies = ["opentelemetry-api==1.45.2"]
