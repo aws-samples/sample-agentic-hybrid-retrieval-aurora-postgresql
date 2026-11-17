@@ -100,7 +100,7 @@ def write_starter(destination: Path) -> None:
     for section, replacement in [
         (
             "FILTERS",
-            '    raise NotImplementedError("Build the SearchFilters for Alex’s call headphones.")\n',
+            '    raise NotImplementedError("Build the SearchFilters for Alex\'s call headphones.")\n',
         ),
         ("TOOLS", "    return []\n"),
     ]:

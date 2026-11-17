@@ -85,6 +85,23 @@ def test_generated_starter_fails_until_both_implementation_points_are_completed(
         call_headphones.write_starter(destination)
 
 
+def test_generated_starter_is_plain_ascii(tmp_path):
+    """Code Editor boxes look-alike characters in yellow; the starter must show none.
+
+    A 17 November walk opened the starter and saw the curly apostrophe in its
+    NotImplementedError message highlighted on the line the participant replaces.
+    """
+    destination = tmp_path / "participant.py"
+    call_headphones.write_starter(destination)
+    starter = destination.read_text(encoding="utf-8")
+
+    assert [
+        (number, line)
+        for number, line in enumerate(starter.splitlines(), start=1)
+        if not line.isascii()
+    ] == []
+
+
 @pytest.mark.parametrize("fault", ["category", "brand"])
 def test_missing_filter_and_hardcoded_brand_fail_with_the_wrong_value(
     monkeypatch, network, fault
