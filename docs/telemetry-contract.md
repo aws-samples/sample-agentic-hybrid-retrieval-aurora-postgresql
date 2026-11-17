@@ -89,9 +89,12 @@ sessions; the default aggregate-only mode intentionally withholds them. See
 and the
 [generic custom-agent mapping](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/supported-frameworks-generic.html).
 
-Mosaic configures no exporter in application code. If the flag is false or no
-recording OpenTelemetry provider is installed, the adapter is a no-op and
-Aurora telemetry continues unchanged.
+Mosaic configures no exporter in application code. If the flag is false, Mosaic
+emits no spans of its own, but a run or search that executes inside an active,
+sampled trace still records that trace's `trace_id` and `span_id`. On AgentCore
+Runtime the launcher traces every invocation, so a saved run names the trace
+that CloudWatch shows. With no recording OpenTelemetry provider, or an
+unsampled span, both IDs stay empty and Aurora telemetry continues unchanged.
 
 ## Managed deployment and optional tracing
 

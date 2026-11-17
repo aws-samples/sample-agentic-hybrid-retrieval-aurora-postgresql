@@ -8,6 +8,8 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
+from opentelemetry import trace
+from opentelemetry.trace import SpanContext, TraceFlags
 
 from service.config import get_settings
 from service.models import RetrievalDiagnostics, RetrievalProfile, SearchResponse
@@ -148,6 +150,76 @@ def test_search_event_id_is_correlation_data_not_an_otel_trace_id():
     assert correlation.trace_id == "12" * 16
     assert correlation.span_id == "34" * 8
     assert str(search_event_id).replace("-", "") != correlation.trace_id
+
+
+def _launcher_span(*, sampled: bool) -> trace.NonRecordingSpan:
+    """A request span as the AgentCore launcher leaves it active in the service."""
+    flags = TraceFlags(TraceFlags.SAMPLED if sampled else TraceFlags.DEFAULT)
+    return trace.NonRecordingSpan(
+        SpanContext(
+            trace_id=int("6afb8982" + "6f" * 12, 16),
+            span_id=int("34" * 8, 16),
+            is_remote=False,
+            trace_flags=flags,
+        )
+    )
+
+
+def _retrieval_span_without_rows() -> TraceCorrelation:
+    return record_retrieval_span(
+        search_event_id=uuid4(),
+        query="quiet keyboard",
+        candidate_counts={"fused_pool": 50},
+        result_limit=12,
+        authorized_limit=2,
+        stage_timings_ms={"postgresql_retrieval": 30.0},
+        total_latency_ms=80,
+        rerank_status="applied",
+        retrieval_fingerprint="a" * 64,
+        source_revision="b" * 40,
+        dataset_manifest_sha256="c" * 64,
+        status="completed",
+        start_time_ns=1,
+    )
+
+
+def test_a_run_records_the_launcher_trace_it_ran_in_without_opting_in(monkeypatch):
+    """Without Mosaic's own span, a saved run still names its CloudWatch trace."""
+    monkeypatch.delenv("MOSAIC_AGENTCORE_OBSERVABILITY", raising=False)
+    get_settings.cache_clear()
+    state = {"agent_session_id": uuid4(), "agent_turn_id": uuid4()}
+
+    with trace.use_span(_launcher_span(sampled=True), end_on_exit=False):
+        with observe_agent_turn(state, "Find a quiet keyboard.") as observation:
+            turn = observation.correlation
+            assert observation.span is None
+        search = _retrieval_span_without_rows()
+
+    expected = TraceCorrelation(
+        trace_id="6afb8982" + "6f" * 12,
+        span_id="34" * 8,
+    )
+    assert turn == expected
+    assert search == expected
+
+
+def test_an_unsampled_or_absent_trace_is_not_recorded(monkeypatch):
+    """An unsampled span is never exported, so its ID would name no trace."""
+    monkeypatch.delenv("MOSAIC_AGENTCORE_OBSERVABILITY", raising=False)
+    get_settings.cache_clear()
+    state = {"agent_session_id": uuid4(), "agent_turn_id": uuid4()}
+
+    with trace.use_span(_launcher_span(sampled=False), end_on_exit=False):
+        with observe_agent_turn(state, "Find a quiet keyboard.") as observation:
+            unsampled = observation.correlation
+        unsampled_search = _retrieval_span_without_rows()
+    with observe_agent_turn(state, "Find a quiet keyboard.") as observation:
+        absent = observation.correlation
+
+    assert unsampled == TraceCorrelation()
+    assert unsampled_search == TraceCorrelation()
+    assert absent == TraceCorrelation()
+    assert _retrieval_span_without_rows() == TraceCorrelation()
 
 
 def test_broken_otel_provider_degrades_to_noop_without_breaking_mosaic(

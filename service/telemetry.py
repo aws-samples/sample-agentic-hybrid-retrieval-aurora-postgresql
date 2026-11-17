@@ -3,6 +3,8 @@
 Aurora remains canonical. This module emits a deliberately smaller aggregate
 view when an OpenTelemetry SDK is present and the operator opts in; it never
 configures an exporter and never exports candidate identities or content.
+Without the opt-in it emits nothing and only records the IDs of the trace a
+request already runs in, so a saved run can name its CloudWatch trace.
 """
 
 from __future__ import annotations
@@ -57,6 +59,22 @@ def _span_correlation(span: Span) -> TraceCorrelation:
         trace_id=span_context.trace_id,
         span_id=span_context.span_id,
         is_valid=span_context.is_valid,
+    )
+
+
+def active_trace_correlation() -> TraceCorrelation:
+    """Return the IDs of the trace the current request already runs in.
+
+    Mosaic's own spans are opt-in, but on AgentCore Runtime the OpenTelemetry
+    launcher traces every invocation regardless. Recording that trace's IDs lets
+    a saved run name the trace CloudWatch shows, without emitting a span. An
+    unsampled span is never exported, so its IDs would name no trace.
+    """
+    span_context = trace.get_current_span().get_span_context()
+    return correlation_from_span_context(
+        trace_id=span_context.trace_id,
+        span_id=span_context.span_id,
+        is_valid=span_context.is_valid and span_context.trace_flags.sampled,
     )
 
 
@@ -346,7 +364,7 @@ def observe_agent_turn(
     state.setdefault("span_id", None)
     settings = get_settings()
     if not settings.agentcore_observability_enabled:
-        yield AgentTurnObservation()
+        yield AgentTurnObservation(correlation=active_trace_correlation())
         return
 
     attached = None
@@ -438,7 +456,7 @@ def record_retrieval_span(
     """Emit one bounded retrieval span and return its durable correlation IDs."""
     settings = get_settings()
     if not settings.agentcore_observability_enabled:
-        return TraceCorrelation()
+        return active_trace_correlation()
     try:
         attributes = retrieval_span_attributes(
             search_event_id=search_event_id,

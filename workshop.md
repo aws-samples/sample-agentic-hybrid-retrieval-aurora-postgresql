@@ -322,7 +322,8 @@ Each search records the participant SQL Aurora ran it with, so `deploy_agentcore
 verify` and `ask_agent.py` show that the Retrieval agent's searches through Gateway ran the
 Lab 1 and Lab 2 files. The stack's `AgentObservability` parameter (default
 `enabled`) traces Retrieval agent runs into CloudWatch's GenAI Observability pages; it never
-decides whether Lab 3 runs, and `disabled` starts the runtimes untraced. When a
+decides whether Lab 3 runs, and `disabled` starts the runtimes untraced. Each saved run and
+search records the trace ID it ran in, so a participant can open that run's trace. When a
 participant's question fails with HTTP 503 from the Retrieval agent, its runtime's
 CloudWatch log names the cause, such as Bedrock throttling.
 
