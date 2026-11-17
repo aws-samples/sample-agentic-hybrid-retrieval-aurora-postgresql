@@ -24,12 +24,13 @@ from urllib.request import Request, urlopen
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
-from scripts.lab_entry import (
-    FAULT_AT_ENTRY,
-    completion_path,
-    load_record,
+from scripts.lab_entry import FAULT_AT_ENTRY, completion_path
+from scripts.lab_state import (
+    LabProblem,
+    explain_problems,
+    later_lab_begun,
+    workshop_next,
 )
-from scripts.lab_state import LabProblem, explain_problems, lab_ready_step
 from scripts.terminal_text import next_on_failure, next_step, tidy, verdict
 from service import lab_checks
 from service.config import get_settings
@@ -424,8 +425,8 @@ def _proved_next(lab: int) -> None:
     """Print the step after a passing proof: the hand-off, or the lab that follows it."""
     if lab == 3:
         next_step("the guide's Wrap-up. Lab 3's required work is complete.")
-    elif load_record(lab + 1, REPO) is not None:
-        lab_ready_step(lab + 1)
+    elif later_lab_begun(lab):
+        workshop_next()
     else:
         next_step(
             f"save this evidence and prepare Lab {lab + 1}:",

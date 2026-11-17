@@ -1320,6 +1320,25 @@ def handed_off(lab: int) -> bool:
     return _entered(lab + 1)
 
 
+def later_lab_begun(lab: int) -> bool:
+    """True once the next lab has a start record, finished, cut short or unreadable."""
+    from scripts.lab_entry import StartRecordError, load_record
+
+    try:
+        return load_record(lab + 1, REPO) is not None
+    except StartRecordError:
+        return True
+
+
+def workshop_next() -> None:
+    """Print the step `status` ends with: the first lab not solved yet, or Wrap-up.
+
+    A check rerun on a lab that has handed off uses it, so the cheat sheet's
+    checks never send a participant back into a lab they already left.
+    """
+    _status_next([status_line(lab, repo=REPO) for lab in LABS])
+
+
 def _entered(lab: int) -> bool:
     """True once a lab's start finished; the previous lab's handoff starts it."""
     from scripts.lab_entry import load_record
@@ -1592,6 +1611,9 @@ def _validate_command(lab: int, database_url: str | None, *, repo: Path = REPO) 
             )
         )
     print(verdict(f"Lab {lab}: PASS. {LABS[lab][0]} is repaired and Aurora runs it."))
+    if later_lab_begun(lab):
+        workshop_next()
+        return 0
     check = ADVANCE_TO_LAB_2 if lab == 1 else grade_exercise_command(lab)
     next_step(
         "leave psql with \\q if it is open, repeat Alex's request, then check it:",

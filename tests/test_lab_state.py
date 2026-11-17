@@ -1181,6 +1181,7 @@ def test_validate_points_lab_1_at_its_proof_not_back_at_itself(
 
     monkeypatch.setattr(lab_state, "source_problem", lambda _lab, **_k: None)
     monkeypatch.setattr(lab_state, "_applied_problem_in", lambda *_: None)
+    monkeypatch.setattr(lab_state, "later_lab_begun", lambda _lab: False)
 
     assert lab_state._validate_command(1, "postgresql://aurora") == 0
 
@@ -1190,6 +1191,42 @@ def test_validate_points_lab_1_at_its_proof_not_back_at_itself(
         f"{repeat_request_command(1)}\n{ADVANCE_TO_LAB_2}\n"
     )
     assert "prove_lab.py" not in out
+
+
+@pytest.mark.parametrize("lab", [1, 2])
+def test_a_recheck_after_the_hand_off_points_where_status_does(
+    monkeypatch: pytest.MonkeyPatch, capsys, lab: int
+) -> None:
+    """Rechecking a handed-off lab from the cheat sheet must not send the participant back.
+
+    A 17 November walk ran validate and prove_lab after Lab 3 passed; each printed the
+    in-lab step (advance --lab 1, open psql for Lab 2, complete create_agent).
+    """
+    from scripts import lab_state, prove_lab
+
+    monkeypatch.setattr(lab_state, "source_problem", lambda _lab, **_k: None)
+    monkeypatch.setattr(lab_state, "_applied_problem_in", lambda *_: None)
+    monkeypatch.setattr(lab_state, "later_lab_begun", lambda _lab: True)
+    monkeypatch.setattr(prove_lab, "later_lab_begun", lambda _lab: True)
+    monkeypatch.setattr(
+        lab_state, "status_line", lambda number, **_k: f"Lab {number}: SOLVED"
+    )
+    wrap_up = "\nNext: the guide's Wrap-up. All three labs are solved.\n"
+
+    assert lab_state._validate_command(lab, "postgresql://aurora") == 0
+    validated = capsys.readouterr().out
+    prove_lab._proved_next(lab)
+    proved = capsys.readouterr().out
+
+    assert validated.endswith(wrap_up)
+    assert proved == wrap_up
+    for stale in (
+        "advance --lab",
+        "open psql",
+        "create_agent",
+        "repeat Alex's request",
+    ):
+        assert stale not in validated + proved
 
 
 def _break_solution_markers(checkout: Path, lab: int) -> Path:
