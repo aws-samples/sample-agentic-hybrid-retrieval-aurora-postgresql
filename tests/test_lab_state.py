@@ -1725,22 +1725,34 @@ def test_diff_names_code_left_on_lab_3s_end_marker_line(lab_repo: Path) -> None:
     assert "reset --lab 3" in report
 
 
-def _start_record(repo: Path, lab: int, *, completed: bool = True) -> None:
-    import json
+def _start_record(repo: Path, lab: int) -> None:
+    from scripts.lab_entry import record_path
 
-    record = repo / ".local" / f"lab-{lab}" / "start.json"
-    record.parent.mkdir(parents=True, exist_ok=True)
-    body = {"version": 1, "lab": lab, "steps": {}}
-    if completed:
-        body["completed_at"] = "2026-11-18T10:00:00+00:00"
-    record.write_text(json.dumps(body))
+    path = record_path(lab, repo)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "lab": lab,
+                "steps": {},
+                "completed_at": "2026-11-18T10:00+00:00",
+            }
+        )
+    )
+
+
+def _passed_proof(repo: Path, lab: int) -> None:
+    from scripts.prove_lab import record_completion
+
+    record_completion(lab, [f"Lab {lab} proof passed"], ["search-event"], repo)
 
 
 @pytest.mark.parametrize("lab", [1, 2])
-def test_a_sql_lab_reads_solved_only_once_its_repair_runs_in_aurora_and_has_handed_off(
+def test_a_sql_lab_reads_solved_only_once_its_repair_runs_in_aurora_and_is_proved(
     lab_repo, monkeypatch, capsys, lab
 ) -> None:
-    """A repaired file is not a solved lab: Aurora must run it and the hand-off must pass.
+    """A repaired file is not a solved lab: Aurora must run it and its proof must pass.
 
     Walk 17 (18 November 2026): the coach repaired Lab 1 without applying it, and status
     read "Lab 1: SOLVED" while Aurora still ran the broken search. Each state names its
@@ -1750,6 +1762,7 @@ def test_a_sql_lab_reads_solved_only_once_its_repair_runs_in_aurora_and_has_hand
     from scripts.lab_state import LabDatabaseState, _status_next, status_line
     from service.participant_commands import (
         ADVANCE_TO_LAB_2,
+        ADVANCE_TO_LAB_3,
         APPLY_SQL,
         grade_exercise_command,
         repeat_request_command,
@@ -1775,10 +1788,20 @@ def test_a_sql_lab_reads_solved_only_once_its_repair_runs_in_aurora_and_has_hand
     assert status_line(lab, repo=lab_repo) == f"Lab {lab}: APPLIED, NOT YET PROVED"
     _status_next([*solved, status_line(lab, repo=lab_repo)])
     out = capsys.readouterr().out
-    check = ADVANCE_TO_LAB_2 if lab == 1 else grade_exercise_command(lab)
-    assert repeat_request_command(lab) in out and check in out
+    steps = (
+        [repeat_request_command(1), ADVANCE_TO_LAB_2]
+        if lab == 1
+        else [repeat_request_command(2), grade_exercise_command(2), ADVANCE_TO_LAB_3]
+    )
+    assert [out.index(step) for step in steps] == sorted(
+        out.index(step) for step in steps
+    ), "each proof step is named, in the guide's order"
 
     _start_record(lab_repo, lab + 1)
+    assert status_line(lab, repo=lab_repo) == f"Lab {lab}: APPLIED, NOT YET PROVED", (
+        "starting the next lab directly is not this lab's proof"
+    )
+    _passed_proof(lab_repo, lab)
     assert status_line(lab, repo=lab_repo) == f"Lab {lab}: SOLVED"
 
     set_lab_state(lab, solved=False, repo=lab_repo)

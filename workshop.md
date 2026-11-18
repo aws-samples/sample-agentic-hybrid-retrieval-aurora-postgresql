@@ -243,10 +243,10 @@ its quoted line marked, then repeats the sentences and that line at the end, abo
 so a long listing never pushes them out of view. It asks nothing again.
 Ctrl+C in any of these commands stops it with "Stopped before it finished.", the same
 command to run again (never a connection string) and exit status 130.
-In Labs 1 and 2, `status` reads SOLVED only once the saved repair runs in Aurora and the
-lab has handed off: a repaired file Aurora does not run yet reads `REPAIRED, NOT APPLIED`,
-and an applied repair before the hand-off reads `APPLIED, NOT YET PROVED`, each with its
-next step. Once `status` reads Lab 3 SOLVED, an answer's `Next:` and a
+In Labs 1 and 2, `status` reads SOLVED only once the saved repair runs in Aurora and its
+live proof has passed, which the lab's `advance` saves: a repaired file Aurora does not
+run yet reads `REPAIRED, NOT APPLIED`, and an applied repair before that proof reads
+`APPLIED, NOT YET PROVED`, each with its next step. Once `status` reads Lab 3 SOLVED, an answer's `Next:` and a
 `deploy_agentcore.py verify` recheck's name the guide's next step instead of the completion
 check or the setup request; a new deploy makes Lab 3 unproved again, and an edit to the agent
 after a pass reads `REPAIRED, NOT DEPLOYED` until it is deployed. A lab whose start record

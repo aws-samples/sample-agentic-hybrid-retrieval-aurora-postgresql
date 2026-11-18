@@ -1139,20 +1139,23 @@ LAB_SQL_NOT_PROVED = "APPLIED, NOT YET PROVED"
 
 
 def _sql_lab_status(lab: int, repo: Path) -> str:
-    """A SQL lab is solved once its repair is saved, runs in Aurora and has handed off.
+    """A SQL lab is solved once its repair is saved, runs in Aurora and passed its proof.
 
     The saved file alone is not enough: saving changes only the file, and a coach reads
-    `status` first in every session, so a repair Aurora does not run yet, or one not yet
-    proved by the lab's hand-off, must not read SOLVED (walk 17, 18 November 2026).
+    `status` first in every session, so a repair Aurora does not run yet, or one whose
+    live proof has not passed, must not read SOLVED (walk 17, 18 November 2026).
+    `advance` and `prove_lab.py` save that proof; a reset of the lab deletes it.
     """
+    from scripts.lab_entry import completion_path
+
     if not lab_source_is_repaired(lab, repo=repo):
         return f"Lab {lab}: BROKEN"
     applied = applied_sql_state_for_status(lab, repo)
     if isinstance(applied, str):
         return f"Lab {lab}: {LAB_SQL_NOT_CHECKED} ({applied})"
-    if applied.state == "stale":
+    if applied.state != "applied":
         return f"Lab {lab}: {LAB_SQL_NOT_APPLIED}"
-    if not _handed_off_in(lab, repo):
+    if not completion_path(lab, repo).exists():
         return f"Lab {lab}: {LAB_SQL_NOT_PROVED}"
     return f"Lab {lab}: SOLVED"
 
@@ -1177,21 +1180,6 @@ def applied_sql_state_for_status(lab: int, repo: Path) -> LabDatabaseState | str
     except psycopg.Error as error:
         reason = cause_in_words(error)
         return f"Aurora did not answer{': ' + reason if reason else ''}"
-
-
-def _handed_off_in(lab: int, repo: Path) -> bool:
-    """True once this lab's hand-off finished the start of the lab after it.
-
-    An unreadable start record for the next lab counts as handed off: that lab's own
-    line names the recovery, which is the step to take first.
-    """
-    from scripts.lab_entry import StartRecordError, load_record
-
-    try:
-        record = load_record(lab + 1, repo)
-    except StartRecordError:
-        return True
-    return bool(record and record.get("completed_at"))
 
 
 def _lab_3_passed_since(deployed_at: datetime, repo: Path) -> bool:
@@ -1551,13 +1539,21 @@ def _status_next(lines: list[str]) -> None:
                 "before the command):",
                 APPLY_SQL,
             )
-        elif LAB_SQL_NOT_PROVED in line:
-            check = ADVANCE_TO_LAB_2 if lab == 1 else grade_exercise_command(lab)
+        elif LAB_SQL_NOT_PROVED in line and lab == 1:
             next_step(
                 "Aurora runs your repair. Leave psql with \\q if it is open, repeat "
-                "Alex's request, then check it:",
+                "Alex's request, then hand off Lab 1, which proves it:",
                 repeat_request_command(lab),
-                check,
+                ADVANCE_TO_LAB_2,
+            )
+        elif LAB_SQL_NOT_PROVED in line:
+            next_step(
+                "Aurora runs your repair. Leave psql with \\q if it is open, repeat "
+                "Alex's request and grade it; once the grade passes, hand off Lab 2, "
+                "which proves it:",
+                repeat_request_command(lab),
+                grade_exercise_command(lab),
+                ADVANCE_TO_LAB_3,
             )
         elif not _entered(lab):
             # Lab 1's fault ships installed, so it reads BROKEN before its start has run.
