@@ -199,7 +199,7 @@ def main() -> None:
     result = json.dumps({"status": "passed", "runs": reports}, indent=2)
     print(result.replace('"status": "passed"', tint('"status": "passed"', GREEN), 1))
     next_step(
-        "let the Retrieval agent call your tool:",
+        "run the example agent in this terminal with your tool:",
         call_headphones_agent_command(str(args.module)),
         stream=sys.stderr,
     )

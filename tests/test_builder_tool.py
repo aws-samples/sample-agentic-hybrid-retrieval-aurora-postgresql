@@ -238,7 +238,7 @@ def test_the_checker_ends_with_the_agent_step_on_stderr_so_stdout_stays_json(
     assert captured.out.rstrip("\n").endswith("}")
     assert "Next" not in captured.out
     assert captured.err.endswith(
-        "\n\nNext: let the Retrieval agent call your tool:\n"
+        "\n\nNext: run the example agent in this terminal with your tool:\n"
         f"{call_headphones_agent_command(module)}\n"
     )
 

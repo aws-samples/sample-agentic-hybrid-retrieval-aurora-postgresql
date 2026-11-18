@@ -737,7 +737,7 @@ def _grade_next(lab: int, passed: bool, needs: dict[str, bool] | None = None) ->
     if lab == 1:
         if passed:
             next_step(
-                "the Scale & HNSW exercise continues with step 4. Create its two files:",
+                "continue the Scale & HNSW exercise by creating the two smaller-index files:",
                 HNSW_FILES,
             )
         else:

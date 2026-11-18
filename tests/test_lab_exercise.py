@@ -613,3 +613,19 @@ def test_a_passing_lab_2_grade_with_a_damaged_lab_3_record_says_so_in_words(
     out = capsys.readouterr().out
     assert "Lab 3 start record rule" in out and "reset --lab 3" in out
     assert out.count("Next:") == 1
+
+
+def test_a_passing_recall_grade_names_the_file_step_by_its_action_not_a_number(
+    monkeypatch, capsys
+):
+    from service.participant_commands import HNSW_FILES
+
+    monkeypatch.delenv("MOSAIC_RUN_BY", raising=False)
+    lab_exercise._grade_next(1, True)
+
+    out = capsys.readouterr().out
+    assert out == (
+        "\nNext: continue the Scale & HNSW exercise by creating the two smaller-index"
+        f" files:\n{HNSW_FILES}\n"
+    )
+    assert "step" not in out.split(HNSW_FILES)[0]

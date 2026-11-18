@@ -75,7 +75,7 @@ def check_builder_tool_command(module: str) -> str:
 
 
 def call_headphones_agent_command(module: str) -> str:
-    """Let the Retrieval agent call the tool in the exercise's file."""
+    """Run the example agent in this terminal with the tool in the exercise's file."""
     return (
         f"PYTHONPATH=. uv run python {module} --agent "
         '--query "Headphones for video calls from home" --brand Bose'
