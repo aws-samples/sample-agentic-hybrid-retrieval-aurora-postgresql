@@ -509,7 +509,7 @@ ui-test:
 	cd ui && npm test
 
 ui-audit:
-	cd ui && npm audit --audit-level=moderate
+	{ npm --prefix ui audit --json || true; } | $(PYTHON) scripts/checks/ui_audit.py
 
 ui-dev:
 	cd ui && CATALOG_API_PROXY="$${CATALOG_API_PROXY:-http://127.0.0.1:$(API_PORT)}" npm run dev -- --host 127.0.0.1 --port $(UI_PORT)

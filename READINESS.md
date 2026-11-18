@@ -40,7 +40,8 @@ uv run python scripts/checks/mission_contract.py --shape-only
 PYTHONPATH=. uv run pytest -q
 PYTHONPATH=. uv run --frozen --extra agentcore-observability pytest -q tests/test_observability_credentials.py
 make mcp-install && make mcp-test && make mcp-wheel-smoke
-cd ui && npm test && npm run build && npm audit --audit-level=moderate
+cd ui && npm test && npm run build
+make ui-audit
 ```
 
 This is the list `.github/workflows/ci.yml` runs on every push and pull
