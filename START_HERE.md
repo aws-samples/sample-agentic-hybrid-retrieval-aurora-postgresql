@@ -15,9 +15,9 @@ for the required steps; each command is followed by a screenshot of what you sho
 see. **Go deeper (Optional)**, after Wrap-up, holds extra reading and experiments.
 Each exercise follows the same flow:
 
-1. Send the guide's exact request and filters, and keep them fixed, so the
-   before and after compare the same thing.
-2. Read the record that explains the failure before you open any code.
+1. Open the lab's file in Code Editor and read the part the guide points to.
+2. Use the guide's exact request and filters to see what goes wrong, and keep them
+   fixed so the before and after compare the same thing. Find the cause before you edit.
 3. Edit only the exercise, then apply the SQL or deploy the Retrieval
    agent. Saving the file changes nothing until you do.
 4. Repeat the identical request and finish on the guide's check.
