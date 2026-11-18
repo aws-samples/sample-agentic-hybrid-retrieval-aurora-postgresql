@@ -67,8 +67,9 @@ apply it to Aurora. In Lab 3 you build the Retrieval agent in Python and deploy 
 AgentCore Runtime. Ask it to complete Alex's setup. Check one claim against a listing
 and one against a review. Then ask whether the monitor can supply 100W and grade both
 saved answers from the terminal. Optional exercises cover
-AgentCore Memory, a smaller and faster HNSW index for filtered semantic search, weighted
-rank fusion and building your own retrieval tool.
+a smaller and faster HNSW index for filtered semantic search, AgentCore Memory, building your
+own retrieval tool and reviewing recorded results; **Lab 2 in depth** compares weighted and
+standard rank fusion.
 
 ## Architecture
 

@@ -29,10 +29,10 @@ exact requests, filters, targets and assertions. Protect its **45-minute
 hands-on budget**. The hour has no wrap-up block. Completion is inside Lab 3; Scale & HNSW leads the untimed optional exercises, then Session & Memory, Retrieval tool and Review examples.
 These are planned allocations, not measured human completion times.
 
-During setup, use **Getting started** to open Code Editor, run one readiness
-query in `psql` and save Lab 1's failing search. Every Getting started step
-runs in the terminal; a short section with an animation shows Claude Code, the coding
-coach. Two collapsed boxes in Getting started start a later lab and tour Mosaic; the
+During setup, use **Getting started** to open Code Editor from the Event Dashboard, then
+run one readiness query in `psql` and save Lab 1's failing search in its terminal. Those two
+sections are required; an optional section with an animation shows Claude Code, the coding
+coach, and says to follow the guide when the coach's steps differ. Two collapsed boxes in Getting started start a later lab and tour Mosaic; the
 catalog tour is on **Lab 1 in depth**, after Wrap-up.
 Mosaic's first visit to Shop opens a guided tour of its controls
 (Next or Skip the tour); the compass in the header replays it. One-time tips then point
@@ -67,11 +67,13 @@ opens the required flow on an **Exercise** child page. Numbered action steps, wh
 under each heading, name the editor, terminal or `psql`; each command is followed by its
 expected result and a screenshot. A screenshot's numbered callouts are labeled on the image
 and in its alt text, never in the sentences. A step that pastes into
-two prompts, such as `psql` then `\i`, keeps two copy blocks: pasting both lines at once
-runs `\i` in the shell after psql exits. App walkthroughs use **See it in Mosaic** on the
+two prompts, such as `\q` then a shell command, keeps two copy blocks: pasting both lines at
+once runs the second line in the wrong prompt. Labs 1 and 2 open `psql` with the saved request
+in one shell command, `PSQLRC=.local/lab-N/context.psql psql`; `\i` reloads it only in a
+recovery box. App walkthroughs use **See it in Mosaic** on the
 Exercise page; supporting animations use collapsed **📷 See it in motion** sections.
 A green **Lab N complete.** alert ends each lab, and **Next** opens the next lab or Wrap-up.
-Just above it, a blue **Production tips** callout gives that lab's sizing and cost levers
+Just above it, a collapsed **Production tips** box gives that lab's sizing and cost levers
 for after the event: index size and Aurora capacity, rerank cost, then agent cost. It is
 reading, not a step; point participants who ask about cost or production there.
 **Go deeper (Optional)** is a section after Wrap-up, so the built-in footer follows the
@@ -83,7 +85,7 @@ outside the repository. Avoid extra demonstrations during a lab's proof time.
 
 ## Open with the customer
 
-Introduce the central question on the landing page and in the opening talk.
+Introduce the business challenge on the landing page and in the opening talk.
 Then follow Alex's progress: find his headphones, rank his monitor, add the
 chair and check the whole setup. Each lab opens with what he has achieved and
 what he needs next; each handoff carries the participant's repairs forward.
@@ -173,7 +175,9 @@ and spacing do not count as a difference.
 
 ### Lab 2: contributions and admission to reranking
 
-In **Exercise: Give each position its own score**, load `.local/lab-2/context.psql` in its own paste. Compare
+In **Trace Alex's monitor request**, participants open `psql` with
+`PSQLRC=.local/lab-2/context.psql psql`, or keep the session the handoff's `Next:` line
+opened. Compare
 the intended monitor's semantic and fused positions, then compare actual
 contributions with the formula. Participants repair only `LAB2_EDIT` in
 `labs/lab2_rank/rrf_contribution.sql`, apply, repeat and grade the saved request.
@@ -361,9 +365,9 @@ for each of Alex's three picks. Finish the guide's completion check before optio
 > Find the missing candidates, make their positions count, then check the
 > sources behind the answer.
 
-Before the event expires, use **Use it in your own agent** in Playground:
-**Download the SQL and guide**, **Download the agent skill**, and **Connect over
-MCP**. The skill guides a running backend; it does not host the
+Before the event expires, Wrap-up's **Take it home** downloads the agent skill from
+**Use it in your own agent** in Playground, and optionally the SQL and guide; reusing the
+tools over MCP is under **Keep exploring**. The skill guides a running backend; it does not host the
 catalog or replace service permissions. Follow the
 [adaptation guide](docs/use-in-your-app.md) for another domain.
 

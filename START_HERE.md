@@ -34,9 +34,10 @@ root. If the groups are missing, open
 [Mosaic.code-workspace](Mosaic.code-workspace) with
 **File → Open Workspace from File…**.
 
-Claude Code runs in this terminal as a coding coach: type `claude`, then paste the
-first **Coach** prompt from a **Stuck?** block. It explains and gives a hint; the second
-prompt makes the change.
+Claude Code runs in the terminal as a coding coach: open a second terminal with **+** so
+`psql` stays open, type `claude`, then paste the first **Coach** prompt from a **Stuck?**
+block. It explains and gives a hint; the second prompt makes the change. It writes each
+answer fresh, so when its steps differ from the guide, follow the guide.
 
 The lab READMEs are short reminders. The guide has the exact requests, the
 checks, and a **Stuck?** block wherever you edit, with hints, two prompts for the

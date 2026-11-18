@@ -9,7 +9,8 @@ handoff saved: does the intended listing survive ranking?
 
 ## Trace Alex's monitor request
 
-In `psql`, load `.local/lab-2/context.psql` with `\i` in its own paste. Follow
+At the shell prompt, open `psql` with the request loaded,
+`PSQLRC=.local/lab-2/context.psql psql`. Follow
 the guide's query to compare the ViewSonic VG2756-4K's semantic position with
 its membership in the fused shortlist. Then score a few positions with
 `reciprocal_rank_contribution` and compare them with `1 / (60 + position)`. If
@@ -69,7 +70,7 @@ uv run python scripts/lab_state.py advance --lab 2
 <details>
 <summary>🔍 Optional after required completion: standard vs weighted RRF</summary>
 
-Use the Rank guide's collapsed comparison, or read the
+Use **Weighted against standard fusion** on the guide's **Lab 2 in depth** page, or read the
 [implementation notes](../../docs/fusion-rerank.md#optional-standard-vs-weighted-rrf).
 It compares the same candidates without changing default settings or replacing proof.
 

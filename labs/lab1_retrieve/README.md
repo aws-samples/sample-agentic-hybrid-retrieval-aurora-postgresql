@@ -10,8 +10,9 @@ disappears.
 ## Trace Alex's mistyped ID
 
 Getting started saved Alex's mistyped request with
-`uv run python scripts/lab_state.py start --lab 1`. In `psql`, load it with
-`\i .local/lab-1/context.psql` in its own paste, then count what each search contributed to
+`uv run python scripts/lab_state.py start --lab 1`. First read which searches `channels`
+reads in `hybrid_search.sql`. Then, at the shell prompt, open `psql` with that request loaded,
+`PSQLRC=.local/lab-1/context.psql psql`, and count what each search contributed to
 `search_hybrid_rrf`: all 50 candidates come from semantic search, no Logitech,
 no error. Then run the three searches separately. Fuzzy matching finds the
 Logitech on its own; do its rows ever reach `channels`? A reranker cannot
