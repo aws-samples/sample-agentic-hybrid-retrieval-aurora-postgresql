@@ -474,14 +474,22 @@ def test_lab3_probe_bounds_a_nonterminating_edit(lab_repo):
     assert not lab_source_is_repaired(3, repo=lab_repo)
 
 
-def test_status_reports_the_participants_lab_not_the_shipped_seam(lab_repo) -> None:
+def test_status_reports_the_participants_lab_not_the_shipped_seam(
+    lab_repo, monkeypatch
+) -> None:
     """Labs 2 and 3 ship repaired; before a start that is nobody's work."""
     import json
 
-    from scripts.lab_state import status_line
+    from scripts import lab_state
+    from scripts.lab_state import LabDatabaseState, status_line
     from service.participant_commands import start_command
 
-    assert status_line(1, repo=lab_repo) == "Lab 1: SOLVED"
+    monkeypatch.setattr(
+        lab_state,
+        "applied_sql_state_for_status",
+        lambda lab, repo: LabDatabaseState(state="applied", detail="runs"),
+    )
+    assert status_line(1, repo=lab_repo) == "Lab 1: APPLIED, NOT YET PROVED"
     assert status_line(2, repo=lab_repo) == "Lab 2: NOT STARTED"
     record = lab_repo / ".local" / "lab-2" / "start.json"
     record.parent.mkdir(parents=True)
@@ -1715,3 +1723,101 @@ def test_diff_names_code_left_on_lab_3s_end_marker_line(lab_repo: Path) -> None:
     assert "Outside the markers" in report
     assert ")    # LAB3_EDIT_END" in report
     assert "reset --lab 3" in report
+
+
+def _start_record(repo: Path, lab: int, *, completed: bool = True) -> None:
+    import json
+
+    record = repo / ".local" / f"lab-{lab}" / "start.json"
+    record.parent.mkdir(parents=True, exist_ok=True)
+    body = {"version": 1, "lab": lab, "steps": {}}
+    if completed:
+        body["completed_at"] = "2026-11-18T10:00:00+00:00"
+    record.write_text(json.dumps(body))
+
+
+@pytest.mark.parametrize("lab", [1, 2])
+def test_a_sql_lab_reads_solved_only_once_its_repair_runs_in_aurora_and_has_handed_off(
+    lab_repo, monkeypatch, capsys, lab
+) -> None:
+    """A repaired file is not a solved lab: Aurora must run it and the hand-off must pass.
+
+    Walk 17 (18 November 2026): the coach repaired Lab 1 without applying it, and status
+    read "Lab 1: SOLVED" while Aurora still ran the broken search. Each state names its
+    own next step.
+    """
+    from scripts import lab_state
+    from scripts.lab_state import LabDatabaseState, _status_next, status_line
+    from service.participant_commands import (
+        ADVANCE_TO_LAB_2,
+        APPLY_SQL,
+        grade_exercise_command,
+        repeat_request_command,
+    )
+
+    if lab == 2:
+        _start_record(lab_repo, 2)
+    state = {"value": LabDatabaseState(state="stale", detail="old SQL")}
+    calls = []
+
+    def fake(number, repo):
+        calls.append(number)
+        return state["value"]
+
+    monkeypatch.setattr(lab_state, "applied_sql_state_for_status", fake)
+    solved = ["Lab 1: SOLVED"] if lab == 2 else []
+
+    assert status_line(lab, repo=lab_repo) == f"Lab {lab}: REPAIRED, NOT APPLIED"
+    _status_next([*solved, status_line(lab, repo=lab_repo)])
+    assert APPLY_SQL in capsys.readouterr().out
+
+    state["value"] = LabDatabaseState(state="applied", detail="runs")
+    assert status_line(lab, repo=lab_repo) == f"Lab {lab}: APPLIED, NOT YET PROVED"
+    _status_next([*solved, status_line(lab, repo=lab_repo)])
+    out = capsys.readouterr().out
+    check = ADVANCE_TO_LAB_2 if lab == 1 else grade_exercise_command(lab)
+    assert repeat_request_command(lab) in out and check in out
+
+    _start_record(lab_repo, lab + 1)
+    assert status_line(lab, repo=lab_repo) == f"Lab {lab}: SOLVED"
+
+    set_lab_state(lab, solved=False, repo=lab_repo)
+    calls.clear()
+    assert status_line(lab, repo=lab_repo) == f"Lab {lab}: BROKEN"
+    assert calls == [], "a broken file needs no Aurora read"
+
+
+def test_status_says_aurora_was_not_checked_instead_of_guessing(
+    lab_repo, monkeypatch, capsys
+) -> None:
+    """With no DATABASE_URL or no answer from Aurora, a repaired lab is neither solved nor not."""
+    import psycopg
+
+    from scripts import lab_state
+    from scripts.lab_state import (
+        _status_next,
+        applied_sql_state_for_status,
+        status_line,
+    )
+    from service.participant_commands import STATUS
+
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    assert applied_sql_state_for_status(1, lab_repo) == (
+        "DATABASE_URL is empty in this terminal"
+    )
+    line = status_line(1, repo=lab_repo)
+    assert line == (
+        "Lab 1: REPAIRED, AURORA NOT CHECKED (DATABASE_URL is empty in this terminal)"
+    )
+    _status_next([line])
+    assert STATUS in capsys.readouterr().out
+
+    def refuse(*_args, **_kwargs):
+        raise psycopg.OperationalError("connection refused")
+
+    monkeypatch.setenv("DATABASE_URL", "postgresql://user@db.invalid/mosaic")
+    monkeypatch.setattr(psycopg, "connect", refuse)
+    reason = applied_sql_state_for_status(1, lab_repo)
+    assert reason.startswith("Aurora did not answer")
+    assert "db.invalid" not in reason, "the reason never names the DSN"
+    assert lab_state.LAB_SQL_NOT_CHECKED in status_line(1, repo=lab_repo)

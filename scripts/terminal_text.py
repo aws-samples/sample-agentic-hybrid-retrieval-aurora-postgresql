@@ -55,6 +55,9 @@ STATE_COLORS = {
     "SHIPPED FILES CHANGED": RED,
     "REPAIRED, NOT DEPLOYED": YELLOW,
     "DEPLOYED, NOT YET PROVED": YELLOW,
+    "REPAIRED, NOT APPLIED": YELLOW,
+    "APPLIED, NOT YET PROVED": YELLOW,
+    "REPAIRED, AURORA NOT CHECKED": YELLOW,
 }
 #: The step after Aurora does not answer a participant command: a new terminal reloads the
 #: workshop settings, and a repeat is the facilitator's to diagnose.

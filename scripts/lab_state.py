@@ -1130,9 +1130,68 @@ def status_line(lab: int, *, repo: Path = REPO) -> str:
         )
     if lab == 3:
         return _lab_3_status(repo)
-    return (
-        f"Lab {lab}: {'SOLVED' if lab_source_is_repaired(lab, repo=repo) else 'BROKEN'}"
-    )
+    return _sql_lab_status(lab, repo)
+
+
+LAB_SQL_NOT_CHECKED = "REPAIRED, AURORA NOT CHECKED"
+LAB_SQL_NOT_APPLIED = "REPAIRED, NOT APPLIED"
+LAB_SQL_NOT_PROVED = "APPLIED, NOT YET PROVED"
+
+
+def _sql_lab_status(lab: int, repo: Path) -> str:
+    """A SQL lab is solved once its repair is saved, runs in Aurora and has handed off.
+
+    The saved file alone is not enough: saving changes only the file, and a coach reads
+    `status` first in every session, so a repair Aurora does not run yet, or one not yet
+    proved by the lab's hand-off, must not read SOLVED (walk 17, 18 November 2026).
+    """
+    if not lab_source_is_repaired(lab, repo=repo):
+        return f"Lab {lab}: BROKEN"
+    applied = applied_sql_state_for_status(lab, repo)
+    if isinstance(applied, str):
+        return f"Lab {lab}: {LAB_SQL_NOT_CHECKED} ({applied})"
+    if applied.state == "stale":
+        return f"Lab {lab}: {LAB_SQL_NOT_APPLIED}"
+    if not _handed_off_in(lab, repo):
+        return f"Lab {lab}: {LAB_SQL_NOT_PROVED}"
+    return f"Lab {lab}: SOLVED"
+
+
+def applied_sql_state_for_status(lab: int, repo: Path) -> LabDatabaseState | str:
+    """Aurora's state for a repaired SQL lab, or why it could not be read.
+
+    One short-lived session per lab. `status` must still print every lab when Aurora
+    does not answer, so a failure is returned as words, never raised.
+    """
+    database_url = os.getenv("DATABASE_URL")
+    if not database_url:
+        return "DATABASE_URL is empty in this terminal"
+    import psycopg
+    from psycopg.rows import dict_row
+
+    try:
+        with psycopg.connect(
+            database_url, connect_timeout=20, row_factory=dict_row
+        ) as connection:
+            return read_applied_sql_state(lab, connection, repo=repo)
+    except psycopg.Error as error:
+        reason = cause_in_words(error)
+        return f"Aurora did not answer{': ' + reason if reason else ''}"
+
+
+def _handed_off_in(lab: int, repo: Path) -> bool:
+    """True once this lab's hand-off finished the start of the lab after it.
+
+    An unreadable start record for the next lab counts as handed off: that lab's own
+    line names the recovery, which is the step to take first.
+    """
+    from scripts.lab_entry import StartRecordError, load_record
+
+    try:
+        record = load_record(lab + 1, repo)
+    except StartRecordError:
+        return True
+    return bool(record and record.get("completed_at"))
 
 
 def _lab_3_passed_since(deployed_at: datetime, repo: Path) -> bool:
@@ -1479,6 +1538,26 @@ def _status_next(lines: list[str]) -> None:
                 "open labs/lab3_reason/agent.py in Code Editor and complete create_agent, "
                 "then deploy it:",
                 DEPLOY_AGENT,
+            )
+        elif LAB_SQL_NOT_CHECKED in line:
+            next_step(
+                "open a new terminal from the Terminal menu, which loads the workshop "
+                "settings, then check again:",
+                STATUS,
+            )
+        elif LAB_SQL_NOT_APPLIED in line:
+            next_step(
+                "your saved repair is not in Aurora yet. Apply it (in psql, type \\! "
+                "before the command):",
+                APPLY_SQL,
+            )
+        elif LAB_SQL_NOT_PROVED in line:
+            check = ADVANCE_TO_LAB_2 if lab == 1 else grade_exercise_command(lab)
+            next_step(
+                "Aurora runs your repair. Leave psql with \\q if it is open, repeat "
+                "Alex's request, then check it:",
+                repeat_request_command(lab),
+                check,
             )
         elif not _entered(lab):
             # Lab 1's fault ships installed, so it reads BROKEN before its start has run.
