@@ -34,23 +34,11 @@ class Exemption:
     exit_condition: str
 
 
-EXEMPTIONS = {
-    # Granted 18 November 2026 (owner, versions rule 9). GHSA-fc5q-39xc-vjpf was widened on
-    # 17 November to every picomatch release, and 4.0.7 is the latest, so no fix exists.
-    "GHSA-fc5q-39xc-vjpf": Exemption(
-        package="picomatch",
-        vulnerable_range="<=4.0.7",
-        reason=(
-            "ReDoS in glob patterns; picomatch reaches the UI only through the build "
-            "tools vite and vitest with patterns the repository writes, never in the "
-            "shipped bundle, and npm's only fix is a major downgrade to vite 6.2.7"
-        ),
-        exit_condition=(
-            "picomatch publishes a fixed release: the advisory's range changes, this "
-            "check fails, and the lockfile moves to the fix and the exemption is deleted"
-        ),
-    ),
-}
+#: Named exemptions under versions rule 9: one advisory, one package, the exact vulnerable
+#: range, the reason and the exit condition. None now: GHSA-fc5q-39xc-vjpf (picomatch
+#: <=4.0.7), exempted on 18 November 2026, was withdrawn by GitHub at 15:38 UTC that day,
+#: and this check's stale-exemption rule failed until it was deleted.
+EXEMPTIONS: dict[str, Exemption] = {}
 
 
 def advisory_id(advisory: dict) -> str:

@@ -24,6 +24,23 @@ PICOMATCH = {
 }
 
 
+@pytest.fixture(autouse=True)
+def picomatch_exemption(monkeypatch):
+    """The exemption of 18 November 2026, kept as the tests' example of a named exemption."""
+    monkeypatch.setattr(
+        ui_audit,
+        "EXEMPTIONS",
+        {
+            "GHSA-fc5q-39xc-vjpf": ui_audit.Exemption(
+                package="picomatch",
+                vulnerable_range="<=4.0.7",
+                reason="example: build-time glob patterns only",
+                exit_condition="example: the advisory's range changes or it is withdrawn",
+            )
+        },
+    )
+
+
 def report(*advisories: dict) -> dict:
     """An `npm audit --json` report shaped like the one of 18 November 2026."""
     vulnerabilities = {
@@ -101,3 +118,21 @@ def test_no_report_fails_instead_of_passing_silently(payload, monkeypatch, capsy
     code, out = run(payload, monkeypatch, capsys)
     assert code == 1
     assert out.startswith("ui-audit: FAIL")
+
+
+def test_the_shipped_list_passes_a_clean_report_and_names_no_exemption(
+    monkeypatch, capsys
+):
+    """With no exemptions, a report without advisories passes and prints no exempt line."""
+    monkeypatch.setattr(ui_audit, "EXEMPTIONS", {})
+    code, out = run(json.dumps(report()), monkeypatch, capsys)
+    assert code == 0
+    assert out.strip() == "ui-audit: PASS"
+
+
+def test_the_shipped_list_fails_any_moderate_advisory(monkeypatch, capsys):
+    """With no exemptions, the advisory that was once exempted fails like any other."""
+    monkeypatch.setattr(ui_audit, "EXEMPTIONS", {})
+    code, out = run(json.dumps(report(PICOMATCH)), monkeypatch, capsys)
+    assert code == 1
+    assert "GHSA-fc5q-39xc-vjpf (picomatch <=4.0.7, high) has no exemption" in out
