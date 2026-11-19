@@ -1285,6 +1285,40 @@ def stated_figures(text: str, unit: str) -> set[float]:
     }
 
 
+@dataclass(frozen=True)
+class FigureMention:
+    """One figure in a passage, with its clause and the clause's words before it."""
+
+    value: float
+    clause: str
+    lead: str
+
+
+def figure_mentions(text: str, unit: str) -> list[FigureMention]:
+    """Every figure `text` states in one unit family, each read in its own clause.
+
+    Clauses split where `validate_cited_answer` splits them, so a word in one clause
+    ("not just USB-C") never qualifies a figure in another ("you need 100W").
+    """
+    text = _number_words(text)
+    mentions = []
+    for claim in _measurable_claims(text):
+        if claim.unit != unit:
+            continue
+        start, end = _clause_at(text, claim.start)
+        mentions.append(
+            FigureMention(
+                _figure(claim.value), text[start:end], text[start : claim.start]
+            )
+        )
+    return mentions
+
+
+def denies_or_falls_short(lead: str) -> bool:
+    """Whether the words before a figure deny it or place the product below it."""
+    return bool(_NEGATION.search(lead) or _FALLS_SHORT_BEFORE.search(lead))
+
+
 def claims_question_figure(
     passage: str,
     question: str,

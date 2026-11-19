@@ -122,35 +122,38 @@ def listing_charging_watts(text: str) -> set[float]:
     }
 
 
-# Words that make a passage about charging rather than any other wattage.
-_CHARGING_WORDS = re.compile(r"charg|power", re.IGNORECASE)
-# A shortfall or a denial: the passage says the requirement is not met or not shown.
-_SHORTFALL = re.compile(
-    r"\b(?:below|under|less|lower|short|not|no|never|without|cannot|insufficient|"
-    r"fails?)\b|n['’]t\b",
-    re.IGNORECASE,
+# Words that tie a wattage to what the monitor delivers over its cable, rather than to a
+# speaker, the screen's own draw or any other figure.
+_DELIVERY = re.compile(
+    r"charg|power|\bPD\b|USB[- ]?C|deliver|suppl|output|tops? out", re.IGNORECASE
 )
 
 
 def _settles_charging(text: str, listed: set[float], needed: float | None) -> bool:
     """Whether a passage citing the listing settles the charging requirement.
 
-    It states a charging wattage the listing gives, about charging or against the
-    requirement; or it names the required wattage as a charging shortfall the listing
-    bears out ("does not establish 100W charging", "short of the 100W you need").
+    Each wattage is read in its own clause. The passage settles it by giving a
+    charging wattage the listing states, in a clause about what the monitor delivers
+    or beside the required wattage named as a shortfall; or by naming the required
+    wattage, in a clause about charging, as one the product falls short of or the
+    sources do not establish, when the listing's own figures bear that out.
     """
-    from service.synthesis import stated_figures
+    from service.synthesis import denies_or_falls_short, figure_mentions
 
-    figures = stated_figures(text, "watt")
-    about_charging = bool(_CHARGING_WORDS.search(text))
-    if figures & listed and (about_charging or needed in figures):
-        return True
-    return (
-        needed in figures
-        and about_charging
-        and bool(_SHORTFALL.search(text))
+    mentions = figure_mentions(text, "watt")
+    shortfall = [
+        m
+        for m in mentions
+        if m.value == needed
+        and denies_or_falls_short(m.lead)
         and all(watts < needed for watts in listed)
-    )
+    ]
+    if any(
+        m.value in listed and (_DELIVERY.search(m.clause) or shortfall)
+        for m in mentions
+    ):
+        return True
+    return any(_DELIVERY.search(m.clause) for m in shortfall)
 
 
 def charging_problem(requirement, answer, numbered, picks) -> str:

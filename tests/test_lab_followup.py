@@ -209,6 +209,7 @@ def answered(answer, listing=LISTING, review=REVIEW):
         "The ViewSonic VG2756-4K's listing states 90W, not 100W [1].",
         "The ViewSonic VG2756-4K provides ninety watts of USB-C power delivery [1].",
         "- The ViewSonic VG2756-4K's listing states up to 90W charging [1][2].",
+        "The ViewSonic VG2756-4K’s USB-C PD tops out at 90 W [1].",
     ],
     ids=[
         "shortfall",
@@ -219,6 +220,7 @@ def answered(answer, listing=LISTING, review=REVIEW):
         "90W-not-100W",
         "spelled-out",
         "bullet-two-citations",
+        "pd-tops-out",
     ],
 )
 def test_a_grounded_answer_passes_when_it_settles_charging_from_the_listing(answer):
@@ -277,6 +279,14 @@ def test_a_grounded_answer_passes_when_it_settles_charging_from_the_listing(answ
             "VERSATILE MONITOR: 27 Inch 4K IPS monitor with USB-C",
             "does not give the charging wattage",
         ),
+        (
+            (
+                "You need 100W charging, and the ViewSonic VG2756-4K offers not just "
+                "USB-C but Ethernet as well [1]."
+            ),
+            LISTING,
+            "does not give the charging wattage",
+        ),
     ],
     ids=[
         "usb-c-only",
@@ -288,6 +298,7 @@ def test_a_grounded_answer_passes_when_it_settles_charging_from_the_listing(answ
         "not-mentioned-without-charging",
         "bare-90W",
         "listing-without-charging-figure",
+        "negation-in-another-clause",
     ],
 )
 def test_a_grounded_answer_fails_when_charging_is_unsettled(answer, listing, reason):
