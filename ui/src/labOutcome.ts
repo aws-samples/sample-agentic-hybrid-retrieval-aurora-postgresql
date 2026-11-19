@@ -142,7 +142,7 @@ function environmentFault(
   if (missingForThisLab.length > 0) {
     return `Aurora is missing an index this scenario needs: ${
       missingForThisLab.join(", ")
-    }. Re-apply the schema, then run this scenario again.`;
+    }. Show this missing index to a facilitator. Once it is restored, run the same search again.`;
   }
   if (readiness.database_ready === false) {
     const missingFunctions = readiness.database.missing_retrieval_functions ?? [];
