@@ -26,7 +26,6 @@ from scripts.lab_state import (
     REPO,
     LabDatabaseState,
     LabProblem,
-    _marked_tokens,
     _replace_block,
     applied_problem,
     assert_workshop_database,
@@ -148,21 +147,19 @@ class CompletionReading(NamedTuple):
 
 
 def sql_identity(lab: int, repo: Path = REPO) -> str | None:
-    """Identity of one SQL lab's saved marked block, or None when it cannot be read.
+    """Identity of one SQL lab's saved file, or None when it cannot be read.
 
-    The tokens are the ones the applied-SQL check compares with Aurora (comments and
-    spacing do not count), so a receipt and that check agree on what "the same SQL"
-    is. Only this lab's own block counts: a change to the other lab's file leaves it
-    alone.
+    The tokens are the executable ones the retrieval fingerprint uses (comments and
+    spacing do not count) over the whole lab file, so a change to the function outside
+    the marked block, such as its final LIMIT, is a different SQL. Only this lab's own
+    file counts: Lab 2's fault, in the other file, leaves Lab 1's proof alone.
     """
-    path = repo / LABS[lab][0]
+    from service.retrieval_fingerprint import _lab_sql_sha256
+
     try:
-        tokens = _marked_tokens(path.read_text(encoding="utf-8"), lab)
+        return _lab_sql_sha256(repo / LABS[lab][0])
     except (OSError, ValueError):
         return None
-    if tokens is None:
-        return None
-    return hashlib.sha256("\n".join(tokens).encode()).hexdigest()
 
 
 def _attempt(lab: int, repo: Path) -> str | None:
@@ -185,6 +182,19 @@ def completion_binding(lab: int, repo: Path = REPO) -> dict[str, Any]:
     return {"start_completed_at": attempt, "sql_sha256": sql_identity(lab, repo)}
 
 
+def evidence_problem(evidence: dict[str, Any]) -> str | None:
+    """What makes passing evidence unusable, or None: a receipt and a hand-off share it."""
+    for key in ("checks", "search_event_ids"):
+        values = evidence.get(key)
+        if not (
+            isinstance(values, list)
+            and values
+            and all(isinstance(value, str) and value for value in values)
+        ):
+            return f"its {key} are missing or empty"
+    return None
+
+
 def _receipt_problem(lab: int, receipt: Any) -> str | None:
     """What makes a parsed receipt incomplete, or None."""
     if not isinstance(receipt, dict):
@@ -195,14 +205,8 @@ def _receipt_problem(lab: int, receipt: Any) -> str | None:
         datetime.fromisoformat(receipt["passed_at"])
     except (KeyError, TypeError, ValueError):
         return "it has no valid passed_at time"
-    for key in ("checks", "search_event_ids"):
-        values = receipt.get(key)
-        if not (
-            isinstance(values, list)
-            and values
-            and all(isinstance(value, str) for value in values)
-        ):
-            return f"its {key} are missing or empty"
+    if problem := evidence_problem(receipt):
+        return problem
     saved = [key for key in ("start_completed_at", "sql_sha256") if key in receipt]
     if len(saved) == 1:
         return f"it names {saved[0]} but not the other half of its identity"
@@ -701,6 +705,7 @@ def restart(
 _HANDOFF_BINDING = {
     "database": "DATABASE_URL selects a different database",
     "lab1_seam": "your LAB1_EDIT block changed",
+    "lab1_sql": "your Lab 1 function changed",
     "lab1_entry": "Lab 1 was restarted",
 }
 
@@ -727,6 +732,7 @@ def _lab_1_binding(dsn: str | None, repo: Path) -> dict[str, Any]:
     return {
         "database": hashlib.sha256((dsn or "").encode()).hexdigest(),
         "lab1_seam": _seam_sha256(1, (repo / LABS[1][0]).read_text()),
+        "lab1_sql": sql_identity(1, repo),
         "lab1_entry": load_record(1, repo),
     }
 
@@ -743,8 +749,7 @@ def _read_handoff(repo: Path) -> dict[str, Any] | None:
     if not (
         isinstance(saved, dict)
         and isinstance(saved.get("binding"), dict)
-        and isinstance(saved.get("checks"), list)
-        and isinstance(saved.get("search_event_ids"), list)
+        and evidence_problem(saved) is None
     ):
         return None
     return saved
@@ -896,6 +901,12 @@ def _advance_lab_1(
             # The handoff is bound to this attempt and block, so it vouches for a
             # completion that is missing, cut off or written before receipts named them.
             record_completion(1, saved["checks"], saved["search_event_ids"], repo)
+            if read_completion(1, repo).state != "valid":
+                raise LabEntryError(
+                    "Lab 1 cannot hand off: its saved completion did not validate "
+                    f"({read_completion(1, repo).detail}).\n"
+                    f"Next: run {ADVANCE_TO_LAB_2} again; your edits are unchanged."
+                )
     else:
         # Lab 2's ranking fault can hide a correct Lab 1 repair; once Lab 2 is
         # repaired and applied it cannot, so Lab 1 is validated again. That also
@@ -903,9 +914,16 @@ def _advance_lab_1(
         if load_record(2, repo) is not None and lab_2_can_mask(dsn, repo):
             if saved is not None:
                 raise LabEntryError(_handoff_mismatch(saved["binding"], binding))
+            damaged = (repo / ".local/lab-1/handoff.json").exists()
             raise LabEntryError(
-                "Lab 1 cannot hand off: Lab 2 was started directly, before Lab 1's "
-                "passing evidence was saved.\n"
+                "Lab 1 cannot hand off: "
+                + (
+                    "its saved hand-off evidence is incomplete."
+                    if damaged
+                    else "Lab 2 was started directly, before Lab 1's passing evidence "
+                    "was saved."
+                )
+                + "\n"
                 f"Next: continue in the Lab 2 guide. {LAB_1_WAITS_FOR_LAB_2} Your edits "
                 "are unchanged."
             )
