@@ -95,13 +95,170 @@ def follow_up_saved_now() -> bool:
         return False
 
 
+# A listing line ties a wattage to charging with words like these, which tells its
+# charging figure apart from a speaker's or the screen's own power draw.
+_CHARGING = re.compile(r"charg|power\s+deliver|\bPD\b", re.IGNORECASE)
+_CLAUSE_BREAK = re.compile(r"[,;\n]|(?<=[.!?])\s+")
+_CITATION = re.compile(r"\[(\d+)\]")
+
+
+def required_watts(requirement: str) -> float | None:
+    """The charging wattage the mission's changed requirement names, if any."""
+    from service.synthesis import stated_figures
+
+    found = stated_figures(requirement, "watt")
+    return max(found) if found else None
+
+
+def listing_charging_watts(text: str) -> set[float]:
+    """Every wattage a listing states for charging, read clause by clause."""
+    from service.synthesis import stated_figures
+
+    return {
+        watts
+        for clause in _CLAUSE_BREAK.split(text)
+        if _CHARGING.search(clause)
+        for watts in stated_figures(clause, "watt")
+    }
+
+
+def charging_problem(requirement, answer, numbered, picks) -> str:
+    """Why a grounded answer leaves the changed charging requirement unsettled, or "".
+
+    A passage citing the named product's listing must state the charging wattage that
+    listing gives, or name the required wattage as a shortfall the listing bears out.
+    Any passage about the product that gives the required wattage as its value must
+    have it from the listing: one reviewer's laptop is not Alex's.
+    """
+    from service.claim_review import passages
+    from service.synthesis import claims_question_figure, stated_figures
+
+    target = requirement["product_id"]
+    listings = {
+        number
+        for number, record in numbered.items()
+        if record.product_id == target
+        and record.evidence_type == requirement["evidence_type"]
+    }
+    if not listings:
+        return "the answer does not cite the monitor's listing"
+    needed = required_watts(requirement["requirement"])
+    listed = set().union(*(listing_charging_watts(numbered[n].text) for n in listings))
+    settled = False
+    for passage in passages(answer):
+        text = passage["text"]
+        cited = {int(n) for n in _CITATION.findall(text) if int(n) in numbered}
+        if not any(numbered[n].product_id == target for n in cited):
+            continue
+        records = [numbered[n] for n in sorted(cited)]
+        claimed = needed is not None and claims_question_figure(
+            text, requirement["query"], picks, records
+        )
+        if claimed and needed not in listed:
+            return (
+                f"the answer gives {needed:g}W as the monitor's charging, which its "
+                "listing does not state"
+            )
+        if not cited & listings:
+            continue
+        figures = stated_figures(text, "watt")
+        settled = (
+            settled
+            or bool(figures & listed)
+            or (needed in figures and all(watts < needed for watts in listed))
+        )
+    return (
+        ""
+        if settled
+        else "the answer does not give the charging wattage in the monitor's listing"
+    )
+
+
+def _decline_problem(requirement, rows, intent) -> str:
+    """Why a decline does not name the changed charging requirement, or ""."""
+    from service.synthesis import stated_figures
+
+    review = intent.get("usage", {}).get("synthesis", {}).get("answerability") or {}
+    unmet = " ".join(review.get("unmet_requirements") or [])
+    needed = required_watts(requirement["requirement"])
+    names_requirement = (
+        needed is not None
+        and needed in stated_figures(unmet, "watt")
+        and re.search(r"charg|power|USB", unmet, re.IGNORECASE)
+    )
+    gaps = "; ".join(
+        " ".join(item.split()) for item in review.get("unmet_requirements", [])
+    )
+    expected = (
+        f"The retrieved sources do not establish {gaps}. No product is recommended."
+    )
+    if (
+        review.get("request_supported") is not False
+        or review.get("reason")
+        not in {"unsupported_requirements", "insufficient_evidence"}
+        or not names_requirement
+        or intent.get("selected_products")
+        or not (rows.turn.get("assistant_message") or "").startswith(expected)
+    ):
+        return "the decline does not identify the changed charging requirement"
+    return ""
+
+
+def _grounded_problem(requirement, rows, intent, resolved_evidence) -> str:
+    """Why a grounded answer fails its citation or charging checks, or ""."""
+    from service.models import EvidenceRecord, ProductSummary
+    from service.synthesis import validate_cited_answer
+
+    failure = claim_review_problem(rows.turn)
+    if failure:
+        return failure
+    synthesis = next(
+        (
+            t
+            for t in reversed(rows.tools)
+            if t["tool_name"] == "synthesize_cited_answer"
+            and t.get("outcome") == "success"
+        ),
+        {},
+    )
+    citations = (synthesis.get("output_payload") or {}).get("citations") or []
+    try:
+        numbered = {
+            c["number"]: EvidenceRecord.model_validate(
+                resolved_evidence[c["evidence_id"]]
+            )
+            for c in citations
+        }
+        if not numbered or not any(
+            r.product_id == requirement["product_id"] for r in numbered.values()
+        ):
+            raise ValueError("no monitor citation")
+        positions = {number: index for index, number in enumerate(sorted(numbered), 1)}
+        answer = re.sub(
+            r"\[(\d+)\]",
+            lambda m: f"[{positions[int(m[1])]}]",
+            rows.turn["assistant_message"],
+        )
+        evidence = [numbered[n] for n in sorted(numbered)]
+        picks = [
+            ProductSummary.model_validate(p)
+            for p in intent.get("selected_products", [])
+        ]
+        if not picks:
+            raise ValueError("no selected product")
+        validate_cited_answer(answer, picks, evidence, requirement["query"])
+    except (KeyError, TypeError, ValueError) as error:
+        return f"the saved changed-requirement answer fails citation checks ({type(error).__name__})"
+    return charging_problem(
+        requirement, rows.turn["assistant_message"], numbered, picks
+    )
+
+
 def changed_requirement_check(
     mission, rows, setup_rows, resolved_evidence, *, managed: bool = False
 ) -> LabCheck:
     """Check the actual answer/decline, new searches, and the product records it read."""
-    from service.models import EvidenceRecord, ProductSummary
     from service.participant_commands import ask_agent_command
-    from service.synthesis import validate_cited_answer
 
     requirement = mission["changed_requirement"]
     failure = "no answered changed-requirement run was saved since Lab 3 started"
@@ -149,82 +306,15 @@ def changed_requirement_check(
         elif not read_spec:
             failure = "the changed request did not read the named monitor's current specification"
         elif outcome == "declined":
-            review = (
-                intent.get("usage", {}).get("synthesis", {}).get("answerability") or {}
-            )
-            unmet = " ".join(review.get("unmet_requirements") or [])
-            watts = re.search(r"(\d+)\s*W\b", requirement["requirement"], re.IGNORECASE)
-            names_requirement = (
-                watts is not None
-                and re.search(rf"\b{watts[1]}\s*(?:w|watts?)\b", unmet, re.IGNORECASE)
-                and re.search(r"charg|power|USB", unmet, re.IGNORECASE)
-            )
-            gaps = "; ".join(
-                " ".join(item.split()) for item in review.get("unmet_requirements", [])
-            )
-            expected = f"The retrieved sources do not establish {gaps}. No product is recommended."
-            if (
-                review.get("request_supported") is not False
-                or review.get("reason")
-                not in {"unsupported_requirements", "insufficient_evidence"}
-                or not names_requirement
-                or intent.get("selected_products")
-                or not (rows.turn.get("assistant_message") or "").startswith(expected)
-            ):
-                failure = (
-                    "the decline does not identify the changed charging requirement"
-                )
+            failure = _decline_problem(requirement, rows, intent)
         elif outcome == "grounded":
-            failure = claim_review_problem(rows.turn) or ""
-            if not failure:
-                synthesis = next(
-                    (
-                        t
-                        for t in reversed(rows.tools)
-                        if t["tool_name"] == "synthesize_cited_answer"
-                        and t.get("outcome") == "success"
-                    ),
-                    {},
-                )
-                citations = (synthesis.get("output_payload") or {}).get(
-                    "citations"
-                ) or []
-                try:
-                    numbered = {
-                        c["number"]: EvidenceRecord.model_validate(
-                            resolved_evidence[c["evidence_id"]]
-                        )
-                        for c in citations
-                    }
-                    if not numbered or not any(
-                        r.product_id == target for r in numbered.values()
-                    ):
-                        raise ValueError("no monitor citation")
-                    positions = {
-                        number: index
-                        for index, number in enumerate(sorted(numbered), 1)
-                    }
-                    answer = re.sub(
-                        r"\[(\d+)\]",
-                        lambda m: f"[{positions[int(m[1])]}]",
-                        rows.turn["assistant_message"],
-                    )
-                    evidence = [numbered[n] for n in sorted(numbered)]
-                    picks = [
-                        ProductSummary.model_validate(p)
-                        for p in intent.get("selected_products", [])
-                    ]
-                    if not picks:
-                        raise ValueError("no selected product")
-                    validate_cited_answer(answer, picks, evidence, requirement["query"])
-                except (KeyError, TypeError, ValueError) as error:
-                    failure = f"the saved changed-requirement answer fails citation checks ({type(error).__name__})"
+            failure = _grounded_problem(requirement, rows, intent, resolved_evidence)
         else:
             failure = f"the changed-requirement run ended with outcome {outcome!r}"
     return LabCheck(
         name=CHANGED_REQUIREMENT_CHECK,
         passed=not failure,
-        falsifier="the changed question was skipped, used other code, did not search/read the named product, or its answer/decline lacks checked support for the new requirement",
+        falsifier="the changed question was skipped, used other code, did not search/read the named product, its answer/decline lacks checked support for the new requirement, or a grounded answer never gives the wattage the product's listing states for charging (or the required wattage as a shortfall the listing bears out), or takes the required wattage from a review",
         detail=f"Changed-requirement run {rows.turn['agent_turn_id']} checked against current sources"
         if not failure
         else f"Changed requirement: {failure}. Next: {ask_agent_command(requirement['query'])}, then grade again.",

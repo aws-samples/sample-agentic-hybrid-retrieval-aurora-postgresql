@@ -1276,6 +1276,37 @@ def _requirement_bound(
     return negated or bool(_BOUND_CUE.search(clause))
 
 
+def stated_figures(text: str, unit: str) -> set[float]:
+    """The figures `text` states in one unit family, spelled-out numbers included."""
+    return {
+        _figure(claim.value)
+        for claim in _measurable_claims(_number_words(text))
+        if claim.unit == unit
+    }
+
+
+def claims_question_figure(
+    passage: str,
+    question: str,
+    products: Sequence[ProductSummary],
+    records: Sequence[EvidenceRecord],
+) -> bool:
+    """Whether a passage gives one of the shopper's own figures as a product's value.
+
+    The answer check accepts that claim when any record the passage cites states the
+    figure, a customer review included. A grader that needs a particular kind of source
+    for the shopper's requirement asks this first, with the same reading of the
+    sentence that `validate_cited_answer` uses.
+    """
+    passage = _number_words(passage)
+    question_figures = _question_figures(_number_words(question))
+    return any(
+        (_figure(claim.value), claim.unit) in question_figures
+        and not _requirement_bound(claim, passage, question_figures, products, records)
+        for claim in _measurable_claims(passage)
+    )
+
+
 #: A reviewer's stars as an answer reports them: "gave it 5.0", "rated it 3 out of 5",
 #: "rating it 4.0", "a 4-star review". The model is given each review's rating beside its
 #: text, and the citation shows it, so the record's rating field supports these figures
