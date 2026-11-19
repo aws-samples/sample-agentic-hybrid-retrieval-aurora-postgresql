@@ -138,14 +138,18 @@ def shown_record(citation: dict[str, Any]) -> str:
     """The record as the site shows it: a review's title, then its text.
 
     The answer check may quote a record's title as well as its text. A listing's text
-    already opens with its own `Title:` line, so only a record without one gets the
+    already opens with its own `Title:` line, so it is shown as saved. A review gets its
     saved title added as `Review title:`, which stays on screen where a listing's
-    `Title:` label goes.
+    `Title:` label goes, unless its text already opens with that same title. A review
+    body that opens with `Description:` or `Title:` is still a body.
     """
     text = citation["quote"]
     title = " ".join((citation.get("title") or "").split())
     first = next((line for line in text.splitlines() if line.strip()), "")
-    if not title or _LABEL.match(first.strip()) or " ".join(first.split()) == title:
+    opening = " ".join(_LABEL.sub("", first.strip()).split())
+    if not title or opening == title:
+        return text
+    if citation.get("evidence_type") != "customer_review" and _LABEL.match(first):
         return text
     return f"{REVIEW_TITLE} {title}\n\n{text}"
 
