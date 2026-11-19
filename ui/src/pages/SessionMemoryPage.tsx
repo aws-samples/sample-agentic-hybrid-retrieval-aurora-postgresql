@@ -40,21 +40,28 @@ function recoveryStep(message: string): string {
 const date = (value: string) => new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(value));
 
 
+/** A record's scope from where AgentCore stored it: a `sessions/<id>/` namespace belongs to one session. */
+export function recordScope(namespaces: string[], sessionId: string | null): string {
+  const session = namespaces.map((path) => /\/sessions\/([^/]+)\//.exec(path)?.[1]).find(Boolean);
+  if (!session) return "Kept for Alex across sessions";
+  return session === sessionId ? "From this session" : "From another session";
+}
+
 function Records({ records, sessionId = null }: { records: MemoryRecord[]; sessionId?: string | null }) {
   return <div className="memory-records">{records.map((record) => <article key={record.id} className="memory-record">
-    <div className="memory-record-meta"><span>Saved memory</span><span className="memory-record-scope">{sessionId && record.namespaces.some((path) => path.includes(sessionId)) ? "From this session" : "Kept for Alex across sessions"}</span>{record.created_at && <time dateTime={record.created_at}>{date(record.created_at)}</time>}</div>
+    <div className="memory-record-meta"><span>Saved memory</span><span className="memory-record-scope">{recordScope(record.namespaces, sessionId)}</span>{record.created_at && <time dateTime={record.created_at}>{date(record.created_at)}</time>}</div>
     <p className="memory-record-text">{memoryRecordText(record.text)}</p>
     <details><summary>Record details</summary><dl><dt>Record ID</dt><dd><code>{record.id}</code></dd><dt>Memory configuration ID</dt><dd><code>{record.strategy_id}</code></dd><dt>Namespace · where it is stored</dt><dd>{record.namespaces.map((path) => <code key={path}>{path}</code>)}</dd></dl><pre>{record.text}</pre></details>
   </article>)}</div>;
 }
 
-function Turn({ turn }: { turn: Omit<ShopperSession["turns"][number], "created_at"> }) {
+function Turn({ turn, sessionId }: { turn: Omit<ShopperSession["turns"][number], "created_at">; sessionId: string | null }) {
   return <article className="memory-turn"><h3>{turn.question}</h3>
     <p className="memory-turn-meta">{plural(turn.memory.records?.length ?? 0, "long-term memory", "long-term memories")} read · {plural(turn.memory.event_ids_read?.length ?? 0, "conversation event")} read</p>
     {turn.memory.write_status === "failed" && <p role="alert">The answer is saved in Aurora, but its AgentCore event could not be stored.</p>}
     {turn.answer ? <div className="memory-answer-copy"><ProductAnswer text={turn.answer} products={turn.products} citations={turn.citations} /></div> : <p>This run has no completed answer.</p>}
     <details className="memory-sources"><summary>Memories, searches and sources used</summary>
-      {turn.memory.records?.length ? <Records records={turn.memory.records} /> : <p>No long-term memory was added to this request.</p>}
+      {turn.memory.records?.length ? <Records records={turn.memory.records} sessionId={sessionId} /> : <p>No long-term memory was added to this request.</p>}
       <div className="memory-search-links">{turn.search_ids.map((id, i) => <Link key={id} href={playgroundQueryHref(turn.question, {}, id)}>Search {i + 1}</Link>)}</div>
       {turn.citations.map((citation) => <p key={`${citation.number}-${citation.evidence_id}`}>[{citation.number}] {citation.title}: {citation.quote}</p>)}
     </details>
@@ -265,11 +272,11 @@ export function SessionMemoryPage() {
             <h3 id="memory-answer-heading">Mosaic’s answer</h3>
             {agentNotice && <AgentNoticeNote notice={agentNotice} />}
             {pending && <p className="memory-progress" role="status"><PulseDot /><span>{stage}</span><span className="memory-progress-clock">{waitClock(waited)}</span><span className="memory-progress-usual">An answer usually takes about a minute and appears here.</span></p>}{answer && !currentTurn && <div className="memory-answer-copy"><Markdown>{answer}</Markdown></div>}
-            {currentTurn && <div className="memory-current-answer"><Turn turn={currentTurn} /></div>}
+            {currentTurn && <div className="memory-current-answer"><Turn turn={currentTurn} sessionId={selected} /></div>}
             {!pending && !answer && !currentTurn && !askError && <p className="memory-empty">Choose Ask Mosaic to run the question above. The answer appears here. Saving a message or finding memories does not generate an answer.</p>}
           </section>
-          {recalled !== null && <div className="memory-recall-results" aria-live="polite"><h3>{recalled.length} relevant memor{recalled.length === 1 ? "y" : "ies"} returned</h3><Records records={recalled} />{!recalled.length && <p>No saved memories matched this request.</p>}</div>}
-          {earlierTurns.length > 0 && <details key={selected} className="memory-history"><summary>Earlier answers · {earlierTurns.length}</summary>{earlierTurns.map((turn) => <Turn key={turn.run_id} turn={turn} />)}</details>}
+          {recalled !== null && <div className="memory-recall-results" aria-live="polite"><h3>{recalled.length} relevant memor{recalled.length === 1 ? "y" : "ies"} returned</h3><Records records={recalled} sessionId={selected} />{!recalled.length && <p>No saved memories matched this request.</p>}</div>}
+          {earlierTurns.length > 0 && <details key={selected} className="memory-history"><summary>Earlier answers · {earlierTurns.length}</summary>{earlierTurns.map((turn) => <Turn key={turn.run_id} turn={turn} sessionId={selected} />)}</details>}
         </div>
       </section>
       <details className="memory-beyond"><summary>Change how memories are created</summary><div><p><strong>Customize the built-in options.</strong> Change the instructions for finding useful details and updating saved records, or choose a different Bedrock model. AgentCore runs the process.</p><p><strong>Run your own process.</strong> Decide what to remember and write records through the memory APIs. Mosaic uses the four built-in options shown above; this is an extension you can build.</p><p><strong>Runtime and Gateway.</strong> Runtime hosts the Retrieval agent; Gateway connects tools. They are separate from this Memory connection.</p><a href="https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/memory-strategies.html" target="_blank" rel="noreferrer">Read about AgentCore memory options</a></div></details>

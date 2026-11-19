@@ -330,3 +330,19 @@ it("brings the answer into view when a request starts, with the time waited, abo
   finish();
   await waitFor(() => expect(screen.queryByText(/An answer usually takes about a minute/)).toBeNull());
 });
+
+it("labels one session's summary the same in saved records, recall results and an answer's details", async () => {
+  const summary = { id: "summary-a", strategy_id: "SUMMARIZATION", text: "Alex compared USB-C monitors.", namespaces: ["/mosaic/alex-browser/strategies/SUMMARIZATION/sessions/session-a/"], created_at: "2026-09-26T12:05:00Z", score: null };
+  const session: ShopperSession = {
+    agent_session_id: "session-a", started_at: "2026-09-26T12:00:00Z", ended_at: null, label: "Monitor planning",
+    turns: [{ run_id: "run-a", question: "Which monitor?", answer: "Answer.", created_at: "2026-09-26T12:01:00Z", products: [], search_ids: [], citations: [], memory: { status: "read", enabled: true, records: [summary], event_ids_read: [] } }],
+  };
+  vi.mocked(api.sessionMemory).mockResolvedValue({ ...structuredClone(response), active_session_id: "session-a", sessions: [session] });
+  vi.mocked(api.memoryRecords).mockResolvedValue({ has_more: false, namespaces: [], records: [summary] });
+  vi.spyOn(api, "recallMemory").mockResolvedValue({ records: [summary] });
+  render(<SessionMemoryPage />);
+  fireEvent.click(await screen.findByRole("button", { name: "Find relevant memories" }));
+  await screen.findByText(/1 relevant memory returned/);
+  await waitFor(() => expect(screen.getAllByText("From this session")).toHaveLength(3));
+  expect(screen.queryByText("Kept for Alex across sessions")).toBeNull();
+});
