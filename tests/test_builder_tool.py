@@ -15,7 +15,12 @@ from test_synthesis_claims import product
 from examples import call_headphones
 from scripts.check_builder_tool import BuilderCheckError, check_tool, load_example
 from service import main
-from service.builder_package import BUILDER_FILES, build_package
+from service.builder_package import (
+    BUILDER_FILES,
+    REPOSITORY,
+    build_package,
+    published_links,
+)
 from service.models import SearchResponse
 
 
@@ -146,11 +151,12 @@ def test_download_contains_exact_reference_files_and_no_local_state():
         # rather than whatever state a participant's workspace copy is in.
         assert "labs/lab1_retrieve/solution/hybrid_search.sql" in BUILDER_FILES
         assert "labs/lab1_retrieve/hybrid_search.sql" not in BUILDER_FILES
+        revision = main.get_settings().source_revision
         for path in BUILDER_FILES:
-            assert (
-                archive.read(f"mosaic-builder/{path}")
-                == (main.ROOT / path).read_bytes()
-            )
+            source = (main.ROOT / path).read_bytes()
+            if path.endswith(".md"):
+                source = published_links(source.decode(), path, revision).encode()
+            assert archive.read(f"mosaic-builder/{path}") == source
         assert not any(
             ".env" in name or ".local" in name for name in archive.namelist()
         )
@@ -194,6 +200,27 @@ def test_every_relative_markdown_link_in_the_download_resolves_inside_it():
         "fix: link to the published repository page with an absolute URL, or add "
         "the target to BUILDER_FILES in service/builder_package.py."
     )
+
+
+def test_a_link_that_leaves_the_kit_names_the_running_revision_or_main():
+    commit = "f833c76a0b23c65cbac215a7ed6376fea517a0e2"
+    text = (
+        "[setup](development.md#set-up-the-application) "
+        "[tools](mcp-interoperability.md) [skill](../skills/x/SKILL.md) "
+        "[web](https://example.com/a.md) [here](#top)"
+    )
+
+    pinned = published_links(text, "docs/use-in-your-app.md", commit)
+    unknown = published_links(text, "docs/use-in-your-app.md", "unknown")
+
+    assert (
+        f"({REPOSITORY}/blob/{commit}/docs/development.md#set-up-the-application)"
+        in (pinned)
+    )
+    assert f"({REPOSITORY}/blob/{commit}/skills/x/SKILL.md)" in pinned
+    assert "[tools](mcp-interoperability.md)" in pinned, "a file the kit carries"
+    assert "(https://example.com/a.md)" in pinned and "(#top)" in pinned
+    assert f"({REPOSITORY}/blob/main/docs/development.md" in unknown
 
 
 def test_missing_download_files_name_the_restore_action(tmp_path, monkeypatch):

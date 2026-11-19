@@ -1185,7 +1185,7 @@ def download_skill_package() -> Response:
 def builder_package_route() -> Response:
     """Download the participant exercise and its reference SQL without local state."""
     try:
-        content = build_package(ROOT)
+        content = build_package(ROOT, get_settings().source_revision)
     except (OSError, ValueError) as error:
         raise HTTPException(
             503,

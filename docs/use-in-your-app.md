@@ -2,17 +2,17 @@
 
 Reuse the search, ranking and evidence operations you repaired. This guide maps
 the SQL, evaluation runner and citation checks to the files you adapt. The
-[agentic hybrid retrieval skill](https://github.com/aws-samples/sample-agentic-hybrid-retrieval-aurora-postgresql/blob/f833c76a0b23c65cbac215a7ed6376fea517a0e2/skills/mosaic-hybrid-retrieval/SKILL.md)
+[agentic hybrid retrieval skill](../skills/mosaic-hybrid-retrieval/SKILL.md)
 provides a calling agent with instructions and API mappings for a running
 Mosaic service. Your application retains responsibility for orchestration,
 answer synthesis and citation validation.
 
-Keep a full checkout of Mosaic as the runnable reference. The downloadable exercise package is a reading and adaptation kit, not a separate deployment. Dependencies are pinned in `pyproject.toml` and `uv.lock`; follow the [developer setup guide](https://github.com/aws-samples/sample-agentic-hybrid-retrieval-aurora-postgresql/blob/f833c76a0b23c65cbac215a7ed6376fea517a0e2/docs/development.md) to run the application. Mosaic uses Aurora PostgreSQL, including for local application development.
+Keep a full checkout of Mosaic as the runnable reference. The downloadable exercise package is a reading and adaptation kit, not a separate deployment. Dependencies are pinned in `pyproject.toml` and `uv.lock`; follow the [developer setup guide](development.md) to run the application. Mosaic uses Aurora PostgreSQL, including for local application development.
 
 ## Connect tools, then add the skill
 
 1. Connect a running Mosaic service using the [MCP adapter](mcp-interoperability.md)
-   or the [HTTP contracts](https://github.com/aws-samples/sample-agentic-hybrid-retrieval-aurora-postgresql/blob/f833c76a0b23c65cbac215a7ed6376fea517a0e2/skills/mosaic-hybrid-retrieval/references/http-api.md).
+   or the [HTTP contracts](../skills/mosaic-hybrid-retrieval/references/http-api.md).
    Use the endpoint and authentication your deployment supplies. The workshop's
    managed Lab 3 tools use IAM through Gateway; the portable adapter is a separate
    process for another host, not a publicly deployed workshop endpoint.
