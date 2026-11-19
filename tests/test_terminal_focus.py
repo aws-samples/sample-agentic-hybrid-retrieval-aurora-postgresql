@@ -115,7 +115,7 @@ def test_the_served_profile_is_bold_and_the_k_rows_keep_their_plain_signs(monkey
     assert not ESCAPES.search(k_row)
 
 
-def test_a_citation_reading_bolds_its_two_headings_and_the_quoted_line(monkeypatch):
+def test_a_citation_reading_bolds_its_two_headings_and_the_marked_line(monkeypatch):
     citation = run()["citations"][0]
     piped = read_citation.render(run(), citation)
     _on_a_terminal(monkeypatch)
@@ -124,7 +124,10 @@ def test_a_citation_reading_bolds_its_two_headings_and_the_quoted_line(monkeypat
 
     assert _bold("THE ANSWER'S SENTENCES THAT CITE [1]") in painted
     assert any(line.startswith(_bold("THE WHOLE RECORD")) for line in painted)
-    assert _bold("TO JUDGE: THE SENTENCE CITING [1] AND THE LINE IT QUOTES") in painted
+    assert (
+        _bold("TO JUDGE: THE SENTENCE CITING [1] AND A SUGGESTED LINE TO INSPECT")
+        in painted
+    )
     assert [ESCAPES.sub("", line) for line in painted] == piped
 
 

@@ -11,9 +11,12 @@ as ingested, with `Title:` and `Categories:` headers, `<br />` breaks and a revi
 
 from __future__ import annotations
 
+import hashlib
 import re
 from dataclasses import dataclass, field
+from typing import Any
 
+from service.claim_review import CITATION, passages
 from service.synthesis import UNIT_ALIASES
 
 _HEADER = re.compile(r"^(?:title|categories)\s*:", re.IGNORECASE)
@@ -214,6 +217,70 @@ def cited_excerpt(quote: str, answer: str, number: int) -> CitedExcerpt:
         ):
             best, best_marks, best_score = line, marks, score
     return CitedExcerpt(best, best_marks, unstated)
+
+
+def _squash(text: str) -> str:
+    return " ".join(without_review_markup(text).split())
+
+
+def saved_support_quotes(
+    receipt: dict[str, Any] | None, answer: str, number: int
+) -> list[str]:
+    """What the answer check saved as support for citation `number`, in its own words.
+
+    Only a review bound to this exact answer counts (`answer_sha256`, as
+    `service.lab_followup.claim_review_problem` binds it). A quote counts when its passage is
+    supported and the passage's own text, numbered as the review numbered it, cites `number`.
+    Runs saved before the review kept quotes, or with another answer's review, give none.
+    """
+    if not isinstance(receipt, dict) or not answer:
+        return []
+    if receipt.get("answer_sha256") != hashlib.sha256(answer.encode()).hexdigest():
+        return []
+    texts = {part["id"]: part["text"] for part in passages(answer)}
+    quotes: list[str] = []
+    for passage in receipt.get("passages") or []:
+        if not isinstance(passage, dict) or passage.get("verdict") != "supported":
+            continue
+        text = texts.get(passage.get("id"), "")
+        if number not in {int(n) for n in CITATION.findall(text)}:
+            continue
+        for support in passage.get("support") or []:
+            quote = _squash(str(support.get("quote", ""))) if support else ""
+            if support and support.get("number") == number and quote:
+                quotes.append(quote)
+    return list(dict.fromkeys(quotes))
+
+
+def locate_quotes(
+    lines: list[str], quotes: list[str]
+) -> dict[int, list[tuple[int, int]]] | None:
+    """Where each saved quote sits in the record: its line index and character span.
+
+    Every quote must occur exactly once in the record and inside one line. When one is
+    missing, repeated or runs across lines, the place is not certain and the result is
+    None, so the reader falls back rather than point at a guess. Overlapping quotes merge.
+    """
+    squashed = [_squash(line) for line in lines]
+    found: dict[int, list[tuple[int, int]]] = {}
+    for quote in quotes:
+        hits = [(i, line) for i, line in enumerate(squashed) if quote in line]
+        if len(hits) != 1 or hits[0][1].count(quote) != 1:
+            return None
+        index, line = hits[0]
+        start = line.index(quote)
+        found.setdefault(index, []).append((start, start + len(quote)))
+    merged: dict[int, list[tuple[int, int]]] = {}
+    for index, spans in found.items():
+        for start, end in sorted(spans):
+            if merged.get(index) and start <= merged[index][-1][1]:
+                merged[index][-1] = (
+                    merged[index][-1][0],
+                    max(end, merged[index][-1][1]),
+                )
+            else:
+                merged.setdefault(index, []).append((start, end))
+    return merged or None
 
 
 # Words kept before a figure the line has to be cut to show, so it reads as a phrase.

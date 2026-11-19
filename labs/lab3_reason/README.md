@@ -42,7 +42,7 @@ Ask the guide's setup request from the terminal with
 `uv run python scripts/ask_agent.py "..."`. It prints the answer, the plan, the
 tool trace, each citation with the record line closest to the claim, the outcome and
 the **Run ID**. Read one listing citation and one review citation against the
-sentences that cite them. When a quoted line is not enough,
+sentences that cite them. When the line shown is not enough,
 `uv run python scripts/read_citation.py NUMBER` prints that record whole, as the setup run
 completion grades saved it (add `--run-id RUN_ID` for another run).
 
