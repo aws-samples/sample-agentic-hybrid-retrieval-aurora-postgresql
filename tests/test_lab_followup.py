@@ -155,8 +155,17 @@ LISTING = (
 REVIEW = "With a USB-C connector to pass battery charging to my 100W laptop, it is all I need."
 
 
-def answered(answer, listing=LISTING, review=REVIEW):
-    """A grounded 100W run citing the monitor's listing as [1] and a review as [2]."""
+#: The listing line the answer check saves as support for a 100W passage that cites it.
+CHARGING_LINE = "90W charging over one cable"
+#: A supporting quote from the same listing that says nothing about charging.
+SCREEN_LINE = "27 Inch 4K (3840x2160p) IPS monitor"
+
+
+def answered(answer, listing=LISTING, review=REVIEW, support=CHARGING_LINE):
+    """A grounded 100W run citing the monitor's listing as [1] and a review as [2].
+
+    The saved claim review supports the first passage with `support`, quoted from [1].
+    """
     rows, records = valid_followup()
     listing_id = rows.tools[0]["output_payload"]["citations"][0]["evidence_id"]
     records[listing_id]["text"] = listing
@@ -179,7 +188,7 @@ def answered(answer, listing=LISTING, review=REVIEW):
             {
                 "id": 1,
                 "verdict": "supported",
-                "support": [{"number": 1, "quote": "90W charging over one cable"}],
+                "support": [{"number": 1, "quote": support}],
                 "reason": "The listing states it.",
             }
         ],
@@ -226,6 +235,36 @@ def answered(answer, listing=LISTING, review=REVIEW):
 def test_a_grounded_answer_passes_when_it_settles_charging_from_the_listing(answer):
     check = answered(answer)
     assert check.passed, check.detail
+
+
+@pytest.mark.parametrize(
+    "answer",
+    [
+        "USB-C Power Delivery: 90 W [1].",
+        (
+            "The ViewSonic VG2756-4K cannot meet your laptop’s charging requirement: "
+            "its listing caps it at 90 W [1]."
+        ),
+    ],
+    ids=["labelled-value", "requirement-then-cap"],
+)
+def test_a_value_its_colon_label_ties_to_charging_passes(answer):
+    """Codex round 2: a colon split the charging label from its value."""
+    check = answered(answer, support=SCREEN_LINE)
+    assert check.passed, check.detail
+
+
+def test_the_saved_support_can_tie_a_bare_figure_to_the_listings_charging_line():
+    """The answer check quoted the listing's charging line for this passage."""
+    assert answered("The ViewSonic VG2756-4K has 90W [1].").passed
+
+
+def test_saved_support_counts_only_when_it_is_the_cited_listings_own_text():
+    """A paraphrased support quote is not the listing's charging line."""
+    check = answered(
+        "The ViewSonic VG2756-4K has 90W [1].", support="90W of charging per cable"
+    )
+    assert not check.passed and "does not give the charging wattage" in check.detail
 
 
 @pytest.mark.parametrize(
@@ -287,6 +326,14 @@ def test_a_grounded_answer_passes_when_it_settles_charging_from_the_listing(answ
             LISTING,
             "does not give the charging wattage",
         ),
+        (
+            (
+                "If you don’t need 100W charging, the ViewSonic VG2756-4K offers USB-C "
+                "and Ethernet [1]."
+            ),
+            LISTING,
+            "does not give the charging wattage",
+        ),
     ],
     ids=[
         "usb-c-only",
@@ -296,11 +343,12 @@ def test_a_grounded_answer_passes_when_it_settles_charging_from_the_listing(answ
         "requirement-repeated",
         "requirement-repeated-with-charging",
         "not-mentioned-without-charging",
-        "bare-90W",
+        "bare-90W-without-charging-support",
         "listing-without-charging-figure",
         "negation-in-another-clause",
+        "denial-of-the-shoppers-need",
     ],
 )
 def test_a_grounded_answer_fails_when_charging_is_unsettled(answer, listing, reason):
-    check = answered(answer, listing)
+    check = answered(answer, listing, support=SCREEN_LINE)
     assert not check.passed and reason in check.detail and "Next:" in check.detail

@@ -129,34 +129,77 @@ _DELIVERY = re.compile(
 )
 
 
-def _settles_charging(text: str, listed: set[float], needed: float | None) -> bool:
+# Words that make a denial about the shopper's own need rather than about what the
+# product supplies: "if you don't need 100W" answers nothing about the monitor.
+_SHOPPER_SIDE = re.compile(
+    r"\b(?:if|unless|whether)\b|(?:\bnot|\bnever|n['’]t)\s+(?:\w+\s+)?"
+    r"(?:need|require|want)",
+    re.IGNORECASE,
+)
+
+
+def _product_shortfall(mention, listed: set[float], needed: float | None) -> bool:
+    """Whether a mention of the required wattage says the product falls short of it."""
+    from service.synthesis import denies_or_falls_short
+
+    return (
+        mention.value == needed
+        and denies_or_falls_short(mention.lead)
+        and not _SHOPPER_SIDE.search(mention.lead)
+        and all(watts < needed for watts in listed)
+    )
+
+
+def _settles_charging(
+    text: str, listed: set[float], needed: float | None, supported: set[float]
+) -> bool:
     """Whether a passage citing the listing settles the charging requirement.
 
-    Each wattage is read in its own clause. The passage settles it by giving a
-    charging wattage the listing states, in a clause about what the monitor delivers
-    or beside the required wattage named as a shortfall; or by naming the required
-    wattage, in a clause about charging, as one the product falls short of or the
-    sources do not establish, when the listing's own figures bear that out.
+    Each wattage is read in its own clause, with the label a colon gives it. The
+    passage settles it by giving a charging wattage the listing states, in a clause
+    about what the monitor delivers, beside the required wattage named as a shortfall,
+    or where the answer check's saved support for this passage is the listing's own
+    charging line for that figure (`supported`); or by naming the required wattage,
+    in a clause about charging, as one the product falls short of or the sources do
+    not establish, when the listing's figures bear that out.
     """
-    from service.synthesis import denies_or_falls_short, figure_mentions
+    from service.synthesis import figure_mentions
 
     mentions = figure_mentions(text, "watt")
-    shortfall = [
-        m
-        for m in mentions
-        if m.value == needed
-        and denies_or_falls_short(m.lead)
-        and all(watts < needed for watts in listed)
-    ]
-    if any(
-        m.value in listed and (_DELIVERY.search(m.clause) or shortfall)
-        for m in mentions
-    ):
-        return True
+    shortfall = [m for m in mentions if _product_shortfall(m, listed, needed)]
+    for mention in mentions:
+        if mention.value not in listed:
+            continue
+        about_delivery = _DELIVERY.search(mention.clause) or _DELIVERY.search(
+            mention.label
+        )
+        if about_delivery or shortfall or mention.value in supported:
+            return True
     return any(_DELIVERY.search(m.clause) for m in shortfall)
 
 
-def charging_problem(requirement, answer, numbered, picks) -> str:
+def _support_watts(support, number_listings, numbered) -> set[float]:
+    """Charging wattages in the saved support quotes this passage drew from a listing.
+
+    A quote counts only when it is the cited listing's own text, so the answer check's
+    support names the listing's charging line rather than something it paraphrased.
+    """
+    found: set[float] = set()
+    for quote in support:
+        number, text = (
+            quote.get("number"),
+            " ".join(str(quote.get("quote", "")).split()),
+        )
+        if (
+            number in number_listings
+            and text
+            and text in " ".join(numbered[number].text.split())
+        ):
+            found |= listing_charging_watts(text)
+    return found
+
+
+def charging_problem(requirement, answer, numbered, picks, review=None) -> str:
     """Why a grounded answer leaves the changed charging requirement unsettled, or "".
 
     A passage citing the named product's listing must settle the requirement (see
@@ -178,6 +221,11 @@ def charging_problem(requirement, answer, numbered, picks) -> str:
         return "the answer does not cite the monitor's listing"
     needed = required_watts(requirement["requirement"])
     listed = set().union(*(listing_charging_watts(numbered[n].text) for n in listings))
+    support = {
+        decision.get("id"): decision.get("support") or []
+        for decision in (review or {}).get("passages") or []
+        if isinstance(decision, dict) and decision.get("verdict") == "supported"
+    }
     settled = False
     for passage in passages(answer):
         text = passage["text"]
@@ -192,8 +240,9 @@ def charging_problem(requirement, answer, numbered, picks) -> str:
                 f"the answer gives {needed:g}W as the monitor's charging, which its "
                 "listing does not state"
             )
+        supported = _support_watts(support.get(passage["id"], []), listings, numbered)
         settled = settled or bool(
-            cited & listings and _settles_charging(text, listed, needed)
+            cited & listings and _settles_charging(text, listed, needed, supported)
         )
     if settled:
         return ""
@@ -275,8 +324,9 @@ def _grounded_problem(requirement, rows, intent, resolved_evidence) -> str:
         validate_cited_answer(answer, picks, evidence, requirement["query"])
     except (KeyError, TypeError, ValueError) as error:
         return f"the saved changed-requirement answer fails citation checks ({type(error).__name__})"
+    review = intent.get("usage", {}).get("synthesis", {}).get("claim_review") or {}
     return charging_problem(
-        requirement, rows.turn["assistant_message"], numbered, picks
+        requirement, rows.turn["assistant_message"], numbered, picks, review
     )
 
 

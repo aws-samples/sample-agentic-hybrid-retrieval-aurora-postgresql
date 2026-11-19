@@ -1287,18 +1287,24 @@ def stated_figures(text: str, unit: str) -> set[float]:
 
 @dataclass(frozen=True)
 class FigureMention:
-    """One figure in a passage, with its clause and the clause's words before it."""
+    """One figure in a passage, with its clause and the clause's words before it.
+
+    `label` is the clause a colon introduces it with ("USB-C Power Delivery: 90 W"),
+    or "" when none does.
+    """
 
     value: float
     clause: str
     lead: str
+    label: str = ""
 
 
 def figure_mentions(text: str, unit: str) -> list[FigureMention]:
     """Every figure `text` states in one unit family, each read in its own clause.
 
     Clauses split where `validate_cited_answer` splits them, so a word in one clause
-    ("not just USB-C") never qualifies a figure in another ("you need 100W").
+    ("not just USB-C") never qualifies a figure in another ("you need 100W"). A clause
+    that a colon opens keeps the clause before the colon as its label.
     """
     text = _number_words(text)
     mentions = []
@@ -1306,9 +1312,16 @@ def figure_mentions(text: str, unit: str) -> list[FigureMention]:
         if claim.unit != unit:
             continue
         start, end = _clause_at(text, claim.start)
+        label = ""
+        if start and text[start - 1] == ":":
+            label_start, _ = _clause_at(text, start - 1)
+            label = text[label_start : start - 1]
         mentions.append(
             FigureMention(
-                _figure(claim.value), text[start:end], text[start : claim.start]
+                _figure(claim.value),
+                text[start:end],
+                text[start : claim.start],
+                label,
             )
         )
     return mentions
