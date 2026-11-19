@@ -532,6 +532,22 @@ def test_lab_2_validator_proves_the_canonical_fused_and_final_winner(monkeypatch
     assert paths == ["/api/retrieval/events/lab-2-search"] * 2
 
 
+def test_lab_2_validator_names_its_own_command_for_an_incomplete_receipt(monkeypatch):
+    monkeypatch.setattr(
+        prove_lab, "_mission", lambda _stage: {"target_product_ids": [370002]}
+    )
+    monkeypatch.setattr(prove_lab, "_search", lambda _url, _mission: _lab_2_response())
+    _saved_pool(monkeypatch, pool=())
+    rerun = "uv run python scripts/lab_state.py advance --lab 2"
+
+    with pytest.raises(prove_lab.LabValidationError) as failure:
+        prove_lab.prove_lab_2("http://example.test", rerun=rerun)
+
+    message = str(failure.value)
+    assert "incomplete search receipt" in message and f"run {rerun} again" in message
+    assert "run the same check again" not in message
+
+
 def test_lab_2_validator_names_an_unreadable_receipt_and_a_next_step(monkeypatch):
     monkeypatch.setattr(
         prove_lab, "_mission", lambda _stage: {"target_product_ids": [370002]}

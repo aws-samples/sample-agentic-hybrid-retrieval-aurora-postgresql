@@ -66,6 +66,8 @@ ARM_LABELS: dict[str, str] = {
 }
 LAB_FILES = {1: LAB1_SQL, 2: LAB2_SQL}
 FACILITATOR = "give this message to your facilitator; it is not caused by your SQL"
+#: The repeat step for a transient failure; a terminal command names itself in its place.
+RERUN_CHECK = "run the same check again"
 
 
 def repair_next_step(lab_id: int) -> str:
@@ -752,7 +754,7 @@ def _lab_2_repeatable(
     elif problem:
         detail = explain(
             f"an incomplete search receipt: {problem}",
-            "run the same check again; if it fails twice, " + FACILITATOR,
+            f"{RERUN_CHECK}; if it fails twice, " + FACILITATOR,
         )
     else:
         detail = explain(

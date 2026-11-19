@@ -208,13 +208,14 @@ def _with_block_in_place(failure: str, lab: int, rerun: str | None = None) -> st
     that question, would only send the participant round in a circle. `rerun`
     is the command that ran the checks, so the advice repeats that command.
     """
+    command = rerun or prove_lab_command(lab)
     return failure.replace(
         lab_checks.repair_next_step(lab),
         f"your saved block in {lab_checks.LAB_FILES[lab]} is repaired and Aurora "
         "runs it, so the cause is outside it. Undo any edits outside the marked "
-        f"block ({DIFF} shows them), run {APPLY_SQL} and run {rerun or prove_lab_command(lab)} "
+        f"block ({DIFF} shows them), run {APPLY_SQL} and run {command} "
         "again; if it still fails, give this message to your facilitator",
-    )
+    ).replace(lab_checks.RERUN_CHECK, f"run {command} again")
 
 
 def _under_ranking_fault(failure: str, repo: Path) -> str:
