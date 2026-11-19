@@ -267,12 +267,25 @@ LISTING_LINE = (
 PORT_WORDS = "Ethernet RJ45 and USB-C connectivity"
 
 
-@pytest.mark.parametrize("support", [LISTING_LINE, PORT_WORDS], ids=["line", "ports"])
-def test_a_wattage_for_the_shoppers_adapter_never_settles_charging(support):
-    """Codex round 3: a longer support quote must not supply a conclusion the answer lacks."""
+@pytest.mark.parametrize("receiver", ["a laptop", "your laptop"])
+def test_the_monitor_supplying_a_device_settles_charging(receiver):
+    """Codex round 4: the laptop receives the power; the monitor still supplies it."""
     check = answered(
-        "Check whether your adapter is 90 W; the ViewSonic VG2756-4K has Ethernet and "
-        "USB-C [1].",
+        f"The ViewSonic VG2756-4K can supply {receiver} with up to 90 W over USB-C [1].",
+        support=SCREEN_LINE,
+    )
+    assert check.passed, check.detail
+
+
+@pytest.mark.parametrize(
+    "adapter",
+    ["Check whether your adapter is 90 W", "Check that your adapter is 90 W"],
+    ids=["whether", "subject"],
+)
+@pytest.mark.parametrize("support", [LISTING_LINE, PORT_WORDS], ids=["line", "ports"])
+def test_a_wattage_that_is_the_shoppers_adapters_never_settles_it(adapter, support):
+    check = answered(
+        f"{adapter}; the ViewSonic VG2756-4K has Ethernet and USB-C [1].",
         support=support,
     )
     assert not check.passed and "does not give the charging wattage" in check.detail

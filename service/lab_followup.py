@@ -144,9 +144,17 @@ _SOURCES_SILENT = re.compile(
     r"|\b(?:unclear|unknown|uncertain)\s+whether",
     re.IGNORECASE,
 )
-# A listed wattage these words lead into belongs to the shopper's own equipment ("check
-# whether your adapter is 90W"), not to what the monitor delivers.
-_SHOPPERS_EQUIPMENT = re.compile(r"\b(?:if|unless|whether|your)\b", re.IGNORECASE)
+# A listed wattage belongs to the shopper's own equipment when a condition leads into it
+# ("whether your adapter is 90W") or the shopper's device is its subject ("your adapter
+# is 90W", "your laptop needs 90W"). A device that receives the power ("supply your
+# laptop with up to 90W") leaves the monitor as the one supplying it.
+_SHOPPERS_EQUIPMENT = re.compile(
+    r"\b(?:if|unless|whether)\b"
+    r"|\byour\s+(?:[\w'’-]+\s+){1,2}?"
+    r"(?:is|are|was|were|needs?|uses?|draws?|takes?|requires?|accepts?|has|have|gets?"
+    r"|charges?|runs?|supplies|provides|delivers|outputs)\b",
+    re.IGNORECASE,
+)
 
 
 def _about_the_shopper(lead: str) -> bool:
