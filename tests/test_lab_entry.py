@@ -1078,3 +1078,113 @@ def test_starting_lab_2_keeps_lab_1s_handed_off_proof(repo, aurora, handoff_chec
     assert lab_entry.load_record(2, repo)["completed_at"]
     assert lab_entry.read_completion(1, repo).state == "valid"
     assert not lab_entry.lab_1_waits_for_lab_2("aurora", repo)
+
+
+class _InstalledSql:
+    """Aurora holding the function bodies it last applied, answering the real reads."""
+
+    def __init__(self, repo: Path) -> None:
+        self.repo = repo
+        self.installed = {
+            1: _seam_file(1, repo).read_text(),
+            2: _seam_file(2, repo).read_text(),
+        }
+        self.applies = 0
+
+    def execute(self, sql: str, params=None):
+        from types import SimpleNamespace
+
+        from scripts.checks.retrieval_profile import load_profile
+
+        rrf_k = load_profile().rrf_k
+        if "pg_get_functiondef" in sql:
+            lab = 2 if "reciprocal_rank_contribution" in str(params) else 1
+            row = {"definition": self.installed[lab]}
+        else:
+            # Every correct expression gives the same values at ranks 1 and 2.
+            row = {
+                "first_contribution": 1 / (rrf_k + 1),
+                "second_contribution": 1 / (rrf_k + 2),
+            }
+        return SimpleNamespace(fetchone=lambda: row)
+
+    def apply_saved_files(self) -> None:
+        self.applies += 1
+        self.installed = {lab: _seam_file(lab, self.repo).read_text() for lab in (1, 2)}
+
+
+@pytest.fixture
+def installed_sql(repo, aurora, monkeypatch) -> _InstalledSql:
+    """The real applied-state reads over an Aurora that keeps what it was given."""
+    from scripts import lab_state
+
+    _start(2, repo)
+    set_lab_state(2, solved=True, repo=repo)
+    aurora.applied[2] = "applied"
+    sql = _InstalledSql(repo)
+    order: list[str] = []
+
+    @contextmanager
+    def connect(_dsn):
+        yield sql
+
+    def apply(_dsn, _repo, say):
+        order.append("apply")
+        sql.apply_saved_files()
+        say("Applied it to Aurora.")
+        return "sha"
+
+    monkeypatch.setattr(lab_entry, "assert_workshop_database", lambda _dsn: None)
+    monkeypatch.setattr(lab_entry, "_connect", connect)
+    monkeypatch.setattr(
+        lab_entry, "read_applied_sql_state", lab_state.read_applied_sql_state
+    )
+    monkeypatch.setattr(lab_entry, "_apply", apply)
+    monkeypatch.setattr(
+        "scripts.prove_lab.prove_lab_2",
+        lambda *_a, **_k: order.append("prove") or ["contribution correct"],
+    )
+    sql.order = order
+    return sql
+
+
+def _save_other_rrf_expression(repo: Path) -> None:
+    path = _seam_file(2, repo)
+    start, end, _, _ = LABS[2][1][0]
+    path.write_text(_replace_block(path.read_text(), start, end, PARTICIPANT_LAB_2))
+    assert lab_source_is_repaired(2, repo=repo)
+
+
+def test_lab_2_handoff_applies_a_second_valid_expression_that_samples_the_same_ranks(
+    repo, installed_sql
+) -> None:
+    """Ranks 1 and 2 cannot tell two correct expressions apart; the saved block can."""
+    _save_other_rrf_expression(repo)
+    agent = _seam_file(3, repo)
+
+    lab_entry.advance(2, api_url="http://api", dsn="aurora", repo=repo)
+
+    assert installed_sql.order[:2] == ["apply", "prove"]
+    assert installed_sql.applies == 1
+    assert "1.0 / (rrf_k + source_rank)" in installed_sql.installed[2]
+    agent.write_text(agent.read_text() + "\n# my note\n")
+    edited = agent.read_bytes()
+
+    lab_entry.advance(2, api_url="http://api", dsn="aurora", repo=repo)
+
+    assert installed_sql.applies == 1, "nothing changed, so nothing is applied again"
+    assert agent.read_bytes() == edited
+
+
+def test_the_applied_check_reads_a_different_saved_expression_as_not_applied(
+    repo, installed_sql
+) -> None:
+    from scripts.lab_state import applied_problem, read_applied_sql_state
+
+    assert read_applied_sql_state(2, installed_sql, repo=repo).state == "applied"
+    _save_other_rrf_expression(repo)
+
+    problem = applied_problem(2, read_applied_sql_state(2, installed_sql, repo=repo))
+
+    assert problem is not None
+    assert "different LAB2_EDIT block" in problem.finding

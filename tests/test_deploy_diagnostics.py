@@ -3,6 +3,7 @@
 import io
 import subprocess
 import sys
+from contextlib import nullcontext
 from unittest.mock import Mock
 
 import pytest
@@ -122,6 +123,12 @@ def test_gateway_sync_waits_through_synchronizing_until_ready(monkeypatch, capsy
     assert "4/5  Synchronize the Gateway tools (usually about 0:21)" in (
         capsys.readouterr().out
     )
+
+
+@pytest.fixture(autouse=True)
+def aurora_runs_the_workspace_sql(monkeypatch):
+    """The deploy's SQL preflight reads Aurora; these tests are about what follows it."""
+    monkeypatch.setattr(deploy, "require_applied_sql", lambda: "c" * 64)
 
 
 def run_main(monkeypatch, action, failure):
@@ -656,3 +663,28 @@ def test_a_failed_command_names_the_program_not_its_arguments():
     message = deploy.explain_failure(failed, DEPLOY_AGENT)
 
     assert "`docker` exited with status 2" in message and "hunter2" not in message
+
+
+def test_a_sql_mismatch_stops_the_deploy_before_anything_is_built_or_updated(
+    monkeypatch, capsys
+):
+    """The first failure makes zero publish or update calls; Aurora's SQL is known up front."""
+    from service.participant_commands import APPLY_SQL
+
+    publish = Mock()
+    update = Mock()
+    monkeypatch.undo()  # drop the autouse substitute so the real preflight runs
+    monkeypatch.setattr(sys, "argv", ["deploy_agentcore.py", "deploy"])
+    monkeypatch.setattr("scripts.lab_state.lab_source_is_repaired", lambda lab: True)
+    monkeypatch.setattr(deploy, "publish_image_storing_dsn_at_bootstrap", publish)
+    monkeypatch.setattr(deploy, "update", update)
+    monkeypatch.setattr(deploy, "participant_sql_digest", lambda: "w" * 64)
+    monkeypatch.setattr("service.search_sql.applied_sql_digest", lambda _c: "a" * 64)
+    monkeypatch.setattr("service.db.connect", lambda: nullcontext(object()))
+
+    assert deploy.main() == 1
+
+    shown = capsys.readouterr().err
+    assert "Aurora SQL rule" in shown and APPLY_SQL in shown
+    publish.assert_not_called()
+    update.assert_not_called()

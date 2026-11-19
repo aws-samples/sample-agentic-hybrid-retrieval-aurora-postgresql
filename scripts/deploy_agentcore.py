@@ -484,12 +484,20 @@ def require_applied_sql() -> str:
     The Runtime check covers the code the image runs; this covers the SQL the
     tools call, which lives in Aurora and changes only when it is applied.
     """
+    import psycopg
+
     from service.db import connect
     from service.search_sql import applied_sql_digest
 
     workspace = participant_sql_digest()
-    with connect() as connection:
-        applied = applied_sql_digest(connection)
+    try:
+        with connect() as connection:
+            applied = applied_sql_digest(connection)
+    except psycopg.Error as error:
+        raise RuntimeError(
+            f"Aurora SQL rule: could not read the SQL Aurora runs ({type(error).__name__}); "
+            f"fix: open a new terminal from the Terminal menu, then run {DEPLOY_AGENT} again."
+        ) from error
     if applied != workspace:
         raise RuntimeError(
             "Aurora SQL rule: Aurora runs participant SQL "
@@ -899,6 +907,9 @@ def main() -> int:
                 raise ValueError(missing.line)
             if not lab_source_is_repaired(3):
                 raise ValueError(not_ready_message())
+            # Aurora's SQL changes only when it is applied, so a mismatch is known now:
+            # refuse before anything is built, published or updated.
+            require_applied_sql()
             progress = deploy_progress()
             code = application_digest()
             try:

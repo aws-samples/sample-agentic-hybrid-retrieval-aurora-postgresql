@@ -983,11 +983,44 @@ def _lab_1_database_state(connection: Any, repo: Path) -> LabDatabaseState:
     )
 
 
-def _lab_2_database_state(connection: Any) -> LabDatabaseState:
+#: The function Lab 2's block defines, by its argument types.
+RRF_CONTRIBUTION_FUNCTION = "reciprocal_rank_contribution(bigint,integer)"
+
+
+def _lab_2_database_state(connection: Any, repo: Path) -> LabDatabaseState:
+    """Lab 2 is applied when Aurora runs the saved block and ranks 1 and 2 decay.
+
+    Two different correct expressions can give the same values at ranks 1 and 2, so
+    the sampled values alone cannot tell that the saved one is not installed. The
+    block is compared as Lab 1's is, and the sampled ranks still check the result.
+    """
     from scripts.checks.retrieval_profile import load_profile
 
     rrf_k = load_profile().rrf_k
     schema = search_schema()
+    path = LABS[2][0]
+    function = f"{schema}.{RRF_CONTRIBUTION_FUNCTION}"
+    definition = connection.execute(FUSED_DEFINITION_SQL, (function,)).fetchone()[
+        "definition"
+    ]
+    if definition is None:
+        return LabDatabaseState(
+            state="stale",
+            detail=(
+                f"Aurora has no {schema}.reciprocal_rank_contribution, the function "
+                f"{path} defines. Saving changes only the file; applying it updates "
+                "Aurora."
+            ),
+        )
+    saved = (repo / path).read_text(encoding="utf-8")
+    if _marked_tokens(definition, 2) != _marked_tokens(saved, 2):
+        return LabDatabaseState(
+            state="stale",
+            detail=(
+                "Aurora runs a different LAB2_EDIT block from the one saved in "
+                f"{path}. Saving changes only the file; applying it updates Aurora."
+            ),
+        )
     row = connection.execute(
         f"""
         SELECT
@@ -1041,7 +1074,7 @@ def read_applied_sql_state(
         return LabDatabaseState(state="not_applicable", detail=_LAB3_DETAIL)
     if lab == 1:
         return _lab_1_database_state(connection, repo)
-    return _lab_2_database_state(connection)
+    return _lab_2_database_state(connection, repo)
 
 
 @dataclass(frozen=True)
