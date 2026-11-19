@@ -246,7 +246,9 @@ command to run again (never a connection string) and exit status 130.
 In Labs 1 and 2, `status` reads SOLVED only once the saved repair runs in Aurora and its
 live proof has passed, which the lab's `advance` saves: a repaired file Aurora does not
 run yet reads `REPAIRED, NOT APPLIED`, and an applied repair before that proof reads
-`APPLIED, NOT YET PROVED`, each with its next step. Once `status` reads Lab 3 SOLVED, an answer's `Next:` and a
+`APPLIED, NOT YET PROVED`, each with its next step. The proof counts for that lab attempt and
+that saved SQL: restarting the lab or saving different SQL afterwards reads `APPLIED, NOT YET PROVED` again, and with
+Lab 2 started before Lab 1 was proved, Lab 1's next step names the Lab 2 guide first. Once `status` reads Lab 3 SOLVED, an answer's `Next:` and a
 `deploy_agentcore.py verify` recheck's name the guide's next step instead of the completion
 check or the setup request; a new deploy makes Lab 3 unproved again, and an edit to the agent
 after a pass reads `REPAIRED, NOT DEPLOYED` until it is deployed. A lab whose start record
