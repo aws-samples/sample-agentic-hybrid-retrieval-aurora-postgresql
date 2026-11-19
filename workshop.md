@@ -273,7 +273,10 @@ newest run of the setup request since Lab 3 started that opened its own conversa
 and says which run it chose; `--run-id` selects a particular setup run. The same
 completion check also requires the saved 100W follow-up, a new search, the monitor's
 current specification, matching deployed code, and either a checked answer or a
-relevant decline. Grading does not generate replacement answers.
+relevant decline. A checked answer must give the charging wattage the monitor's listing
+states, or name 100W as a shortfall the listing bears out, and must not take 100W from a
+review; one that never addresses charging fails, and the participant asks again.
+Grading does not generate replacement answers.
 
 Until a participant deploys after Lab 3 starts, questions from the terminal, Playground
 and Ask Mosaic wait for that deploy, and completion refuses a run without one: AgentCore

@@ -413,5 +413,9 @@ uv run python scripts/grade_setup_run.py
 
 The receipt binds the deployed code and current settings. It is regraded from
 Aurora; a facilitator demonstration does not complete a participant's exercise.
+A grounded 100W answer passes only when it gives the charging wattage the monitor's
+listing states (90W) or names 100W as a shortfall that listing bears out. An answer
+that never addresses charging, or takes 100W from one reviewer's laptop, fails; the
+participant asks the 100W question again.
 
 Offer Session & Memory first once the required work is done; optional exercises are untimed, and extraction is asynchronous, so do not promise a completed extraction. [Build a retrieval tool](build-retrieval-tool.md) is the alternative: its four hints preserve the final two-budget proof and agent call. HNSW is the other option. Use [the delivery map](abstract-delivery-map.md) to distinguish what attendees implement from what they inspect.
