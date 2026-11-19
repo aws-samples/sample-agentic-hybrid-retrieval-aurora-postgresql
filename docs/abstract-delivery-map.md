@@ -28,7 +28,7 @@ build and deploy an agent), and each is graded against an answer the grader comp
   USB-C charging up to 90W over one cable never reaches the reranker. A provided
   query shows the collapsed contributions tie every single-search candidate, so the
   product-ID tie-breaker, not relevance, decides the 50 products sent to Cohere
-  Rerank and keeps the oldest listings in the pool. Participants fix one line, graded
+  Rerank (among tied products, the lower product ID wins). Participants fix one line, graded
   at five values of `k`, then read the measured effect of three settings derived from
   the served profile over 141 judged shopper queries and write what they would ship.
   **Lesson: fusion only works if positions count, and a tuning claim needs a judged
