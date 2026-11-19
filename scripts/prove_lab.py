@@ -24,7 +24,12 @@ from urllib.request import Request, urlopen
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
-from scripts.lab_entry import FAULT_AT_ENTRY, completion_path
+from scripts.lab_entry import (
+    FAULT_AT_ENTRY,
+    completion_binding,
+    completion_path,
+    read_completion,
+)
 from scripts.lab_state import (
     LabProblem,
     explain_problems,
@@ -194,13 +199,13 @@ def _under_ranking_fault(failure: str, repo: Path) -> str:
     """Say why a Lab 1 check fails during Lab 2, without passing on old evidence."""
     from service.lab_proof import LAB1_UNDER_RANKING_FAULT
 
-    path = completion_path(1, repo)
-    saved = json.loads(path.read_text()) if path.exists() else None
+    reading = read_completion(1, repo)
     history = (
         f"Saved completion, from an earlier run and not this check: Lab 1 passed "
-        f"at {saved['passed_at']} (search {saved['search_event_ids'][0]})."
-        if saved
-        else "No saved Lab 1 completion was found."
+        f"at {reading.receipt['passed_at']} "
+        f"(search {reading.receipt['search_event_ids'][0]})."
+        if reading.proved and reading.receipt
+        else f"No valid saved Lab 1 completion was found ({reading.detail})."
     )
     # The check's own fix names Lab 1's seam, which is already repaired here.
     observed = failure.split("; fix:", 1)[0].rstrip(".")
@@ -240,9 +245,18 @@ def applied_sql_problem(lab: int) -> LabProblem | None:
 
 
 def record_completion(
-    lab: int, checks: list[str], events: list[str], repo: Path
+    lab: int,
+    checks: list[str],
+    events: list[str],
+    repo: Path,
+    binding: dict[str, object] | None = None,
 ) -> Path:
-    """Keep the evidence of a passing live check for the Playground and later labs."""
+    """Keep the evidence of a passing live check for the Playground and later labs.
+
+    The receipt names the lab attempt and the saved SQL the check proved, so a restart
+    or a later edit stops it counting. Take `binding` (`completion_binding`) before
+    the check runs, so an edit made while it ran is not credited.
+    """
     from datetime import UTC, datetime
 
     path = completion_path(lab, repo)
@@ -255,6 +269,7 @@ def record_completion(
                 "passed_at": datetime.now(UTC).isoformat(timespec="seconds"),
                 "checks": checks,
                 "search_event_ids": events,
+                **(binding or completion_binding(lab, repo)),
             },
             indent=2,
         )
@@ -510,6 +525,7 @@ def _prove(args: argparse.Namespace) -> int:
                 )
             )
     events: list[str] = []
+    binding = completion_binding(args.lab, REPO) if args.lab in {1, 2} else None
     try:
         checks = (
             validator(
@@ -533,7 +549,7 @@ def _prove(args: argparse.Namespace) -> int:
         )
         return 0
     if args.lab in {1, 2}:
-        record_completion(args.lab, checks, events, REPO)
+        record_completion(args.lab, checks, events, REPO, binding)
     print(f"\nLab {args.lab}: production-path validation passed")
     if not maintainer_check:
         _proved_next(args.lab)

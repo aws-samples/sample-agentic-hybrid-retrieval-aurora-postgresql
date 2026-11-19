@@ -995,3 +995,86 @@ def test_a_cannot_be_opened_start_record_names_the_reason(tmp_path: Path, monkey
         lab_entry.load_record(1, tmp_path)
 
     assert raised.value.problem == "it cannot be opened: permission denied"
+
+
+def _own_lab_1_wording_again(repo: Path) -> None:
+    """A second valid Lab 1 repair, worded differently from the first."""
+    path = _seam_file(1, repo)
+    path.write_text(
+        path.read_text().replace(
+            "SELECT product_id, 'fuzzy', fuzzy_rank,",
+            "SELECT product_id, 'fuzzy'::text AS label, fuzzy_rank AS position,",
+        )
+    )
+    assert lab_source_is_repaired(1, repo=repo)
+
+
+def test_a_handoff_receipt_names_the_attempt_and_the_proved_sql(
+    repo, aurora, handoff_checks
+) -> None:
+    lab_entry.advance(1, api_url="http://api", dsn="aurora", repo=repo)
+
+    reading = lab_entry.read_completion(1, repo)
+    assert reading.state == "valid"
+    assert reading.receipt["sql_sha256"] == lab_entry.sql_identity(1, repo)
+
+
+@pytest.mark.parametrize("damage", ["", "{"])
+def test_a_repeated_handoff_rebuilds_a_damaged_receipt_from_its_own_evidence(
+    repo, aurora, handoff_checks, damage
+) -> None:
+    """The saved handoff is bound to this attempt and block, so no new search is needed."""
+    lab_entry.advance(1, api_url="http://api", dsn="aurora", repo=repo)
+    lab_entry.completion_path(1, repo).write_text(damage)
+    edited = _participant_edit(repo)
+
+    lab_entry.advance(1, api_url="http://api", dsn="aurora", repo=repo)
+
+    assert handoff_checks == ["validate"]
+    reading = lab_entry.read_completion(1, repo)
+    assert reading.state == "valid"
+    assert reading.receipt["search_event_ids"] == ["verified-lab-1"]
+    assert _seam_file(2, repo).read_bytes() == edited
+
+
+def test_a_lab_1_repair_edited_after_handoff_is_proved_again_once_lab_2_cannot_hide_it(
+    repo, aurora, handoff_checks
+) -> None:
+    lab_entry.advance(1, api_url="http://api", dsn="aurora", repo=repo)
+    set_lab_state(2, solved=True, repo=repo)
+    aurora.applied = {1: "applied", 2: "applied"}
+    _own_lab_1_wording_again(repo)
+    assert lab_entry.read_completion(1, repo).state == "other_sql"
+    agent = _seam_file(3, repo).read_bytes()
+
+    lab_entry.advance(1, api_url="http://api", dsn="aurora", repo=repo)
+
+    assert handoff_checks == ["validate", "validate"]
+    assert lab_entry.read_completion(1, repo).state == "valid"
+    assert _seam_file(3, repo).read_bytes() == agent
+
+
+def test_a_lab_1_repair_edited_after_handoff_waits_while_lab_2s_fault_is_installed(
+    repo, aurora, handoff_checks
+) -> None:
+    lab_entry.advance(1, api_url="http://api", dsn="aurora", repo=repo)
+    aurora.applied = {1: "applied", 2: "stale"}
+    _own_lab_1_wording_again(repo)
+
+    with pytest.raises(lab_entry.LabEntryError) as refused:
+        lab_entry.advance(1, api_url="http://api", dsn="aurora", repo=repo)
+
+    message = str(refused.value)
+    assert "your LAB1_EDIT block changed" in message
+    assert "Lab 2's ranking fault can hide a correct Lab 1 repair" in message
+    assert f"run {advance_command(1)} to prove Lab 1 again" in message
+    assert handoff_checks == ["validate"]
+    assert lab_entry.lab_1_waits_for_lab_2("aurora", repo)
+
+
+def test_starting_lab_2_keeps_lab_1s_handed_off_proof(repo, aurora, handoff_checks):
+    lab_entry.advance(1, api_url="http://api", dsn="aurora", repo=repo)
+
+    assert lab_entry.load_record(2, repo)["completed_at"]
+    assert lab_entry.read_completion(1, repo).state == "valid"
+    assert not lab_entry.lab_1_waits_for_lab_2("aurora", repo)

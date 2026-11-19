@@ -3,6 +3,7 @@ import re
 import pytest
 
 from scripts import prove_lab
+from scripts.lab_state import LABS, REPO
 from scripts.prove_lab import applied_sql_problem
 from service.config import get_settings
 from service.participant_commands import (
@@ -665,6 +666,10 @@ def _failing_lab_1(monkeypatch, *, masked: bool) -> None:
 
 
 def _saved_lab_1(repo) -> None:
+    """A completion for the repaired Lab 1 file the checkout holds, as a handoff saves it."""
+    destination = repo / LABS[1][0]
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.write_text((REPO / LABS[1][0]).read_text())
     prove_lab.record_completion(1, ["target"], ["earlier-run"], repo=repo)
 
 

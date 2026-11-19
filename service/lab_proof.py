@@ -27,7 +27,6 @@ grade green on its own receipts.
 
 from __future__ import annotations
 
-import json
 from collections.abc import Mapping
 from datetime import UTC, datetime
 from pathlib import Path
@@ -40,9 +39,9 @@ import psycopg
 from scripts.lab_entry import (
     FAULT_AT_ENTRY,
     StartRecordError,
-    completion_path,
     entry_command,
     load_record,
+    read_completion,
 )
 from scripts.lab_state import (
     REPO as LAB_SOURCE_ROOT,
@@ -227,10 +226,10 @@ def ranking_fault_masks_lab_1(connection: Any, repo: Path) -> bool:
 
 
 def _saved_completion_at(lab_id: int, repo: Path) -> datetime | None:
-    path = completion_path(lab_id, repo)
-    if not path.exists():
+    reading = read_completion(lab_id, repo)
+    if not reading.proved or reading.receipt is None:
         return None
-    return datetime.fromisoformat(json.loads(path.read_text())["passed_at"])
+    return datetime.fromisoformat(reading.receipt["passed_at"])
 
 
 def _entry(lab_id: int, repo: Path) -> tuple[str | None, str | None]:

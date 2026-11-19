@@ -19,13 +19,14 @@ import json
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal, NamedTuple
 
 from scripts.lab_state import (
     LABS,
     REPO,
     LabDatabaseState,
     LabProblem,
+    _marked_tokens,
     _replace_block,
     applied_problem,
     assert_workshop_database,
@@ -39,7 +40,6 @@ from scripts.terminal_text import BOLD, GREEN, fill_words, next_text, tint, verd
 from service.participant_commands import (
     ADVANCE_TO_LAB_2,
     ADVANCE_TO_LAB_3,
-    APPLY_SQL,
     DEPLOY_AGENT,
     grade_setup_run_command,
     reset_command,
@@ -117,6 +117,160 @@ def _handed_off_into(lab: int, repo: Path) -> bool:
 
 def completion_path(lab: int, repo: Path = REPO) -> Path:
     return repo / ".local" / f"lab-{lab}" / "completion.json"
+
+
+CompletionState = Literal[
+    "valid",
+    "legacy_verified",
+    "legacy_unverified",
+    "absent",
+    "unreadable",
+    "other_attempt",
+    "other_sql",
+]
+
+
+class CompletionReading(NamedTuple):
+    """What a SQL lab's completion receipt says about the lab as it stands now.
+
+    `valid` and `legacy_verified` count as proved. A receipt is never deleted for
+    being any other state: the next passing proof replaces it, and `receipt` keeps
+    what was read for the states that still parse.
+    """
+
+    state: CompletionState
+    receipt: dict[str, Any] | None
+    detail: str
+
+    @property
+    def proved(self) -> bool:
+        return self.state in {"valid", "legacy_verified"}
+
+
+def sql_identity(lab: int, repo: Path = REPO) -> str | None:
+    """Identity of one SQL lab's saved marked block, or None when it cannot be read.
+
+    The tokens are the ones the applied-SQL check compares with Aurora (comments and
+    spacing do not count), so a receipt and that check agree on what "the same SQL"
+    is. Only this lab's own block counts: a change to the other lab's file leaves it
+    alone.
+    """
+    path = repo / LABS[lab][0]
+    try:
+        tokens = _marked_tokens(path.read_text(encoding="utf-8"), lab)
+    except (OSError, ValueError):
+        return None
+    if tokens is None:
+        return None
+    return hashlib.sha256("\n".join(tokens).encode()).hexdigest()
+
+
+def _attempt(lab: int, repo: Path) -> str | None:
+    """When this lab's current attempt started, or None before any start record.
+
+    Raises:
+        StartRecordError: The start record is cut off, hand-edited or another lab's.
+    """
+    record = load_record(lab, repo)
+    return record.get("completed_at") if record else None
+
+
+def completion_binding(lab: int, repo: Path = REPO) -> dict[str, Any]:
+    """The attempt and SQL a passing proof is about to vouch for; take it before proving."""
+    try:
+        attempt = _attempt(lab, repo)
+    except StartRecordError:
+        # No identity is better than a wrong one: a receipt with none never counts.
+        return {"start_completed_at": None, "sql_sha256": None}
+    return {"start_completed_at": attempt, "sql_sha256": sql_identity(lab, repo)}
+
+
+def _receipt_problem(lab: int, receipt: Any) -> str | None:
+    """What makes a parsed receipt incomplete, or None."""
+    if not isinstance(receipt, dict):
+        return "it is not a JSON object"
+    if receipt.get("lab") != lab or isinstance(receipt.get("lab"), bool):
+        return f"it is not marked lab {lab}"
+    try:
+        datetime.fromisoformat(receipt["passed_at"])
+    except (KeyError, TypeError, ValueError):
+        return "it has no valid passed_at time"
+    for key in ("checks", "search_event_ids"):
+        values = receipt.get(key)
+        if not (
+            isinstance(values, list)
+            and values
+            and all(isinstance(value, str) for value in values)
+        ):
+            return f"its {key} are missing or empty"
+    saved = [key for key in ("start_completed_at", "sql_sha256") if key in receipt]
+    if len(saved) == 1:
+        return f"it names {saved[0]} but not the other half of its identity"
+    if saved and not all(
+        value is None or isinstance(value, str)
+        for value in (receipt["start_completed_at"], receipt["sql_sha256"])
+    ):
+        return "its identity is not text"
+    return None
+
+
+def _legacy_handoff_matches(receipt: dict[str, Any], repo: Path) -> bool:
+    """Whether Lab 1's saved handoff vouches for a receipt written without an identity.
+
+    The handoff binds the same attempt and repaired block, so it verifies a receipt
+    the released build wrote, offline. Lab 2 saved no such evidence.
+    """
+    try:
+        saved = json.loads((repo / ".local/lab-1/handoff.json").read_text())
+        binding = saved["binding"]
+        seam = _seam_sha256(1, (repo / LABS[1][0]).read_text())
+        return (
+            binding["lab1_seam"] == seam
+            and binding["lab1_entry"] == load_record(1, repo)
+            and saved["search_event_ids"] == receipt["search_event_ids"]
+        )
+    except (OSError, ValueError, KeyError, TypeError, IndexError, StartRecordError):
+        return False
+
+
+def read_completion(lab: int, repo: Path = REPO) -> CompletionReading:
+    """Judge a SQL lab's completion receipt against its attempt and saved SQL, offline.
+
+    The one reader every consumer shares: `status`, the hand-off, the proof's
+    messages and the API. It reads files only, so it never needs a live search, which
+    Lab 2's fault would fail for a correct Lab 1.
+    """
+    path = completion_path(lab, repo)
+    if not path.exists():
+        return CompletionReading("absent", None, "no completion was saved")
+    try:
+        receipt = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return CompletionReading("unreadable", None, "the saved completion is cut off")
+    if problem := _receipt_problem(lab, receipt):
+        return CompletionReading("unreadable", None, f"the saved completion: {problem}")
+    if "sql_sha256" not in receipt:
+        if _legacy_handoff_matches(receipt, repo):
+            return CompletionReading("legacy_verified", receipt, "verified by handoff")
+        return CompletionReading(
+            "legacy_unverified", receipt, "the saved completion names no attempt or SQL"
+        )
+    try:
+        attempt = _attempt(lab, repo)
+    except StartRecordError:
+        return CompletionReading(
+            "other_attempt", receipt, f"Lab {lab}'s start record cannot be read"
+        )
+    if receipt["start_completed_at"] != attempt:
+        return CompletionReading(
+            "other_attempt", receipt, f"Lab {lab} was restarted since it passed"
+        )
+    current = sql_identity(lab, repo)
+    if current is None or receipt["sql_sha256"] != current:
+        return CompletionReading(
+            "other_sql", receipt, f"Lab {lab}'s saved SQL changed since it passed"
+        )
+    return CompletionReading("valid", receipt, "matches this attempt and SQL")
 
 
 def started_clock(recorded: str) -> str:
@@ -550,28 +704,69 @@ _HANDOFF_BINDING = {
     "lab1_entry": "Lab 1 was restarted",
 }
 
+LAB_1_WAITS_FOR_LAB_2 = (
+    "Lab 2's ranking fault can hide a correct Lab 1 repair, so Lab 1 cannot be proved "
+    "again until Lab 2 is repaired and applied."
+)
 
-def _handoff_mismatch(
-    saved: dict[str, Any], current: dict[str, Any], repo: Path
-) -> str:
-    """Say what changed since Lab 1's evidence was saved, and what to do now."""
+
+def _handoff_mismatch(saved: dict[str, Any], current: dict[str, Any]) -> str:
+    """Say what changed since Lab 1's evidence was saved, when Lab 2's fault blocks a new proof."""
     changed = "; ".join(
         text for key, text in _HANDOFF_BINDING.items() if saved.get(key) != current[key]
     )
-    lab_2 = load_record(2, repo)
-    if lab_2 and lab_2.get("completed_at"):
-        return (
-            "Lab 1 does not need to hand off again: Lab 2 is already prepared.\n"
-            f"- Since Lab 1 was validated, {changed}.\n"
-            "Next: continue in the Lab 2 guide. If you changed Lab 1 on purpose, run "
-            f"{APPLY_SQL} so Aurora runs it."
-        )
     return (
         "Lab 1 cannot hand off yet.\n"
-        f"- Since Lab 1 was validated, {changed}, and Lab 2's preparation did not "
-        "finish.\n"
-        "Next: copy this message to your facilitator. Your edits are unchanged."
+        f"- Since Lab 1 was validated, {changed}. {LAB_1_WAITS_FOR_LAB_2}\n"
+        "Next: continue in the Lab 2 guide. Once Lab 2 is repaired and applied, run "
+        f"{ADVANCE_TO_LAB_2} to prove Lab 1 again. Your edits are unchanged."
     )
+
+
+def _lab_1_binding(dsn: str | None, repo: Path) -> dict[str, Any]:
+    return {
+        "database": hashlib.sha256((dsn or "").encode()).hexdigest(),
+        "lab1_seam": _seam_sha256(1, (repo / LABS[1][0]).read_text()),
+        "lab1_entry": load_record(1, repo),
+    }
+
+
+def _read_handoff(repo: Path) -> dict[str, Any] | None:
+    """Lab 1's saved handoff evidence, or None when it is absent or unusable.
+
+    An unusable file is left where it is; the next passing proof replaces it.
+    """
+    try:
+        saved = json.loads((repo / ".local/lab-1/handoff.json").read_text())
+    except (OSError, ValueError):
+        return None
+    if not (
+        isinstance(saved, dict)
+        and isinstance(saved.get("binding"), dict)
+        and isinstance(saved.get("checks"), list)
+        and isinstance(saved.get("search_event_ids"), list)
+    ):
+        return None
+    return saved
+
+
+def lab_1_waits_for_lab_2(dsn: str | None, repo: Path = REPO) -> bool:
+    """Whether Lab 1 cannot be proved yet because Lab 2's ranking fault can hide it.
+
+    False when Lab 1's saved handoff still matches, since proving it again then reuses
+    that evidence instead of searching.
+    """
+    try:
+        begun = load_record(2, repo) is not None
+    except StartRecordError:
+        begun = True
+    if not begun or not lab_2_can_mask(dsn, repo):
+        return False
+    saved = _read_handoff(repo)
+    try:
+        return saved is None or saved["binding"] != _lab_1_binding(dsn, repo)
+    except (OSError, ValueError):
+        return True
 
 
 def _passed(lab: int, count: int) -> str:
@@ -625,6 +820,7 @@ def _advance_lab_2(
             explain_problems("Lab 2 cannot hand off yet.", problems, ADVANCE_TO_LAB_3)
         )
     events: list[str] = []
+    proof = completion_binding(2, repo)
     say(
         "Validating Lab 2 in Aurora: Alex's monitor request, then the requests that "
         "must still work…"
@@ -632,7 +828,7 @@ def _advance_lab_2(
     checks = prove_lab_2(api_url, events, rerun=ADVANCE_TO_LAB_3)
     for check in checks:
         say(verdict(f"PASS: {check}"))
-    record_completion(2, checks, events, repo)
+    record_completion(2, checks, events, repo, proof)
     say("\n" + _passed(2, len(checks)))
     say("\nPreparing Lab 3: install the Retrieval agent's starting code once.")
     record = start(3, api_url=api_url, dsn=dsn, repo=repo, say=say)
@@ -672,30 +868,32 @@ def _advance_lab_1(
         raise LabEntryError(
             explain_problems("Lab 1 cannot hand off yet.", problems, ADVANCE_TO_LAB_2)
         )
-    binding = {
-        "database": hashlib.sha256((dsn or "").encode()).hexdigest(),
-        "lab1_seam": _seam_sha256(1, (repo / LABS[1][0]).read_text()),
-        "lab1_entry": load_record(1, repo),
-    }
+    binding = _lab_1_binding(dsn, repo)
     path = repo / ".local/lab-1/handoff.json"
-    saved = json.loads(path.read_text()) if path.exists() else None
-    if saved and saved.get("binding") != binding:
-        raise LabEntryError(
-            _handoff_mismatch(saved.get("binding") or {}, binding, repo)
+    saved = _read_handoff(repo)
+    if saved is not None and saved["binding"] == binding:
+        say(
+            "Lab 1: using saved handoff validation; not repeating it under Lab 2's ranking fault."
         )
-    if saved is None:
+        if read_completion(1, repo).state != "valid":
+            # The handoff is bound to this attempt and block, so it vouches for a
+            # completion that is missing, cut off or written before receipts named them.
+            record_completion(1, saved["checks"], saved["search_event_ids"], repo)
+    else:
         # Lab 2's ranking fault can hide a correct Lab 1 repair; once Lab 2 is
-        # repaired and applied it cannot, so Lab 1 is validated again (a reset of
-        # Lab 1 after Lab 2 removes the saved evidence).
+        # repaired and applied it cannot, so Lab 1 is validated again. That also
+        # covers a repair edited after its handoff (a reset of Lab 1 removes it).
         if load_record(2, repo) is not None and lab_2_can_mask(dsn, repo):
+            if saved is not None:
+                raise LabEntryError(_handoff_mismatch(saved["binding"], binding))
             raise LabEntryError(
                 "Lab 1 cannot hand off: Lab 2 was started directly, before Lab 1's "
                 "passing evidence was saved.\n"
-                "Next: continue in the Lab 2 guide. Lab 2's ranking fault can hide a "
-                "correct Lab 1 repair, so Lab 1 cannot be validated again until Lab 2 "
-                "is repaired. Your edits are unchanged."
+                f"Next: continue in the Lab 2 guide. {LAB_1_WAITS_FOR_LAB_2} Your edits "
+                "are unchanged."
             )
         events: list[str] = []
+        proof = completion_binding(1, repo)
         say(
             "Validating Lab 1 in Aurora: the mistyped-ID request, "
             "then two searches that must still work…"
@@ -703,17 +901,13 @@ def _advance_lab_1(
         checks = prove_lab_1(api_url, events, rerun=ADVANCE_TO_LAB_2)
         for check in checks:
             say(verdict(f"PASS: {check}"))
-        record_completion(1, checks, events, repo)
+        record_completion(1, checks, events, repo, proof)
         saved = {"binding": binding, "checks": checks, "search_event_ids": events}
         path.parent.mkdir(parents=True, exist_ok=True)
         temporary = path.with_suffix(".tmp")
         temporary.write_text(json.dumps(saved, indent=2) + "\n")
         temporary.replace(path)
         say("\n" + _passed(1, len(checks)))
-    else:
-        say(
-            "Lab 1: using saved handoff validation; not repeating it under Lab 2's ranking fault."
-        )
     resumed = bool((load_record(2, repo) or {}).get("completed_at"))
     say("\nPreparing Lab 2: install its fault once and save the starting request.")
     record = start(2, api_url=api_url, dsn=dsn, repo=repo, say=say, handoff=True)

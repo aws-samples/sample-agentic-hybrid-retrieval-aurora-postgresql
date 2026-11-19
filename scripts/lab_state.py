@@ -1144,9 +1144,11 @@ def _sql_lab_status(lab: int, repo: Path) -> str:
     The saved file alone is not enough: saving changes only the file, and a coach reads
     `status` first in every session, so a repair Aurora does not run yet, or one whose
     live proof has not passed, must not read SOLVED (walk 17, 18 November 2026).
-    `advance` and `prove_lab.py` save that proof; a reset of the lab deletes it.
+    `advance` and `prove_lab.py` save that proof; a reset of the lab deletes it. The proof
+    counts only while its receipt names this lab attempt and this saved SQL, so a restart
+    or a later edit sends the participant back to prove it again.
     """
-    from scripts.lab_entry import completion_path
+    from scripts.lab_entry import read_completion
 
     if not lab_source_is_repaired(lab, repo=repo):
         return f"Lab {lab}: BROKEN"
@@ -1155,7 +1157,7 @@ def _sql_lab_status(lab: int, repo: Path) -> str:
         return f"Lab {lab}: {LAB_SQL_NOT_CHECKED} ({applied})"
     if applied.state != "applied":
         return f"Lab {lab}: {LAB_SQL_NOT_APPLIED}"
-    if not completion_path(lab, repo).exists():
+    if not read_completion(lab, repo).proved:
         return f"Lab {lab}: {LAB_SQL_NOT_PROVED}"
     return f"Lab {lab}: SOLVED"
 
@@ -1476,7 +1478,19 @@ def _named_path(line: str) -> str:
     return line.partition("(")[2].partition(")")[0]
 
 
-def _status_next(lines: list[str]) -> None:
+def _lab_1_waits_for_lab_2(repo: Path) -> bool:
+    """Whether Lab 2's fault stops Lab 1's hand-off from proving it right now."""
+    import psycopg
+
+    from scripts.lab_entry import lab_1_waits_for_lab_2
+
+    try:
+        return lab_1_waits_for_lab_2(os.getenv("DATABASE_URL"), repo)
+    except psycopg.Error:
+        return False
+
+
+def _status_next(lines: list[str], repo: Path = REPO) -> None:
     """Print the step after a status report: the first lab that is not solved yet."""
     for lab, line in zip(LABS, lines, strict=True):
         if "SOLVED" in line:
@@ -1538,6 +1552,14 @@ def _status_next(lines: list[str]) -> None:
                 "your saved repair is not in Aurora yet. Apply it (in psql, type \\! "
                 "before the command):",
                 APPLY_SQL,
+            )
+        elif LAB_SQL_NOT_PROVED in line and lab == 1 and _lab_1_waits_for_lab_2(repo):
+            next_step(
+                "Lab 2's ranking fault can hide a correct Lab 1 repair, so Lab 1 cannot "
+                "be proved until Lab 2 is repaired and applied. Continue in the Lab 2 "
+                "guide; once Lab 2 is repaired and applied, hand off Lab 1, which proves "
+                "it:",
+                ADVANCE_TO_LAB_2,
             )
         elif LAB_SQL_NOT_PROVED in line and lab == 1:
             next_step(
