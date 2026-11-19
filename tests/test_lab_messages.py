@@ -89,8 +89,8 @@ def _failing_checks() -> list[lab_checks.LabCheck]:
         *lab_checks.lab_1_checks(
             RETRIEVE, {"results": [_row(retrieve_target, fts={"rank": 1})]}
         ),
-        *lab_checks.lab_2_checks(RANK, empty, empty),
-        *lab_checks.lab_2_checks(RANK, wrong, wrong),
+        *lab_checks.lab_2_checks(RANK, empty, empty, ([], [])),
+        *lab_checks.lab_2_checks(RANK, wrong, wrong, ([], [])),
     ]
     for lab_id in (1, 2):
         for control in lab_checks.supporting_checks_for_lab(lab_id):

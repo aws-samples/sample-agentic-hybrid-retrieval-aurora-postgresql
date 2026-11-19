@@ -249,11 +249,26 @@ def _response(results: list[ProductSummary], *, fuzzy_in_pool: int) -> SearchRes
             rerank_model_id="cohere.rerank-v3-5:0",
             rerank_status="applied",
             retrieval_profile=RetrievalProfile(),
-            candidate_counts={"fuzzy_in_pool": fuzzy_in_pool},
+            candidate_counts={
+                "fuzzy_in_pool": fuzzy_in_pool,
+                "fused_pool": RetrievalProfile().fused_limit,
+            },
             stage_timings_ms={},
             total_latency_ms=120,
         ),
     )
+
+
+def _fused_pool(response: SearchResponse) -> list[dict]:
+    """The full saved pool behind a primary search: its results at their combined
+    positions, with distinct fillers in every other position."""
+    placed = {row.signals.pre_rerank_rank: row.product_id for row in response.results}
+    return [
+        {"product_id": placed.get(position, 900_000 + position), "fused_rank": position}
+        for position in range(
+            1, response.diagnostics.candidate_counts["fused_pool"] + 1
+        )
+    ]
 
 
 def _with_controls(monkeypatch, primary):
@@ -278,7 +293,9 @@ def _with_controls(monkeypatch, primary):
             None,
         )
         if mission is None:
-            return primary(request)
+            response = primary(request)
+            receipts.setdefault(response.search_event_id, _fused_pool(response))
+            return response
         arm = RankSignal(rank=1, rrf_contribution=1 / (RetrievalProfile().rrf_k + 1))
         rows = [
             _product(

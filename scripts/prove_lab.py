@@ -166,11 +166,33 @@ def prove_lab_2(
     second = _search(base_url, mission)
     if events is not None:
         events.extend([first["search_event_id"], second["search_event_id"]])
+    pools = (
+        _fused_pool(base_url, first, rerun),
+        _fused_pool(base_url, second, rerun),
+    )
     try:
-        checks = _require_all_passed(lab_checks.lab_2_checks(mission, first, second))
+        checks = _require_all_passed(
+            lab_checks.lab_2_checks(mission, first, second, pools)
+        )
         return checks + _validate_controls(base_url, 2)
     except LabValidationError as error:
         raise LabValidationError(_with_block_in_place(str(error), 2, rerun)) from error
+
+
+def _fused_pool(
+    base_url: str, response: dict[str, Any], rerun: str | None
+) -> list[dict[str, Any]]:
+    """The whole fused pool one proof search saved, read back from its receipt."""
+    event = response["search_event_id"]
+    try:
+        receipt = _request(base_url, f"/api/retrieval/events/{event}")
+    except LabValidationError as error:
+        raise LabValidationError(
+            f"the saved receipt of proof search {event} could not be read ({error}); "
+            f"fix: run {rerun or prove_lab_command(2)} again, and if it fails twice, "
+            "give this message to your facilitator"
+        ) from error
+    return receipt.get("candidates") or []
 
 
 def _with_block_in_place(failure: str, lab: int, rerun: str | None = None) -> str:

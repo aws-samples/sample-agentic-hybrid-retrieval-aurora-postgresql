@@ -489,11 +489,29 @@ def _lab_2_response(*, pre_rerank_rank=1, final_rank=1):
                 },
             }
         ],
+        "search_event_id": "lab-2-search",
         "diagnostics": {
             "retrieval_profile": {"rrf_k": rrf_k},
             "rerank_status": "applied",
+            "candidate_counts": {"fused_pool": 1},
         },
     }
+
+
+def _saved_pool(monkeypatch, pool=({"product_id": 370002, "fused_rank": 1},)):
+    """Serve each proof search's receipt as the API would, from one saved pool."""
+    paths = []
+
+    def request(_base_url, path, _payload=None, **_kwargs):
+        paths.append(path)
+        if pool is None:
+            raise prove_lab.LabValidationError(
+                f"{path} returned HTTP 404: Search event not found"
+            )
+        return {"candidates": list(pool)}
+
+    monkeypatch.setattr(prove_lab, "_request", request)
+    return paths
 
 
 def test_lab_2_validator_proves_the_canonical_fused_and_final_winner(monkeypatch):
@@ -504,11 +522,28 @@ def test_lab_2_validator_proves_the_canonical_fused_and_final_winner(monkeypatch
         lambda _stage: {"target_product_ids": [370002]},
     )
     monkeypatch.setattr(prove_lab, "_search", lambda _url, _mission: response)
+    paths = _saved_pool(monkeypatch)
 
     monkeypatch.setattr(prove_lab.lab_checks, "supporting_checks_for_lab", lambda _: [])
     checks = prove_lab.prove_lab_2("http://example.test")
 
     assert "required product reaches the declared final shortlist" in checks
+    assert paths == ["/api/retrieval/events/lab-2-search"] * 2
+
+
+def test_lab_2_validator_names_an_unreadable_receipt_and_a_next_step(monkeypatch):
+    monkeypatch.setattr(
+        prove_lab, "_mission", lambda _stage: {"target_product_ids": [370002]}
+    )
+    monkeypatch.setattr(prove_lab, "_search", lambda _url, _mission: _lab_2_response())
+    _saved_pool(monkeypatch, pool=None)
+
+    with pytest.raises(prove_lab.LabValidationError) as failure:
+        prove_lab.prove_lab_2("http://example.test")
+
+    message = str(failure.value)
+    assert "saved receipt of proof search lab-2-search could not be read" in message
+    assert "HTTP 404" in message and prove_lab.prove_lab_command(2) in message
 
 
 def test_lab_2_validator_rejects_a_wrong_final_winner(monkeypatch):
@@ -519,6 +554,7 @@ def test_lab_2_validator_rejects_a_wrong_final_winner(monkeypatch):
         lambda _stage: {"target_product_ids": [370002]},
     )
     monkeypatch.setattr(prove_lab, "_search", lambda _url, _mission: response)
+    _saved_pool(monkeypatch)
 
     with pytest.raises(prove_lab.LabValidationError, match="final position 2"):
         prove_lab.prove_lab_2("http://example.test")

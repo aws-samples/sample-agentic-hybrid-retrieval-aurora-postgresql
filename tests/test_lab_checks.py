@@ -133,11 +133,25 @@ def _lab_2_response(*, pre_rerank_rank=1, final_rank=1, rerank_status="applied")
                 },
             }
         ],
+        "search_event_id": "lab-2-search",
         "diagnostics": {
             "retrieval_profile": {"rrf_k": rrf_k},
             "rerank_status": rerank_status,
+            "candidate_counts": {"fused_pool": len(POOL)},
         },
     }
+
+
+def _pool(*product_ids):
+    """A saved fused pool: each product at its combined position, in order."""
+    return [
+        {"product_id": product_id, "fused_rank": position}
+        for position, product_id in enumerate(product_ids, 1)
+    ]
+
+
+POOL = _pool(370002, *range(380001, 380011))
+POOLS = (POOL, POOL)
 
 
 #: `(number, evidence_id, product_id, quote)` for the persisted citations the
@@ -389,7 +403,7 @@ def test_lab_2_reports_exactly_five_checks():
     response = _lab_2_response()
 
     checks = lab_checks.lab_2_checks(
-        {"target_product_ids": [370002]}, response, response
+        {"target_product_ids": [370002]}, response, response, POOLS
     )
 
     assert len(checks) == 5, (
@@ -405,7 +419,7 @@ def test_lab_2_fails_on_a_wrong_final_winner():
     response = _lab_2_response(final_rank=2)
 
     checks = lab_checks.lab_2_checks(
-        {"target_product_ids": [370002]}, response, response
+        {"target_product_ids": [370002]}, response, response, POOLS
     )
 
     failed = _by_name(checks, "required product reaches the declared final shortlist")
@@ -413,21 +427,75 @@ def test_lab_2_fails_on_a_wrong_final_winner():
     assert "final position 2" in failed.detail
 
 
+def _repeatable(first_pool, second_pool, first=None, second=None):
+    first = first or _lab_2_response()
+    second = second or _lab_2_response()
+    checks = lab_checks.lab_2_checks(
+        {"target_product_ids": [370002]}, first, second, (first_pool, second_pool)
+    )
+    return _by_name(checks, "pre-rerank order repeatable")
+
+
 def test_lab_2_fails_when_the_pre_rerank_order_is_not_repeatable():
-    first = _lab_2_response()
+    swapped = _pool(380001, 370002, *range(380002, 380011))
+
+    check = _repeatable(POOL, swapped)
+
+    assert not check.passed
+    assert "combined position 1 holds product 370002 in one search and 380001" in (
+        check.detail
+    )
+
+
+def test_a_reranker_page_change_over_the_same_fused_pool_still_repeats():
+    """The reranker may serve a different tenth item; fusion is still identical."""
     second = _lab_2_response()
-    second["results"][0]["product_id"] = 370003
+    second["results"].append(dict(second["results"][0], product_id=380010))
+    second["results"][0]["signals"]["final_rank"] = 2
 
-    checks = lab_checks.lab_2_checks({"target_product_ids": [370002]}, first, second)
+    check = _repeatable(POOL, POOL, second=second)
 
-    assert not _by_name(checks, "pre-rerank order repeatable").passed
+    assert check.passed, check.detail
+    assert f"all {len(POOL)} fused candidates" in check.detail
+
+
+def test_a_fusion_change_below_both_pages_is_detected():
+    below = _pool(370002, *range(380001, 380009), 380010, 380009)
+
+    check = _repeatable(POOL, below)
+
+    assert not check.passed and "combined position 10" in check.detail
+
+
+@pytest.mark.parametrize(
+    ("pool", "finding"),
+    [
+        ([], "saved no fused candidates"),
+        (
+            [
+                dict(row, fused_rank=None) if i == 3 else row
+                for i, row in enumerate(POOL)
+            ],
+            "without a fused position",
+        ),
+        (_pool(370002, 380001)[:1] + [{"product_id": 380001, "fused_rank": 3}], "skip"),
+        (POOL[:-1], f"saved {len(POOL) - 1} fused candidates but reported {len(POOL)}"),
+    ],
+    ids=["empty", "null-position", "gap", "truncated"],
+)
+def test_an_incomplete_search_receipt_gets_an_actionable_diagnostic(pool, finding):
+    check = _repeatable(POOL, pool)
+
+    assert not check.passed
+    assert "incomplete search receipt" in check.detail and finding in check.detail
+    assert "run the same check again" in check.detail and "facilitator" in check.detail
 
 
 def test_lab_2_fails_when_reranking_never_ran():
     response = _lab_2_response(rerank_status="unavailable")
 
     checks = lab_checks.lab_2_checks(
-        {"target_product_ids": [370002]}, response, response
+        {"target_product_ids": [370002]}, response, response, POOLS
     )
 
     assert not _by_name(checks, "reranking bounded and applied").passed
@@ -829,6 +897,7 @@ def test_lab_2_accepts_a_product_promoted_by_reranking():
         {"target_product_ids": [370002], "expected_target_signals": ["semantic"]},
         response,
         response,
+        POOLS,
     )
     assert len(checks) == 5 and all(check.passed for check in checks)
 
@@ -837,7 +906,7 @@ def test_empty_ranking_runs_do_not_prove_arithmetic_or_repeatability():
     response = _lab_2_response()
     response["results"] = []
     checks = lab_checks.lab_2_checks(
-        {"target_product_ids": [370002]}, response, response
+        {"target_product_ids": [370002]}, response, response, ([], [])
     )
     assert not _by_name(checks, "RRF arithmetic correct").passed
     assert not _by_name(checks, "pre-rerank order repeatable").passed

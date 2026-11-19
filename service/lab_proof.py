@@ -360,11 +360,15 @@ def _retrieval_checks(
 ) -> tuple[list[LabCheck], list[UUID]]:
     responses = [_mission_search(mission) for _ in range(SEARCHES_PER_LAB[lab_id])]
     graded = [response.model_dump(mode="json") for response in responses]
-    checks = (
-        lab_checks.lab_1_checks(mission, graded[0])
-        if lab_id == 1
-        else lab_checks.lab_2_checks(mission, graded[0], graded[1])
-    )
+    if lab_id == 1:
+        checks = lab_checks.lab_1_checks(mission, graded[0])
+    else:
+        with connect() as connection:
+            pools = tuple(
+                load_candidate_receipts(connection, response.search_event_id)
+                for response in responses[:2]
+            )
+        checks = lab_checks.lab_2_checks(mission, graded[0], graded[1], pools)
     for control in lab_checks.supporting_checks_for_lab(lab_id):
         response = _mission_search(control)
         with connect() as connection:

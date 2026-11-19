@@ -651,12 +651,6 @@ def _contributions_consistent(result: Mapping[str, Any], rrf_k: int) -> bool:
     return found and abs(rrf_score - expected) <= CONTRIBUTION_TOLERANCE
 
 
-def _pre_rerank_order(results: Iterable[Mapping[str, Any]]) -> list[tuple[int, int]]:
-    return sorted(
-        (item["signals"]["pre_rerank_rank"], item["product_id"]) for item in results
-    )
-
-
 def _lab_2_arithmetic(response: Mapping[str, Any]) -> LabCheck:
     diagnostics = response.get("diagnostics") or {}
     rrf_k = (diagnostics.get("retrieval_profile") or {}).get("rrf_k")
@@ -700,31 +694,84 @@ def _lab_2_arithmetic(response: Mapping[str, Any]) -> LabCheck:
     )
 
 
+def _pool_problem(
+    pool: Sequence[Mapping[str, Any]], response: Mapping[str, Any]
+) -> str | None:
+    """Why one search's saved fused pool cannot be compared, or None.
+
+    The receipt holds every fused candidate, not only the page the reranker chose,
+    and the search reports how many it fused, so a short receipt is detectable.
+    """
+    counts = (response.get("diagnostics") or {}).get("candidate_counts") or {}
+    fused = counts.get("fused_pool")
+    event = response.get("search_event_id", "with no event ID")
+    positions = [row.get("fused_rank") for row in pool]
+    if not pool:
+        return f"search {event} saved no fused candidates"
+    if any(position is None for position in positions):
+        return f"search {event} saved candidates without a fused position"
+    if sorted(positions) != list(range(1, len(positions) + 1)):
+        return f"search {event} saved fused positions that skip or repeat"
+    if not isinstance(fused, int) or len(pool) != fused:
+        return (
+            f"search {event} saved {len(pool)} fused candidates but reported {fused!r}"
+        )
+    return None
+
+
+def _fused_order(pool: Sequence[Mapping[str, Any]]) -> list[tuple[int, int]]:
+    return sorted((row["fused_rank"], row["product_id"]) for row in pool)
+
+
+def _first_difference(
+    first: list[tuple[int, int]], second: list[tuple[int, int]]
+) -> str:
+    for (position, one), (_, other) in zip(first, second, strict=False):
+        if one != other:
+            return (
+                f"combined position {position} holds product {one} in one search and "
+                f"{other} in the other"
+            )
+    return f"one search fused {len(first)} candidates and the other {len(second)}"
+
+
 def _lab_2_repeatable(
     first: Mapping[str, Any],
     second: Mapping[str, Any],
+    pools: tuple[Sequence[Mapping[str, Any]], Sequence[Mapping[str, Any]]],
 ) -> LabCheck:
-    first_order = _pre_rerank_order(_results(first))
-    second_order = _pre_rerank_order(_results(second))
+    problem = _pool_problem(pools[0], first) or _pool_problem(pools[1], second)
+    first_order = [] if problem else _fused_order(pools[0])
+    second_order = [] if problem else _fused_order(pools[1])
+    passed = problem is None and first_order == second_order
+    if passed:
+        detail = (
+            f"all {len(first_order)} fused candidates hold the same combined "
+            "positions in both searches"
+        )
+    elif problem:
+        detail = explain(
+            f"an incomplete search receipt: {problem}",
+            "run the same check again; if it fails twice, " + FACILITATOR,
+        )
+    else:
+        detail = explain(
+            "two identical searches fused differently: "
+            + _first_difference(first_order, second_order),
+            FACILITATOR,
+        )
     return LabCheck(
         name="pre-rerank order repeatable",
-        passed=bool(first_order) and first_order == second_order,
+        passed=passed,
         falsifier=(
-            "two identical requests fuse to different pre-rerank orders, which "
-            "means the order depends on something other than the candidate "
-            "ranks -- an unstable tie-break or a non-deterministic search."
+            "two identical requests save different fused pools, or put a candidate "
+            "at a different combined position, which means the order depends on "
+            "something other than the candidate ranks -- an unstable tie-break or a "
+            "non-deterministic search. The whole saved pool is compared, not the "
+            "reranked page, so the reranker choosing a different page cannot fail "
+            "this check and a change below the page cannot pass it."
         ),
-        detail=(
-            f"{len(first_order)} row(s) fused identically across two runs"
-            if first_order and first_order == second_order
-            else explain(
-                "no results to compare between two identical searches"
-                if not first_order
-                else "two identical searches that combined the products in "
-                "different orders",
-                FACILITATOR,
-            )
-        ),
+        detail=detail,
     )
 
 
@@ -832,12 +879,21 @@ def lab_2_checks(
     mission: Mapping[str, Any],
     first: Mapping[str, Any],
     second: Mapping[str, Any],
+    pools: tuple[Sequence[Mapping[str, Any]], Sequence[Mapping[str, Any]]],
 ) -> list[LabCheck]:
-    """Grade two identical search responses against Lab 2's conditions."""
+    """Grade two identical searches against Lab 2's conditions.
+
+    Args:
+        mission: The `rank` mission.
+        first: The first search response, whose page is graded.
+        second: The second, identical search response.
+        pools: Each search's saved fused pool, every candidate with its
+            `fused_rank`, as `/api/retrieval/events/{id}` returns it.
+    """
     results = _results(first)
     return [
         _lab_2_arithmetic(first),
-        _lab_2_repeatable(first, second),
+        _lab_2_repeatable(first, second, pools),
         _lab_2_rerank(first),
         _lab_2_provenance(mission, results),
         _lab_2_winner(mission, results),
