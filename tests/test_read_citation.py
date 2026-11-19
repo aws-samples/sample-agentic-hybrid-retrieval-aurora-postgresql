@@ -589,3 +589,29 @@ def test_an_ambiguous_title_quote_falls_back():
     )
 
     assert "THE WHOLE RECORD (» Suggested line to inspect)" in "\n".join(out)
+
+
+def test_a_review_body_opening_with_a_description_label_keeps_its_saved_title():
+    body = "Description: Arrived early. The box was dented."
+    answer = "Reviewers call it comfortable [2]."
+    review = reviewed(
+        answer,
+        [(1, "supported", [{"number": 2, "quote": "Comfortable for long shifts"}])],
+    )
+
+    out = read_citation.render(
+        listing_run(answer, review),
+        review_citation("Comfortable for long shifts", body),
+    )
+
+    assert marked_lines(out)[0] == "  » Review title: Comfortable for long shifts"
+    assert "    Arrived early. The box was dented." in out
+
+
+def test_a_review_whose_text_already_opens_with_its_title_is_not_titled_twice():
+    out = read_citation.render(
+        listing_run("Reviewers call it comfortable [2]."),
+        review_citation("Cool Hub", "Title: Cool Hub\nWorks fine."),
+    )
+
+    assert "Review title" not in "\n".join(out)
