@@ -66,6 +66,12 @@
   color: var(--ink-soft);
 }
 
+/* Beside a command on a light panel; the code block's dark-toolbar colours do not read here. */
+.terminal-command + .code-copy-error {
+  margin: 6px 0 0;
+  color: var(--ink-soft);
+}
+
 .terminal-command small {
   font-size: var(--labs-micro);
 }
