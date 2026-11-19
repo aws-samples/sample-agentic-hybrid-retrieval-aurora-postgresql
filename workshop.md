@@ -240,7 +240,7 @@ To read a cited record whole, participants run
 (`--run-id` reads another, and is needed before Lab 3 starts, when no run is graded), so a
 later question from Ask Mosaic or Playground cannot take its place. It prints the answer's sentences that cite that number and the record the run saved,
 with `»` on the answer check's saved supporting passage when the run saved one for that
-citation, and on a Suggested line to inspect (picked by shared figures and words) when it did
+citation, and on a suggested line to inspect (picked by shared figures and words) when it did
 not. Neither means the rest of the record is irrelevant: a claim can rest on several lines.
 It then repeats the sentences and the marked passage at the end, above `Next:`,
 so a long listing never pushes them out of view. It asks nothing again.

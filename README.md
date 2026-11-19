@@ -104,7 +104,7 @@ standard rank fusion.
    make mistakes; inspect the sources before relying on a recommendation.
    `scripts/read_citation.py NUMBER` prints the whole record behind one citation of the
    setup run completion grades, marking the answer check's saved supporting passage or, when
-   none was saved, a Suggested line to inspect; `--run-id` reads another run, or any run before Lab 3 starts.
+   none was saved, a suggested line to inspect; `--run-id` reads another run, or any run before Lab 3 starts.
 
 Everything search reads or runs lives in one schema, `mosaic_search`: the
 `product_listing` table with one index per search, the `product_listing_view` that every

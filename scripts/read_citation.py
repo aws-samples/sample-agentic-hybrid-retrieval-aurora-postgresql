@@ -5,11 +5,12 @@
 
 It prints the answer's sentences that cite [NUMBER], then the record that citation names, in
 full. `»` marks the answer check's saved supporting passage when the run saved one for this
-citation that sits in one place of the record, and otherwise a Suggested line to inspect, picked
-by shared figures and words. It ends with the sentences and the marked passage again, above `Next:`, so a long record never pushes them out of view. Without --run-id it reads Alex's setup run
-that Lab 3 completion grades, chosen by `grade_setup_run.py`'s own rule, so a later question
-from Ask Mosaic or Playground cannot take its place; before Lab 3 starts no run is graded,
-so an earlier answer is read by its Run ID. It reads what the run saved in Aurora:
+citation that sits in one place of the record, and otherwise a suggested line to inspect,
+picked by shared figures and words. It ends with the sentences and the marked passage again,
+above `Next:`, so a long record never pushes them out of view. Without --run-id it reads
+Alex's setup run that Lab 3 completion grades, chosen by `grade_setup_run.py`'s own rule, so
+a later question from Ask Mosaic or Playground cannot take its place; before Lab 3 starts no
+run is graded, so an earlier answer is read by its Run ID. It reads what the run saved in Aurora:
 the answer, and the records its successful `synthesize_cited_answer` step cited. Nothing is
 asked again, so the record is the one the answer was checked against.
 """
@@ -147,7 +148,7 @@ def _sentences(sentences: list[str]) -> list[str]:
     return out
 
 
-SAVED_LABEL = "the answer check's saved supporting passage"
+SAVED_LABEL = "The answer check's saved supporting passage"
 SUGGESTED_LABEL = "Suggested line to inspect"
 SAVED_NOTE = (
     "The answer check saved this quote for the claim. Other lines may support it too."
@@ -215,8 +216,8 @@ def render(
         f"[{number}] {citation['evidence_type']}  {citation['product_id']}  "
         f"{source} @ {citation['revision'][:12]}"
     )
-    label = SAVED_LABEL if saved else f"the {SUGGESTED_LABEL}"
-    legend = f"{tint('THE WHOLE RECORD', BOLD)} ({tint('»', BOLD)} marks {label})"
+    label = SAVED_LABEL if saved else SUGGESTED_LABEL
+    legend = f"{tint('THE WHOLE RECORD', BOLD)} ({tint('»', BOLD)} {label})"
     out += ["", header, legend]
     out += wrap_words(
         SAVED_NOTE if saved else SUGGESTED_NOTE,

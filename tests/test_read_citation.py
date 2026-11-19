@@ -98,7 +98,7 @@ def test_it_prints_every_sentence_citing_the_number_and_marks_the_quoted_line(
     assert out.count("»") == 3, (
         "the legend, exactly one record line and the closing repeat"
     )
-    assert "(» marks the Suggested line to inspect)" in out
+    assert "(» Suggested line to inspect)" in out
     marked = " ".join(out.split("\n  » ", 1)[1].split("\n    ")[:2])
     assert (
         marked.startswith("DITCH THE DOCK") and "90W charging over one cable" in marked
@@ -395,7 +395,7 @@ def test_a_paraphrase_is_not_called_the_quoted_line_when_nothing_was_saved():
     out = read_citation.render(listing_run(CAPTURED_ANSWER), {**listing, "number": 3})
     text = "\n".join(out)
 
-    assert "(» marks the Suggested line to inspect)" in text
+    assert "(» Suggested line to inspect)" in text
     assert "TO JUDGE: THE SENTENCE CITING [3] AND A SUGGESTED LINE TO INSPECT" in out
     assert "the line the answer's quote comes from" not in text
     assert "THE LINE IT QUOTES" not in text and "saved supporting passage" not in text
@@ -413,7 +413,7 @@ def test_a_saved_supporting_quote_is_marked_instead_of_the_suggestion():
     out = saved_review_render([(1, "supported", [{"number": 3, "quote": quote}])])
     text = "\n".join(out)
 
-    assert "(» marks the answer check's saved supporting passage)" in text
+    assert "(» The answer check's saved supporting passage)" in text
     assert "AND THE ANSWER CHECK'S SAVED SUPPORTING PASSAGE" in text
     assert "Suggested line to inspect" not in text
     assert marked_lines(out)[0] == f"  » {quote}"
@@ -462,7 +462,7 @@ def test_a_saved_quote_that_cannot_be_placed_falls_back_to_the_suggestion(case):
     )
     text = "\n".join(out)
 
-    assert "(» marks the Suggested line to inspect)" in text
+    assert "(» Suggested line to inspect)" in text
     assert "saved supporting passage" not in text
     assert marked_lines(out)[0].startswith("  » A best-in-class ergonomic design")
 
