@@ -317,13 +317,15 @@ def _diff_footer(
 ) -> list[str]:
     footer = []
     if outside_differs:
+        # A reset would restore the block and keep the changed line, discarding the
+        # participant's work and leaving the cause, so it is not offered here.
         footer += [
             (
-                "Lines outside the markers are not yours to change: put them back "
-                "as the original file has them."
+                "Lines outside the markers are not yours to change: put each back as "
+                "the original file shows above, save, then "
+                + ("deploy:" if lab == 3 else "apply (your marked block stays):")
             ),
-            "To start over instead (it discards your edits to this lab):",
-            f"{COMMAND_INDENT}{reset_command(lab)}",
+            f"{COMMAND_INDENT}{DEPLOY_AGENT if lab == 3 else APPLY_SQL}",
         ]
     if block_differs and lab == 3:
         footer += [
@@ -411,6 +413,13 @@ def _diff_groups(
     expected_outside, _numbers = _outside_markers(expected_source, blocks)
     yours_outside, numbers = _outside_markers(yours_source, blocks)
     outside = _plain_differences(expected_outside, yours_outside, numbers, outside=True)
+    # Comments and spacing outside the blocks are allowed, so they are not a difference.
+    outside = [
+        g
+        for g in outside
+        if lab_sql_tokens("\n".join(g[2])) != lab_sql_tokens("\n".join(g[3]))
+        or relative_path.endswith(".py")
+    ]
     return code, comments, outside
 
 
@@ -1028,6 +1037,107 @@ def _body_tokens(source: str) -> list[str] | None:
     return lab_sql_tokens(found.group(2)) if found else None
 
 
+Parameter = tuple[str, str, str | None]
+
+_CAST = re.compile(r"::[A-Za-z_]+")
+
+
+def _normal_default(tokens: list[str]) -> str:
+    """A parameter default as a value, so PostgreSQL's deparse equals the file's text.
+
+    Aurora prints `0.20` on a `real` parameter as `'0.2'::real` and keeps
+    `'{}'::jsonb`. Casts and the quotes around a number are dropped and numbers compare
+    as numbers; anything else compares as written, lower-cased unless it is a string.
+    """
+    text = _CAST.sub("", "".join(tokens))
+    inner = text[1:-1] if len(text) > 1 and text[0] == text[-1] == "'" else text
+    try:
+        number = float(inner)
+        return str(int(number)) if number == int(number) else repr(number)
+    except ValueError:
+        return text if text.startswith("'") else text.lower()
+
+
+def parameter_list(definition: str) -> list[Parameter] | None:
+    """A function's parameters as (name, base type, default), from its CREATE text.
+
+    Reads the file's header and the `pg_get_functiondef` header alike, comments
+    skipped. A type keeps its base words only, because Aurora drops `(1024)` from
+    `vector(1024)`. Returns None when no parameter list can be read.
+    """
+    tokens = lab_sql_tokens(definition)
+    try:
+        # The file also DROPs older signatures first; only the CREATE is the function.
+        index = next(
+            i + 1
+            for i in range(1, len(tokens))
+            if tokens[i].lower() == "function"
+            and tokens[i - 1].lower() in {"create", "replace"}
+        )
+        index = tokens.index("(", index)
+    except (StopIteration, ValueError):
+        return None
+    items: list[list[str]] = [[]]
+    depth = 0
+    for token in tokens[index:]:
+        if token == "(":
+            depth += 1
+            if depth == 1:
+                continue
+        elif token == ")":
+            depth -= 1
+            if depth == 0:
+                break
+        elif token == "," and depth == 1:
+            items.append([])
+            continue
+        items[-1].append(token)
+    else:
+        return None
+    parameters = []
+    for item in items:
+        if not item:
+            continue
+        marks = [i for i, token in enumerate(item) if token.lower() == "default"]
+        head, default = (
+            (item[: marks[0]], item[marks[0] + 1 :]) if marks else (item, None)
+        )
+        kind: list[str] = []
+        nested = 0
+        for token in head[1:]:
+            nested += (token == "(") - (token == ")")
+            if nested == 0 and token not in "()" and not token.isdigit():
+                kind.append(token.lower())
+        parameters.append(
+            (
+                head[0].lower(),
+                " ".join(kind),
+                _normal_default(default) if default is not None else None,
+            )
+        )
+    return parameters
+
+
+def signature_problem(installed: str, saved: str) -> str | None:
+    """Say how an installed function's parameters differ from the saved file's, or None.
+
+    The guide's `psql` queries pass three arguments and use these defaults, which the
+    served search and the proof pass explicitly, so only this compare sees them.
+    """
+    now, file = parameter_list(installed), parameter_list(saved)
+    if now is None or file is None:
+        return "its parameter list cannot be read"
+    if now == file:
+        return None
+    for have, want in zip(now, file, strict=False):
+        if have != want:
+            return (
+                f"Aurora's `{have[0]}` is `{have[1]}` default {have[2]}, the saved file "
+                f"has `{want[1]}` default {want[2]}"
+            )
+    return f"Aurora has {len(now)} parameters, the saved file has {len(file)}"
+
+
 def _lab_1_database_state(connection: Any, repo: Path) -> LabDatabaseState:
     schema = search_schema()
     function = f"{schema}.{FUSED_FUNCTION}"
@@ -1059,6 +1169,15 @@ def _lab_1_database_state(connection: Any, repo: Path) -> LabDatabaseState:
                 "Aurora runs a different function body from the one saved in "
                 f"{path}; a change outside the marked block counts. Saving changes "
                 "only the file; applying it updates Aurora."
+            ),
+        )
+    if difference := signature_problem(definition, saved):
+        return LabDatabaseState(
+            state="stale",
+            detail=(
+                f"Aurora runs different parameters from the ones saved in {path}: "
+                f"{difference}. Saving changes only the file; applying it updates "
+                "Aurora."
             ),
         )
     problem = lab1_contract_problem(definition, schema=schema)
@@ -1116,6 +1235,15 @@ def _lab_2_database_state(connection: Any, repo: Path) -> LabDatabaseState:
             detail=(
                 "Aurora runs a different function body from the one saved in "
                 f"{path}; a change outside the marked block counts. Saving changes only the file; applying it updates Aurora."
+            ),
+        )
+    if difference := signature_problem(definition, saved):
+        return LabDatabaseState(
+            state="stale",
+            detail=(
+                f"Aurora runs different parameters from the ones saved in {path}: "
+                f"{difference}. Saving changes only the file; applying it updates "
+                "Aurora."
             ),
         )
     row = connection.execute(
@@ -1204,31 +1332,63 @@ def source_problem(lab: int, *, repo: Path = REPO) -> LabProblem | None:
     )
 
 
-def outside_block_problem(lab: int, *, repo: Path = REPO) -> LabProblem | None:
-    """Say that a lab file's SQL changed outside its marked block, or None when it did not.
+def _executable_outside_changes(lab: int, repo: Path) -> list[Difference]:
+    """The places outside the marked blocks where an executable token changed.
 
-    Only the block is the exercise. A change elsewhere in the function, such as a
-    parameter default or the final LIMIT, can pass the checks that call every argument
-    and still change the guide's `psql` queries, which pass only three. Comments and
-    spacing outside the block may change; any executable token may not.
+    Comments and spacing may change; a changed parameter default, LIMIT or return
+    column may not. A missing file or marker returns nothing: the checks that run
+    before this one report those.
     """
     relative_path, blocks = LABS[lab]
     try:
         yours = (repo / relative_path).read_text(encoding="utf-8")
         expected = shipped_text(solution_path(Path(relative_path)), REPO)
-        yours_lines, _ = _outside_markers(yours, blocks)
         expected_lines, _ = _outside_markers(expected, blocks)
+        yours_lines, numbers = _outside_markers(yours, blocks)
     except (OSError, ValueError, StopIteration):
-        # A missing file or marker is reported by the checks that run before this one.
-        return None
+        return []
     if lab_sql_tokens("\n".join(yours_lines)) == lab_sql_tokens(
         "\n".join(expected_lines)
     ):
+        return []
+    groups = _plain_differences(
+        expected_lines, yours_lines, numbers, outside=True, fallback_line=0
+    )
+    return [
+        g
+        for g in groups
+        if lab_sql_tokens("\n".join(g[2])) != lab_sql_tokens("\n".join(g[3]))
+    ]
+
+
+def _shown(lines: list[str]) -> str:
+    text = " / ".join(line.strip() for line in lines if line.strip())
+    return f"`{text}`" if text else "nothing"
+
+
+def outside_block_problem(lab: int, *, repo: Path = REPO) -> LabProblem | None:
+    """Say that a lab file's SQL changed outside its marked block, or None when it did not.
+
+    Only the block is the exercise. A change elsewhere in the function, such as a
+    parameter default or the final LIMIT, can pass the checks that call every argument
+    and still change the guide's `psql` queries, which pass only three. The finding names
+    each line and the original text, which lies outside the block and is not the answer.
+    """
+    changes = _executable_outside_changes(lab, repo)
+    if not changes:
         return None
+    path = LABS[lab][0]
+    places = [
+        f"{where[0].lower()}{where[1:]}: the original has {_shown(original)}, yours has "
+        f"{_shown(yours)}"
+        for where, _label, original, yours in changes[:3]
+    ]
+    more = f"; and {len(changes) - 3} more places" if len(changes) > 3 else ""
     return LabProblem(
-        f"Lab {lab}: {relative_path} changed outside the marked block; only the block "
-        "is the exercise.",
-        f"run {DIFF} to see those lines, undo them, save, then run {APPLY_SQL}",
+        f"Lab {lab}: {path} changed outside the marked block, which is not part of "
+        f"the exercise. {'; '.join(places)}{more}.",
+        "restore those lines exactly as the original has them (your marked block stays "
+        f"as it is), save, then run {APPLY_SQL}",
     )
 
 
@@ -1722,11 +1882,9 @@ def _status_next(lines: list[str], repo: Path = REPO) -> None:
             and (LAB_SQL_NOT_PROVED in line or LAB_SQL_NOT_APPLIED in line)
             and outside_block_problem(lab, repo=repo)
         ):
+            problem = outside_block_problem(lab, repo=repo)
             next_step(
-                f"Lab {lab}'s file changed outside the marked block, which is not part "
-                "of the exercise. See those lines:",
-                DIFF,
-                "undo them, save the file, then apply it:",
+                f"{problem.finding} Restore them, save the file, then apply it:",
                 APPLY_SQL,
             )
         elif LAB_SQL_NOT_APPLIED in line:

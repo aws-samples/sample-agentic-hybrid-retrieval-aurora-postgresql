@@ -74,7 +74,8 @@ def test_applied_lab1_accepts_the_participant_repair(lab_repo, monkeypatch):
         "CREATE OR REPLACE FUNCTION mosaic_search.search_hybrid_rrf(", 1
     )[1].split("CREATE OR REPLACE FUNCTION", 1)[0]
     connection.execute.return_value.fetchone.return_value = {
-        "definition": definition.replace("mosaic_search.", "mosaic_search.")
+        "definition": "CREATE OR REPLACE FUNCTION mosaic_search.search_hybrid_rrf("
+        + definition
     }
     assert read_applied_sql_state(1, connection, repo=lab_repo).state == "applied"
 
@@ -767,7 +768,8 @@ def test_diff_shows_a_line_deleted_outside_the_markers(lab_repo: Path) -> None:
         "  Original file:\n      UNION ALL\n"
         "  Your file: (nothing here)\n"
     ) in report
-    assert "reset --lab 1" in report
+    assert "reset --lab" not in report
+    assert "apply_search_functions.py" in report
     assert "To use the reference answer instead" not in report
 
 
@@ -1722,7 +1724,8 @@ def test_diff_names_code_left_on_lab_3s_end_marker_line(lab_repo: Path) -> None:
     assert differs
     assert "Outside the markers" in report
     assert ")    # LAB3_EDIT_END" in report
-    assert "reset --lab 3" in report
+    assert "reset --lab" not in report
+    assert "deploy_agentcore.py deploy" in report
 
 
 def _start_record(repo: Path, lab: int) -> None:

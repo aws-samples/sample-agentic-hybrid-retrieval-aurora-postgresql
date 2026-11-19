@@ -138,3 +138,49 @@ def test_a_different_line_beside_kept_comments_is_still_a_difference(tmp_path):
     assert "where your" in report
     assert "only comment lines differ" not in report
     assert "Apply:" in report
+
+
+def test_an_edit_outside_the_markers_names_the_line_and_the_apply_step_not_reset(
+    tmp_path,
+):
+    from shutil import copy2
+
+    from scripts.lab_state import LABS, REPO, lab_diff
+    from service.participant_commands import APPLY_SQL
+
+    for relative_path in {definition[0] for definition in LABS.values()}:
+        (tmp_path / relative_path).parent.mkdir(parents=True, exist_ok=True)
+        copy2(REPO / relative_path, tmp_path / relative_path)
+    path = tmp_path / LABS[1][0]
+    path.write_text(
+        path.read_text().replace(
+            "result_limit integer DEFAULT 50", "result_limit integer DEFAULT 1"
+        )
+    )
+
+    report, differs = lab_diff(1, repo=tmp_path)
+
+    assert differs
+    assert "Outside the markers, at line 31 of your file" in report
+    assert "result_limit integer DEFAULT 50" in report
+    assert APPLY_SQL in report
+    assert "reset" not in report and "start over" not in report
+
+
+def test_comment_and_spacing_edits_outside_the_markers_are_not_a_difference(tmp_path):
+    from shutil import copy2
+
+    from scripts.lab_state import LABS, REPO, lab_diff
+
+    for relative_path in {definition[0] for definition in LABS.values()}:
+        (tmp_path / relative_path).parent.mkdir(parents=True, exist_ok=True)
+        copy2(REPO / relative_path, tmp_path / relative_path)
+    path = tmp_path / LABS[1][0]
+    path.write_text(
+        path.read_text().replace(
+            "    fuzzy_threshold real DEFAULT 0.20",
+            "    -- my note\n    fuzzy_threshold  real  DEFAULT 0.20",
+        )
+    )
+
+    assert lab_diff(1, repo=tmp_path)[1] is False
