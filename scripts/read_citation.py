@@ -4,8 +4,9 @@
     uv run python scripts/read_citation.py NUMBER --run-id RUN_ID
 
 It prints the answer's sentences that cite [NUMBER], then the record that citation names, in
-full, with the line `ask_agent.py` quoted marked. It ends with the sentences and the marked
-line again, above `Next:`, so a long record never pushes them out of view. Without --run-id it reads Alex's setup run
+full. `»` marks the answer check's saved supporting passage when the run saved one for this
+citation that sits in one place of the record, and otherwise a Suggested line to inspect, picked
+by shared figures and words. It ends with the sentences and the marked passage again, above `Next:`, so a long record never pushes them out of view. Without --run-id it reads Alex's setup run
 that Lab 3 completion grades, chosen by `grade_setup_run.py`'s own rule, so a later question
 from Ask Mosaic or Playground cannot take its place; before Lab 3 starts no run is graded,
 so an earlier answer is read by its Run ID. It reads what the run saved in Aurora:
@@ -28,7 +29,12 @@ import psycopg
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scripts.ask_agent import LINE_CHARS as WIDTH
-from scripts.cited_lines import cited_excerpt, without_review_markup
+from scripts.cited_lines import (
+    cited_excerpt,
+    locate_quotes,
+    saved_support_quotes,
+    without_review_markup,
+)
 from scripts.terminal_text import (
     BOLD,
     REOPEN_TERMINAL,
@@ -61,7 +67,8 @@ def saved_run(connection: Any, run_id: UUID) -> dict[str, Any] | None:
         f"""
         SELECT turn.agent_turn_id, turn.user_message, turn.assistant_message,
                turn.created_at, turn.extracted_intent ->> 'outcome' AS outcome,
-               {_CITED} AS citations
+               {_CITED} AS citations,
+               turn.extracted_intent #> ARRAY['usage', 'synthesis', 'claim_review'] AS claim_review
         FROM mosaic.agent_turn AS turn
         WHERE turn.agent_turn_id = %(run_id)s
         """,
@@ -140,14 +147,57 @@ def _sentences(sentences: list[str]) -> list[str]:
     return out
 
 
+SAVED_LABEL = "the answer check's saved supporting passage"
+SUGGESTED_LABEL = "Suggested line to inspect"
+SAVED_NOTE = (
+    "The answer check saved this quote for the claim. Other lines may support it too."
+)
+SUGGESTED_NOTE = (
+    "Picked by shared figures and words, not by the answer check. The claim may rest on "
+    "other lines."
+)
+
+
+def _marks(
+    quote: str, answer: str, number: int, saved: dict[str, Any] | None
+) -> tuple[dict[int, list[tuple[int, int]]], list[str], bool, list[str]]:
+    """Where `»` goes: line index to spans, the marked texts, whether they are saved, and
+    the figures no line states.
+
+    The answer check's saved quotes win when each sits in one place of the record; otherwise
+    the figure and shared-word heuristic suggests a line.
+    """
+    lines = record_lines(quote)
+    excerpt = cited_excerpt(quote, answer, number)
+    quotes = saved_support_quotes(saved, answer, number)
+    located = locate_quotes(lines, quotes) if quotes else None
+    if located:
+        squashed = {i: " ".join(lines[i].split()) for i in located}
+        texts = [squashed[i][a:b] for i in sorted(located) for a, b in located[i]]
+        return located, texts, True, excerpt.unstated
+    marks = {
+        i: [(line.index(excerpt.line), line.index(excerpt.line) + len(excerpt.line))]
+        for i, line in enumerate(lines)
+        if excerpt.line and excerpt.line in line
+    }
+    return marks, [excerpt.line] if excerpt.line else [], False, excerpt.unstated
+
+
 def render(
     run: dict[str, Any], citation: dict[str, Any], graded: bool = False
 ) -> list[str]:
-    """The cited sentences, the citation's header, the whole record with its quote marked,
-    then the sentences and the marked line again."""
+    """The cited sentences, the citation's header, the whole record with its marked
+    passage, then the sentences and the marked passage again.
+
+    The marked passage is the answer check's saved supporting quote when the run kept one
+    for this citation, and a suggested line otherwise.
+    """
     answer = run["assistant_message"] or ""
     number = citation["number"]
-    excerpt = cited_excerpt(citation["quote"], answer, number)
+    lines = record_lines(citation["quote"])
+    marks, marked, saved, unstated = _marks(
+        citation["quote"], answer, number, run.get("claim_review")
+    )
     asked = (
         f"{run['created_at']:%H:%M:%S} UTC" if run["created_at"] else "an unknown time"
     )
@@ -165,36 +215,50 @@ def render(
         f"[{number}] {citation['evidence_type']}  {citation['product_id']}  "
         f"{source} @ {citation['revision'][:12]}"
     )
-    legend = (
-        f"{tint('THE WHOLE RECORD', BOLD)} "
-        f"({tint('»', BOLD)} marks the line the answer's quote comes from)"
-    )
+    label = SAVED_LABEL if saved else f"the {SUGGESTED_LABEL}"
+    legend = f"{tint('THE WHOLE RECORD', BOLD)} ({tint('»', BOLD)} marks {label})"
     out += ["", header, legend]
-    for line in record_lines(citation["quote"]):
-        if not excerpt.line or excerpt.line not in line:
-            out += wrap_words(
-                line, WIDTH, initial_indent="    ", subsequent_indent="    "
-            )
-            continue
-        # The quote can be one sentence inside a long paragraph: it starts its own line so
-        # the marker points at it, with the paragraph's other words kept around it.
-        before, _, after = line.partition(excerpt.line)
-        for text in (before.strip(), excerpt.line, after.strip()):
-            if text == excerpt.line:
-                out += _marked(text)
-            elif text:
-                out += wrap_words(
-                    text, WIDTH, initial_indent="    ", subsequent_indent="    "
-                )
-    if excerpt.unstated:
-        out.append(f"  No line in this record states {', '.join(excerpt.unstated)}.")
-    out += [
-        "",
-        tint(f"TO JUDGE: THE SENTENCE CITING [{number}] AND THE LINE IT QUOTES", BOLD),
-    ]
+    out += wrap_words(
+        SAVED_NOTE if saved else SUGGESTED_NOTE,
+        WIDTH,
+        initial_indent="  ",
+        subsequent_indent="  ",
+    )
+    for index, line in enumerate(lines):
+        out += _record_line(line, marks.get(index, []), saved)
+    if unstated:
+        out.append(f"  No line in this record states {', '.join(unstated)}.")
+    heading = (
+        "THE ANSWER CHECK'S SAVED SUPPORTING PASSAGE"
+        if saved
+        else "A SUGGESTED LINE TO INSPECT"
+    )
+    out += ["", tint(f"TO JUDGE: THE SENTENCE CITING [{number}] AND {heading}", BOLD)]
     out += _sentences(sentences)
-    if excerpt.line:
-        out += _marked(excerpt.line)
+    for text in marked:
+        out += _marked(text)
+    return out
+
+
+def _record_line(line: str, spans: list[tuple[int, int]], saved: bool) -> list[str]:
+    """One record line, wrapped; each marked span starts its own `»` line.
+
+    A quote can be one sentence inside a long paragraph: it starts its own line so the
+    marker points at it, with the paragraph's other words kept around it.
+    """
+    plain = {"initial_indent": "    ", "subsequent_indent": "    "}
+    if not spans:
+        return wrap_words(line, WIDTH, **plain)
+    text = " ".join(line.split()) if saved else line
+    out: list[str] = []
+    at = 0
+    for start, end in spans:
+        if text[at:start].strip():
+            out += wrap_words(text[at:start].strip(), WIDTH, **plain)
+        out += _marked(text[start:end])
+        at = end
+    if text[at:].strip():
+        out += wrap_words(text[at:].strip(), WIDTH, **plain)
     return out
 
 

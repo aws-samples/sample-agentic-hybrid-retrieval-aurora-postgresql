@@ -1,5 +1,6 @@
 """`scripts/read_citation.py` shows the whole record behind one citation of a saved run."""
 
+import hashlib
 import json
 from contextlib import contextmanager
 from datetime import UTC, datetime
@@ -97,6 +98,7 @@ def test_it_prints_every_sentence_citing_the_number_and_marks_the_quoted_line(
     assert out.count("»") == 3, (
         "the legend, exactly one record line and the closing repeat"
     )
+    assert "(» marks the Suggested line to inspect)" in out
     marked = " ".join(out.split("\n  » ", 1)[1].split("\n    ")[:2])
     assert (
         marked.startswith("DITCH THE DOCK") and "90W charging over one cable" in marked
@@ -218,7 +220,7 @@ def test_a_quote_inside_a_paragraph_starts_its_own_marked_line():
     out = read_citation.render({**run(), "assistant_message": answer}, quote)
 
     start = out.index(next(line for line in out if line.startswith("THE WHOLE RECORD")))
-    body = out[start + 1 : out.index("", start)]
+    body = out[start + 2 : out.index("", start)]
     assert body == [
         "    Dock",
         "    Opening words of the listing.",
@@ -355,7 +357,144 @@ def test_it_ends_with_the_sentence_and_the_quoted_line_so_a_long_record_hides_ne
 
     assert out[-4:] == [
         "",
-        "TO JUDGE: THE SENTENCE CITING [1] AND THE LINE IT QUOTES",
+        "TO JUDGE: THE SENTENCE CITING [1] AND A SUGGESTED LINE TO INSPECT",
         "  It supports 90W charging [1].",
         "  » The quoted sentence states 90W charging.",
     ]
+
+
+CAPTURED_ANSWER = (
+    "ViewSonic VG2756-4K's listing describes a 27-inch 4K IPS docking monitor with USB-C, "
+    "Ethernet and a 40-degree tilt [3]."
+)
+
+
+def reviewed(answer, passages):
+    """The claim-support receipt `synthesis` saves for an answer, as Aurora returns it."""
+    return {
+        "answer_sha256": hashlib.sha256(answer.encode()).hexdigest(),
+        "passages": [
+            {"id": i, "verdict": v, "support": s, "reason": "checked"}
+            for i, v, s in passages
+        ],
+    }
+
+
+def listing_run(answer, review=None):
+    return {**run(), "assistant_message": answer, "claim_review": review}
+
+
+def marked_lines(out):
+    return [line for line in out if line.startswith("  » ")]
+
+
+def test_a_paraphrase_is_not_called_the_quoted_line_when_nothing_was_saved():
+    """Recorded run 49fc8c0f: a 27-inch 4K IPS USB-C Ethernet tilt claim, tilt line marked."""
+    listing = citation(3, "product_spec", "viewsonic_listing")
+
+    out = read_citation.render(listing_run(CAPTURED_ANSWER), {**listing, "number": 3})
+    text = "\n".join(out)
+
+    assert "(» marks the Suggested line to inspect)" in text
+    assert "TO JUDGE: THE SENTENCE CITING [3] AND A SUGGESTED LINE TO INSPECT" in out
+    assert "the line the answer's quote comes from" not in text
+    assert "THE LINE IT QUOTES" not in text and "saved supporting passage" not in text
+    assert marked_lines(out)[0].startswith("  » A best-in-class ergonomic design")
+
+
+def saved_review_render(passages, answer=CAPTURED_ANSWER, receipt_answer=None):
+    listing = citation(3, "product_spec", "viewsonic_listing")
+    review = reviewed(receipt_answer or answer, passages)
+    return read_citation.render(listing_run(answer, review), listing)
+
+
+def test_a_saved_supporting_quote_is_marked_instead_of_the_suggestion():
+    quote = "27” 4K Ultra HD docking monitor"
+    out = saved_review_render([(1, "supported", [{"number": 3, "quote": quote}])])
+    text = "\n".join(out)
+
+    assert "(» marks the answer check's saved supporting passage)" in text
+    assert "AND THE ANSWER CHECK'S SAVED SUPPORTING PASSAGE" in text
+    assert "Suggested line to inspect" not in text
+    assert marked_lines(out)[0] == f"  » {quote}"
+    assert marked_lines(out)[-1] == f"  » {quote}", "repeated under TO JUDGE"
+    assert not any("40-degree tilt and bi-directional" in x for x in marked_lines(out))
+    assert "    Designed to boost productivity" in text, (
+        "the rest of the paragraph stays"
+    )
+
+
+def test_every_saved_quote_for_the_number_is_marked_so_support_can_span_lines():
+    quotes = [
+        "27” 4K Ultra HD docking monitor",
+        "40-degree tilt and bi-directional pivot",
+    ]
+    out = saved_review_render(
+        [(1, "supported", [{"number": 3, "quote": q} for q in quotes])]
+    )
+
+    assert [x.strip("» ") for x in marked_lines(out)[:2]] == quotes
+    assert len(marked_lines(out)) == 4
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        "repeated",
+        "across_lines",
+        "missing",
+        "other_answer",
+        "other_number",
+        "unsupported",
+    ],
+)
+def test_a_saved_quote_that_cannot_be_placed_falls_back_to_the_suggestion(case):
+    quote = {
+        "repeated": "4K",
+        "across_lines": "Listing features: VERSATILE MONITOR",
+        "missing": "a quote the record never says",
+    }.get(case, "27” 4K Ultra HD docking monitor")
+    number = 2 if case == "other_number" else 3
+    verdict = "unsupported" if case == "unsupported" else "supported"
+    out = saved_review_render(
+        [(1, verdict, [{"number": number, "quote": quote}])],
+        receipt_answer="A different answer [3]." if case == "other_answer" else None,
+    )
+    text = "\n".join(out)
+
+    assert "(» marks the Suggested line to inspect)" in text
+    assert "saved supporting passage" not in text
+    assert marked_lines(out)[0].startswith("  » A best-in-class ergonomic design")
+
+
+def test_a_quote_saved_for_a_passage_that_does_not_cite_the_number_is_ignored():
+    answer = "It has a 40-degree tilt [3]. It charges its peripherals [1]."
+    out = saved_review_render(
+        [
+            (
+                1,
+                "supported",
+                [{"number": 3, "quote": "27” 4K Ultra HD docking monitor"}],
+            ),
+            (2, "supported", [{"number": 3, "quote": "single-cable simplicity"}]),
+        ],
+        answer=answer,
+    )
+
+    assert marked_lines(out)[0].startswith("  » 27” 4K Ultra HD docking monitor")
+    assert not any("single-cable" in x for x in marked_lines(out))
+
+
+def test_a_run_row_without_the_saved_review_still_renders():
+    """Runs saved before the review kept quotes have no claim_review key at all."""
+    out = read_citation.render(run(), run()["citations"][0])
+
+    assert any("Suggested line to inspect" in line for line in out)
+
+
+def test_saved_run_reads_the_claim_review_from_the_turn():
+    connection = Connection(None)
+
+    read_citation.saved_run(connection, RUN_ID)
+
+    assert "claim_review" in connection.sql
