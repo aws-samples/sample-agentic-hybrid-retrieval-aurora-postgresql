@@ -58,7 +58,7 @@ persists a new retrieval run for diagnostics and replay.
 
 ## Run the adapter
 
-Follow [development setup](development.md#set-up-the-application) to configure
+Follow [development setup](https://github.com/aws-samples/sample-agentic-hybrid-retrieval-aurora-postgresql/blob/f833c76a0b23c65cbac215a7ed6376fea517a0e2/docs/development.md#set-up-the-application) to configure
 the Aurora-backed API, then start it from that configured environment:
 
 ```bash
@@ -105,7 +105,7 @@ turn-local: retrieving scoped evidence does not authorize it for synthesis.
 
 ## Managed Gateway and the portable adapter
 
-The workshop provisions [AgentCore Runtime](agentcore-runtime.md) and Gateway
+The workshop provisions [AgentCore Runtime](https://github.com/aws-samples/sample-agentic-hybrid-retrieval-aurora-postgresql/blob/f833c76a0b23c65cbac215a7ed6376fea517a0e2/docs/agentcore-runtime.md) and Gateway
 for Lab 3. Its Retrieval agent uses the signed Gateway MCP endpoint and the supplied
 execution hooks; those tools preserve per-turn evidence authorization. A generic
 client needs support for that endpoint's IAM authentication. Do not replace the
@@ -122,8 +122,8 @@ adapter to the API; it is not an identity for each MCP caller. Read
 ## Permissions and workflow guidance
 
 Connect retrieval tools, then add the skill to guide their use. The downloadable
-[skill](../skills/mosaic-hybrid-retrieval/SKILL.md) contains instructions and
-references, including the exact [MCP mapping](../skills/mosaic-hybrid-retrieval/references/mcp.md).
+[skill](https://github.com/aws-samples/sample-agentic-hybrid-retrieval-aurora-postgresql/blob/f833c76a0b23c65cbac215a7ed6376fea517a0e2/skills/mosaic-hybrid-retrieval/SKILL.md) contains instructions and
+references, including the exact [MCP mapping](https://github.com/aws-samples/sample-agentic-hybrid-retrieval-aurora-postgresql/blob/f833c76a0b23c65cbac215a7ed6376fea517a0e2/skills/mosaic-hybrid-retrieval/references/mcp.md).
 It can accompany an MCP connection or the HTTP API. Neither installing a skill
 nor declaring `readOnlyHint=true` grants or restricts database privileges.
 

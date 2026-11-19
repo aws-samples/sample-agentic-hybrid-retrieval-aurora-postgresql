@@ -1,6 +1,7 @@
 """The build check must reject broken participant code through the real callable."""
 
 import io
+import posixpath
 import re
 import sys
 import zipfile
@@ -14,7 +15,7 @@ from test_synthesis_claims import product
 from examples import call_headphones
 from scripts.check_builder_tool import BuilderCheckError, check_tool, load_example
 from service import main
-from service.builder_package import BUILDER_FILES
+from service.builder_package import BUILDER_FILES, build_package
 from service.models import SearchResponse
 
 
@@ -168,6 +169,30 @@ def test_the_kit_carries_every_sql_file_its_documents_name():
     assert not missing, (
         f"Builder kit rule: its guides name {missing}, which the download leaves out; "
         "fix: add them to BUILDER_FILES in service/builder_package.py."
+    )
+
+
+def test_every_relative_markdown_link_in_the_download_resolves_inside_it():
+    """A reader who opens the unzipped kit must not hit a dead relative link."""
+    with zipfile.ZipFile(io.BytesIO(build_package(main.ROOT))) as archive:
+        names = set(archive.namelist())
+        markdown = sorted(name for name in names if name.endswith(".md"))
+        assert len(markdown) > 1, "the kit holds no guides; this gate would be vacuous"
+        dead = []
+        for name in markdown:
+            text = archive.read(name).decode()
+            for target in re.findall(r"\[[^\]]*\]\(([^)\s]+)\)", text):
+                if re.match(r"([a-z][a-z0-9+.-]*:|#)", target):
+                    continue
+                resolved = posixpath.normpath(
+                    posixpath.join(posixpath.dirname(name), target.split("#")[0])
+                )
+                if resolved not in names:
+                    dead.append(f"{name} -> {target}")
+    assert not dead, (
+        f"Builder kit rule: relative links that leave the download: {dead}; "
+        "fix: link to the published repository page with an absolute URL, or add "
+        "the target to BUILDER_FILES in service/builder_package.py."
     )
 
 
