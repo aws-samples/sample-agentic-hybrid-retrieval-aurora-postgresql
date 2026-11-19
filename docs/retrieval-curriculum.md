@@ -98,7 +98,7 @@ compare:
 
 The 27-inch 4K/90W request gives a visible before/after: the ViewSonic
 VG2756-4K is missing from the broken pool, where the collapsed formula keeps
-the oldest listings by product id instead, and enters after repair. It then
+the lower product IDs among tied products instead, and enters after repair. It then
 moves from combined position 21 to final position 5 in repeated verification.
 A 1440p Lenovo ThinkVision T27hv-20 title is a clear contrast. Inspect actual
 ranks on the participant run; position 21 and final position 5 are

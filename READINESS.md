@@ -152,8 +152,15 @@ extensions below do not add a required lab.
   an operator installs the optional `agentcore-observability` extra and sets
   `MOSAIC_AGENTCORE_OBSERVABILITY=true`. `tests/test_telemetry_contract.py`
   covers the projection's shape, its default-off behavior, and its content
-  exclusions offline. Whether spans arrive in an operator's own collector or in
-  CloudWatch is **PENDING RUNTIME VERIFICATION**.
+  exclusions offline. Spans reaching CloudWatch as a participant is **VERIFIED**
+  by the 15 November 2026 test event (build 6400f30b, host upgraded in place to
+  source f3bd45c8): at 16:35 UTC, signed in as the workshop participant role,
+  CloudWatch GenAI Observability showed the Retrieval agent and the tools
+  Runtime, and trace 6af9d58d... for Alex's setup request held 35 agent spans,
+  the Gateway `search_products` and `explain_retrieval` tool calls, and no
+  errors. Whether spans arrive in an operator's own collector is **PENDING
+  RUNTIME VERIFICATION**; that validation stays open until an operator runs it
+  against their collector.
 - **Managed Runtime and Gateway** are required, provisioned resources for Lab 3,
   documented in `docs/agentcore-runtime.md`. The 26 September test event restored
   Aurora successfully but its tools Runtime failed in an unsupported physical AZ.

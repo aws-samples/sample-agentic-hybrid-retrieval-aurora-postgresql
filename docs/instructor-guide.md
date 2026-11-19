@@ -147,9 +147,9 @@ for the top two results. The line to land is: "A correct answer is not proof of
 a correct pipeline." Historical weighted fusion is optional.
 
 Before repair, the monitor request drops the ViewSonic VG2756-4K before
-reranking. The collapsed formula ties every single-search candidate, so product
-id decides the 50-product cutoff: the oldest listings stay, and a 1440p Lenovo
-T27hv-20 appears among the final results for a 4K request. Inspect a source
+reranking. The collapsed formula ties every single-search candidate. Among tied
+products, the lower product ID wins, so product ID decides the 50-product
+cutoff, and a 1440p Lenovo T27hv-20 appears among the final results for a 4K request. Inspect a source
 position greater than 1: the broken formula gives it rank-1 credit. After
 repair, the ViewSonic enters the combined list at position 21 and reaches final
 position 5; read the participant's actual value.

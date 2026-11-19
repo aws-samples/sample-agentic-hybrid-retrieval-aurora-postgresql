@@ -76,7 +76,7 @@ run by the `advance --lab 1` and `advance --lab 2` handoffs, install the later o
   `1 / (rrf_k + 1)`. Candidate generation remains intact, but every candidate
   from a search contributes as if it held rank 1, so within-search order disappears.
 - **Restoring it looks like** restoring the inspectable reciprocal rank formula.
-- **Measured movement** the collapsed contributions tie every single-search candidate, so the broken 50-product cutoff is decided by product id: the oldest listings stay and the required ViewSonic never reaches reranking, while a 1440p Lenovo T27hv-20 appears among the final results. Correct contributions admit the ViewSonic: on repeated verification it moves from absent to combined position 21 and finishes at final position 5. Other control queries keep their winner; arithmetic remains mandatory. See `docs/real-catalog-exercise-library.md` for all tested variants.
+- **Measured movement** the collapsed contributions tie every single-search candidate, so the broken 50-product cutoff is decided by product ID (among tied products, the lower product ID wins), and the required ViewSonic never reaches reranking, while a 1440p Lenovo T27hv-20 appears among the final results. Correct contributions admit the ViewSonic: on repeated verification it moves from absent to combined position 21 and finishes at final position 5. Other control queries keep their winner; arithmetic remains mandatory. See `docs/real-catalog-exercise-library.md` for all tested variants.
 - **Assertions that turn green** `rank_provenance_present`,
   `rerank_score_present`, plus the production validator's arithmetic and
   repeatability checks.
