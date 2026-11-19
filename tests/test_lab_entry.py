@@ -995,3 +995,196 @@ def test_a_cannot_be_opened_start_record_names_the_reason(tmp_path: Path, monkey
         lab_entry.load_record(1, tmp_path)
 
     assert raised.value.problem == "it cannot be opened: permission denied"
+
+
+def _own_lab_1_wording_again(repo: Path) -> None:
+    """A second valid Lab 1 repair, worded differently from the first."""
+    path = _seam_file(1, repo)
+    path.write_text(
+        path.read_text().replace(
+            "SELECT product_id, 'fuzzy', fuzzy_rank,",
+            "SELECT product_id, 'fuzzy'::text AS label, fuzzy_rank AS position,",
+        )
+    )
+    assert lab_source_is_repaired(1, repo=repo)
+
+
+def test_a_handoff_receipt_names_the_attempt_and_the_proved_sql(
+    repo, aurora, handoff_checks
+) -> None:
+    lab_entry.advance(1, api_url="http://api", dsn="aurora", repo=repo)
+
+    reading = lab_entry.read_completion(1, repo)
+    assert reading.state == "valid"
+    assert reading.receipt["sql_sha256"] == lab_entry.sql_identity(1, repo)
+
+
+@pytest.mark.parametrize("damage", ["", "{"])
+def test_a_repeated_handoff_rebuilds_a_damaged_receipt_from_its_own_evidence(
+    repo, aurora, handoff_checks, damage
+) -> None:
+    """The saved handoff is bound to this attempt and block, so no new search is needed."""
+    lab_entry.advance(1, api_url="http://api", dsn="aurora", repo=repo)
+    lab_entry.completion_path(1, repo).write_text(damage)
+    edited = _participant_edit(repo)
+
+    lab_entry.advance(1, api_url="http://api", dsn="aurora", repo=repo)
+
+    assert handoff_checks == ["validate"]
+    reading = lab_entry.read_completion(1, repo)
+    assert reading.state == "valid"
+    assert reading.receipt["search_event_ids"] == ["verified-lab-1"]
+    assert _seam_file(2, repo).read_bytes() == edited
+
+
+def test_a_lab_1_repair_edited_after_handoff_is_proved_again_once_lab_2_cannot_hide_it(
+    repo, aurora, handoff_checks
+) -> None:
+    lab_entry.advance(1, api_url="http://api", dsn="aurora", repo=repo)
+    set_lab_state(2, solved=True, repo=repo)
+    aurora.applied = {1: "applied", 2: "applied"}
+    _own_lab_1_wording_again(repo)
+    assert lab_entry.read_completion(1, repo).state == "other_sql"
+    agent = _seam_file(3, repo).read_bytes()
+
+    lab_entry.advance(1, api_url="http://api", dsn="aurora", repo=repo)
+
+    assert handoff_checks == ["validate", "validate"]
+    assert lab_entry.read_completion(1, repo).state == "valid"
+    assert _seam_file(3, repo).read_bytes() == agent
+
+
+def test_a_lab_1_repair_edited_after_handoff_waits_while_lab_2s_fault_is_installed(
+    repo, aurora, handoff_checks
+) -> None:
+    lab_entry.advance(1, api_url="http://api", dsn="aurora", repo=repo)
+    aurora.applied = {1: "applied", 2: "stale"}
+    _own_lab_1_wording_again(repo)
+
+    with pytest.raises(lab_entry.LabEntryError) as refused:
+        lab_entry.advance(1, api_url="http://api", dsn="aurora", repo=repo)
+
+    message = str(refused.value)
+    assert "your LAB1_EDIT block changed" in message
+    assert "Lab 2's ranking fault can hide a correct Lab 1 repair" in message
+    assert f"run {advance_command(1)} to prove Lab 1 again" in message
+    assert handoff_checks == ["validate"]
+    assert lab_entry.lab_1_waits_for_lab_2("aurora", repo)
+
+
+def test_starting_lab_2_keeps_lab_1s_handed_off_proof(repo, aurora, handoff_checks):
+    lab_entry.advance(1, api_url="http://api", dsn="aurora", repo=repo)
+
+    assert lab_entry.load_record(2, repo)["completed_at"]
+    assert lab_entry.read_completion(1, repo).state == "valid"
+    assert not lab_entry.lab_1_waits_for_lab_2("aurora", repo)
+
+
+class _InstalledSql:
+    """Aurora holding the function bodies it last applied, answering the real reads."""
+
+    def __init__(self, repo: Path) -> None:
+        self.repo = repo
+        self.installed = {
+            1: _seam_file(1, repo).read_text(),
+            2: _seam_file(2, repo).read_text(),
+        }
+        self.applies = 0
+
+    def execute(self, sql: str, params=None):
+        from types import SimpleNamespace
+
+        from scripts.checks.retrieval_profile import load_profile
+
+        rrf_k = load_profile().rrf_k
+        if "pg_get_functiondef" in sql:
+            lab = 2 if "reciprocal_rank_contribution" in str(params) else 1
+            row = {"definition": self.installed[lab]}
+        else:
+            # Every correct expression gives the same values at ranks 1 and 2.
+            row = {
+                "first_contribution": 1 / (rrf_k + 1),
+                "second_contribution": 1 / (rrf_k + 2),
+            }
+        return SimpleNamespace(fetchone=lambda: row)
+
+    def apply_saved_files(self) -> None:
+        self.applies += 1
+        self.installed = {lab: _seam_file(lab, self.repo).read_text() for lab in (1, 2)}
+
+
+@pytest.fixture
+def installed_sql(repo, aurora, monkeypatch) -> _InstalledSql:
+    """The real applied-state reads over an Aurora that keeps what it was given."""
+    from scripts import lab_state
+
+    _start(2, repo)
+    set_lab_state(2, solved=True, repo=repo)
+    aurora.applied[2] = "applied"
+    sql = _InstalledSql(repo)
+    order: list[str] = []
+
+    @contextmanager
+    def connect(_dsn):
+        yield sql
+
+    def apply(_dsn, _repo, say):
+        order.append("apply")
+        sql.apply_saved_files()
+        say("Applied it to Aurora.")
+        return "sha"
+
+    monkeypatch.setattr(lab_entry, "assert_workshop_database", lambda _dsn: None)
+    monkeypatch.setattr(lab_entry, "_connect", connect)
+    monkeypatch.setattr(
+        lab_entry, "read_applied_sql_state", lab_state.read_applied_sql_state
+    )
+    monkeypatch.setattr(lab_entry, "_apply", apply)
+    monkeypatch.setattr(
+        "scripts.prove_lab.prove_lab_2",
+        lambda *_a, **_k: order.append("prove") or ["contribution correct"],
+    )
+    sql.order = order
+    return sql
+
+
+def _save_other_rrf_expression(repo: Path) -> None:
+    path = _seam_file(2, repo)
+    start, end, _, _ = LABS[2][1][0]
+    path.write_text(_replace_block(path.read_text(), start, end, PARTICIPANT_LAB_2))
+    assert lab_source_is_repaired(2, repo=repo)
+
+
+def test_lab_2_handoff_applies_a_second_valid_expression_that_samples_the_same_ranks(
+    repo, installed_sql
+) -> None:
+    """Ranks 1 and 2 cannot tell two correct expressions apart; the saved block can."""
+    _save_other_rrf_expression(repo)
+    agent = _seam_file(3, repo)
+
+    lab_entry.advance(2, api_url="http://api", dsn="aurora", repo=repo)
+
+    assert installed_sql.order[:2] == ["apply", "prove"]
+    assert installed_sql.applies == 1
+    assert "1.0 / (rrf_k + source_rank)" in installed_sql.installed[2]
+    agent.write_text(agent.read_text() + "\n# my note\n")
+    edited = agent.read_bytes()
+
+    lab_entry.advance(2, api_url="http://api", dsn="aurora", repo=repo)
+
+    assert installed_sql.applies == 1, "nothing changed, so nothing is applied again"
+    assert agent.read_bytes() == edited
+
+
+def test_the_applied_check_reads_a_different_saved_expression_as_not_applied(
+    repo, installed_sql
+) -> None:
+    from scripts.lab_state import applied_problem, read_applied_sql_state
+
+    assert read_applied_sql_state(2, installed_sql, repo=repo).state == "applied"
+    _save_other_rrf_expression(repo)
+
+    problem = applied_problem(2, read_applied_sql_state(2, installed_sql, repo=repo))
+
+    assert problem is not None
+    assert "different LAB2_EDIT block" in problem.finding

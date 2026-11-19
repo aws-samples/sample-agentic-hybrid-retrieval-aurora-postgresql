@@ -264,10 +264,15 @@ def _lab_1_handoff(handoff: Path) -> Path:
         "Lab 2's exercise changes which products reach reranking,\n"
         "so this search cannot show your Lab 1 repair"
     )
+    from scripts.lab_entry import read_completion
+
+    # The saved handoff counts only while Lab 1's receipt still matches the repair in
+    # the file now; an edit since then is not what that evidence proved.
     _require(
-        handoff.exists(),
-        f"{reason}, and Lab 1's passing evidence\n"
-        "was not saved before Lab 2 started. Your edits are unchanged.\n"
+        handoff.exists() and read_completion(1, ROOT).proved,
+        f"{reason}, and no passing evidence\n"
+        "for your current Lab 1 repair was saved before Lab 2 started. Your edits are "
+        "unchanged.\n"
         "Next: continue in the Lab 2 guide. Once Lab 2 is repaired and applied, "
         f"compare Lab 1 again:\n{repeat_request_command(1)}",
     )

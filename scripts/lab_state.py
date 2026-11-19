@@ -357,25 +357,30 @@ def _diff_footer(
     return footer
 
 
-def lab_diff(
-    lab: int, *, repo: Path = REPO, color: bool = False, answer: bool = False
-) -> tuple[str, bool]:
-    """Show where a lab's file differs from the reference answer, in plain words.
+def _comment_prefix(exercise: str) -> str:
+    return "#" if exercise.endswith(".py") else "--"
 
-    The marked blocks are compared with the reference answer, and the lines outside
-    them with the original file, so an edit that drifted outside the markers shows
-    too. Each difference names the line in the participant's file and prints their
-    lines. Only with answer does it print the reference answer's lines as well, so
-    the default report is a hint rather than the solution.
 
-    Args:
-        lab: The lab number.
-        repo: The checkout whose exercise file is read.
-        color: Colour the two versions for a terminal.
-        answer: Also print the reference answer's lines inside the marked blocks.
+def _code_only(lines: list[str], prefix: str) -> list[str]:
+    """The lines that are neither blank nor a whole-line comment, trimmed."""
+    return [
+        line.strip()
+        for line in lines
+        if line.strip() and not line.strip().startswith(prefix)
+    ]
 
-    Returns:
-        The report, and whether the file differs from the reference.
+
+Difference = tuple[str, str, list[str], list[str]]
+
+
+def _diff_groups(
+    lab: int, repo: Path
+) -> tuple[list[Difference], list[Difference], list[Difference]]:
+    """The places a lab file differs: inside the blocks (code, then comment-only) and outside.
+
+    A group inside a block is comment-only when removing blank lines and whole-line
+    comments from both versions leaves the same code, as when a coach keeps the starter's
+    TODO lines beside a correct repair.
     """
     relative_path, blocks = LABS[lab]
     path = repo / relative_path
@@ -399,22 +404,70 @@ def lab_diff(
         inside.extend(
             _plain_differences(expected, yours, numbers, fallback_line=marker_line)
         )
+    prefix = _comment_prefix(relative_path)
+    code = [g for g in inside if _code_only(g[2], prefix) != _code_only(g[3], prefix)]
+    comments = [g for g in inside if g not in code]
     expected_outside, _numbers = _outside_markers(expected_source, blocks)
     yours_outside, numbers = _outside_markers(yours_source, blocks)
     outside = _plain_differences(expected_outside, yours_outside, numbers, outside=True)
-    if not inside and not outside:
+    return code, comments, outside
+
+
+def comment_only_difference(lab: int, *, repo: Path = REPO) -> bool:
+    """Whether the only differences from the reference answer are comment lines in a block."""
+    code, comments, outside = _diff_groups(lab, repo)
+    return bool(comments) and not code and not outside
+
+
+def lab_diff(
+    lab: int, *, repo: Path = REPO, color: bool = False, answer: bool = False
+) -> tuple[str, bool]:
+    """Show where a lab's file differs from the reference answer, in plain words.
+
+    The marked blocks are compared with the reference answer, and the lines outside
+    them with the original file, so an edit that drifted outside the markers shows
+    too. Each difference names the line in the participant's file and prints their
+    lines. Only with answer does it print the reference answer's lines as well, so
+    the default report is a hint rather than the solution. Differences that are only
+    comment lines inside a block are reported as such, apart from differing code.
+
+    Args:
+        lab: The lab number.
+        repo: The checkout whose exercise file is read.
+        color: Colour the two versions for a terminal.
+        answer: Also print the reference answer's lines inside the marked blocks.
+
+    Returns:
+        The report, and whether the file differs from the reference.
+    """
+    relative_path = LABS[lab][0]
+    code, comments, outside = _diff_groups(lab, repo)
+    if not code and not comments and not outside:
         matches = (
             f"Lab {lab}: {relative_path} matches the reference answer, inside and "
             "outside the markers."
         )
         return matches, False
+    if comments and not code and not outside:
+        headline = (
+            f"Lab {lab}: the code in your marked block in {relative_path} matches the "
+            "reference answer; only comment lines differ."
+        )
+    else:
+        headline = (
+            f"Lab {lab}: where your {relative_path} differs from the reference answer."
+        )
     report = [
-        f"Lab {lab}: where your {relative_path} differs from the reference answer.",
+        headline,
         "Only those lines are shown; nothing was changed."
         if answer
         else "Only those lines are shown, without the answer; nothing was changed.",
     ]
-    for where, label, expected_lines, theirs in [*inside, *outside]:
+    for where, label, expected_lines, theirs in [
+        *code,
+        *((f"{w} (comment lines only)", *rest) for w, *rest in comments),
+        *outside,
+    ]:
         hidden = label == "Reference answer" and not answer
         versions = [] if hidden else [(label, expected_lines, "32")]
         versions.append(("Your file", theirs, "33"))
@@ -423,12 +476,24 @@ def lab_diff(
         ]
         indent = min((len(line) - len(line.lstrip()) for line in shown), default=0)
         report += ["", f"{where}:"]
-        for name, lines, code in versions:
+        for name, lines, code_ in versions:
             report.append(f"  {name}:" if lines else f"  {name}: (nothing here)")
-            report += [paint(f"      {line[indent:]}", code, color) for line in lines]
+            report += [paint(f"      {line[indent:]}", code_, color) for line in lines]
     footer = _diff_footer(
-        lab, block_differs=bool(inside), outside_differs=bool(outside), answer=answer
+        lab, block_differs=bool(code), outside_differs=bool(outside), answer=answer
     )
+    if comments and not code and not outside:
+        footer = [
+            "Comments do not change what runs, so nothing needs to change.",
+            *(
+                [
+                    "To see the reference answer for these lines:",
+                    f"{COMMAND_INDENT}{DIFF_ANSWER}",
+                ]
+                if not answer
+                else []
+            ),
+        ]
     return "\n".join([*report, "", *footer]), True
 
 
@@ -983,11 +1048,44 @@ def _lab_1_database_state(connection: Any, repo: Path) -> LabDatabaseState:
     )
 
 
-def _lab_2_database_state(connection: Any) -> LabDatabaseState:
+#: The function Lab 2's block defines, by its argument types.
+RRF_CONTRIBUTION_FUNCTION = "reciprocal_rank_contribution(bigint,integer)"
+
+
+def _lab_2_database_state(connection: Any, repo: Path) -> LabDatabaseState:
+    """Lab 2 is applied when Aurora runs the saved block and ranks 1 and 2 decay.
+
+    Two different correct expressions can give the same values at ranks 1 and 2, so
+    the sampled values alone cannot tell that the saved one is not installed. The
+    block is compared as Lab 1's is, and the sampled ranks still check the result.
+    """
     from scripts.checks.retrieval_profile import load_profile
 
     rrf_k = load_profile().rrf_k
     schema = search_schema()
+    path = LABS[2][0]
+    function = f"{schema}.{RRF_CONTRIBUTION_FUNCTION}"
+    definition = connection.execute(FUSED_DEFINITION_SQL, (function,)).fetchone()[
+        "definition"
+    ]
+    if definition is None:
+        return LabDatabaseState(
+            state="stale",
+            detail=(
+                f"Aurora has no {schema}.reciprocal_rank_contribution, the function "
+                f"{path} defines. Saving changes only the file; applying it updates "
+                "Aurora."
+            ),
+        )
+    saved = (repo / path).read_text(encoding="utf-8")
+    if _marked_tokens(definition, 2) != _marked_tokens(saved, 2):
+        return LabDatabaseState(
+            state="stale",
+            detail=(
+                "Aurora runs a different LAB2_EDIT block from the one saved in "
+                f"{path}. Saving changes only the file; applying it updates Aurora."
+            ),
+        )
     row = connection.execute(
         f"""
         SELECT
@@ -1041,7 +1139,7 @@ def read_applied_sql_state(
         return LabDatabaseState(state="not_applicable", detail=_LAB3_DETAIL)
     if lab == 1:
         return _lab_1_database_state(connection, repo)
-    return _lab_2_database_state(connection)
+    return _lab_2_database_state(connection, repo)
 
 
 @dataclass(frozen=True)
@@ -1144,9 +1242,11 @@ def _sql_lab_status(lab: int, repo: Path) -> str:
     The saved file alone is not enough: saving changes only the file, and a coach reads
     `status` first in every session, so a repair Aurora does not run yet, or one whose
     live proof has not passed, must not read SOLVED (walk 17, 18 November 2026).
-    `advance` and `prove_lab.py` save that proof; a reset of the lab deletes it.
+    `advance` and `prove_lab.py` save that proof; a reset of the lab deletes it. The proof
+    counts only while its receipt names this lab attempt and this saved SQL, so a restart
+    or a later edit sends the participant back to prove it again.
     """
-    from scripts.lab_entry import completion_path
+    from scripts.lab_entry import read_completion
 
     if not lab_source_is_repaired(lab, repo=repo):
         return f"Lab {lab}: BROKEN"
@@ -1155,7 +1255,7 @@ def _sql_lab_status(lab: int, repo: Path) -> str:
         return f"Lab {lab}: {LAB_SQL_NOT_CHECKED} ({applied})"
     if applied.state != "applied":
         return f"Lab {lab}: {LAB_SQL_NOT_APPLIED}"
-    if not completion_path(lab, repo).exists():
+    if not read_completion(lab, repo).proved:
         return f"Lab {lab}: {LAB_SQL_NOT_PROVED}"
     return f"Lab {lab}: SOLVED"
 
@@ -1476,7 +1576,19 @@ def _named_path(line: str) -> str:
     return line.partition("(")[2].partition(")")[0]
 
 
-def _status_next(lines: list[str]) -> None:
+def _lab_1_waits_for_lab_2(repo: Path) -> bool:
+    """Whether Lab 2's fault stops Lab 1's hand-off from proving it right now."""
+    import psycopg
+
+    from scripts.lab_entry import lab_1_waits_for_lab_2
+
+    try:
+        return lab_1_waits_for_lab_2(os.getenv("DATABASE_URL"), repo)
+    except psycopg.Error:
+        return False
+
+
+def _status_next(lines: list[str], repo: Path = REPO) -> None:
     """Print the step after a status report: the first lab that is not solved yet."""
     for lab, line in zip(LABS, lines, strict=True):
         if "SOLVED" in line:
@@ -1538,6 +1650,14 @@ def _status_next(lines: list[str]) -> None:
                 "your saved repair is not in Aurora yet. Apply it (in psql, type \\! "
                 "before the command):",
                 APPLY_SQL,
+            )
+        elif LAB_SQL_NOT_PROVED in line and lab == 1 and _lab_1_waits_for_lab_2(repo):
+            next_step(
+                "Lab 2's ranking fault can hide a correct Lab 1 repair, so Lab 1 cannot "
+                "be proved until Lab 2 is repaired and applied. Continue in the Lab 2 "
+                "guide; once Lab 2 is repaired and applied, hand off Lab 1, which proves "
+                "it:",
+                ADVANCE_TO_LAB_2,
             )
         elif LAB_SQL_NOT_PROVED in line and lab == 1:
             next_step(

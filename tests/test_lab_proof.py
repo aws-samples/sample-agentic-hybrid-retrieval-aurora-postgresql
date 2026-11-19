@@ -89,6 +89,26 @@ def lab_repo(tmp_path: Path) -> Path:
     return tmp_path
 
 
+def _save_completion(repo: Path, lab: int) -> Path:
+    """A completion receipt as a passing hand-off writes it, for the repo's current lab file."""
+    from scripts.lab_entry import completion_binding, completion_path
+
+    path = completion_path(lab, repo)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(
+            {
+                "lab": lab,
+                "passed_at": "2026-09-28T09:30:00+00:00",
+                "checks": ["target found"],
+                "search_event_ids": ["event-1"],
+                **completion_binding(lab, repo),
+            }
+        )
+    )
+    return path
+
+
 @pytest.fixture(autouse=True)
 def entered_checkout(tmp_path_factory, monkeypatch) -> Path:
     """The running checkout, as a participant has it after starting Labs 2 and 3.
@@ -126,6 +146,7 @@ class _FakeConnection:
         lab_1_definition: str | None = SOLVED_LAB_1_DEFINITION,
         lab_1_error: Exception | None = None,
         rrf_correct: bool = True,
+        lab_2_definition: str | None = None,
         turn: dict | None = None,
         searches: list[dict] | None = None,
         tools: list[dict] | None = None,
@@ -133,6 +154,11 @@ class _FakeConnection:
         self.lab_1_definition = lab_1_definition
         self.lab_1_error = lab_1_error
         self.rrf_correct = rrf_correct
+        self.lab_2_definition = (
+            lab_2_definition
+            if lab_2_definition is not None
+            else (REPO / LABS[2][0]).read_text()
+        )
         self.turn = turn
         self.searches = searches or []
         self.tools = tools or []
@@ -164,6 +190,10 @@ class _FakeConnection:
             and params[0] == [s["search_event_id"] for s in self.followup.searches]
         ):
             return self.followup.execute(sql, params)
+        if "pg_get_functiondef" in sql and "reciprocal_rank_contribution" in str(
+            params
+        ):
+            return _FakeCursor([{"definition": self.lab_2_definition}])
         if "pg_get_functiondef" in sql:
             if self.lab_1_error is not None:
                 raise self.lab_1_error
@@ -656,11 +686,7 @@ def test_lab_1_under_lab_2s_fault_explains_the_failure_and_keeps_it_a_failure(
     The saved completion is shown beside it, never counted as this check.
     """
     set_lab_state(2, solved=False, repo=lab_repo)
-    completion = lab_repo / ".local" / "lab-1" / "completion.json"
-    completion.parent.mkdir(parents=True)
-    completion.write_text(
-        json.dumps({"lab": 1, "passed_at": "2026-09-28T09:30:00+00:00"})
-    )
+    _save_completion(lab_repo, 1)
     _use(monkeypatch, _FakeConnection(rrf_correct=False))
     _lab_1_search(monkeypatch, solved=False)
 
@@ -963,14 +989,34 @@ def test_a_saved_completion_is_reported_beside_the_state(
     monkeypatch, lab_repo: Path
 ) -> None:
     _use(monkeypatch, _FakeConnection())
-    path = lab_repo / ".local" / "lab-1" / "completion.json"
-    path.parent.mkdir(parents=True)
-    path.write_text(json.dumps({"lab": 1, "passed_at": "2026-09-28T09:30:00+00:00"}))
+    _save_completion(lab_repo, 1)
 
     labs = lab_proof.lab_states(repo=lab_repo).labs
 
     assert labs[0].completed_at == datetime(2026, 9, 28, 9, 30, tzinfo=UTC)
     assert labs[1].completed_at is None
+
+
+@pytest.mark.parametrize("damage", ["empty", "truncated", "other_sql"])
+def test_a_completion_that_does_not_match_the_lab_is_not_reported(
+    monkeypatch, lab_repo: Path, damage: str
+) -> None:
+    """The API reads the same receipt as `status`: a damaged or outdated one reports no time."""
+    _use(monkeypatch, _FakeConnection())
+    path = _save_completion(lab_repo, 1)
+    if damage == "empty":
+        path.write_text("")
+    elif damage == "truncated":
+        path.write_text(path.read_text()[:40])
+    else:
+        lab_file = lab_repo / LABS[1][0]
+        lab_file.write_text(
+            lab_file.read_text().replace(
+                "'fuzzy', fuzzy_rank,", "'fuzzy', fuzzy_rank + 0,", 1
+            )
+        )
+
+    assert lab_proof.lab_states(repo=lab_repo).labs[0].completed_at is None
 
 
 def test_a_missing_lab_1_function_reads_stale_and_names_the_apply(monkeypatch) -> None:

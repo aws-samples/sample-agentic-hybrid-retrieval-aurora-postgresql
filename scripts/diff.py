@@ -20,7 +20,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from scripts.lab_state import LABS, REPO, lab_diff
+from scripts.lab_state import LABS, REPO, comment_only_difference, lab_diff
 from scripts.terminal_text import next_step, tidy, use_color
 from service.agent_deploys import deploy_due
 from service.participant_commands import APPLY_SQL, DEPLOY_AGENT, STATUS
@@ -71,6 +71,12 @@ def _next_after(lab: int | None) -> None:
         next_step("nothing differs. Deploy your Retrieval agent:", DEPLOY_AGENT)
     elif lab is None:
         next_step("nothing differs. Check where your labs stand:", STATUS)
+    elif comment_only_difference(lab):
+        next_step(
+            "only comment lines differ, so there is nothing to change. Check where "
+            "your labs stand:",
+            STATUS,
+        )
     elif lab == 3:
         next_step(
             "edit the lines it names in Code Editor and save the file, then deploy:",

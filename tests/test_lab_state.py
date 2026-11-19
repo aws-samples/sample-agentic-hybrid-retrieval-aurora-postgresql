@@ -324,7 +324,7 @@ def test_applied_state_reads_the_catalog_served_by_the_api(monkeypatch, lab):
     k = load_profile().rrf_k
     connection = MagicMock()
     connection.execute.return_value.fetchone.return_value = {
-        "definition": (REPO / LABS[1][0]).read_text(),
+        "definition": (REPO / LABS[lab][0]).read_text(),
         "first_contribution": 1 / (k + 1),
         "second_contribution": 1 / (k + 2),
     }
