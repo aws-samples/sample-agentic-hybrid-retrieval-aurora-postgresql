@@ -1,6 +1,9 @@
 import { Check, Copy } from "lucide-react";
 import { useState } from "react";
 
+/** Shown wherever a copy button cannot reach the clipboard, so the text stays selectable by hand. */
+export const CLIPBOARD_UNAVAILABLE = "Clipboard access is unavailable. Select the code and copy it manually.";
+
 export function CodeBlock({ code, label }: { code: string; label: string }) {
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState("");
@@ -16,7 +19,7 @@ export function CodeBlock({ code, label }: { code: string; label: string }) {
       window.setTimeout(() => setCopied(false), 1500);
     } catch {
       setCopied(false);
-      setCopyError("Clipboard access is unavailable. Select the code and copy it manually.");
+      setCopyError(CLIPBOARD_UNAVAILABLE);
     }
   }
 

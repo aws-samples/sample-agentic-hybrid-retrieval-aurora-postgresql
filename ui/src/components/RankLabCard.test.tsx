@@ -1,10 +1,12 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import type { ComponentProps } from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { api } from "../api";
 import { coreMosaicLabs } from "../labMissions";
 import { retrievalLabOutcome } from "../labOutcome";
 import { seedRun } from "../retrievalSeed";
+import { useLabStates } from "../useLabStates";
 import { RankLabCard } from "./RankLabCard";
 
 vi.mock("../api", () => ({ api: { labsState: vi.fn(), retrievalEvent: vi.fn(), product: vi.fn() } }));
@@ -12,9 +14,14 @@ afterEach(cleanup);
 const started = "2026-10-06T12:00:00Z";
 const state = { lab_id: 2, entry_state: "started" as const, started_at: started, source_state: "solved" as const, database_state: "applied" as const, detail: "", completed_at: null, next_step: null };
 const outcome = { label: "Verified", tone: "fixed" as const, title: "Fusion now respects source rank", detail: "Contributions reflect each position." };
+/** Supplies the one lab-state read Shop's page owns and hands to the card. */
+function Harness(props: Omit<ComponentProps<typeof RankLabCard>, "labState">) {
+  const labState = useLabStates(props.response.search_event_id);
+  return <RankLabCard {...props} labState={labState} />;
+}
 const mission = coreMosaicLabs.find((item) => item.stage === "rank")!;
 const wantedId = mission.target_product_ids[0];
-function card() { return render(<RankLabCard mission={mission} response={seedRun} outcome={outcome} playgroundHref="/labs/retrieval" onSearchAgain={() => {}} />); }
+function card() { return render(<Harness mission={mission} response={seedRun} outcome={outcome} playgroundHref="/labs/retrieval" onSearchAgain={() => {}} />); }
 beforeEach(() => {
   vi.mocked(api.labsState).mockReset().mockResolvedValue({ labs: [state] });
   vi.mocked(api.product).mockReset().mockResolvedValue({ title: "ViewSonic VG2756-4K" } as never);
@@ -62,7 +69,7 @@ it("does not carry green state into a different search while reads are pending",
   await screen.findByText(outcome.title);
   vi.mocked(api.labsState).mockReturnValue(new Promise(() => {}));
   vi.mocked(api.retrievalEvent).mockReturnValue(new Promise(() => {}));
-  view.rerender(<RankLabCard mission={mission} response={{ ...seedRun, search_event_id: "new-event" }} outcome={outcome} playgroundHref="/labs/retrieval" onSearchAgain={() => {}} />);
+  view.rerender(<Harness mission={mission} response={{ ...seedRun, search_event_id: "new-event" }} outcome={outcome} playgroundHref="/labs/retrieval" onSearchAgain={() => {}} />);
   await waitFor(() => expect(screen.queryByText(outcome.title)).toBeNull());
 });
 
@@ -78,7 +85,7 @@ it("renders the repaired verdict with the positions the live response shows", as
   const run = monitorRun(5, 21);
   const real = retrievalLabOutcome(mission, run);
   expect(real.tone).toBe("fixed");
-  render(<RankLabCard mission={mission} response={run} outcome={real} playgroundHref="/labs/retrieval" onSearchAgain={() => {}} />);
+  render(<Harness mission={mission} response={run} outcome={real} playgroundHref="/labs/retrieval" onSearchAgain={() => {}} />);
   const verdict = await screen.findByText(/reached reranking at combined #21/);
   expect(verdict.textContent).toContain("ViewSonic VG2756-4K");
   expect(verdict.textContent).toContain("final #5");
@@ -87,7 +94,7 @@ it("renders the repaired verdict with the positions the live response shows", as
 it("names the wanted product by the mission's short name, not its listing title", async () => {
   const absent = { ...seedRun, results: seedRun.results.slice(1) };
   const broken = { ...outcome, tone: "broken" as const };
-  render(<RankLabCard mission={mission} response={absent} outcome={broken} playgroundHref="/labs/retrieval" onSearchAgain={() => {}} />);
+  render(<Harness mission={mission} response={absent} outcome={broken} playgroundHref="/labs/retrieval" onSearchAgain={() => {}} />);
   await screen.findByText(`Where is the ${mission.target_display_name}?`);
   expect(api.product).not.toHaveBeenCalled();
   expect(screen.getByText(/Open Why this match on a result .* then Compare positions/)).toBeTruthy();
@@ -96,14 +103,14 @@ it("looks the title up when a mission has no short name and the run does not ret
   const absent = { ...seedRun, results: seedRun.results.slice(1) };
   const broken = { ...outcome, tone: "broken" as const };
   const unnamed = { ...mission, target_display_name: undefined };
-  render(<RankLabCard mission={unnamed} response={absent} outcome={broken} playgroundHref="/labs/retrieval" onSearchAgain={() => {}} />);
+  render(<Harness mission={unnamed} response={absent} outcome={broken} playgroundHref="/labs/retrieval" onSearchAgain={() => {}} />);
   await screen.findByText("Where is the ViewSonic VG2756-4K?");
   expect(api.product).toHaveBeenCalledWith(wantedId);
   expect(screen.getByText(/The ViewSonic VG2756-4K is not in these results\./)).toBeTruthy();
 });
 it("uses the guide's section name, not an invented stage", async () => {
   const absent = { ...seedRun, results: seedRun.results.slice(1) };
-  render(<RankLabCard mission={mission} response={absent} outcome={{ ...outcome, tone: "broken" }} playgroundHref="/labs/retrieval" onSearchAgain={() => {}} />);
+  render(<Harness mission={mission} response={absent} outcome={{ ...outcome, tone: "broken" }} playgroundHref="/labs/retrieval" onSearchAgain={() => {}} />);
   await screen.findByText("Lab 2 / Trace Alex’s monitor request");
   expect(screen.queryByText(/See it fail/)).toBeNull();
 });
@@ -113,7 +120,7 @@ const primary = () => document.querySelector(".shop-lab-callout-primary")!;
 it("leads with the saved search, which opens without a new search", async () => {
   const absent = { ...seedRun, results: seedRun.results.slice(1) };
   const searchAgain = vi.fn();
-  render(<RankLabCard mission={mission} response={absent} outcome={{ ...outcome, tone: "broken" }} playgroundHref="/labs/retrieval?event=e1" onSearchAgain={searchAgain} />);
+  render(<Harness mission={mission} response={absent} outcome={{ ...outcome, tone: "broken" }} playgroundHref="/labs/retrieval?event=e1" onSearchAgain={searchAgain} />);
   await screen.findByText(`Where is the ${mission.target_display_name}?`);
   expect(primary().textContent).toBe("Inspect saved search ");
   expect(primary().getAttribute("href")).toBe("/labs/retrieval?event=e1");

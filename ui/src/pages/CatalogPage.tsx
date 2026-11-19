@@ -468,13 +468,18 @@ export function CatalogPage() {
   // Before Lab 2 is prepared, its request runs the repaired search the app ships with:
   // those results would give the exercise away, so Shop shows only the lab's next step.
   // They also wait while the lab state is read, or they would show and then vanish.
-  const { labStates, failed: labStatesFailed } = useLabStates(retrieval?.search_event_id ?? "");
+  // The retry card reads the same state, so the results and the card never disagree.
+  const labState = useLabStates(retrieval?.search_event_id ?? "");
+  const { labStates, failed: labStatesFailed } = labState;
   const rankEntry = labStates?.find((lab) => lab.lab_id === 2)?.entry_state;
   const rankChecking = Boolean(rankMission && !labStates && !labStatesFailed);
   const rankSearching = retrievalLoading
     && coreMosaicLabs.some((mission) => mission.stage === "rank" && mission.query === activeQuery);
-  const rankNotOpen = rankSearching
-    || Boolean(rankMission && (rankChecking || rankEntry === "not_started" || rankEntry === "incomplete"));
+  // A failed read cannot show Lab 2 has started, so it keeps the results closed like the others.
+  const rankNotOpen = rankSearching || Boolean(
+    rankMission
+      && (rankChecking || labStatesFailed || rankEntry === "not_started" || rankEntry === "incomplete"),
+  );
   // Whichever lab asked this request marks its wanted product on the results.
   const wantedMission = labCallout && !labCallout.blocked ? labCallout.mission : rankMission;
   const wanted = wantedMission && retrieval ? wantedProduct(wantedMission, retrieval) : null;
@@ -1524,6 +1529,7 @@ export function CatalogPage() {
               mission={rankMission}
               response={retrieval}
               outcome={rankOutcome}
+              labState={labState}
               playgroundHref={`${playgroundQueryHref(
                 retrieval.query, retrieval.applied_filters, retrieval.search_event_id,
               )}&example=${encodeURIComponent(rankMission.id)}#labs-stage-rank`}

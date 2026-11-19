@@ -470,6 +470,29 @@ describe("lab outcome diagnostics", () => {
     expect(outcome.detail).toContain("product_search_trigram_idx");
   });
 
+  it("sends a missing index to a facilitator instead of telling the participant to re-apply the schema", () => {
+    // Index repair belongs to facilitators; a participant who re-applies the
+    // schema cannot restore a catalog index and must never be told to try.
+    const mission = coreMosaicLabs.find((item) => item.stage === "retrieve")!;
+    const outcome = retrievalLabOutcome(
+      mission,
+      response(product(2, (rank) => 1 / (testFusionK + rank))),
+      {
+        ...healthyReadiness,
+        database: {
+          ...healthyReadiness.database,
+          missing_retrieval_indexes: ["product_search_trigram_idx"],
+        },
+      },
+    );
+
+    expect(outcome.detail).toBe(
+      "Aurora is missing an index this scenario needs: product_search_trigram_idx. "
+        + "Show this missing index to a facilitator. Once it is restored, run the same search again.",
+    );
+    expect(outcome.detail).not.toContain("Re-apply the schema");
+  });
+
   it("names the HNSW index for a lab whose techniques call it hnsw", () => {
     // Labs 2 and 3 declare `hnsw` rather than `vector` or `semantic`, so the arm
     // map matched nothing and the one index those labs cannot run without was

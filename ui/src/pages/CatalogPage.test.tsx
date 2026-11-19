@@ -2280,6 +2280,61 @@ describe("CatalogPage", () => {
     await screen.findByText("Results for");
   });
 
+  describe("Lab 2 results and the retry card share one lab-state read", () => {
+    const startedLab = {
+      lab_id: 2, entry_state: "started", started_at: "2026-10-06T12:00:00Z", source_state: "unsolved",
+      database_state: "applied", detail: "", completed_at: null, next_step: null,
+    };
+    function openRankRequest() {
+      const mission = coreMosaicLabs.find((item) => item.stage === "rank")!;
+      vi.mocked(api.search).mockResolvedValue({
+        ...searchResponse, query: mission.query, applied_filters: { ...mission.filters },
+      });
+      window.history.replaceState({}, "", shopMissionHref(mission));
+      renderPage();
+    }
+
+    it("keeps the prepared results and Compare positions hidden when the state read fails", async () => {
+      vi.mocked(api.labsState).mockRejectedValue(new Error("offline"));
+      openRankRequest();
+      await screen.findByText("Exercise state unavailable");
+      expect(screen.queryByText("Results for")).toBeNull();
+      expect(screen.queryByRole("button", { name: "Compare positions" })).toBeNull();
+    });
+
+    it("reveals the same saved search after a successful retry, without searching again", async () => {
+      vi.mocked(api.labsState).mockRejectedValue(new Error("offline"));
+      openRankRequest();
+      const retry = await screen.findByRole("button", { name: "Retry state check" });
+      expect(screen.queryByText("Results for")).toBeNull();
+      vi.mocked(api.labsState).mockResolvedValue({ labs: [startedLab] } as never);
+      fireEvent.click(retry);
+      await screen.findByText("Results for");
+      expect(screen.queryByText("Exercise state unavailable")).toBeNull();
+      expect(api.search).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not read the lab state a second time for the card", async () => {
+      vi.mocked(api.labsState).mockResolvedValue({ labs: [startedLab] } as never);
+      openRankRequest();
+      await screen.findByText("Results for");
+      await screen.findByRole("region", { name: "Lab 2 outcome" });
+      // The page reads once before its search settles and once for the search's event id;
+      // the card used to add a third read of its own.
+      expect(api.labsState).toHaveBeenCalledTimes(2);
+    });
+
+    it("keeps results hidden when Lab 2 is not started", async () => {
+      vi.mocked(api.labsState).mockResolvedValue({
+        labs: [{ ...startedLab, entry_state: "not_started", started_at: null }],
+      } as never);
+      openRankRequest();
+      await screen.findByText("Lab 2 / Not started");
+      expect(screen.queryByText("Results for")).toBeNull();
+      expect(screen.queryByRole("button", { name: "Compare positions" })).toBeNull();
+    });
+  });
+
   it("offers the compatible workspace request inside a monitor category", async () => {
     window.history.replaceState({}, "", "/catalog?domain=consumer_electronics&category_key=monitor");
     renderPage();

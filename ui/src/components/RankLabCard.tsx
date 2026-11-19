@@ -5,7 +5,7 @@ import { api } from "../api";
 import type { MosaicLabMission } from "../labMissions";
 import { wantedProduct, type LabOutcome } from "../labOutcome";
 import type { SearchResponse } from "../types";
-import { useLabStates } from "../useLabStates";
+import type { LabStatesResult } from "../useLabStates";
 import { useWantedName } from "../useWantedName";
 
 /**
@@ -19,11 +19,13 @@ export const RankLabCard = forwardRef<HTMLElement, {
   mission: MosaicLabMission;
   response: SearchResponse;
   outcome: LabOutcome;
+  /** The page's one lab-state read, so the card and the results it gates cannot disagree. */
+  labState: LabStatesResult;
   playgroundHref: string;
   onSearchAgain: () => void;
-}>(function RankLabCard({ mission, response, outcome, playgroundHref, onSearchAgain }, ref) {
+}>(function RankLabCard({ mission, response, outcome, labState, playgroundHref, onSearchAgain }, ref) {
   const eventId = response.search_event_id;
-  const { labStates, failed, retry } = useLabStates(eventId);
+  const { labStates, failed, retry } = labState;
   const lab = labStates?.find((item) => item.lab_id === 2);
   const [event, setEvent] = useState<{ id: string; at: string | null } | null>(null);
   useEffect(() => {
