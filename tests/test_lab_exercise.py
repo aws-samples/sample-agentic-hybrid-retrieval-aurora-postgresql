@@ -119,7 +119,7 @@ def test_lab2_grader_accepts_matching_saved_results(monkeypatch):
     assert report["saved_run"]["target_saved"]
 
 
-def _grade_lab2_saved_run(monkeypatch, saved):
+def _grade_lab2_saved_run(monkeypatch, saved, lab_1=None):
     connection = MagicMock()
     cursor = (
         connection.__enter__.return_value.cursor.return_value.__enter__.return_value
@@ -132,6 +132,7 @@ def _grade_lab2_saved_run(monkeypatch, saved):
     monkeypatch.setattr(lab_exercise, "_configure", lambda *a, **kw: None)
     monkeypatch.setattr(lab_exercise, "_lab2_arms", lambda *a: {"fts": {1: 1, 2: 2}})
     monkeypatch.setattr(lab_exercise, "_saved_run", lambda *a: saved)
+    monkeypatch.setattr(lab_exercise, "_lab_1_problem", lambda _connection: lab_1)
     return lab_exercise.grade_lab2(
         {"lab_rrf_k": "60", "lab_target": "2", "lab_fused_limit": "2"}
     )
@@ -629,3 +630,42 @@ def test_a_passing_recall_grade_names_the_file_step_by_its_action_not_a_number(
         f" files:\n{HNSW_FILES}\n"
     )
     assert "step" not in out.split(HNSW_FILES)[0]
+
+
+def test_lab2_grade_names_lab_1_when_its_repair_is_not_running_after_a_reset(
+    monkeypatch, capsys
+):
+    """After `reset --lab 1` the saved Lab 2 run lacks fuzzy matching; re-sending cannot fix it."""
+    from scripts.lab_state import LabProblem
+    from service.participant_commands import (
+        APPLY_SQL,
+        grade_exercise_command,
+        repeat_request_command,
+    )
+
+    problem = LabProblem(
+        "Lab 1 is not repaired: in labs/lab1_retrieve/hybrid_search.sql, a search is missing.",
+        f"fix the marked block in Code Editor, save it, then run {APPLY_SQL}",
+    )
+    report = _grade_lab2_saved_run(monkeypatch, {1: 0.123, 2: 1 / 62}, lab_1=problem)
+
+    assert len(report["failures"]) == 1
+    failure = report["failures"][0]
+    assert failure.startswith("Lab 1 is not repaired")
+    assert "Re-sending alone does not fix it" in failure
+    assert report["blocked_by_lab"] == 1
+
+    lab_exercise._grade_next(2, False, None, report["blocked_by_lab"])
+    out = capsys.readouterr().out
+    assert [
+        out.index(step) for step in (APPLY_SQL, repeat_request_command(2))
+    ] == sorted(out.index(step) for step in (APPLY_SQL, repeat_request_command(2)))
+    assert grade_exercise_command(2) in out
+    assert "repair Lab 1 again" in out
+
+
+def test_lab2_grade_blames_the_saved_run_only_when_lab_1_is_running(monkeypatch):
+    report = _grade_lab2_saved_run(monkeypatch, {1: 0.123, 2: 1 / 62})
+
+    assert "blocked_by_lab" not in report
+    assert any("disagree" in failure for failure in report["failures"])

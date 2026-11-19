@@ -463,6 +463,24 @@ def _saved_run(cur: Any, values: dict[str, str]) -> dict[int, float]:
     return {row["product_id"]: row["score"] for row in cur.fetchall()}
 
 
+def _lab_1_problem(connection: Any) -> lab_state.LabProblem | None:
+    """Why Lab 1's repair is not running in Aurora, or None when it is."""
+    return lab_state.source_problem(1, repo=REPO) or lab_state.applied_problem(
+        1, lab_state.read_applied_sql_state(1, connection, repo=REPO)
+    )
+
+
+def _lab_1_blocks_the_grade(problem: lab_state.LabProblem, rerun: str) -> str:
+    """A failure that names Lab 1, the lab whose repair the saved Lab 2 run depends on."""
+    step = problem.next_step
+    step = f"run {step}" if step.startswith("uv run ") else step
+    return (
+        f"{problem.finding} Lab 2's saved run goes through Lab 1's search, so it "
+        "cannot match correct fusion until Lab 1 is repaired and applied again. "
+        f"Re-sending alone does not fix it: {step}, then {rerun}"
+    )
+
+
 def grade_lab2(values: dict[str, str]) -> dict[str, Any]:
     """Grade the applied contribution at the configured k and four other values."""
     from service.catalog_runtime import search_schema
@@ -516,6 +534,7 @@ def grade_lab2(values: dict[str, str]) -> dict[str, Any]:
         "target_saved": target in saved,
     }
     rerun = f"rerun `{repeat_request_command(2)}`, then check again"
+    own_failures = list(report["failures"])
     if not saved:
         report["failures"].append(f"no saved rows prove the fusion repair; {rerun}")
     else:
@@ -528,6 +547,14 @@ def grade_lab2(values: dict[str, str]) -> dict[str, Any]:
             report["failures"].append(
                 f"target {target} is absent from the saved results; {rerun}"
             )
+    if len(report["failures"]) > len(own_failures):
+        with _connect() as connection:
+            lab_1 = _lab_1_problem(connection)
+        if lab_1 is not None:
+            # The saved run went through Lab 1's search, so re-sending cannot fix it.
+            report["failures"] = [*own_failures, _lab_1_blocks_the_grade(lab_1, rerun)]
+            if not own_failures:
+                report["blocked_by_lab"] = 1
     report["cutoff"] = cutoff
     return report
 
@@ -728,7 +755,12 @@ def _print_lab3(report: dict) -> None:
         )
 
 
-def _grade_next(lab: int, passed: bool, needs: dict[str, bool] | None = None) -> None:
+def _grade_next(
+    lab: int,
+    passed: bool,
+    needs: dict[str, bool] | None = None,
+    blocked_by: int | None = None,
+) -> None:
     """Print the step after a grade: the guide's next one when it passed, else the retry.
 
     For Lab 3, `needs` says which of the deploy, the setup run and the 100W answer the
@@ -764,6 +796,14 @@ def _grade_next(lab: int, passed: bool, needs: dict[str, bool] | None = None) ->
             next_step(
                 "see what reranking changes, as the guide's next section does:",
                 RERANK_OFF_ON,
+            )
+        elif blocked_by == 1:
+            next_step(
+                "repair Lab 1 again in labs/lab1_retrieve/hybrid_search.sql, apply it, then "
+                "repeat Lab 2's request and grade it again:",
+                APPLY_SQL,
+                repeat_request_command(2),
+                grade_exercise_command(2),
             )
         else:
             next_step(
@@ -950,7 +990,12 @@ def main(
             f"\nLab {args.lab} exercise: {report['verdict']} ({receipt.relative_to(REPO)})"
         )
     )
-    _grade_next(args.lab, not report["failures"], report.get("needs"))
+    _grade_next(
+        args.lab,
+        not report["failures"],
+        report.get("needs"),
+        report.get("blocked_by_lab"),
+    )
     return 1 if report["failures"] else 0
 
 
