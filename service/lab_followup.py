@@ -122,16 +122,47 @@ def listing_charging_watts(text: str) -> set[float]:
     }
 
 
+# Words that make a passage about charging rather than any other wattage.
+_CHARGING_WORDS = re.compile(r"charg|power", re.IGNORECASE)
+# A shortfall or a denial: the passage says the requirement is not met or not shown.
+_SHORTFALL = re.compile(
+    r"\b(?:below|under|less|lower|short|not|no|never|without|cannot|insufficient|"
+    r"fails?)\b|n['’]t\b",
+    re.IGNORECASE,
+)
+
+
+def _settles_charging(text: str, listed: set[float], needed: float | None) -> bool:
+    """Whether a passage citing the listing settles the charging requirement.
+
+    It states a charging wattage the listing gives, about charging or against the
+    requirement; or it names the required wattage as a charging shortfall the listing
+    bears out ("does not establish 100W charging", "short of the 100W you need").
+    """
+    from service.synthesis import stated_figures
+
+    figures = stated_figures(text, "watt")
+    about_charging = bool(_CHARGING_WORDS.search(text))
+    if figures & listed and (about_charging or needed in figures):
+        return True
+    return (
+        needed in figures
+        and about_charging
+        and bool(_SHORTFALL.search(text))
+        and all(watts < needed for watts in listed)
+    )
+
+
 def charging_problem(requirement, answer, numbered, picks) -> str:
     """Why a grounded answer leaves the changed charging requirement unsettled, or "".
 
-    A passage citing the named product's listing must state the charging wattage that
-    listing gives, or name the required wattage as a shortfall the listing bears out.
-    Any passage about the product that gives the required wattage as its value must
-    have it from the listing: one reviewer's laptop is not Alex's.
+    A passage citing the named product's listing must settle the requirement (see
+    `_settles_charging`). Any passage about the product that gives the required
+    wattage as its value must have it from the listing: one reviewer's laptop is not
+    Alex's.
     """
     from service.claim_review import passages
-    from service.synthesis import claims_question_figure, stated_figures
+    from service.synthesis import claims_question_figure
 
     target = requirement["product_id"]
     listings = {
@@ -151,27 +182,19 @@ def charging_problem(requirement, answer, numbered, picks) -> str:
         if not any(numbered[n].product_id == target for n in cited):
             continue
         records = [numbered[n] for n in sorted(cited)]
-        claimed = needed is not None and claims_question_figure(
+        if needed not in listed and claims_question_figure(
             text, requirement["query"], picks, records
-        )
-        if claimed and needed not in listed:
+        ):
             return (
                 f"the answer gives {needed:g}W as the monitor's charging, which its "
                 "listing does not state"
             )
-        if not cited & listings:
-            continue
-        figures = stated_figures(text, "watt")
-        settled = (
-            settled
-            or bool(figures & listed)
-            or (needed in figures and all(watts < needed for watts in listed))
+        settled = settled or bool(
+            cited & listings and _settles_charging(text, listed, needed)
         )
-    return (
-        ""
-        if settled
-        else "the answer does not give the charging wattage in the monitor's listing"
-    )
+    if settled:
+        return ""
+    return "the answer does not give the charging wattage in the monitor's listing"
 
 
 def _decline_problem(requirement, rows, intent) -> str:

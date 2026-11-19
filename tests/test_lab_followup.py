@@ -206,8 +206,20 @@ def answered(answer, listing=LISTING, review=REVIEW):
         "The ViewSonic VG2756-4K's listing states 90W charging over one cable [1].",
         "The ViewSonic VG2756-4K's listed charging falls short of the 100W you need [1].",
         "The ViewSonic VG2756-4K's sources do not establish 100W charging [1].",
+        "The ViewSonic VG2756-4K's listing states 90W, not 100W [1].",
+        "The ViewSonic VG2756-4K provides ninety watts of USB-C power delivery [1].",
+        "- The ViewSonic VG2756-4K's listing states up to 90W charging [1][2].",
     ],
-    ids=["shortfall", "listing-and-review", "90W-alone", "short-of-100W", "not-100W"],
+    ids=[
+        "shortfall",
+        "listing-and-review",
+        "90W-alone",
+        "short-of-100W",
+        "not-100W",
+        "90W-not-100W",
+        "spelled-out",
+        "bullet-two-citations",
+    ],
 )
 def test_a_grounded_answer_passes_when_it_settles_charging_from_the_listing(answer):
     check = answered(answer)
@@ -240,12 +252,42 @@ def test_a_grounded_answer_passes_when_it_settles_charging_from_the_listing(answ
             "USB-C with 65W charging over one cable; built-in speakers rated 3W",
             "does not give the charging wattage",
         ),
+        (
+            "Your laptop needs 100W, and the ViewSonic VG2756-4K has USB-C [1].",
+            LISTING,
+            "does not give the charging wattage",
+        ),
+        (
+            "You need 100W charging; the ViewSonic VG2756-4K has a USB-C port [1].",
+            LISTING,
+            "does not give the charging wattage",
+        ),
+        (
+            "The ViewSonic VG2756-4K's listing does not mention 100W [1].",
+            LISTING,
+            "does not give the charging wattage",
+        ),
+        (
+            "The ViewSonic VG2756-4K has 90W [1].",
+            LISTING,
+            "does not give the charging wattage",
+        ),
+        (
+            "Your laptop needs 100W, and the ViewSonic VG2756-4K has USB-C [1].",
+            "VERSATILE MONITOR: 27 Inch 4K IPS monitor with USB-C",
+            "does not give the charging wattage",
+        ),
     ],
     ids=[
         "usb-c-only",
         "review-only-100W",
         "review-100W-beside-listing",
         "speaker-watts",
+        "requirement-repeated",
+        "requirement-repeated-with-charging",
+        "not-mentioned-without-charging",
+        "bare-90W",
+        "listing-without-charging-figure",
     ],
 )
 def test_a_grounded_answer_fails_when_charging_is_unsettled(answer, listing, reason):
