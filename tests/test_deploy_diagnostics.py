@@ -128,7 +128,7 @@ def test_gateway_sync_waits_through_synchronizing_until_ready(monkeypatch, capsy
 @pytest.fixture(autouse=True)
 def aurora_runs_the_workspace_sql(monkeypatch):
     """The deploy's SQL preflight reads Aurora; these tests are about what follows it."""
-    monkeypatch.setattr(deploy, "require_applied_sql", lambda: "c" * 64)
+    monkeypatch.setattr(deploy, "require_applied_sql", lambda **_: "c" * 64)
 
 
 def run_main(monkeypatch, action, failure):
@@ -277,7 +277,7 @@ def _gateway_verify(monkeypatch, tmp_path, searched_sql):
         },
     )
     monkeypatch.setattr(deploy, "application_digest", lambda: "a" * 64)
-    monkeypatch.setattr(deploy, "require_applied_sql", lambda: "c" * 64)
+    monkeypatch.setattr(deploy, "require_applied_sql", lambda **_: "c" * 64)
     monkeypatch.setattr(deploy, "participant_sql_digest", lambda: "c" * 64)
     monkeypatch.setattr(deploy, "ROOT", tmp_path)
     monkeypatch.setenv("MOSAIC_AGENTCORE_RUNTIME_ARN", "arn:runtime")
@@ -686,5 +686,7 @@ def test_a_sql_mismatch_stops_the_deploy_before_anything_is_built_or_updated(
 
     shown = capsys.readouterr().err
     assert "Aurora SQL rule" in shown and APPLY_SQL in shown
+    assert f"then run {DEPLOY_AGENT} again" in shown, "the fix repeats the deploy"
+    assert VERIFY_AGENT not in shown.split("Next:")[0]
     publish.assert_not_called()
     update.assert_not_called()

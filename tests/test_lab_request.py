@@ -4,6 +4,7 @@ import io
 import json
 from contextlib import contextmanager
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import Mock
 
 import psycopg
@@ -400,6 +401,12 @@ def test_lab_1_after_lab_2_started_defers_to_the_saved_handoff(
     for Lab 2's collapsed ranks."""
     output = _lab_1_after(monkeypatch, tmp_path, hides=True, search=_no_search)
     (output / "handoff.json").write_text("{}")
+    # `advance --lab 1` writes a receipt bound to the repair beside the handoff;
+    # tests/test_completion_receipt.py covers how that receipt is judged.
+    monkeypatch.setattr(
+        "scripts.lab_entry.read_completion",
+        lambda lab, root: SimpleNamespace(proved=True),
+    )
 
     lab_request.prepare(1, "after", "http://localhost", output)
 
@@ -407,6 +414,20 @@ def test_lab_1_after_lab_2_started_defers_to_the_saved_handoff(
     assert "Lab 2's exercise changes which products reach reranking" in printed
     assert "saved when Lab 1 handed off to Lab 2" in printed
     assert "has not reached the search Aurora runs" not in printed
+
+
+def test_a_handoff_whose_receipt_no_longer_proves_the_repair_is_not_reused(
+    monkeypatch, tmp_path
+):
+    output = _lab_1_after(monkeypatch, tmp_path, hides=True, search=_no_search)
+    (output / "handoff.json").write_text("{}")
+    monkeypatch.setattr(
+        "scripts.lab_entry.read_completion",
+        lambda lab, root: SimpleNamespace(proved=False),
+    )
+
+    with pytest.raises(LabValidationError, match="continue in the Lab 2 guide"):
+        lab_request.prepare(1, "after", "http://localhost", output)
 
 
 def test_lab_1_after_lab_2_started_without_a_handoff_points_at_lab_2(

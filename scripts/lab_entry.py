@@ -756,17 +756,34 @@ def lab_1_waits_for_lab_2(dsn: str | None, repo: Path = REPO) -> bool:
     False when Lab 1's saved handoff still matches, since proving it again then reuses
     that evidence instead of searching.
     """
+    if not _lab_2_masks_lab_1(dsn, repo):
+        return False
+    return not _lab_1_handoff_matches(dsn, repo)
+
+
+def lab_1_handoff_restores_proof(dsn: str | None, repo: Path = REPO) -> bool:
+    """Whether `advance --lab 1` would rebuild Lab 1's proof from its saved handoff.
+
+    While Lab 2's fault can hide Lab 1, a fresh request cannot prove Lab 1, but a
+    handoff that still matches the repair proves it without a search.
+    """
+    return _lab_2_masks_lab_1(dsn, repo) and _lab_1_handoff_matches(dsn, repo)
+
+
+def _lab_2_masks_lab_1(dsn: str | None, repo: Path) -> bool:
     try:
         begun = load_record(2, repo) is not None
     except StartRecordError:
         begun = True
-    if not begun or not lab_2_can_mask(dsn, repo):
-        return False
+    return begun and lab_2_can_mask(dsn, repo)
+
+
+def _lab_1_handoff_matches(dsn: str | None, repo: Path) -> bool:
     saved = _read_handoff(repo)
     try:
-        return saved is None or saved["binding"] != _lab_1_binding(dsn, repo)
+        return saved is not None and saved["binding"] == _lab_1_binding(dsn, repo)
     except (OSError, ValueError):
-        return True
+        return False
 
 
 def _passed(lab: int, count: int) -> str:

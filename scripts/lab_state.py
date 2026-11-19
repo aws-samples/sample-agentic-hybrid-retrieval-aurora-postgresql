@@ -1588,6 +1588,18 @@ def _lab_1_waits_for_lab_2(repo: Path) -> bool:
         return False
 
 
+def _lab_1_handoff_restores_proof(repo: Path) -> bool:
+    """Whether Lab 1's saved handoff, not a new request, can prove it right now."""
+    import psycopg
+
+    from scripts.lab_entry import lab_1_handoff_restores_proof
+
+    try:
+        return lab_1_handoff_restores_proof(os.getenv("DATABASE_URL"), repo)
+    except psycopg.Error:
+        return False
+
+
 def _status_next(lines: list[str], repo: Path = REPO) -> None:
     """Print the step after a status report: the first lab that is not solved yet."""
     for lab, line in zip(LABS, lines, strict=True):
@@ -1657,6 +1669,17 @@ def _status_next(lines: list[str], repo: Path = REPO) -> None:
                 "be proved until Lab 2 is repaired and applied. Continue in the Lab 2 "
                 "guide; once Lab 2 is repaired and applied, hand off Lab 1, which proves "
                 "it:",
+                ADVANCE_TO_LAB_2,
+            )
+        elif (
+            LAB_SQL_NOT_PROVED in line
+            and lab == 1
+            and _lab_1_handoff_restores_proof(repo)
+        ):
+            next_step(
+                "Lab 1's saved hand-off still matches your repair, but its completion "
+                "record is missing or damaged. Hand off Lab 1 again, which restores the "
+                "record from that saved evidence without a new search:",
                 ADVANCE_TO_LAB_2,
             )
         elif LAB_SQL_NOT_PROVED in line and lab == 1:

@@ -1072,6 +1072,34 @@ def test_a_lab_1_repair_edited_after_handoff_waits_while_lab_2s_fault_is_install
     assert lab_entry.lab_1_waits_for_lab_2("aurora", repo)
 
 
+def test_a_damaged_lab_1_receipt_under_lab_2s_fault_is_restored_by_its_handoff(
+    repo, aurora, handoff_checks, monkeypatch, capsys
+) -> None:
+    """Status must name the step that works: `advance --lab 1`, not a refused request."""
+    from scripts import lab_state
+    from service.participant_commands import ADVANCE_TO_LAB_2, repeat_request_command
+
+    lab_entry.advance(1, api_url="http://api", dsn="aurora", repo=repo)
+    aurora.applied = {1: "applied", 2: "stale"}
+    lab_entry.completion_path(1, repo).write_text("")
+
+    assert lab_entry.read_completion(1, repo).state != "valid"
+    assert lab_entry.lab_1_handoff_restores_proof("aurora", repo)
+    assert not lab_entry.lab_1_waits_for_lab_2("aurora", repo)
+
+    monkeypatch.setenv("DATABASE_URL", "aurora")
+    lab_state._status_next(
+        ["Lab 1: APPLIED, NOT YET PROVED", "Lab 2: B", "Lab 3: B"], repo
+    )
+    shown = capsys.readouterr().out
+    assert ADVANCE_TO_LAB_2 in shown and "restores the record" in shown
+    assert repeat_request_command(1) not in shown
+
+    lab_entry.advance(1, api_url="http://api", dsn="aurora", repo=repo)
+    assert lab_entry.read_completion(1, repo).state == "valid"
+    assert handoff_checks == ["validate"], "restored from the handoff, no new search"
+
+
 def test_starting_lab_2_keeps_lab_1s_handed_off_proof(repo, aurora, handoff_checks):
     lab_entry.advance(1, api_url="http://api", dsn="aurora", repo=repo)
 

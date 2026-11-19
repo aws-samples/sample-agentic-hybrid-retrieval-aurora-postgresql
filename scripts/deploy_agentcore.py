@@ -478,11 +478,12 @@ def update(image_uri: str, progress: Progress, application_sha256: str) -> None:
     )
 
 
-def require_applied_sql() -> str:
+def require_applied_sql(rerun: str = VERIFY_AGENT) -> str:
     """Refuse a deployment whose tools would call SQL other than the workspace's.
 
     The Runtime check covers the code the image runs; this covers the SQL the
     tools call, which lives in Aurora and changes only when it is applied.
+    `rerun` is the command that ran the check, which its fix repeats.
     """
     import psycopg
 
@@ -496,14 +497,14 @@ def require_applied_sql() -> str:
     except psycopg.Error as error:
         raise RuntimeError(
             f"Aurora SQL rule: could not read the SQL Aurora runs ({type(error).__name__}); "
-            f"fix: open a new terminal from the Terminal menu, then run {DEPLOY_AGENT} again."
+            f"fix: open a new terminal from the Terminal menu, then run {rerun} again."
         ) from error
     if applied != workspace:
         raise RuntimeError(
             "Aurora SQL rule: Aurora runs participant SQL "
             f"{(applied or 'with no recorded identity')[:12]}, not your workspace's "
-            f"{workspace[:12]}; fix: apply the file with {APPLY_SQL}, then "
-            f"recheck with {VERIFY_AGENT}."
+            f"{workspace[:12]}; fix: apply the file with {APPLY_SQL}, then run "
+            f"{rerun} again."
         )
     return workspace
 
@@ -909,7 +910,7 @@ def main() -> int:
                 raise ValueError(not_ready_message())
             # Aurora's SQL changes only when it is applied, so a mismatch is known now:
             # refuse before anything is built, published or updated.
-            require_applied_sql()
+            require_applied_sql(rerun=DEPLOY_AGENT)
             progress = deploy_progress()
             code = application_digest()
             try:
