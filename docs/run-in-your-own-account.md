@@ -1,7 +1,8 @@
 # Run Mosaic in your own account
 
 This page deploys the Mosaic workshop environment into an AWS account you own,
-so you can work through the three labs in the workshop guide without an AWS event.
+so you can run the three labs without an AWS event. Read **The workshop guide** in
+section 2 first: the labs' step-by-step guide opens from an AWS-run event.
 You build the product catalog yourself, publish the deployment files to a private
 bucket in your account, and create one CloudFormation stack. You delete everything
 when you finish.
@@ -117,6 +118,17 @@ Measured totals from the proof run:
   the end of teardown's first pass
 
 ## 2. Before you start
+
+**The workshop guide.** The labs' step-by-step guide, **Build agentic hybrid retrieval with
+Amazon Aurora PostgreSQL**, is hosted in AWS Workshop Studio and opens from an AWS-run
+event, such as a re:Invent session. It is not in the public workshop catalog, so this
+repository has no link that opens it without an event. Without the guide, follow each lab's
+README beside its file: [Lab 1](../labs/lab1_retrieve/README.md),
+[Lab 2](../labs/lab2_rank/README.md) and [Lab 3](../labs/lab3_reason/README.md). They name
+the file to edit and the commands that apply, prove and hand off each lab, and each lab's
+`solution/` folder holds its reference answer. They leave out the guide's diagnostic
+queries, expected values and screenshots. Decide whether that is enough before you deploy,
+because the stack costs money from the moment it starts.
 
 **An account you may use freely.** Use a sandbox or personal account. You need
 administrator rights: the stack creates IAM roles, KMS keys, CloudFront
@@ -345,6 +357,16 @@ builder user inside the checkout with the database settings loaded, and writes i
 closes. Its last step before the summary uploads the bundle and the two contract files to
 your bucket; the builder reads the bucket name from `/etc/mosaic-own-account.env`.
 
+Choose the Regions for the embeddings before you start (section 3, **Embedding speed**).
+To embed in three Regions, as the timed proof run did, give the wrapper the options, which
+it passes to the build:
+
+```bash
+mosaic-catalog-bundle --regions us-east-1 us-east-2 us-west-2
+```
+
+To embed in one Region with the default 4 workers, run the wrapper on its own:
+
 ```bash
 mosaic-catalog-bundle
 ```
@@ -355,21 +377,14 @@ To watch progress, or to look again after a closed session, follow the log.
 tail -f /workshop/catalog-bundle.log
 ```
 
-If the build stops or you close the session, run `mosaic-catalog-bundle` again: it
-resumes from the last completed step. The wrapper refuses to start a second build while one
-is running. Expected duration: about 7 hours 40 minutes with three Regions (section 3), most
-of it embedding.
+If the build stops or you close the session, run the same command again: it resumes from
+the last completed step. The wrapper refuses to start a second build while one is running.
+Expected duration: about 7 hours 40 minutes with three Regions (section 3), most of it
+embedding.
 
 The build has ended when the last lines of the log are the summary. It prints
 "Commit these two contract files:" and then "On your laptop, in your fork, in this order:".
 Once those lines appear, step 6 no longer refuses.
-
-To use three Regions for the embeddings, give the wrapper the options, which it passes
-to the build.
-
-```bash
-mosaic-catalog-bundle --regions us-east-1 us-east-2 us-west-2
-```
 
 **Step 6.** Back on your machine, delete the staging cluster and the builder. They
 have done their job, so stop paying for them. The bucket and its contents stay. The
@@ -468,7 +483,10 @@ phase was running.
 ## 5. Use the workshop guide
 
 The guide is the same one participants read at an AWS event: **Build agentic hybrid
-retrieval with Amazon Aurora PostgreSQL**. Follow it from its Getting started page.
+retrieval with Amazon Aurora PostgreSQL**. If you can open it through an event (section 2),
+follow it from its Getting started page. Otherwise, start with
+[START_HERE.md](../START_HERE.md) for the lab flow and then each lab's README, as section 2
+describes; the differences below still apply.
 
 The guide says to read your environment from the **Event outputs** panel of an AWS
 event. In your account, the stack's **Outputs** tab holds the same names. Open

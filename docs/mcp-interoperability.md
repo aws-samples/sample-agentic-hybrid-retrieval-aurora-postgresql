@@ -88,10 +88,14 @@ make mcp-test
 3. List the four typed, catalog-read-only tools.
 4. Call `search_products` with the Lab 3 query and a hard price or availability
    filter, and keep the `search_event_id` it returns.
-5. Call `get_product_evidence` with that ID as `retrieval_scope_id` and one
-   returned product. Then call it again with a product ID it did not return and
-   confirm HTTP 404.
-6. Call `compare_products` with that scope and two returned IDs. Confirm a product outside the granted window is refused, then pass the returned `search_event_id` to `explain_retrieval`.
+5. Call `get_product_evidence` with that ID as `retrieval_scope_id`, one
+   returned product and an `evidence_query`, the question the evidence must
+   support, such as "What USB-C charging wattage does the listing give?". Then
+   call it again with a product ID the search did not return and confirm HTTP 404.
+6. Call `compare_products` with that scope and two returned IDs; its response
+   names the scope `retrieval_scope_id`. Confirm a product outside the granted
+   window is refused, then pass the `search_event_id` from step 4 to
+   `explain_retrieval`.
 7. Compare the MCP result with the Playground UI and confirm both show the
    same persisted PostgreSQL ranking signals.
 

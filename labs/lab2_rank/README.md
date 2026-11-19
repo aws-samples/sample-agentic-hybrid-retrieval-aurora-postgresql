@@ -22,13 +22,21 @@ candidates make the cut.
 In [rrf_contribution.sql](rrf_contribution.sql), edit only the
 `SELECT` between `LAB2_EDIT_START` and `LAB2_EDIT_END`, so each
 source position earns `1 / (rrf_k + source_rank)`. Keep the signature, the
-`double precision` result and the configured `rrf_k`. Then apply it:
+`double precision` result and the configured `rrf_k`. Then apply it from the same
+`psql` session at the `mosaic_catalog=>` prompt:
 
-```bash
-uv run python scripts/apply_search_functions.py
+```sql
+\! uv run python scripts/apply_search_functions.py
 ```
 
-Repeat the identical request and grade the applied formula:
+In `psql`, repeat the position check with the same saved request. Then leave `psql`:
+
+```sql
+\q
+```
+
+At the shell prompt ending in `$`, repeat the identical request and grade the applied
+formula:
 
 ```bash
 uv run python scripts/lab_request.py send --lab 2 --phase after

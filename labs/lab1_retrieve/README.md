@@ -25,15 +25,22 @@ In [hybrid_search.sql](hybrid_search.sql), edit only between
 with the same five columns as the others: product ID, search name `'fuzzy'`,
 position, raw score and the contribution from
 `mosaic_search.reciprocal_rank_contribution`. Saving changes nothing in Aurora
-until you apply it:
+until you apply it. At the `mosaic_catalog=>` prompt, `\!` runs the command from `psql`
+and returns you to the same session:
 
-```bash
-uv run python scripts/apply_search_functions.py
+```sql
+\! uv run python scripts/apply_search_functions.py
 ```
 
 ## Prove fuzzy matching puts the Logitech back on the shortlist
 
-Repeat the identical request:
+In `psql`, repeat the shortlist count with the same saved request. Then leave `psql`:
+
+```sql
+\q
+```
+
+At the shell prompt ending in `$`, repeat the identical request:
 
 ```bash
 uv run python scripts/lab_request.py send --lab 1 --phase after

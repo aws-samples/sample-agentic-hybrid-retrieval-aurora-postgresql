@@ -134,7 +134,8 @@ The commands you use most:
 | Purpose | Command |
 |---|---|
 | See where each lab stands | `uv run python scripts/lab_state.py status` |
-| Hand off Lab 1 or Lab 2: prove it and prepare the next lab | `uv run python scripts/lab_state.py advance --lab 1` |
+| Hand off Lab 1: prove it and prepare Lab 2 | `uv run python scripts/lab_state.py advance --lab 1` |
+| Hand off Lab 2: prove it and prepare Lab 3 | `uv run python scripts/lab_state.py advance --lab 2` |
 | Deploy your Retrieval agent (Lab 3) | `uv run python scripts/deploy_agentcore.py deploy` |
 | Ask the deployed Retrieval agent | `uv run python scripts/ask_agent.py "QUESTION"` |
 | Grade Lab 3: your setup run and 100W answer | `uv run python scripts/grade_setup_run.py` |
