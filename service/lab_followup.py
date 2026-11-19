@@ -129,13 +129,31 @@ _DELIVERY = re.compile(
 )
 
 
-# Words that make a denial about the shopper's own need rather than about what the
-# product supplies: "if you don't need 100W" answers nothing about the monitor.
-_SHOPPER_SIDE = re.compile(
-    r"\b(?:if|unless|whether)\b|(?:\bnot|\bnever|n['’]t)\s+(?:\w+\s+)?"
-    r"(?:need|require|want)",
+# A condition on the shopper ("if", "unless") or a denial of their need ("you don't
+# need 100W") says nothing about what the product supplies.
+_CONDITION = re.compile(r"\b(?:if|unless)\b", re.IGNORECASE)
+_NEED_DENIED = re.compile(
+    r"(?:\bnot|\bnever|n['’]t)\s+(?:\w+\s+)?(?:need|require|want)", re.IGNORECASE
+)
+# "whether" is the shopper's question unless the sources are what is denied: "the listing
+# does not say whether it can provide 100W" is a finding about the product.
+_WHETHER = re.compile(r"\bwhether\b", re.IGNORECASE)
+_SOURCES_SILENT = re.compile(
+    r"(?:\bnot|\bnever|n['’]t)\s+(?:\w+\s+){0,2}"
+    r"(?:say|state|show|establish|confirm|specif|mention|list|indicat)\w*\s+whether"
+    r"|\b(?:unclear|unknown|uncertain)\s+whether",
     re.IGNORECASE,
 )
+# A listed wattage these words lead into belongs to the shopper's own equipment ("check
+# whether your adapter is 90W"), not to what the monitor delivers.
+_SHOPPERS_EQUIPMENT = re.compile(r"\b(?:if|unless|whether|your)\b", re.IGNORECASE)
+
+
+def _about_the_shopper(lead: str) -> bool:
+    """Whether the words before the required wattage make it the shopper's condition."""
+    if _CONDITION.search(lead) or _NEED_DENIED.search(lead):
+        return True
+    return bool(_WHETHER.search(lead)) and not _SOURCES_SILENT.search(lead)
 
 
 def _product_shortfall(mention, listed: set[float], needed: float | None) -> bool:
@@ -145,7 +163,7 @@ def _product_shortfall(mention, listed: set[float], needed: float | None) -> boo
     return (
         mention.value == needed
         and denies_or_falls_short(mention.lead)
-        and not _SHOPPER_SIDE.search(mention.lead)
+        and not _about_the_shopper(mention.lead)
         and all(watts < needed for watts in listed)
     )
 
@@ -155,7 +173,8 @@ def _settles_charging(
 ) -> bool:
     """Whether a passage citing the listing settles the charging requirement.
 
-    Each wattage is read in its own clause, with the label a colon gives it. The
+    Each wattage is read in its own clause, with the label a colon gives it, and a
+    listed wattage counts only as the monitor's, never as the shopper's equipment. The
     passage settles it by giving a charging wattage the listing states, in a clause
     about what the monitor delivers, beside the required wattage named as a shortfall,
     or where the answer check's saved support for this passage is the listing's own
@@ -168,7 +187,7 @@ def _settles_charging(
     mentions = figure_mentions(text, "watt")
     shortfall = [m for m in mentions if _product_shortfall(m, listed, needed)]
     for mention in mentions:
-        if mention.value not in listed:
+        if mention.value not in listed or _SHOPPERS_EQUIPMENT.search(mention.lead):
             continue
         about_delivery = _DELIVERY.search(mention.clause) or _DELIVERY.search(
             mention.label

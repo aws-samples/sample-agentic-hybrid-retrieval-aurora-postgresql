@@ -259,6 +259,35 @@ def test_the_saved_support_can_tie_a_bare_figure_to_the_listings_charging_line()
     assert answered("The ViewSonic VG2756-4K has 90W [1].").passed
 
 
+#: The whole listing line the answer check may quote, and a quote of its port words alone.
+LISTING_LINE = (
+    "DITCH THE DOCK: Ethernet RJ45 and USB-C connectivity for fast data, audio and video "
+    "transfer, 90W charging over one cable"
+)
+PORT_WORDS = "Ethernet RJ45 and USB-C connectivity"
+
+
+@pytest.mark.parametrize("support", [LISTING_LINE, PORT_WORDS], ids=["line", "ports"])
+def test_a_wattage_for_the_shoppers_adapter_never_settles_charging(support):
+    """Codex round 3: a longer support quote must not supply a conclusion the answer lacks."""
+    check = answered(
+        "Check whether your adapter is 90 W; the ViewSonic VG2756-4K has Ethernet and "
+        "USB-C [1].",
+        support=support,
+    )
+    assert not check.passed and "does not give the charging wattage" in check.detail
+
+
+@pytest.mark.parametrize("support", [LISTING_LINE, PORT_WORDS], ids=["line", "ports"])
+def test_saying_the_listing_does_not_establish_100w_settles_charging(support):
+    """Codex round 3: "does not say whether" is a finding about the product."""
+    check = answered(
+        "The ViewSonic’s listing does not say whether it can provide 100 W of charging [1].",
+        support=support,
+    )
+    assert check.passed, check.detail
+
+
 def test_saved_support_counts_only_when_it_is_the_cited_listings_own_text():
     """A paraphrased support quote is not the listing's charging line."""
     check = answered(
