@@ -73,3 +73,68 @@ def test_nothing_differs_and_deployed_with_this_code_keeps_the_status_step(
 
 def test_nothing_differs_before_lab_3_starts_keeps_the_status_step(monkeypatch, capsys):
     assert _next_line(monkeypatch, capsys) == STATUS
+
+
+def _lab_2_with_kept_todo(repo, code: str | None = None) -> None:
+    """The smallest repair: the starter's two TODO lines stay beside the answer's code."""
+    from scripts.lab_state import LAB2_STARTER, LABS, _replace_block
+
+    path = repo / LABS[2][0]
+    start, end, fixed, _broken = LABS[2][1][0]
+    todo = "\n".join(LAB2_STARTER.splitlines()[:2])
+    path.write_text(
+        _replace_block(path.read_text(), start, end, f"{todo}\n{code or fixed}")
+    )
+
+
+def test_kept_todo_comments_are_reported_as_comment_only_not_as_a_difference(
+    tmp_path, monkeypatch, capsys
+):
+    from shutil import copy2
+
+    from scripts.lab_state import LABS, REPO, lab_diff, lab_source_is_repaired
+
+    for relative_path in {definition[0] for definition in LABS.values()}:
+        (tmp_path / relative_path).parent.mkdir(parents=True, exist_ok=True)
+        copy2(REPO / relative_path, tmp_path / relative_path)
+    _lab_2_with_kept_todo(tmp_path)
+    assert lab_source_is_repaired(2, repo=tmp_path)
+
+    report, differs = lab_diff(2, repo=tmp_path)
+    answer, _ = lab_diff(2, repo=tmp_path, answer=True)
+
+    assert differs
+    assert "only comment lines differ" in report
+    assert "(comment lines only)" in report
+    assert "TODO(Lab 2)" in report
+    assert "where your" not in report
+    assert "Apply:" not in report and "apply-solution" not in report
+    assert "only comment lines differ" in answer
+
+    monkeypatch.setattr("scripts.diff.REPO", tmp_path)
+    monkeypatch.setattr(diff, "report", lambda *a, **k: report)
+    monkeypatch.setattr(diff, "differing_lab", lambda *a, **k: 2)
+    monkeypatch.setattr(diff, "comment_only_difference", lambda lab: True)
+    monkeypatch.setattr("sys.argv", ["diff.py"])
+    assert diff.main() == 0
+    out = capsys.readouterr().out
+    assert "only comment lines differ, so there is nothing to change" in out
+    assert out.rstrip().splitlines()[-1] == STATUS
+
+
+def test_a_different_line_beside_kept_comments_is_still_a_difference(tmp_path):
+    from shutil import copy2
+
+    from scripts.lab_state import LABS, REPO, lab_diff
+
+    for relative_path in {definition[0] for definition in LABS.values()}:
+        (tmp_path / relative_path).parent.mkdir(parents=True, exist_ok=True)
+        copy2(REPO / relative_path, tmp_path / relative_path)
+    _lab_2_with_kept_todo(tmp_path, "SELECT 1.0 / (rrf_k + source_rank)")
+
+    report, differs = lab_diff(2, repo=tmp_path)
+
+    assert differs
+    assert "where your" in report
+    assert "only comment lines differ" not in report
+    assert "Apply:" in report

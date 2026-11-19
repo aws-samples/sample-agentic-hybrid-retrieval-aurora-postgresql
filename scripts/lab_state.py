@@ -357,25 +357,30 @@ def _diff_footer(
     return footer
 
 
-def lab_diff(
-    lab: int, *, repo: Path = REPO, color: bool = False, answer: bool = False
-) -> tuple[str, bool]:
-    """Show where a lab's file differs from the reference answer, in plain words.
+def _comment_prefix(exercise: str) -> str:
+    return "#" if exercise.endswith(".py") else "--"
 
-    The marked blocks are compared with the reference answer, and the lines outside
-    them with the original file, so an edit that drifted outside the markers shows
-    too. Each difference names the line in the participant's file and prints their
-    lines. Only with answer does it print the reference answer's lines as well, so
-    the default report is a hint rather than the solution.
 
-    Args:
-        lab: The lab number.
-        repo: The checkout whose exercise file is read.
-        color: Colour the two versions for a terminal.
-        answer: Also print the reference answer's lines inside the marked blocks.
+def _code_only(lines: list[str], prefix: str) -> list[str]:
+    """The lines that are neither blank nor a whole-line comment, trimmed."""
+    return [
+        line.strip()
+        for line in lines
+        if line.strip() and not line.strip().startswith(prefix)
+    ]
 
-    Returns:
-        The report, and whether the file differs from the reference.
+
+Difference = tuple[str, str, list[str], list[str]]
+
+
+def _diff_groups(
+    lab: int, repo: Path
+) -> tuple[list[Difference], list[Difference], list[Difference]]:
+    """The places a lab file differs: inside the blocks (code, then comment-only) and outside.
+
+    A group inside a block is comment-only when removing blank lines and whole-line
+    comments from both versions leaves the same code, as when a coach keeps the starter's
+    TODO lines beside a correct repair.
     """
     relative_path, blocks = LABS[lab]
     path = repo / relative_path
@@ -399,22 +404,70 @@ def lab_diff(
         inside.extend(
             _plain_differences(expected, yours, numbers, fallback_line=marker_line)
         )
+    prefix = _comment_prefix(relative_path)
+    code = [g for g in inside if _code_only(g[2], prefix) != _code_only(g[3], prefix)]
+    comments = [g for g in inside if g not in code]
     expected_outside, _numbers = _outside_markers(expected_source, blocks)
     yours_outside, numbers = _outside_markers(yours_source, blocks)
     outside = _plain_differences(expected_outside, yours_outside, numbers, outside=True)
-    if not inside and not outside:
+    return code, comments, outside
+
+
+def comment_only_difference(lab: int, *, repo: Path = REPO) -> bool:
+    """Whether the only differences from the reference answer are comment lines in a block."""
+    code, comments, outside = _diff_groups(lab, repo)
+    return bool(comments) and not code and not outside
+
+
+def lab_diff(
+    lab: int, *, repo: Path = REPO, color: bool = False, answer: bool = False
+) -> tuple[str, bool]:
+    """Show where a lab's file differs from the reference answer, in plain words.
+
+    The marked blocks are compared with the reference answer, and the lines outside
+    them with the original file, so an edit that drifted outside the markers shows
+    too. Each difference names the line in the participant's file and prints their
+    lines. Only with answer does it print the reference answer's lines as well, so
+    the default report is a hint rather than the solution. Differences that are only
+    comment lines inside a block are reported as such, apart from differing code.
+
+    Args:
+        lab: The lab number.
+        repo: The checkout whose exercise file is read.
+        color: Colour the two versions for a terminal.
+        answer: Also print the reference answer's lines inside the marked blocks.
+
+    Returns:
+        The report, and whether the file differs from the reference.
+    """
+    relative_path = LABS[lab][0]
+    code, comments, outside = _diff_groups(lab, repo)
+    if not code and not comments and not outside:
         matches = (
             f"Lab {lab}: {relative_path} matches the reference answer, inside and "
             "outside the markers."
         )
         return matches, False
+    if comments and not code and not outside:
+        headline = (
+            f"Lab {lab}: the code in your marked block in {relative_path} matches the "
+            "reference answer; only comment lines differ."
+        )
+    else:
+        headline = (
+            f"Lab {lab}: where your {relative_path} differs from the reference answer."
+        )
     report = [
-        f"Lab {lab}: where your {relative_path} differs from the reference answer.",
+        headline,
         "Only those lines are shown; nothing was changed."
         if answer
         else "Only those lines are shown, without the answer; nothing was changed.",
     ]
-    for where, label, expected_lines, theirs in [*inside, *outside]:
+    for where, label, expected_lines, theirs in [
+        *code,
+        *((f"{w} (comment lines only)", *rest) for w, *rest in comments),
+        *outside,
+    ]:
         hidden = label == "Reference answer" and not answer
         versions = [] if hidden else [(label, expected_lines, "32")]
         versions.append(("Your file", theirs, "33"))
@@ -423,12 +476,24 @@ def lab_diff(
         ]
         indent = min((len(line) - len(line.lstrip()) for line in shown), default=0)
         report += ["", f"{where}:"]
-        for name, lines, code in versions:
+        for name, lines, code_ in versions:
             report.append(f"  {name}:" if lines else f"  {name}: (nothing here)")
-            report += [paint(f"      {line[indent:]}", code, color) for line in lines]
+            report += [paint(f"      {line[indent:]}", code_, color) for line in lines]
     footer = _diff_footer(
-        lab, block_differs=bool(inside), outside_differs=bool(outside), answer=answer
+        lab, block_differs=bool(code), outside_differs=bool(outside), answer=answer
     )
+    if comments and not code and not outside:
+        footer = [
+            "Comments do not change what runs, so nothing needs to change.",
+            *(
+                [
+                    "To see the reference answer for these lines:",
+                    f"{COMMAND_INDENT}{DIFF_ANSWER}",
+                ]
+                if not answer
+                else []
+            ),
+        ]
     return "\n".join([*report, "", *footer]), True
 
 
