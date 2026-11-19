@@ -28,6 +28,9 @@ from scripts.lab_state import (
 )
 from service.participant_commands import advance_command, start_command
 
+#: The shipped apply step, kept before the `aurora` fixture substitutes it.
+REAL_APPLY = lab_entry._apply
+
 PARTICIPANT_LAB_2 = "SELECT 1.0 / (rrf_k + source_rank)"
 
 
@@ -1677,3 +1680,94 @@ def test_validate_and_advance_report_the_same_marker_problem(repo, aurora) -> No
     )
     with pytest.raises(lab_entry.LabEntryError, match="LAB1_EDIT_END' is missing"):
         lab_entry.advance(1, api_url="http://api", dsn="aurora", repo=repo)
+
+
+@pytest.fixture
+def submitted_sql(monkeypatch) -> list[str]:
+    """The SQL the shipped `_apply` would send Aurora, recorded instead of sent."""
+    sent: list[str] = []
+    monkeypatch.setattr(lab_entry, "_apply", REAL_APPLY)
+    monkeypatch.setattr(
+        "service.search_sql.search_sql",
+        lambda root: "\n".join((root / LABS[lab][0]).read_text() for lab in (1, 2)),
+    )
+    monkeypatch.setattr(
+        "service.lab_validation_receipt.participant_sql_digest", lambda _root: "d"
+    )
+    monkeypatch.setattr("psycopg.connect", lambda *a, **k: _Recording([]))
+    monkeypatch.setattr(
+        "scripts.apply_search_functions.apply",
+        lambda _connection, source, _digest: sent.append(source),
+    )
+    monkeypatch.setattr(
+        "scripts.configure_retrieval_database.configure", lambda _d: None
+    )
+    return sent
+
+
+def test_a_reset_after_a_refused_apply_restores_and_applies_the_whole_starting_file(
+    repo, aurora, apply_command, submitted_sql
+) -> None:
+    """The guide's reset discards an outside-block default as well as the block."""
+    from scripts.lab_state import outside_block_problem
+
+    set_lab_state(1, solved=False, repo=repo)
+    starting = _seam_file(1, repo).read_bytes()
+    lab_2 = _seam_file(2, repo).read_bytes()
+    path = _seam_file(1, repo)
+    path.write_text(
+        path.read_text().replace(
+            "result_limit integer DEFAULT 50", "result_limit integer DEFAULT 1"
+        )
+    )
+    run, writes = apply_command
+    with pytest.raises(SystemExit):
+        run()
+    assert writes == []
+
+    said: list[str] = []
+    lab_entry.restart(1, api_url="http://api", dsn="aurora", repo=repo, say=said.append)
+
+    assert _seam_file(1, repo).read_bytes() == starting
+    assert outside_block_problem(1, repo=repo) is None
+    assert _seam_file(2, repo).read_bytes() == lab_2
+    assert len(submitted_sql) == 1
+    assert "result_limit integer DEFAULT 50" in submitted_sql[0]
+    assert "result_limit integer DEFAULT 1," not in submitted_sql[0]
+    assert "Discarded your Lab 1 edits." in said
+
+
+def test_a_lab_1_reset_refused_by_lab_2s_file_keeps_lab_1s_work(
+    repo, aurora, submitted_sql
+) -> None:
+    """Nothing is discarded when the apply that follows the reset would be refused."""
+    record = lab_entry.record_path(1, repo)
+    record.parent.mkdir(parents=True, exist_ok=True)
+    record.write_text("{}")
+    lab_1 = _seam_file(1, repo).read_bytes()
+    lab_2 = _seam_file(2, repo)
+    lab_2.write_text(lab_2.read_text().replace("IMMUTABLE", "VOLATILE", 1))
+
+    with pytest.raises(lab_entry.LabEntryError) as refused:
+        lab_entry.restart(1, api_url="http://api", dsn="aurora", repo=repo, say=print)
+
+    message = str(refused.value)
+    assert "Lab 2" in message and "IMMUTABLE" in message
+    assert "Your Lab 1 edits are unchanged" in message and "Next:" in message
+    assert _seam_file(1, repo).read_bytes() == lab_1
+    assert record.exists()
+    assert submitted_sql == []
+
+
+def test_every_entry_apply_refuses_sql_changed_outside_a_block(
+    repo, submitted_sql
+) -> None:
+    """Lab 2's start and a hand-off's catch-up apply go through the same guard."""
+    _default_one_in_the_header(repo)
+
+    with pytest.raises(lab_entry.LabEntryError) as refused:
+        lab_entry._apply("aurora", repo, print)
+
+    message = str(refused.value)
+    assert "Nothing was applied" in message and "Next:" in message
+    assert submitted_sql == []

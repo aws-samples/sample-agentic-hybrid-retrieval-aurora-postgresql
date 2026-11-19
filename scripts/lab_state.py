@@ -539,16 +539,28 @@ def set_lab_state(
     *,
     solved: bool,
     repo: Path = REPO,
+    whole_file: bool = False,
 ) -> Path:
+    """Write one lab file's marked blocks as the reference answer or the starting code.
+
+    Args:
+        lab: The lab whose exercise file changes.
+        solved: The reference answer when true, the starting code when false.
+        repo: The checkout that holds the exercise file.
+        whole_file: Rebuild the file from the reference copy, so an edit outside the
+            blocks goes too. A reset asks for it; the other callers keep those lines.
+    """
     relative_path, blocks = LABS[lab]
     path = repo / relative_path
     _repair_reference_markers(Path(relative_path), blocks)
     if not path.exists():
         _put_back_lab_folder(Path(relative_path), repo)
     source = path.read_text(encoding="utf-8") if path.exists() else ""
-    if not all(_markers_intact(source, start, end) for start, end, _, _ in blocks):
-        # A deleted file, or a deleted or repeated marker that hides where the block
-        # is, has reset as its way out, so start from the reference file.
+    if whole_file or not all(
+        _markers_intact(source, start, end) for start, end, _, _ in blocks
+    ):
+        # A reset, a deleted file, or a deleted or repeated marker that hides where the
+        # block is: start from the reference file, which the shipped file matches.
         source = shipped_text(solution_path(Path(relative_path)), REPO)
     for start, end, fixed, broken in blocks:
         source = _replace_block(source, start, end, fixed if solved else broken)
@@ -2006,9 +2018,9 @@ def _run_action(args: argparse.Namespace) -> int:
             raise SystemExit(str(error)) from error
     if args.action == "reset" and args.source_only:
         # Provisioning installs Lab 1's fault before the API exists, then
-        # applies it itself. Only the named lab's seam changes.
+        # applies it itself. Only the named lab's file changes.
         assert_workshop_database(args.database_url)
-        path = set_lab_state(args.lab, solved=False)
+        path = set_lab_state(args.lab, solved=False, whole_file=True)
         print(f"Lab {args.lab}: RESET ({path.relative_to(REPO)})")
         return 0
     if args.action in {"start", "advance", "reset"}:

@@ -52,6 +52,8 @@ from service.participant_commands import (
 PREREQUISITES: dict[int, tuple[int, ...]] = {1: (), 2: (1,), 3: (1, 2)}
 #: The labs whose fault is installed when they start rather than at boot.
 FAULT_AT_ENTRY = frozenset({2, 3})
+#: The labs whose saved files Aurora runs; every apply sends both.
+SQL_LABS = (1, 2)
 RECORD_VERSION = 1
 
 Say = Callable[[str], None]
@@ -523,6 +525,15 @@ def _apply(dsn: str | None, repo: Path, say: Say) -> str:
     from service.lab_validation_receipt import participant_sql_digest
     from service.search_sql import search_sql
 
+    for lab in SQL_LABS:
+        # Before the first write, as the guide's apply command checks: SQL outside a
+        # marked block is not the exercise.
+        if changed := outside_block_problem(lab, repo=repo):
+            raise LabEntryError(
+                f"{changed.finding}\n"
+                "Nothing was applied: Aurora still runs its previous functions.\n"
+                f"Next: {changed.next_step}"
+            )
     digest = participant_sql_digest(repo)
     with psycopg.connect(dsn, connect_timeout=15) as connection:
         apply(connection, search_sql(repo), digest)
@@ -687,13 +698,21 @@ def restart(
     assert_workshop_database(dsn)
     with _connect(dsn) as connection:
         problems = unmet_prerequisites(lab, connection, repo)
+    # A SQL lab's reset applies both SQL files, so the other one must apply as it is;
+    # this lab's own file is rebuilt whole below.
+    for other in SQL_LABS if lab in SQL_LABS else ():
+        changed = outside_block_problem(other, repo=repo) if other != lab else None
+        if changed is not None and changed not in problems:
+            problems.append(changed)
     if problems:
         raise LabEntryError(
             explain_problems(
-                f"Lab {lab} cannot restart yet.", problems, reset_command(lab)
+                f"Lab {lab} cannot restart yet. Your Lab {lab} edits are unchanged.",
+                problems,
+                reset_command(lab),
             )
         )
-    set_lab_state(lab, solved=False, repo=repo)
+    set_lab_state(lab, solved=False, repo=repo, whole_file=True)
     for path in (record_path(lab, repo), completion_path(lab, repo)):
         path.unlink(missing_ok=True)
     if lab == 1:

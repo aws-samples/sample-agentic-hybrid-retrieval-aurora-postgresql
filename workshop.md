@@ -57,8 +57,9 @@ Each lab opens with its time and a link to **Running behind**. That section's
 collapsed **Use the reference answer (replaces your exercise)** command runs
 `uv run python scripts/lab_state.py finish --lab N`: it installs the answer,
 applies or deploys it and runs the checks and handoff. Recovery follows the
-participant's proof. `reset --lab N` restarts a lab; it also puts each marker's line back,
-so code a paste left on one (such as `)` before `# LAB3_EDIT_END`) cannot keep the file broken.
+participant's proof. `reset --lab N` restarts a lab from its whole starting file, so neither
+code a paste left on a marker line (such as `)` before `# LAB3_EDIT_END`) nor an edit outside
+the markers, such as a changed parameter default, survives it.
 Getting started's **Know hybrid search already? Start at a later lab** box offers `skip-to --lab N`.
 Lab 3 recovery still needs setup and 100W runs the participant starts and checks.
 
