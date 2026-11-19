@@ -429,7 +429,11 @@ Resources:
             . /etc/mosaic-own-account.env
             set +a
             # Quote each argument for the shell that make runs; double any $ for make itself.
-            args=$(printf '%q ' "$@" | sed 's/\$/$$/g')
+            # With no arguments printf still prints one empty quoted word, so skip it.
+            args=
+            if [ "$#" -gt 0 ]; then
+              args=$(printf '%q ' "$@" | sed 's/\$/$$/g')
+            fi
             before=$(stat -c %s "$LOG" 2>/dev/null || echo 0)
             nohup setsid -w make catalog-bundle ASSETS_DIR=.local/own-account/assets \
               "CATALOG_BUNDLE_ARGS=$args" >>"$LOG" 2>&1 </dev/null &

@@ -1594,6 +1594,51 @@ def test_the_wrapper_quotes_arguments_and_checks_the_child_started():
     assert motd.splitlines()[2].strip() == "mosaic-catalog-bundle"
 
 
+def _wrapper_argument_lines() -> str:
+    text = user_data()
+    wrapper = text[text.index("cat <<'WRAPPER'") : text.index("\nWRAPPER")]
+    return wrapper[
+        wrapper.index("\n# Quote each argument") : wrapper.index("\nbefore=")
+    ]
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        [],
+        ["--regions", "us-east-1", "us-east-2", "us-west-2"],
+        ["--from", "embed", "--work-dir", "dir with $HOME and 'quotes'"],
+    ],
+    ids=["no-arguments", "three-regions", "shell-and-make-characters"],
+)
+def test_the_wrapper_forwards_exactly_its_arguments_through_make(tmp_path, arguments):
+    """The command the guide shows, `mosaic-catalog-bundle`, reaches the build's parser."""
+    from scripts.catalog import build_bundle
+
+    recorder = tmp_path / "uv"
+    recorder.write_text(
+        f"#!{sys.executable}\nimport json, sys\nprint(json.dumps(sys.argv[1:]))\n"
+    )
+    recorder.chmod(0o755)
+    script = (
+        f"set -Eeuo pipefail\n{_wrapper_argument_lines()}\n"
+        'exec make -s -C "$REPO" catalog-bundle ASSETS_DIR=assets '
+        '"CATALOG_BUNDLE_ARGS=$args" "UV=$RECORDER"\n'
+    )
+    done = subprocess.run(
+        ["bash", "-c", script, "mosaic-catalog-bundle", *arguments],
+        env={"PATH": "/usr/bin:/bin", "REPO": str(ROOT), "RECORDER": str(recorder)},
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    argv = json.loads(done.stdout.splitlines()[-1])
+    forwarded = argv[argv.index("scripts/catalog/build_bundle.py") + 1 :]
+
+    assert forwarded == ["--assets-dir", "assets", *arguments]
+    build_bundle.parse_args(forwarded)
+
+
 # ---------------------------------------------------------------- network capacity
 class FakeAccount:
     """EC2 usage plus Service Quotas values for the VPC and Elastic IP limits."""
