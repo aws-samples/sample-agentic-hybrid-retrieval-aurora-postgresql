@@ -1216,3 +1216,138 @@ def test_the_applied_check_reads_a_different_saved_expression_as_not_applied(
 
     assert problem is not None
     assert "different LAB2_EDIT block" in problem.finding
+
+
+def _limit_one_outside_the_block(repo: Path) -> None:
+    """A valid-looking edit to the function's final LIMIT, outside LAB1_EDIT."""
+    path = _seam_file(1, repo)
+    path.write_text(
+        path.read_text().replace("LIMIT greatest(result_limit, 1)", "LIMIT 1")
+    )
+    assert lab_source_is_repaired(1, repo=repo)
+
+
+@pytest.fixture
+def lab_1_proved(repo, installed_sql, monkeypatch):
+    """Lab 1 handed off with the reference function; Aurora runs that function."""
+    monkeypatch.setattr(
+        "scripts.prove_lab.prove_lab_1",
+        lambda _url, events, *, rerun: (
+            installed_sql.order.append("prove-1") or events.append("e1") or ["found"]
+        ),
+    )
+    lab_entry.advance(1, api_url="http://api", dsn="aurora", repo=repo)
+    installed_sql.order.clear()
+    assert lab_entry.read_completion(1, repo).state == "valid"
+    return installed_sql
+
+
+def test_a_comment_edit_outside_the_block_keeps_lab_1s_proof(repo, lab_1_proved):
+    path = _seam_file(1, repo)
+    path.write_text(path.read_text() + "\n-- a note of mine\n")
+
+    assert lab_entry.read_completion(1, repo).state == "valid"
+
+
+def test_an_edit_outside_the_block_ends_the_proof_and_is_not_the_installed_sql(
+    repo, lab_1_proved
+) -> None:
+    from scripts import lab_state
+
+    _limit_one_outside_the_block(repo)
+
+    assert lab_entry.read_completion(1, repo).state == "other_sql"
+    assert lab_state.status_line(1, repo=repo) != "Lab 1: SOLVED"
+    problem = lab_state.applied_problem(
+        1, lab_state.read_applied_sql_state(1, lab_1_proved, repo=repo)
+    )
+    assert problem is not None
+    assert "a change outside the marked block counts" in problem.finding
+
+    lab_1_proved.apply_saved_files()
+    applied = lab_state.read_applied_sql_state(1, lab_1_proved, repo=repo)
+    assert applied.state == "applied"
+    assert lab_entry.read_completion(1, repo).state == "other_sql", (
+        "applying the edit is not proving it"
+    )
+
+
+def test_advance_applies_an_out_of_block_edit_before_it_proves_it(
+    repo, lab_1_proved
+) -> None:
+    _limit_one_outside_the_block(repo)
+
+    lab_entry.advance(1, api_url="http://api", dsn="aurora", repo=repo)
+
+    assert lab_1_proved.order[:2] == ["apply", "prove-1"]
+    assert "LIMIT 1" in lab_1_proved.installed[1]
+    assert lab_entry.read_completion(1, repo).state == "valid"
+
+
+def test_lab_2s_deliberate_fault_leaves_lab_1s_proof_alone(repo, lab_1_proved):
+    set_lab_state(2, solved=False, repo=repo)
+
+    assert lab_entry.read_completion(1, repo).state == "valid"
+
+
+def _damage_handoff(repo: Path, **changes) -> None:
+    path = repo / ".local/lab-1/handoff.json"
+    saved = json.loads(path.read_text())
+    saved.update(changes)
+    path.write_text(json.dumps(saved))
+
+
+@pytest.mark.parametrize(
+    "damage",
+    [
+        {"checks": [], "search_event_ids": []},
+        {"search_event_ids": [""]},
+        {"checks": ["found", 3]},
+    ],
+    ids=["empty", "blank-event-id", "non-text-check"],
+)
+def test_a_damaged_handoff_is_not_reused_and_writes_no_receipt(
+    repo, lab_1_proved, damage
+) -> None:
+    set_lab_state(2, solved=False, repo=repo)
+    lab_1_proved.installed[2] = _seam_file(2, repo).read_text()
+    completion = lab_entry.completion_path(1, repo)
+    completion.unlink()
+    _damage_handoff(repo, **damage)
+
+    with pytest.raises(lab_entry.LabEntryError) as refused:
+        lab_entry.advance(1, api_url="http://api", dsn="aurora", repo=repo)
+
+    message = str(refused.value)
+    assert "its saved hand-off evidence is incomplete" in message
+    assert "continue in the Lab 2 guide" in message
+    assert not completion.exists()
+    assert lab_entry.lab_1_waits_for_lab_2("aurora", repo)
+    assert not lab_entry.lab_1_handoff_restores_proof("aurora", repo)
+
+
+def test_a_valid_handoff_restores_the_receipt_without_a_new_search(
+    repo, lab_1_proved
+) -> None:
+    set_lab_state(2, solved=False, repo=repo)
+    lab_1_proved.installed[2] = _seam_file(2, repo).read_text()
+    lab_entry.completion_path(1, repo).write_text("")
+
+    assert lab_entry.lab_1_handoff_restores_proof("aurora", repo)
+    lab_entry.advance(1, api_url="http://api", dsn="aurora", repo=repo)
+
+    assert "prove-1" not in lab_1_proved.order
+    assert lab_entry.read_completion(1, repo).state == "valid"
+
+
+def test_a_damaged_handoff_is_replaced_by_a_live_proof_once_lab_2_cannot_hide_lab_1(
+    repo, lab_1_proved
+) -> None:
+    lab_entry.completion_path(1, repo).unlink()
+    _damage_handoff(repo, checks=[], search_event_ids=[])
+
+    lab_entry.advance(1, api_url="http://api", dsn="aurora", repo=repo)
+
+    assert "prove-1" in lab_1_proved.order
+    assert lab_entry.read_completion(1, repo).state == "valid"
+    assert lab_entry._read_handoff(repo) is not None

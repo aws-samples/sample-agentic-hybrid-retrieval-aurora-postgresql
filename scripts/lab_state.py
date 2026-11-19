@@ -1013,6 +1013,19 @@ def _marked_tokens(source: str, lab: int) -> list[str] | None:
     return _sql_tokens(source.split(start, 1)[1].split(end, 1)[0])
 
 
+_BODY = re.compile(r"\$(\w*)\$(.*)\$\1\$", re.DOTALL)
+
+
+def _body_tokens(source: str) -> list[str] | None:
+    """The tokens of a SQL function's dollar-quoted body, in the file or as installed.
+
+    Aurora keeps the body as written, so the whole body, not only the marked block,
+    can be compared: an edit elsewhere in it, such as a LIMIT, is not the installed SQL.
+    """
+    found = _BODY.search(source)
+    return _sql_tokens(found.group(2)) if found else None
+
+
 def _lab_1_database_state(connection: Any, repo: Path) -> LabDatabaseState:
     schema = search_schema()
     function = f"{schema}.{FUSED_FUNCTION}"
@@ -1035,6 +1048,15 @@ def _lab_1_database_state(connection: Any, repo: Path) -> LabDatabaseState:
             detail=(
                 "Aurora runs a different LAB1_EDIT block from the one saved in "
                 f"{path}. Saving changes only the file; applying it updates Aurora."
+            ),
+        )
+    if _body_tokens(definition) != _body_tokens(saved):
+        return LabDatabaseState(
+            state="stale",
+            detail=(
+                "Aurora runs a different function body from the one saved in "
+                f"{path}; a change outside the marked block counts. Saving changes "
+                "only the file; applying it updates Aurora."
             ),
         )
     problem = lab1_contract_problem(definition, schema=schema)
@@ -1084,6 +1106,14 @@ def _lab_2_database_state(connection: Any, repo: Path) -> LabDatabaseState:
             detail=(
                 "Aurora runs a different LAB2_EDIT block from the one saved in "
                 f"{path}. Saving changes only the file; applying it updates Aurora."
+            ),
+        )
+    if _body_tokens(definition) != _body_tokens(saved):
+        return LabDatabaseState(
+            state="stale",
+            detail=(
+                "Aurora runs a different function body from the one saved in "
+                f"{path}; a change outside the marked block counts. Saving changes only the file; applying it updates Aurora."
             ),
         )
     row = connection.execute(
