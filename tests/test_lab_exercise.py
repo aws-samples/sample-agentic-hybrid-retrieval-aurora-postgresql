@@ -119,7 +119,7 @@ def test_lab2_grader_accepts_matching_saved_results(monkeypatch):
     assert report["saved_run"]["target_saved"]
 
 
-def _grade_lab2_saved_run(monkeypatch, saved, lab_1=None):
+def _grade_lab2_saved_run(monkeypatch, saved, lab_1=None, lab_2=None):
     connection = MagicMock()
     cursor = (
         connection.__enter__.return_value.cursor.return_value.__enter__.return_value
@@ -133,6 +133,7 @@ def _grade_lab2_saved_run(monkeypatch, saved, lab_1=None):
     monkeypatch.setattr(lab_exercise, "_lab2_arms", lambda *a: {"fts": {1: 1, 2: 2}})
     monkeypatch.setattr(lab_exercise, "_saved_run", lambda *a: saved)
     monkeypatch.setattr(lab_exercise, "_lab_1_problem", lambda _connection: lab_1)
+    monkeypatch.setattr(lab_exercise, "_lab_2_problem", lambda _connection: lab_2)
     return lab_exercise.grade_lab2(
         {"lab_rrf_k": "60", "lab_target": "2", "lab_fused_limit": "2"}
     )
@@ -669,3 +670,92 @@ def test_lab2_grade_blames_the_saved_run_only_when_lab_1_is_running(monkeypatch)
 
     assert "blocked_by_lab" not in report
     assert any("disagree" in failure for failure in report["failures"])
+
+
+class _InstalledLab2:
+    """Aurora running a given Lab 2 function and answering the applied-state reads."""
+
+    def __init__(self, definition: str) -> None:
+        self.definition = definition
+
+    def execute(self, sql, params=None):
+        from types import SimpleNamespace
+
+        from scripts.checks.retrieval_profile import load_profile
+
+        rrf_k = load_profile().rrf_k
+        if "pg_get_functiondef" in sql:
+            row = {"definition": self.definition}
+        else:
+            row = {
+                "first_contribution": 1 / (rrf_k + 1),
+                "second_contribution": 1 / (rrf_k + 2),
+            }
+        return SimpleNamespace(fetchone=lambda: row)
+
+
+@pytest.fixture
+def lab_2_checkout(tmp_path, monkeypatch):
+    from shutil import copy2
+
+    from scripts.lab_state import LABS, REPO
+
+    for relative_path in {definition[0] for definition in LABS.values()}:
+        (tmp_path / relative_path).parent.mkdir(parents=True, exist_ok=True)
+        copy2(REPO / relative_path, tmp_path / relative_path)
+    monkeypatch.setattr(lab_exercise, "REPO", tmp_path)
+    return tmp_path
+
+
+def test_the_installed_file_is_the_one_a_grade_may_pass(lab_2_checkout):
+    from scripts.lab_state import LABS
+
+    installed = _InstalledLab2((lab_2_checkout / LABS[2][0]).read_text())
+
+    assert lab_exercise._lab_2_problem(installed) is None
+
+
+@pytest.mark.parametrize(
+    ("old", "new"),
+    [
+        ("IMMUTABLE", "VOLATILE"),
+        ("RETURNS double precision", "RETURNS float8"),
+        (
+            "rrf_k::double precision\n        + source_rank",
+            "rrf_k::double precision\n        + 0 + source_rank",
+        ),
+    ],
+    ids=["volatility", "return-type", "block-body"],
+)
+def test_an_editor_file_that_is_not_what_aurora_runs_cannot_pass_a_grade(
+    lab_2_checkout, monkeypatch, old, new
+):
+    """Header-only and body edits made after the apply: nothing grades them as passing."""
+    from scripts.lab_state import LABS
+
+    path = lab_2_checkout / LABS[2][0]
+    installed = _InstalledLab2(path.read_text())
+    assert old in path.read_text()
+    path.write_text(path.read_text().replace(old, new, 1))
+
+    problem = lab_exercise._lab_2_problem(installed)
+
+    assert problem is not None
+    report = _grade_lab2_saved_run(monkeypatch, {1: 1 / 61, 2: 1 / 62}, lab_2=problem)
+    assert report["failures"], "a stale file is never a passing grade"
+    assert "not this file" in report["failures"][-1]
+    assert report["blocked_by_lab"] == 2
+
+
+def test_the_stale_file_grade_names_apply_then_send_then_grade(capsys):
+    from service.participant_commands import (
+        APPLY_SQL,
+        grade_exercise_command,
+        repeat_request_command,
+    )
+
+    lab_exercise._grade_next(2, False, None, 2)
+
+    out = capsys.readouterr().out
+    steps = [APPLY_SQL, repeat_request_command(2), grade_exercise_command(2)]
+    assert [out.index(step) for step in steps] == sorted(out.index(s) for s in steps)

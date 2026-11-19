@@ -463,6 +463,26 @@ def _saved_run(cur: Any, values: dict[str, str]) -> dict[int, float]:
     return {row["product_id"]: row["score"] for row in cur.fetchall()}
 
 
+def _lab_2_problem(connection: Any) -> lab_state.LabProblem | None:
+    """Why the saved Lab 2 file is not the SQL Aurora runs, or None when it is.
+
+    The grade reads what Aurora ran, so a passing grade of the current file needs that
+    file to be the installed one, body and parameters included.
+    """
+    return lab_state.source_problem(2, repo=REPO) or lab_state.applied_problem(
+        2, lab_state.read_applied_sql_state(2, connection, repo=REPO)
+    )
+
+
+def _lab_2_not_running(problem: lab_state.LabProblem) -> str:
+    """A failure that says the saved file is not what the grade measured, and the way on."""
+    return (
+        f"{problem.finding} The grade measured the SQL Aurora runs, not this file, so "
+        "it cannot pass for it. Apply your saved file, repeat the request so the saved "
+        "run comes from it, then check again"
+    )
+
+
 def _lab_1_problem(connection: Any) -> lab_state.LabProblem | None:
     """Why Lab 1's repair is not running in Aurora, or None when it is."""
     return lab_state.source_problem(1, repo=REPO) or lab_state.applied_problem(
@@ -511,6 +531,7 @@ def grade_lab2(values: dict[str, str]) -> dict[str, Any]:
                 }
             )
         saved = _saved_run(cur, values)
+        not_running = _lab_2_problem(connection)
         connection.rollback()
     truth = dict(_fuse(arms, configured))
     report["arms"] = {name: len(ranks) for name, ranks in arms.items()}
@@ -555,6 +576,10 @@ def grade_lab2(values: dict[str, str]) -> dict[str, Any]:
             report["failures"] = [*own_failures, _lab_1_blocks_the_grade(lab_1, rerun)]
             if not own_failures:
                 report["blocked_by_lab"] = 1
+    if not_running is not None:
+        report["failures"].append(_lab_2_not_running(not_running))
+        if not own_failures:
+            report["blocked_by_lab"] = 2
     report["cutoff"] = cutoff
     return report
 
@@ -796,6 +821,14 @@ def _grade_next(
             next_step(
                 "see what reranking changes, as the guide's next section does:",
                 RERANK_OFF_ON,
+            )
+        elif blocked_by == 2:
+            next_step(
+                "apply your saved Lab 2 file, repeat the request so the saved run comes "
+                "from it, then grade again:",
+                APPLY_SQL,
+                repeat_request_command(2),
+                grade_exercise_command(2),
             )
         elif blocked_by == 1:
             next_step(
