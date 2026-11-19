@@ -581,3 +581,25 @@ def test_an_empty_database_setting_names_the_prepared_terminal(
         "Lab 3 exercise: CANNOT GRADE - DATABASE_URL is empty in this terminal"
     )
     assert "open a new terminal from the Terminal menu" in out and workspace == []
+
+
+def test_a_grade_before_lab_3_starts_names_the_start_not_the_questions(
+    monkeypatch, capsys, workspace
+) -> None:
+    """Before the start the shipped reference agent answers, so no run would count."""
+    from scripts.lab_entry import entry_command
+    from service.participant_commands import ask_setup_command
+
+    monkeypatch.setattr(
+        "service.agent_deploys.lab_3_started_at", lambda _root=None: None
+    )
+    _turns(monkeypatch, [_run(5, "grounded")])
+    monkeypatch.setattr(sys, "argv", ["grade_setup_run.py"])
+
+    assert grade_setup_run.main() == 2
+
+    out = capsys.readouterr().out
+    assert out.startswith("Lab 3 exercise: CANNOT GRADE - Lab 3 has not started")
+    assert entry_command(3, grade_setup_run.ROOT) in out
+    assert ask_setup_command() not in out
+    assert workspace == []

@@ -185,6 +185,27 @@ def _pick_run() -> SetupRunPick:
     return pick
 
 
+def _not_started() -> int:
+    """Say that Lab 3 has not started, so no run can count yet, and how to start it."""
+    from scripts.lab_entry import entry_command
+
+    print(
+        verdict(
+            fill_words(
+                "Lab 3 exercise: CANNOT GRADE - Lab 3 has not started, so no setup run "
+                "counts yet: until it starts, the reference Retrieval agent the workshop "
+                "ships answers, not yours.",
+                100,
+            )
+        )
+    )
+    next_step(
+        "start Lab 3; it installs the Retrieval agent's starting code:",
+        entry_command(3, ROOT),
+    )
+    return 2
+
+
 @tidy
 def main() -> int:
     load_dotenv(ROOT / ".env")
@@ -199,7 +220,9 @@ def main() -> int:
         # A named run is graded against the same start, so an unreadable one stops both.
         from service.agent_deploys import lab_3_started_at
 
-        lab_3_started_at(ROOT)
+        started_at = lab_3_started_at(ROOT)
+        if started_at is None and run_id is None:
+            return _not_started()
         if run_id is None:
             pick = _pick_run()
             if pick.run is None:
