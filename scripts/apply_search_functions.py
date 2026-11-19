@@ -17,6 +17,7 @@ from scripts.lab_state import (
     fault_untouched,
     is_environment_fault,
     missing_file_problem,
+    outside_block_problem,
 )
 from scripts.terminal_text import GREEN, next_on_failure, next_step, tidy, tint
 from service.catalog_runtime import active_dataset, search_schema
@@ -266,6 +267,14 @@ def _apply_and_configure() -> None:
     for lab in (1, 2):
         if missing := missing_file_problem(lab, ROOT):
             raise SystemExit(missing.line)
+    for lab in (1, 2):
+        # Before the first write: SQL outside the marked block is not the exercise.
+        if changed := outside_block_problem(lab, repo=ROOT):
+            raise SystemExit(
+                f"{changed.finding}\n"
+                "Nothing was applied: Aurora still runs its previous functions.\n"
+                f"Next: {changed.next_step}"
+            )
     dsn = os.getenv("DATABASE_URL")
     source = search_sql(ROOT)
     try:

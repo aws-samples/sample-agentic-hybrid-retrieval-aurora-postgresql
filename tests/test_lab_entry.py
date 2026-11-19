@@ -1385,7 +1385,10 @@ def test_a_header_default_changed_outside_the_block_is_refused_with_the_diff_ste
 
     assert problem is not None
     assert "changed outside the marked block" in problem.finding
-    assert f"run {DIFF}" in problem.next_step and APPLY_SQL in problem.next_step
+    assert "result_limit integer DEFAULT 50" in problem.finding
+    assert "yours has `result_limit integer DEFAULT 1" in problem.finding
+    assert "restore those lines" in problem.next_step
+    assert APPLY_SQL in problem.next_step and DIFF not in problem.next_step
     with pytest.raises(lab_entry.LabEntryError) as refused:
         lab_entry.advance(1, api_url="http://api", dsn="aurora", repo=repo)
     assert "changed outside the marked block" in str(refused.value)
@@ -1393,21 +1396,24 @@ def test_a_header_default_changed_outside_the_block_is_refused_with_the_diff_ste
     assert lab_entry.read_completion(1, repo).state == "other_sql"
 
 
-def test_status_next_names_the_diff_step_for_an_edit_outside_the_block(
+def test_status_next_names_the_line_and_the_apply_step_for_an_edit_outside_the_block(
     repo, lab_1_proved, capsys
 ) -> None:
     from scripts import lab_state
-    from service.participant_commands import APPLY_SQL, DIFF
+    from service.participant_commands import APPLY_SQL
 
-    _limit_one_outside_the_block(repo)
+    _default_one_in_the_header(repo)
     lab_1_proved.apply_saved_files()
-    line = "Lab 1: APPLIED, NOT YET PROVED"
 
-    lab_state._status_next([line, "Lab 2: NOT YET", "Lab 3: NOT YET"], repo)
+    lab_state._status_next(
+        ["Lab 1: APPLIED, NOT YET PROVED", "Lab 2: NOT YET", "Lab 3: NOT YET"], repo
+    )
 
     out = capsys.readouterr().out
     assert "changed outside the marked block" in out
-    assert out.index(DIFF) < out.index(APPLY_SQL)
+    assert "result_limit integer DEFAULT 50" in out
+    assert out.rstrip().splitlines()[-1] == APPLY_SQL
+    assert "reset" not in out
 
 
 def test_comments_and_spacing_outside_the_block_are_allowed(repo, lab_1_proved):
@@ -1474,3 +1480,106 @@ def test_the_applied_body_compare_keeps_capitals_in_dollar_quoted_strings() -> N
     assert _body_tokens(saved) == _body_tokens(saved.replace("-- x", ""))
     assert _body_tokens(saved) != _body_tokens(saved.replace("$tag$Sony", "$tag$SONY"))
     assert _body_tokens(saved) != _body_tokens(saved.replace("'A'", "'a'"))
+
+
+def test_installed_defaults_that_differ_are_not_credited_until_applied(
+    repo, lab_1_proved
+) -> None:
+    """The edit is undone in the editor, but Aurora still runs DEFAULT 1.
+
+    The guide's three-argument psql queries take `result_limit` from that default; the
+    body is the same, so only the parameter compare sees it.
+    """
+    from scripts import lab_state
+
+    lab_1_proved.installed[1] = (
+        _seam_file(1, repo)
+        .read_text()
+        .replace("result_limit integer DEFAULT 50", "result_limit integer DEFAULT 1")
+    )
+
+    assert lab_entry.read_completion(1, repo).state == "valid"
+    state = lab_state.read_applied_sql_state(1, lab_1_proved, repo=repo)
+    assert state.state == "stale"
+    assert "`result_limit` is `integer` default 1" in state.detail
+    assert lab_state.applied_sql_state_for_status  # status reads this same state
+
+    lab_entry.advance(1, api_url="http://api", dsn="aurora", repo=repo)
+
+    assert lab_1_proved.order[:1] == ["apply"]
+    assert (
+        lab_state.read_applied_sql_state(1, lab_1_proved, repo=repo).state == "applied"
+    )
+
+
+def test_postgresql_deparsed_defaults_read_as_the_files(repo, lab_1_proved) -> None:
+    """`0.20` on a `real` prints as `'0.2'::real` and `vector(1024)` as `vector`."""
+    from scripts import lab_state
+
+    lab_1_proved.installed[1] = (
+        _seam_file(1, repo)
+        .read_text()
+        .replace("vector(1024)", "vector")
+        .replace("DEFAULT 0.20", "DEFAULT '0.2'::real")
+        .replace("DEFAULT 60", "DEFAULT 60")
+    )
+
+    assert (
+        lab_state.read_applied_sql_state(1, lab_1_proved, repo=repo).state == "applied"
+    )
+
+
+def test_a_correct_in_block_repair_still_applies_and_a_header_edit_writes_nothing(
+    repo, monkeypatch, capsys
+) -> None:
+    """The guide's apply command: zero writes for an outside edit, a normal apply otherwise."""
+    from scripts import apply_search_functions as apply_module
+
+    writes: list[str] = []
+
+    class Recording:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+        def execute(self, *args, **kwargs):
+            writes.append("execute")
+
+        def cursor(self, *a, **k):
+            writes.append("cursor")
+            return self
+
+        def commit(self):
+            writes.append("commit")
+
+    monkeypatch.setattr(apply_module, "ROOT", repo)
+    monkeypatch.setattr(apply_module, "search_sql", lambda _root: "SELECT 1;")
+    monkeypatch.setattr(apply_module, "participant_sql_digest", lambda _root: "d")
+    monkeypatch.setattr(apply_module, "assert_workshop_database", lambda _d: None)
+    monkeypatch.setattr("psycopg.connect", lambda *a, **k: Recording())
+    monkeypatch.setattr(apply_module, "apply", lambda *a, **k: writes.append("apply"))
+    monkeypatch.setattr(
+        "scripts.configure_retrieval_database.configure", lambda _d: None
+    )
+
+    _default_one_in_the_header(repo)
+    with pytest.raises(SystemExit) as refused:
+        apply_module._apply_and_configure()
+    assert writes == []
+    message = str(refused.value)
+    assert (
+        "Nothing was applied" in message
+        and "result_limit integer DEFAULT 50" in message
+    )
+
+    path = _seam_file(1, repo)
+    path.write_text(
+        path.read_text().replace(
+            "result_limit integer DEFAULT 1",
+            "-- note\n    result_limit  integer DEFAULT 50",
+        )
+    )
+    apply_module._apply_and_configure()
+    assert writes == ["apply"]
