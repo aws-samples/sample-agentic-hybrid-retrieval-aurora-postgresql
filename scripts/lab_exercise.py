@@ -463,23 +463,40 @@ def _saved_run(cur: Any, values: dict[str, str]) -> dict[int, float]:
     return {row["product_id"]: row["score"] for row in cur.fetchall()}
 
 
-def _lab_2_problem(connection: Any) -> lab_state.LabProblem | None:
-    """Why the saved Lab 2 file is not the SQL Aurora runs, or None when it is.
+def _lab_2_file_problem() -> lab_state.LabProblem | None:
+    """Why the saved Lab 2 file cannot be applied as it is, or None when it can."""
+    return lab_state.source_problem(2, repo=REPO)
+
+
+def _lab_2_applied_problem(connection: Any) -> lab_state.LabProblem | None:
+    """Why Aurora does not run the saved Lab 2 file, body and parameters, or None.
 
     The grade reads what Aurora ran, so a passing grade of the current file needs that
-    file to be the installed one, body and parameters included.
+    file to be the installed one.
     """
-    return lab_state.source_problem(2, repo=REPO) or lab_state.applied_problem(
+    return lab_state.applied_problem(
         2, lab_state.read_applied_sql_state(2, connection, repo=REPO)
     )
 
 
-def _lab_2_not_running(problem: lab_state.LabProblem) -> str:
-    """A failure that says the saved file is not what the grade measured, and the way on."""
-    return (
+def _lab_2_not_running(problem: lab_state.LabProblem, *, fix_first: bool) -> str:
+    """A failure that says the saved file is not what the grade measured, and the way on.
+
+    A file that fails its own checks is fixed before anything applies it: applying it
+    would replace whatever Aurora runs, a correct formula included.
+    """
+    measured = (
         f"{problem.finding} The grade measured the SQL Aurora runs, not this file, so "
-        "it cannot pass for it. Apply your saved file, repeat the request so the saved "
-        "run comes from it, then check again"
+        "it cannot pass for it."
+    )
+    if fix_first:
+        return (
+            f"{measured} Do not apply this file as it is: {problem.next_step}; then "
+            "repeat the request so the saved run comes from it, and check again"
+        )
+    return (
+        f"{measured} Apply your saved file, repeat the request so the saved run comes "
+        "from it, then check again"
     )
 
 
@@ -531,7 +548,8 @@ def grade_lab2(values: dict[str, str]) -> dict[str, Any]:
                 }
             )
         saved = _saved_run(cur, values)
-        not_running = _lab_2_problem(connection)
+        file_problem = _lab_2_file_problem()
+        not_running = file_problem or _lab_2_applied_problem(connection)
         connection.rollback()
     truth = dict(_fuse(arms, configured))
     report["arms"] = {name: len(ranks) for name, ranks in arms.items()}
@@ -577,9 +595,11 @@ def grade_lab2(values: dict[str, str]) -> dict[str, Any]:
             if not own_failures:
                 report["blocked_by_lab"] = 1
     if not_running is not None:
-        report["failures"].append(_lab_2_not_running(not_running))
+        fix_first = file_problem is not None
+        report["failures"].append(_lab_2_not_running(not_running, fix_first=fix_first))
         if not own_failures:
             report["blocked_by_lab"] = 2
+            report["lab_2_fix_first"] = fix_first
     report["cutoff"] = cutoff
     return report
 
@@ -785,11 +805,13 @@ def _grade_next(
     passed: bool,
     needs: dict[str, bool] | None = None,
     blocked_by: int | None = None,
+    fix_first: bool = False,
 ) -> None:
     """Print the step after a grade: the guide's next one when it passed, else the retry.
 
     For Lab 3, `needs` says which of the deploy, the setup run and the 100W answer the
-    failed grade needs again; without it, both runs are named.
+    failed grade needs again; without it, both runs are named. For Lab 2, `fix_first`
+    says the saved file fails its own checks, so it is fixed before it is applied.
     """
     if lab == 1:
         if passed:
@@ -821,6 +843,14 @@ def _grade_next(
             next_step(
                 "see what reranking changes, as the guide's next section does:",
                 RERANK_OFF_ON,
+            )
+        elif blocked_by == 2 and fix_first:
+            next_step(
+                "fix labs/lab2_rank/rrf_contribution.sql as the failure above says and "
+                "save it. Only then apply it, repeat the request and grade again:",
+                APPLY_SQL,
+                repeat_request_command(2),
+                grade_exercise_command(2),
             )
         elif blocked_by == 2:
             next_step(
@@ -1028,6 +1058,7 @@ def main(
         not report["failures"],
         report.get("needs"),
         report.get("blocked_by_lab"),
+        report.get("lab_2_fix_first", False),
     )
     return 1 if report["failures"] else 0
 

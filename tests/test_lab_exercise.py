@@ -119,7 +119,7 @@ def test_lab2_grader_accepts_matching_saved_results(monkeypatch):
     assert report["saved_run"]["target_saved"]
 
 
-def _grade_lab2_saved_run(monkeypatch, saved, lab_1=None, lab_2=None):
+def _grade_lab2_saved_run(monkeypatch, saved, lab_1=None, lab_2=None, lab_2_file=None):
     connection = MagicMock()
     cursor = (
         connection.__enter__.return_value.cursor.return_value.__enter__.return_value
@@ -133,7 +133,8 @@ def _grade_lab2_saved_run(monkeypatch, saved, lab_1=None, lab_2=None):
     monkeypatch.setattr(lab_exercise, "_lab2_arms", lambda *a: {"fts": {1: 1, 2: 2}})
     monkeypatch.setattr(lab_exercise, "_saved_run", lambda *a: saved)
     monkeypatch.setattr(lab_exercise, "_lab_1_problem", lambda _connection: lab_1)
-    monkeypatch.setattr(lab_exercise, "_lab_2_problem", lambda _connection: lab_2)
+    monkeypatch.setattr(lab_exercise, "_lab_2_file_problem", lambda: lab_2_file)
+    monkeypatch.setattr(lab_exercise, "_lab_2_applied_problem", lambda _c: lab_2)
     return lab_exercise.grade_lab2(
         {"lab_rrf_k": "60", "lab_target": "2", "lab_fused_limit": "2"}
     )
@@ -712,7 +713,8 @@ def test_the_installed_file_is_the_one_a_grade_may_pass(lab_2_checkout):
 
     installed = _InstalledLab2((lab_2_checkout / LABS[2][0]).read_text())
 
-    assert lab_exercise._lab_2_problem(installed) is None
+    assert lab_exercise._lab_2_file_problem() is None
+    assert lab_exercise._lab_2_applied_problem(installed) is None
 
 
 @pytest.mark.parametrize(
@@ -738,13 +740,21 @@ def test_an_editor_file_that_is_not_what_aurora_runs_cannot_pass_a_grade(
     assert old in path.read_text()
     path.write_text(path.read_text().replace(old, new, 1))
 
-    problem = lab_exercise._lab_2_problem(installed)
+    file_problem = lab_exercise._lab_2_file_problem()
+    applied_problem = lab_exercise._lab_2_applied_problem(installed)
 
-    assert problem is not None
-    report = _grade_lab2_saved_run(monkeypatch, {1: 1 / 61, 2: 1 / 62}, lab_2=problem)
+    assert file_problem is not None
+    report = _grade_lab2_saved_run(
+        monkeypatch,
+        {1: 1 / 61, 2: 1 / 62},
+        lab_2=applied_problem,
+        lab_2_file=file_problem,
+    )
     assert report["failures"], "a stale file is never a passing grade"
     assert "not this file" in report["failures"][-1]
+    assert "Do not apply this file as it is" in report["failures"][-1]
     assert report["blocked_by_lab"] == 2
+    assert report["lab_2_fix_first"] is True
 
 
 def test_the_stale_file_grade_names_apply_then_send_then_grade(capsys):
@@ -759,3 +769,75 @@ def test_the_stale_file_grade_names_apply_then_send_then_grade(capsys):
     out = capsys.readouterr().out
     steps = [APPLY_SQL, repeat_request_command(2), grade_exercise_command(2)]
     assert [out.index(step) for step in steps] == sorted(out.index(s) for s in steps)
+
+
+def _grade_lab_2_from_the_command_line(monkeypatch, capsys, applied_problem) -> str:
+    """Run `lab_exercise.py grade --lab 2` with Aurora answering as correct fusion does.
+
+    The command loads `.env`; a real database setting there must not reach the tests
+    that run after this one, which skip only while none is set.
+    """
+    monkeypatch.setattr("dotenv.load_dotenv", lambda *_a, **_k: False)
+    monkeypatch.setattr(
+        lab_exercise,
+        "load_context",
+        lambda _lab: {"lab_rrf_k": "60", "lab_target": "2", "lab_fused_limit": "2"},
+    )
+    connection = MagicMock()
+    cursor = (
+        connection.__enter__.return_value.cursor.return_value.__enter__.return_value
+    )
+    cursor.fetchall.side_effect = lambda: [
+        {"r": rank, "c": 1 / (cursor.execute.call_args.args[1][0] + rank)}
+        for rank in range(1, lab_exercise.LAB2_RANKS_CHECKED + 1)
+    ]
+    monkeypatch.setattr(lab_exercise, "_connect", lambda: connection)
+    monkeypatch.setattr(lab_exercise, "_configure", lambda *a, **kw: None)
+    monkeypatch.setattr(lab_exercise, "_lab2_arms", lambda *a: {"fts": {1: 1, 2: 2}})
+    monkeypatch.setattr(lab_exercise, "_saved_run", lambda *a: {1: 1 / 61, 2: 1 / 62})
+    monkeypatch.setattr(lab_exercise, "_lab_1_problem", lambda _connection: None)
+    monkeypatch.setattr(
+        lab_exercise, "_lab_2_applied_problem", lambda _connection: applied_problem
+    )
+
+    assert lab_exercise.main(["grade", "--lab", "2"]) == 1
+    return capsys.readouterr().out
+
+
+def test_a_broken_saved_formula_is_fixed_before_anything_applies_it(
+    lab_2_checkout, monkeypatch, capsys
+):
+    """Aurora runs correct fusion; applying the broken file would replace it."""
+    from scripts.lab_state import LABS, LabProblem, _replace_block
+    from service.participant_commands import APPLY_SQL
+
+    path = lab_2_checkout / LABS[2][0]
+    start, end, _, _ = LABS[2][1][0]
+    path.write_text(
+        _replace_block(path.read_text(), start, end, "SELECT 1 / (rrf_k + 1)")
+    )
+    stale = LabProblem("Lab 2: Aurora runs an earlier version of the file.", APPLY_SQL)
+
+    out = _grade_lab_2_from_the_command_line(monkeypatch, capsys, stale)
+
+    assert "Do not apply this file as it is" in out
+    assert "Apply your saved file" not in out
+    next_line = out[out.rindex("Next:") :]
+    assert next_line.index("fix labs/lab2_rank/rrf_contribution.sql") < next_line.index(
+        APPLY_SQL
+    )
+
+
+def test_a_valid_saved_formula_that_aurora_does_not_run_leads_with_apply(
+    lab_2_checkout, monkeypatch, capsys
+):
+    from scripts.lab_state import LabProblem
+    from service.participant_commands import APPLY_SQL
+
+    stale = LabProblem("Lab 2: Aurora runs an earlier version of the file.", APPLY_SQL)
+
+    out = _grade_lab_2_from_the_command_line(monkeypatch, capsys, stale)
+
+    assert "Apply your saved file" in out
+    next_line = out[out.rindex("Next:") :]
+    assert next_line.lstrip("Next: ").startswith("apply your saved Lab 2 file")
