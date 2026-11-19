@@ -67,6 +67,19 @@ datasets. They are not part of the searched catalog, ranking or embeddings.
   > Schroeder. 2022. *WANDS: Dataset for Product Search Relevance Assessment.* In
   > Proceedings of the 44th European Conference on Information Retrieval (ECIR).
 
+## Fonts
+
+`ui/public/fonts/` carries Latin subsets of two typefaces, served with the Mosaic UI.
+Both are licensed under the SIL Open Font License, Version 1.1; each license is kept
+beside the font files and ships with them.
+
+- **Newsreader**, Copyright 2020 The Newsreader Project Authors
+  (<http://github.com/productiontype/Newsreader>):
+  [OFL-newsreader.txt](ui/public/fonts/OFL-newsreader.txt).
+- **Schibsted Grotesk**, Copyright 2023 The Schibsted-Grotesk Project Authors
+  (<https://github.com/schibsted/schibsted-grotesk>):
+  [OFL-schibsted-grotesk.txt](ui/public/fonts/OFL-schibsted-grotesk.txt).
+
 ## Generated data
 
 Embeddings are generated in this project with Amazon Bedrock (Cohere Embed v4).
