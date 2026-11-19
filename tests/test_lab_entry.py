@@ -1431,13 +1431,14 @@ def test_comments_and_spacing_outside_the_block_are_allowed(repo, lab_1_proved):
     assert lab_entry.read_completion(1, repo).state == "valid"
 
 
-def test_a_missing_marker_does_not_crash_the_outside_check(repo):
+def test_a_missing_marker_is_a_problem_not_no_problem(repo):
     from scripts import lab_state
 
     path = _seam_file(1, repo)
     path.write_text(path.read_text().replace("-- LAB1_EDIT_END", ""))
 
-    assert lab_state.outside_block_problem(1, repo=repo) is None
+    problem = lab_state.outside_block_problem(1, repo=repo)
+    assert problem is not None and "'-- LAB1_EDIT_END' is missing" in problem.finding
 
 
 def _legacy_receipt_and_handoff(repo: Path) -> None:
@@ -1583,3 +1584,96 @@ def test_a_correct_in_block_repair_still_applies_and_a_header_edit_writes_nothin
     )
     apply_module._apply_and_configure()
     assert writes == ["apply"]
+
+
+class _Recording:
+    """A connection that records every write the apply command would make."""
+
+    def __init__(self, writes: list[str]) -> None:
+        self.writes = writes
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        return False
+
+    def execute(self, *_a, **_k):
+        self.writes.append("execute")
+
+
+@pytest.fixture
+def apply_command(repo, monkeypatch):
+    from scripts import apply_search_functions as apply_module
+
+    writes: list[str] = []
+    monkeypatch.setattr(apply_module, "ROOT", repo)
+    monkeypatch.setattr(apply_module, "search_sql", lambda _root: "SELECT 1;")
+    monkeypatch.setattr(apply_module, "participant_sql_digest", lambda _root: "d")
+    monkeypatch.setattr(apply_module, "assert_workshop_database", lambda _d: None)
+    monkeypatch.setattr("psycopg.connect", lambda *a, **k: _Recording(writes))
+    monkeypatch.setattr(apply_module, "apply", lambda *a, **k: writes.append("apply"))
+    monkeypatch.setattr(
+        "scripts.configure_retrieval_database.configure", lambda _d: None
+    )
+    return apply_module._apply_and_configure, writes
+
+
+def test_the_guides_paste_between_intact_markers_applies(apply_command, repo) -> None:
+    run, writes = apply_command
+    set_lab_state(1, solved=True, repo=repo)
+
+    run()
+
+    assert writes == ["apply"]
+
+
+def test_a_paste_that_crossed_the_end_marker_and_took_the_semantic_branch_writes_nothing(
+    apply_command, repo
+) -> None:
+    """The function is still valid SQL without them, so only the markers show the damage."""
+    from service.participant_commands import APPLY_SQL, reset_command
+
+    run, writes = apply_command
+    path = _seam_file(1, repo)
+    source = path.read_text()
+    cut = source.index("-- LAB1_EDIT_END")
+    end = source.index("), fused AS (")
+    path.write_text(source[:cut] + source[end:])
+
+    with pytest.raises(SystemExit) as refused:
+        run()
+
+    message = str(refused.value)
+    assert writes == []
+    assert "'-- LAB1_EDIT_END' is missing" in message
+    assert reset_command(1) in message and "discards your Lab 1 edits" in message
+    assert "Nothing was applied" in message
+    assert APPLY_SQL in message
+
+
+def test_an_intact_deliberate_fault_still_applies_and_resets(
+    apply_command, repo
+) -> None:
+    run, writes = apply_command
+    set_lab_state(1, solved=False, repo=repo)
+
+    run()
+
+    assert writes == ["apply"]
+
+
+def test_validate_and_advance_report_the_same_marker_problem(repo, aurora) -> None:
+    from scripts import lab_state
+
+    path = _seam_file(1, repo)
+    source = path.read_text()
+    cut = source.index("-- LAB1_EDIT_END")
+    path.write_text(source[:cut] + source[source.index("), fused AS (") :])
+
+    assert (
+        "'-- LAB1_EDIT_END' is missing"
+        in lab_state.source_problem(1, repo=repo).finding
+    )
+    with pytest.raises(lab_entry.LabEntryError, match="LAB1_EDIT_END' is missing"):
+        lab_entry.advance(1, api_url="http://api", dsn="aurora", repo=repo)

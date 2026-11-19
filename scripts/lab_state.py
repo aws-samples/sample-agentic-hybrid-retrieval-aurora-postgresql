@@ -1361,6 +1361,27 @@ def _executable_outside_changes(lab: int, repo: Path) -> list[Difference]:
     ]
 
 
+def _marker_problem_in(lab: int, repo: Path) -> LabProblem | None:
+    """A lab file whose marker lines are missing, repeated or out of order, as a problem.
+
+    Without the markers the block cannot be told from the rest of the function, so a
+    paste that crossed one (and took code below it along) is no longer "no change".
+    """
+    path = LABS[lab][0]
+    try:
+        source = (repo / path).read_text(encoding="utf-8")
+    except OSError:
+        return None
+    for start, end, _fixed, _broken in LABS[lab][1]:
+        if reason := _markers_problem(source, start, end):
+            return LabProblem(
+                f"Lab {lab}: in {path}, {reason}.",
+                "put the marker lines back around your edit as the message says, save, "
+                f"then run {APPLY_SQL}",
+            )
+    return None
+
+
 def _shown(lines: list[str]) -> str:
     text = " / ".join(line.strip() for line in lines if line.strip())
     return f"`{text}`" if text else "nothing"
@@ -1374,10 +1395,13 @@ def outside_block_problem(lab: int, *, repo: Path = REPO) -> LabProblem | None:
     and still change the guide's `psql` queries, which pass only three. The finding names
     each line and the original text, which lies outside the block and is not the answer.
     """
+    path = LABS[lab][0]
+    markers = _marker_problem_in(lab, repo)
+    if markers is not None:
+        return markers
     changes = _executable_outside_changes(lab, repo)
     if not changes:
         return None
-    path = LABS[lab][0]
     places = [
         f"{where[0].lower()}{where[1:]}: the original has {_shown(original)}, yours has "
         f"{_shown(yours)}"
