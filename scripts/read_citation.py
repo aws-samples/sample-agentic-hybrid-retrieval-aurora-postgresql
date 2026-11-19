@@ -134,6 +134,22 @@ def record_lines(quote: str) -> list[str]:
     return [line for line in kept if line]
 
 
+def shown_record(citation: dict[str, Any]) -> str:
+    """The record as the site shows it: a review's title, then its text.
+
+    The answer check may quote a record's title as well as its text. A listing's text
+    already opens with its own `Title:` line, so only a record without one gets the
+    saved title added as `Review title:`, which stays on screen where a listing's
+    `Title:` label goes.
+    """
+    text = citation["quote"]
+    title = " ".join((citation.get("title") or "").split())
+    first = next((line for line in text.splitlines() if line.strip()), "")
+    if not title or _LABEL.match(first.strip()) or " ".join(first.split()) == title:
+        return text
+    return f"{REVIEW_TITLE} {title}\n\n{text}"
+
+
 def _marked(text: str) -> list[str]:
     """The quoted line, wrapped under `  » `, in bold on a terminal."""
     wrapped = wrap_words(text, WIDTH, initial_indent="  » ", subsequent_indent="    ")
@@ -148,6 +164,7 @@ def _sentences(sentences: list[str]) -> list[str]:
     return out
 
 
+REVIEW_TITLE = "Review title:"
 SAVED_LABEL = "The answer check's saved supporting passage"
 SUGGESTED_LABEL = "Suggested line to inspect"
 SAVED_NOTE = (
@@ -160,7 +177,7 @@ SUGGESTED_NOTE = (
 
 
 def _marks(
-    quote: str, answer: str, number: int, saved: dict[str, Any] | None
+    quote: str, body: str, answer: str, number: int, saved: dict[str, Any] | None
 ) -> tuple[dict[int, list[tuple[int, int]]], list[str], bool, list[str]]:
     """Where `»` goes: line index to spans, the marked texts, whether they are saved, and
     the figures no line states.
@@ -169,19 +186,20 @@ def _marks(
     the figure and shared-word heuristic suggests a line.
     """
     lines = record_lines(quote)
-    excerpt = cited_excerpt(quote, answer, number)
+    excerpt = cited_excerpt(body, answer, number)
+    unstated = cited_excerpt(quote, answer, number).unstated
     quotes = saved_support_quotes(saved, answer, number)
     located = locate_quotes(lines, quotes) if quotes else None
     if located:
         squashed = {i: " ".join(lines[i].split()) for i in located}
         texts = [squashed[i][a:b] for i in sorted(located) for a, b in located[i]]
-        return located, texts, True, excerpt.unstated
+        return located, texts, True, unstated
     marks = {
         i: [(line.index(excerpt.line), line.index(excerpt.line) + len(excerpt.line))]
         for i, line in enumerate(lines)
         if excerpt.line and excerpt.line in line
     }
-    return marks, [excerpt.line] if excerpt.line else [], False, excerpt.unstated
+    return marks, [excerpt.line] if excerpt.line else [], False, unstated
 
 
 def render(
@@ -195,9 +213,10 @@ def render(
     """
     answer = run["assistant_message"] or ""
     number = citation["number"]
-    lines = record_lines(citation["quote"])
+    shown = shown_record(citation)
+    lines = record_lines(shown)
     marks, marked, saved, unstated = _marks(
-        citation["quote"], answer, number, run.get("claim_review")
+        shown, citation["quote"], answer, number, run.get("claim_review")
     )
     asked = (
         f"{run['created_at']:%H:%M:%S} UTC" if run["created_at"] else "an unknown time"
@@ -254,9 +273,12 @@ def _record_line(line: str, spans: list[tuple[int, int]], saved: bool) -> list[s
     out: list[str] = []
     at = 0
     for start, end in spans:
-        if text[at:start].strip():
-            out += wrap_words(text[at:start].strip(), WIDTH, **plain)
-        out += _marked(text[start:end])
+        before, marked = text[at:start].strip(), text[start:end]
+        if before == REVIEW_TITLE:
+            before, marked = "", f"{before} {marked}"
+        if before:
+            out += wrap_words(before, WIDTH, **plain)
+        out += _marked(marked)
         at = end
     if text[at:].strip():
         out += wrap_words(text[at:].strip(), WIDTH, **plain)

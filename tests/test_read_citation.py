@@ -498,3 +498,94 @@ def test_saved_run_reads_the_claim_review_from_the_turn():
     read_citation.saved_run(connection, RUN_ID)
 
     assert "claim_review" in connection.sql
+
+
+DELIVERY_REVIEW = (
+    "Arrived two days early and the box was dented. The delivery driver was polite."
+)
+
+
+def review_citation(title, body=DELIVERY_REVIEW):
+    return {
+        **citation(2, "customer_review", "viewsonic_review"),
+        "title": title,
+        "quote": body,
+    }
+
+
+def review_render(
+    title, passages, answer="Reviewers call it comfortable for shifts [2]."
+):
+    review = reviewed(answer, passages)
+    return read_citation.render(listing_run(answer, review), review_citation(title))
+
+
+def test_a_review_title_is_shown_and_marked_when_the_answer_check_quoted_it():
+    """The check accepts a quote from a title; the body is about delivery."""
+    out = review_render(
+        "Comfortable for long shifts",
+        [(1, "supported", [{"number": 2, "quote": "Comfortable for long shifts"}])],
+    )
+    text = "\n".join(out)
+
+    assert "THE WHOLE RECORD (» The answer check's saved supporting passage)" in text
+    assert marked_lines(out)[0] == "  » Review title: Comfortable for long shifts"
+    assert not any("delivery driver" in x for x in marked_lines(out))
+    assert "    Arrived two days early" in text, "the body follows the title"
+    body = "    Arrived two days early and the box was dented. The delivery driver was polite."
+    assert out.index("  » Review title: Comfortable for long shifts") < out.index(body)
+
+
+def test_a_partial_title_quote_marks_only_those_words_after_the_label():
+    out = review_render(
+        "Comfortable for long shifts",
+        [(1, "supported", [{"number": 2, "quote": "long shifts"}])],
+    )
+
+    assert "    Review title: Comfortable for" in out
+    assert marked_lines(out)[0] == "  » long shifts"
+
+
+def test_a_review_without_a_saved_quote_still_shows_its_title_and_suggests_a_line():
+    out = read_citation.render(
+        listing_run("Reviewers call it comfortable [2]."),
+        review_citation("Comfortable for long shifts"),
+    )
+
+    assert "    Review title: Comfortable for long shifts" in out
+    assert "THE WHOLE RECORD (» Suggested line to inspect)" in "\n".join(out)
+
+
+def test_a_review_with_no_title_adds_no_title_line():
+    out = read_citation.render(
+        listing_run("Reviewers call it comfortable [2]."), review_citation("")
+    )
+
+    assert not any("Review title" in line for line in out)
+
+
+def test_a_listings_title_is_printed_once():
+    listing = citation(1, "product_spec", "viewsonic_listing")
+    title = "ViewSonic VG2756-4K 27 Inch IPS 4K Docking Monitor"
+    out = read_citation.render(listing_run(ANSWER), {**listing, "title": title})
+    text = "\n".join(out)
+
+    assert text.count("ViewSonic VG2756-4K 27 Inch IPS 4K Docking Monitor with") == 1
+    assert "Review title" not in text
+    assert read_citation.shown_record(listing) == listing["quote"]
+
+
+def test_an_ambiguous_title_quote_falls_back():
+    """The same words in the title and the body: no single place, so no saved label."""
+    body = "Comfortable for long shifts, said the box. Dented."
+    review = reviewed(
+        "Reviewers call it comfortable [2].",
+        [(1, "supported", [{"number": 2, "quote": "Comfortable for long shifts"}])],
+    )
+
+    out = read_citation.render(
+        listing_run("Reviewers call it comfortable [2].", review),
+        review_citation("Comfortable for long shifts", body),
+    )
+
+    assert "THE WHOLE RECORD (» Suggested line to inspect)" in "\n".join(out)
