@@ -392,6 +392,14 @@ def _no_search(*args):
     pytest.fail("Lab 1 must not run another paid search under Lab 2's fault")
 
 
+#: The evidence a passing `advance --lab 1` saves beside its binding.
+USABLE_HANDOFF = {
+    "binding": {},
+    "checks": ["target found"],
+    "search_event_ids": ["event-1"],
+}
+
+
 def test_lab_1_after_lab_2_started_defers_to_the_saved_handoff(
     monkeypatch, tmp_path, capsys
 ):
@@ -400,7 +408,7 @@ def test_lab_1_after_lab_2_started_defers_to_the_saved_handoff(
     the repair has not reached the search Aurora runs", blaming a correct Lab 1 repair
     for Lab 2's collapsed ranks."""
     output = _lab_1_after(monkeypatch, tmp_path, hides=True, search=_no_search)
-    (output / "handoff.json").write_text("{}")
+    (output / "handoff.json").write_text(json.dumps(USABLE_HANDOFF))
     # `advance --lab 1` writes a receipt bound to the repair beside the handoff;
     # tests/test_completion_receipt.py covers how that receipt is judged.
     monkeypatch.setattr(
@@ -414,6 +422,22 @@ def test_lab_1_after_lab_2_started_defers_to_the_saved_handoff(
     assert "Lab 2's exercise changes which products reach reranking" in printed
     assert "saved when Lab 1 handed off to Lab 2" in printed
     assert "has not reached the search Aurora runs" not in printed
+
+
+def test_a_handoff_with_empty_evidence_is_not_reused_even_with_a_receipt(
+    monkeypatch, tmp_path
+):
+    output = _lab_1_after(monkeypatch, tmp_path, hides=True, search=_no_search)
+    (output / "handoff.json").write_text(
+        json.dumps({**USABLE_HANDOFF, "checks": [], "search_event_ids": []})
+    )
+    monkeypatch.setattr(
+        "scripts.lab_entry.read_completion",
+        lambda lab, root: SimpleNamespace(proved=True),
+    )
+
+    with pytest.raises(LabValidationError, match="continue in the Lab 2 guide"):
+        lab_request.prepare(1, "after", "http://localhost", output)
 
 
 def test_a_handoff_whose_receipt_no_longer_proves_the_repair_is_not_reused(
