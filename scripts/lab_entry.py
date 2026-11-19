@@ -31,6 +31,7 @@ from scripts.lab_state import (
     assert_workshop_database,
     explain_problems,
     missing_file_problem,
+    outside_block_problem,
     read_applied_sql_state,
     set_lab_state,
     source_problem,
@@ -254,7 +255,11 @@ def read_completion(lab: int, repo: Path = REPO) -> CompletionReading:
     if problem := _receipt_problem(lab, receipt):
         return CompletionReading("unreadable", None, f"the saved completion: {problem}")
     if "sql_sha256" not in receipt:
-        if _legacy_handoff_matches(receipt, repo):
+        # Old evidence binds only the marked block, so it verifies the whole function
+        # only while nothing outside the block changed.
+        if outside_block_problem(lab, repo=repo) is None and _legacy_handoff_matches(
+            receipt, repo
+        ):
             return CompletionReading("legacy_verified", receipt, "verified by handoff")
         return CompletionReading(
             "legacy_unverified", receipt, "the saved completion names no attempt or SQL"

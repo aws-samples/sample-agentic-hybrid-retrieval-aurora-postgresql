@@ -73,6 +73,7 @@ from service.participant_commands import (
     start_record_recovery,
     validate_applied_command,
 )
+from service.retrieval_fingerprint import lab_sql_tokens
 from service.search_sql import FUSED_DEFINITION_SQL, FUSED_FUNCTION
 
 #: Slack for one reciprocal rank contribution read back out of PostgreSQL by
@@ -1023,7 +1024,8 @@ def _body_tokens(source: str) -> list[str] | None:
     can be compared: an edit elsewhere in it, such as a LIMIT, is not the installed SQL.
     """
     found = _BODY.search(source)
-    return _sql_tokens(found.group(2)) if found else None
+    # Case counts: a string literal, quoted or dollar-quoted, keeps its capitals.
+    return lab_sql_tokens(found.group(2)) if found else None
 
 
 def _lab_1_database_state(connection: Any, repo: Path) -> LabDatabaseState:
@@ -1195,10 +1197,38 @@ def source_problem(lab: int, *, repo: Path = REPO) -> LabProblem | None:
         lab1_contract_problem(source) if lab == 1 else lab2_contract_problem(source)
     )
     if reason is None:
-        return None
+        return outside_block_problem(lab, repo=repo)
     return LabProblem(
         f"Lab {lab} is not repaired: in {path}, {reason}.",
         f"fix the marked block in Code Editor, save it, then run {APPLY_SQL}",
+    )
+
+
+def outside_block_problem(lab: int, *, repo: Path = REPO) -> LabProblem | None:
+    """Say that a lab file's SQL changed outside its marked block, or None when it did not.
+
+    Only the block is the exercise. A change elsewhere in the function, such as a
+    parameter default or the final LIMIT, can pass the checks that call every argument
+    and still change the guide's `psql` queries, which pass only three. Comments and
+    spacing outside the block may change; any executable token may not.
+    """
+    relative_path, blocks = LABS[lab]
+    try:
+        yours = (repo / relative_path).read_text(encoding="utf-8")
+        expected = shipped_text(solution_path(Path(relative_path)), REPO)
+        yours_lines, _ = _outside_markers(yours, blocks)
+        expected_lines, _ = _outside_markers(expected, blocks)
+    except (OSError, ValueError, StopIteration):
+        # A missing file or marker is reported by the checks that run before this one.
+        return None
+    if lab_sql_tokens("\n".join(yours_lines)) == lab_sql_tokens(
+        "\n".join(expected_lines)
+    ):
+        return None
+    return LabProblem(
+        f"Lab {lab}: {relative_path} changed outside the marked block; only the block "
+        "is the exercise.",
+        f"run {DIFF} to see those lines, undo them, save, then run {APPLY_SQL}",
     )
 
 
@@ -1686,6 +1716,18 @@ def _status_next(lines: list[str], repo: Path = REPO) -> None:
                 "open a new terminal from the Terminal menu, which loads the workshop "
                 "settings, then check again:",
                 STATUS,
+            )
+        elif (
+            lab in (1, 2)
+            and (LAB_SQL_NOT_PROVED in line or LAB_SQL_NOT_APPLIED in line)
+            and outside_block_problem(lab, repo=repo)
+        ):
+            next_step(
+                f"Lab {lab}'s file changed outside the marked block, which is not part "
+                "of the exercise. See those lines:",
+                DIFF,
+                "undo them, save the file, then apply it:",
+                APPLY_SQL,
             )
         elif LAB_SQL_NOT_APPLIED in line:
             next_step(

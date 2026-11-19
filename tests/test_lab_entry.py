@@ -1272,16 +1272,18 @@ def test_an_edit_outside_the_block_ends_the_proof_and_is_not_the_installed_sql(
     )
 
 
-def test_advance_applies_an_out_of_block_edit_before_it_proves_it(
+def test_advance_refuses_an_out_of_block_edit_and_proves_nothing(
     repo, lab_1_proved
 ) -> None:
+    """An edit outside the block is not the exercise: nothing is applied or credited."""
     _limit_one_outside_the_block(repo)
+    edited = _seam_file(1, repo).read_bytes()
 
-    lab_entry.advance(1, api_url="http://api", dsn="aurora", repo=repo)
+    with pytest.raises(lab_entry.LabEntryError, match="changed outside the marked"):
+        lab_entry.advance(1, api_url="http://api", dsn="aurora", repo=repo)
 
-    assert lab_1_proved.order[:2] == ["apply", "prove-1"]
-    assert "LIMIT 1" in lab_1_proved.installed[1]
-    assert lab_entry.read_completion(1, repo).state == "valid"
+    assert lab_1_proved.order == []
+    assert _seam_file(1, repo).read_bytes() == edited
 
 
 def test_lab_2s_deliberate_fault_leaves_lab_1s_proof_alone(repo, lab_1_proved):
@@ -1351,3 +1353,124 @@ def test_a_damaged_handoff_is_replaced_by_a_live_proof_once_lab_2_cannot_hide_la
     assert "prove-1" in lab_1_proved.order
     assert lab_entry.read_completion(1, repo).state == "valid"
     assert lab_entry._read_handoff(repo) is not None
+
+
+def _default_one_in_the_header(repo: Path) -> None:
+    path = _seam_file(1, repo)
+    path.write_text(
+        path.read_text().replace(
+            "result_limit integer DEFAULT 50", "result_limit integer DEFAULT 1"
+        )
+    )
+    assert lab_source_is_repaired(1, repo=repo)
+
+
+@pytest.mark.parametrize("applied", [False, True], ids=["saved", "applied"])
+def test_a_header_default_changed_outside_the_block_is_refused_with_the_diff_step(
+    repo, lab_1_proved, applied
+) -> None:
+    """The guide's psql queries pass three arguments and take `result_limit` from the header.
+
+    The served search and the proof pass every argument, so they cannot see DEFAULT 1,
+    and the body compare cannot either; only the check outside the block does.
+    """
+    from scripts import lab_state
+    from service.participant_commands import APPLY_SQL, DIFF
+
+    _default_one_in_the_header(repo)
+    if applied:
+        lab_1_proved.apply_saved_files()
+
+    problem = lab_state.source_problem(1, repo=repo)
+
+    assert problem is not None
+    assert "changed outside the marked block" in problem.finding
+    assert f"run {DIFF}" in problem.next_step and APPLY_SQL in problem.next_step
+    with pytest.raises(lab_entry.LabEntryError) as refused:
+        lab_entry.advance(1, api_url="http://api", dsn="aurora", repo=repo)
+    assert "changed outside the marked block" in str(refused.value)
+    assert "prove-1" not in lab_1_proved.order
+    assert lab_entry.read_completion(1, repo).state == "other_sql"
+
+
+def test_status_next_names_the_diff_step_for_an_edit_outside_the_block(
+    repo, lab_1_proved, capsys
+) -> None:
+    from scripts import lab_state
+    from service.participant_commands import APPLY_SQL, DIFF
+
+    _limit_one_outside_the_block(repo)
+    lab_1_proved.apply_saved_files()
+    line = "Lab 1: APPLIED, NOT YET PROVED"
+
+    lab_state._status_next([line, "Lab 2: NOT YET", "Lab 3: NOT YET"], repo)
+
+    out = capsys.readouterr().out
+    assert "changed outside the marked block" in out
+    assert out.index(DIFF) < out.index(APPLY_SQL)
+
+
+def test_comments_and_spacing_outside_the_block_are_allowed(repo, lab_1_proved):
+    from scripts import lab_state
+
+    path = _seam_file(1, repo)
+    path.write_text(
+        path.read_text().replace(
+            "    fuzzy_threshold real DEFAULT 0.20",
+            "    -- my note\n    fuzzy_threshold   real   DEFAULT 0.20",
+        )
+    )
+
+    assert lab_state.source_problem(1, repo=repo) is None
+    assert lab_entry.read_completion(1, repo).state == "valid"
+
+
+def test_a_missing_marker_does_not_crash_the_outside_check(repo):
+    from scripts import lab_state
+
+    path = _seam_file(1, repo)
+    path.write_text(path.read_text().replace("-- LAB1_EDIT_END", ""))
+
+    assert lab_state.outside_block_problem(1, repo=repo) is None
+
+
+def _legacy_receipt_and_handoff(repo: Path) -> None:
+    """What f833c76a wrote: no identity, and a hand-off bound to the marked block only."""
+    path = lab_entry.completion_path(1, repo)
+    receipt = json.loads(path.read_text())
+    legacy = {k: receipt[k] for k in ("lab", "passed_at", "checks", "search_event_ids")}
+    path.write_text(json.dumps(legacy))
+    handoff = repo / ".local/lab-1/handoff.json"
+    saved = json.loads(handoff.read_text())
+    saved["binding"].pop("lab1_sql", None)
+    handoff.write_text(json.dumps(saved))
+
+
+def test_a_legacy_receipt_still_reads_proved_while_nothing_changed_outside_the_block(
+    repo, lab_1_proved
+) -> None:
+    _legacy_receipt_and_handoff(repo)
+
+    assert lab_entry.read_completion(1, repo).state == "legacy_verified"
+
+
+def test_a_legacy_receipt_is_not_credited_after_an_applied_edit_outside_the_block(
+    repo, lab_1_proved
+) -> None:
+    _legacy_receipt_and_handoff(repo)
+    saved = lab_entry.completion_path(1, repo).read_bytes()
+    _limit_one_outside_the_block(repo)
+    lab_1_proved.apply_saved_files()
+
+    assert lab_entry.read_completion(1, repo).state == "legacy_unverified"
+    assert lab_entry.completion_path(1, repo).read_bytes() == saved
+
+
+def test_the_applied_body_compare_keeps_capitals_in_dollar_quoted_strings() -> None:
+    """`lab_sql_tokens` is case-sensitive, so the compare is too, tagged strings included."""
+    from scripts.lab_state import _body_tokens
+
+    saved = "AS $$ SELECT $tag$Sony$tag$, 'A' $$"
+    assert _body_tokens(saved) == _body_tokens(saved.replace("-- x", ""))
+    assert _body_tokens(saved) != _body_tokens(saved.replace("$tag$Sony", "$tag$SONY"))
+    assert _body_tokens(saved) != _body_tokens(saved.replace("'A'", "'a'"))
