@@ -60,7 +60,8 @@ applies or deploys it and runs the checks and handoff. Recovery follows the
 participant's proof. `reset --lab N` restarts a lab from its whole starting file, so neither
 code a paste left on a marker line (such as `)` before `# LAB3_EDIT_END`) nor an edit outside
 the markers, such as a changed parameter default, survives it.
-Getting started's **Know hybrid search already? Start at a later lab** box offers `skip-to --lab N`.
+Getting started's **Know hybrid search already? Start at a later lab** box offers `skip-to --lab N`. Both commands leave an earlier lab alone while its saved
+completion still matches your attempt and your saved SQL, and finish it again after a restart.
 Lab 3 recovery still needs setup and 100W runs the participant starts and checks.
 
 Each lab's main page shows Concepts and its animation, then Workshop Studio's **Next**

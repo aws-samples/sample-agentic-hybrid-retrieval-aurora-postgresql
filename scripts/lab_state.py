@@ -1647,7 +1647,7 @@ def _parser() -> argparse.ArgumentParser:
             "discards one lab's edits and restores its starting code; apply-solution "
             "overwrites one lab with the reference repair; finish completes a lab "
             "with its reference answer, checks and hand-off; skip-to starts a later "
-            "lab after finishing the earlier ones. To see where your lab "
+            "lab after finishing the earlier ones that are not complete. To see where your lab "
             f"files differ from the reference, run {DIFF}."
         )
     )
@@ -1750,16 +1750,80 @@ def _entered(lab: int) -> bool:
     return bool(record and record.get("completed_at"))
 
 
+def _handoff_holds(lab: int) -> str | None:
+    """None while a lab's hand-off still stands, else why it must be finished again.
+
+    A later lab's start record shows only that a hand-off happened once. The lab is
+    still complete only while its receipt matches its current attempt and saved SQL, so
+    a restart or a different repair after the hand-off is not complete.
+    """
+    if not _entered(lab + 1):
+        return "has not handed off yet"
+    from scripts.lab_entry import read_completion
+
+    reading = read_completion(lab, REPO)
+    if reading.state in {"valid", "legacy_verified"}:
+        return None
+    return f"is not complete any more ({reading.detail})"
+
+
 def _earlier_labs_to_finish(lab: int) -> list[int]:
-    """The labs before this one that have not handed off, which it cannot start without."""
-    earlier = [number for number in range(1, lab) if not _entered(number + 1)]
-    for number in earlier:
-        print(
-            f"Lab {number} has not handed off yet, so this finishes it first with the "
-            "reference answer.",
-            flush=True,
-        )
+    """The labs before this one that are not complete, which it cannot start without.
+
+    A lab whose receipt is valid keeps the participant's repair: it is never finished again.
+    """
+    earlier = []
+    for number in range(1, lab):
+        if (reason := _handoff_holds(number)) is not None:
+            earlier.append(number)
+            print(
+                f"Lab {number} {reason}, so this finishes it first with the "
+                "reference answer.",
+                flush=True,
+            )
     return earlier
+
+
+def _finish_chain_steps(labs: list[int]) -> list[str]:
+    """The steps that finish these labs in order, each lab's reference SQL before any proof.
+
+    Lab 1's hand-off refuses while a started Lab 2 still collapses ranks, and Lab 2's
+    fault is installed in Aurora once Lab 2 has started. When Lab 2 is finished too,
+    its reference answer is installed right after Lab 1's, so the first apply runs both
+    repairs and Lab 1's proof sees a working ranking.
+    """
+    steps = [step for number in labs for step in finish_steps(number)]
+    if labs[:2] == [1, 2] and _entered(2):
+        solve_2 = apply_solution_command(2)
+        steps.remove(solve_2)
+        steps.insert(steps.index(apply_solution_command(1)) + 1, solve_2)
+    return steps
+
+
+def _lab_2_blocks_skipping_lab_1(lab: int, earlier: list[int]) -> None:
+    """Stop `skip-to --lab 2` when finishing Lab 1 would fail on Lab 2's unrepaired ranking.
+
+    Lab 1's hand-off needs Lab 2's repair, and `skip-to` keeps the edits in the lab it
+    stops at, so it cannot install the reference answer there.
+    """
+    if (
+        lab != 2
+        or earlier != [1]
+        or not _entered(2)
+        or source_problem(2, repo=REPO) is None
+    ):
+        return
+    raise SystemExit(
+        separate_next(
+            "Skip rule: Lab 1 must be finished first, but Lab 2 is started and not repaired, "
+            "and Lab 1's hand-off refuses while Lab 2's ranking fault can hide it. "
+            "skip-to keeps your edits in Lab 2, so it stops here. "
+            f"Next: repair Lab 2 in the guide, then run {skip_to_command(2)} again; or "
+            f"run {finish_command(2)} to finish both labs with the reference answer, "
+            "which replaces your Lab 2 edits.",
+            stream=sys.stderr,
+        )
+    )
 
 
 def _run_steps(steps: list[str], *, label: str, resume: str) -> int:
@@ -1789,11 +1853,12 @@ def _run_steps(steps: list[str], *, label: str, resume: str) -> int:
 def finish_lab(lab: int) -> int:
     """Finish a lab with its reference answer, its checks and its hand-off.
 
-    Any earlier lab that has not handed off is finished first, so a participant
-    can finish from wherever they are.
+    Any earlier lab that is not complete is finished first, so a participant can
+    finish from wherever they are. An earlier lab whose receipt is still valid for its
+    attempt and saved SQL keeps the participant's repair.
     """
     labs = [*_earlier_labs_to_finish(lab), lab]
-    steps = [step for number in labs for step in finish_steps(number)]
+    steps = _finish_chain_steps(labs)
     code = _run_steps(steps, label=f"Finish Lab {lab}", resume=finish_command(lab))
     if code:
         return code
@@ -1811,10 +1876,14 @@ def skip_to_lab(lab: int) -> int:
     """Start at a later lab, finishing the earlier ones with their reference answers.
 
     The last hand-off starts the chosen lab; when nothing earlier needs finishing,
-    its own start runs, which keeps any edits already made there.
+    its own start runs, which keeps any edits already made there. An earlier lab is
+    finished when it never handed off or its receipt no longer matches its attempt and
+    saved SQL; a valid one keeps the participant's repair. Lab 1 cannot be finished
+    under a started, unrepaired Lab 2 without replacing Lab 2's edits, so that stops.
     """
     earlier = _earlier_labs_to_finish(lab)
-    steps = [step for number in earlier for step in finish_steps(number)]
+    _lab_2_blocks_skipping_lab_1(lab, earlier)
+    steps = _finish_chain_steps(earlier) if earlier else []
     code = _run_steps(
         steps or [start_command(lab)],
         label=f"Skip to Lab {lab}",

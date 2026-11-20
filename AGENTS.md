@@ -47,9 +47,13 @@ participant asks to restart a lab. Use `uv run python scripts/lab_state.py
 apply-solution --lab N` only when they explicitly request the full recovery path; it
 overwrites the exercise seam. `uv run python scripts/lab_state.py finish --lab N`
 runs that whole path, from start through the lab's checks, and first finishes
-any earlier lab that has not handed off; `skip-to --lab N` finishes the earlier
-labs the same way and stops at lab N's start. Use them only when the participant
-asks to finish a lab or to start at a later lab. `uv run python scripts/diff.py` names the lines of
+any earlier lab that is not complete: one that never handed off, or whose completion
+receipt no longer matches its current attempt and saved SQL (a restart or a different
+repair since it passed). An earlier lab with a valid receipt keeps the participant's
+repair. `skip-to --lab N` finishes the earlier labs the same way and stops at lab N's
+start; it stops with a message instead when Lab 1 must be finished under a started,
+unrepaired Lab 2, since that would replace Lab 2's edits. Use them only when the
+participant asks to finish a lab or to start at a later lab. `uv run python scripts/diff.py` names the lines of
 the lab files that differ, inside the marked block (without printing the answer)
 and outside it (against the original file), and changes nothing; offer it as a
 hint. `uv run python scripts/diff.py --answer` also prints the reference answer's
@@ -88,8 +92,8 @@ The Makefile wraps them for maintainers only.
 | Hand off Lab 1: validate its repair, save passing evidence and prepare Lab 2 without discarding edits; a repaired saved file that Aurora does not run yet is applied first | `uv run python scripts/lab_state.py advance --lab 1` |
 | Hand off Lab 2: apply a saved block that differs from the one Aurora runs, validate its repair, save passing evidence and install the Retrieval agent's starting code for Lab 3 without discarding edits; a repaired saved file that Aurora does not run yet is applied first | `uv run python scripts/lab_state.py advance --lab 2` |
 | Discard one lab's edits and restore its whole starting file, only when asked to restart: edits outside the markers go too, and code a paste left on a marker line. It also puts back a deleted lab file or lab folder from Git's copy, and a `solution/` file whose LAB markers were edited away. For Lab 1 or 2 it first checks that the other lab's SQL file can be applied, and changes nothing when it cannot. `status` reports a deleted file as FILE MISSING; `start --lab 2` and `--lab 3` restore it themselves, while `start --lab 1`, `advance`, `validate`, `diff.py`, `apply_search_functions.py`, the Lab 2 and Lab 3 `grade` and Lab 3's `deploy` stop with that message and name `reset` | `uv run python scripts/lab_state.py reset --lab N` |
-| Finish a lab with the reference answer, only when asked: start, the answer, apply or deploy, and the lab's checks and hand-off, after any earlier lab not handed off (Lab 3 stops at deploy) | `uv run python scripts/lab_state.py finish --lab N` |
-| Start at a later lab, only when asked: the earlier labs are finished as `finish` does, then lab N starts with its own exercise | `uv run python scripts/lab_state.py skip-to --lab N` |
+| Finish a lab with the reference answer, only when asked: start, the answer, apply or deploy, and the lab's checks and hand-off, after any earlier lab that is not complete: not handed off, or its receipt no longer valid (Lab 3 stops at deploy) | `uv run python scripts/lab_state.py finish --lab N` |
+| Start at a later lab, only when asked: the earlier labs that are not complete are finished as `finish` does, then lab N starts with its own exercise | `uv run python scripts/lab_state.py skip-to --lab N` |
 | Name the lines of the lab files that differ from the reference answer, inside and outside the markers, without the answer (changes nothing) | `uv run python scripts/diff.py` |
 | The same, with the reference answer's lines, only when the participant asks to compare with the answer | `uv run python scripts/diff.py --answer` |
 | Apply the participant's SQL repair in Labs 1 or 2 | `uv run python scripts/apply_search_functions.py` |

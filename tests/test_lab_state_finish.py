@@ -5,8 +5,9 @@ import sys
 
 import pytest
 
-from scripts import lab_state
+from scripts import lab_entry, lab_state
 from scripts import progress as progress_module
+from scripts.lab_entry import CompletionReading
 from scripts.progress import bar, span, usually
 from scripts.progress import total as total_usual
 from service.participant_commands import (
@@ -64,6 +65,11 @@ def run_finish(
 ):
     ran = []
     monkeypatch.setattr(lab_state, "_entered", lambda number: number in entered)
+    monkeypatch.setattr(
+        lab_entry,
+        "read_completion",
+        lambda number, repo=None: CompletionReading("valid", None, "matches"),
+    )
 
     def fake_run(command, cwd, check, env):
         ran.append(command)
