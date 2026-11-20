@@ -1868,7 +1868,11 @@ def finish_lab(lab: int) -> int:
         next_step(steps, *commands)
     else:
         print(f"\nLab {lab}: finished with the reference answer.")
-        lab_ready_step(lab + 1)
+        if lab == 1 and _handoff_holds(2) is None:
+            # Lab 1 was finished again behind a Lab 2 that is complete: status names the lab after.
+            workshop_next()
+        else:
+            lab_ready_step(lab + 1)
     return 0
 
 

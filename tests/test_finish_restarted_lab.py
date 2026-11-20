@@ -82,7 +82,7 @@ def _run(monkeypatch, capsys, action: str, lab: int):
     real_run = subprocess.run
 
     def fake_run(command, *args, **kwargs):
-        if command[0] != sys.executable:
+        if command[0] != sys.executable or not command[1].startswith("scripts/"):
             return real_run(command, *args, **kwargs)
         ran.append(command[1:])
         return subprocess.CompletedProcess(command, 0)
@@ -239,3 +239,23 @@ def test_skip_to_lab_3_finishes_both_labs_with_lab_2s_answer_first(
     assert code == 0
     first_apply = ran.index(_commands([APPLY_SQL])[0])
     assert ran.index(_commands([apply_solution_command(2)])[0]) < first_apply
+
+
+def test_refinishing_lab_1_behind_a_complete_lab_2_points_past_lab_2(
+    repo, monkeypatch, capsys
+):
+    """The event's stale Next: sent a participant back into Lab 2's psql after Lab 2 passed."""
+    monkeypatch.setattr(
+        lab_state,
+        "applied_sql_state_for_status",
+        lambda lab, repo: lab_state.LabDatabaseState(state="applied", detail="runs"),
+    )
+    _handed_off(repo, 1)
+    _handed_off(repo, 2)
+    _restart(repo, 1)
+
+    code, ran, out = _run(monkeypatch, capsys, "finish", 1)
+
+    assert code == 0 and _in_order(finish_steps(1), ran)
+    assert "Lab 1: finished with the reference answer." in out
+    assert "lab-2/context.psql" not in out
