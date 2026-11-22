@@ -56,13 +56,19 @@ checks both saved runs. Ask Mosaic can run the same questions in the browser.
 Each lab opens with its time and a link to **Running behind**. That section's
 collapsed **Use the reference answer (replaces your exercise)** command runs
 `uv run python scripts/lab_state.py finish --lab N`: it installs the answer,
-applies or deploys it and runs the checks and handoff. Recovery follows the
+applies or deploys it and runs the checks and handoff, after finishing any earlier
+lab that is not complete. Recovery follows the
 participant's proof. `reset --lab N` restarts a lab from its whole starting file, so neither
 code a paste left on a marker line (such as `)` before `# LAB3_EDIT_END`) nor an edit outside
 the markers, such as a changed parameter default, survives it.
 Getting started's **Know hybrid search already? Start at a later lab** box offers
-`skip-to --lab N`. Both commands leave an earlier lab alone while its saved completion
-still matches your attempt and your saved SQL, and finish it again after a restart.
+`skip-to --lab N`, which finishes the earlier labs the same way and stops at lab N's
+start. For both commands, an earlier lab whose saved completion still matches its
+attempt and its saved SQL keeps the participant's repair; one that never handed off,
+was restarted, or whose repair changed after it passed is finished again with the
+reference answer. `skip-to --lab 2` stops instead when Lab 1 needs finishing under a
+started, unrepaired Lab 2, because finishing Lab 1 would replace Lab 2's edits; its
+message names the two ways on.
 Lab 3 recovery still needs setup and 100W runs the participant starts and checks.
 
 Each lab's main page shows Concepts and its animation, then Workshop Studio's **Next**

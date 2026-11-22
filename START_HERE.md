@@ -46,6 +46,9 @@ lines of your lab files differ from the reference answer without changing
 anything, run `uv run python scripts/diff.py`; it does not print the answer.
 `uv run python scripts/diff.py --answer` does, so try the hints first.
 
+In Lab 1 you find out why Alex's mistyped listing ID returns other headphones, repair
+the search, and `advance --lab 1` proves Lab 1 and prepares Lab 2. Run
+`uv run python scripts/lab_state.py status` at any time to see where each lab stands.
 In Lab 2 you repair the rank contribution, then read what reranking changed
 and compare three settings; `advance --lab 2` then proves
 Lab 2 and prepares Lab 3. In Lab 3, deploy your Retrieval agent and ask it to

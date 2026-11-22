@@ -94,6 +94,8 @@ try the guide's hints first.
 `uv run python scripts/lab_state.py apply-solution --lab 2` overwrites your edit with
 the answer; apply and prove it as above.
 `uv run python scripts/lab_state.py finish --lab 2` does all of it in one
-command, with the hand-off.
+command, with the handoff. If Lab 1 is not complete (it never handed off, or you
+restarted or changed it after its handoff), this finishes Lab 1 with the reference
+answer first.
 
 </details>

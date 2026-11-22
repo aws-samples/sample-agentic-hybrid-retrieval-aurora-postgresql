@@ -102,9 +102,9 @@ standard rank fusion.
    contradictions and compatibility assumptions, quoting its cited records. An
    incomplete or rejected review prevents delivery. This model check can still
    make mistakes; inspect the sources before relying on a recommendation.
-   `scripts/read_citation.py NUMBER` prints the whole record behind one citation of the
-   setup run completion grades, marking the answer check's saved supporting passage or, when
-   none was saved, a suggested line to inspect; `--run-id` reads another run, or any run before Lab 3 starts.
+   `scripts/read_citation.py NUMBER` prints the whole record behind one citation in your
+   graded setup run, marking the passage the answer check saved as support, or a
+   suggested line to read when it saved none. `--run-id` reads another run.
 
 Everything search reads or runs lives in one schema, `mosaic_search`: the
 `product_listing` table with one index per search, the `product_listing_view` that every
@@ -146,13 +146,10 @@ run the grading command. It checks the saved runs before asking you to repeat a 
 
 A successful deploy or a plausible answer is not completion: each lab ends with the
 guide's checks against the same request, run on the state you applied or deployed.
-On a terminal each result is coloured: green for good (`PASS`, `passed`, `grounded`, a
-repaired request's `After:` line), red for bad (`FAIL`, `failed`, `error`) and yellow for
-needs attention (`CANNOT GRADE`, `declined`, a `refused` draft). The lines to read first in
-a long output are bold: an answer's headings, its `Run ID` and each citation's
-`product_spec` or `customer_review`, the starred monitor, `Served profile`, a `prepared`
-line and `Next:`. The word always prints, and a log or pipe gets the plain line. Each
-command ends with a blank line and a `Next:` line naming the step after it.
+On a terminal each result is coloured: green for passed, red for failed and yellow for
+needs attention, and the lines to read first are bold. The words always print, so a log
+or pipe gets the same plain text. Each command ends with a blank line and a `Next:` line
+naming the step after it.
 
 A search can call Amazon Bedrock twice, for the query embedding and for reranking, and
 waits 10 seconds for each attempt. If no attempt answers, the command stops with `This

@@ -66,6 +66,8 @@ try the guide's hints first.
 `uv run python scripts/lab_state.py apply-solution --lab 1` overwrites your edit with
 the answer; apply and prove it as above.
 `uv run python scripts/lab_state.py finish --lab 1` does all of it in one
-command, with the hand-off.
+command, with the handoff. If Lab 2 has started and is not repaired yet, it stops
+before the handoff; run `uv run python scripts/lab_state.py finish --lab 2`
+instead, which finishes both labs and replaces your Lab 2 edits.
 
 </details>

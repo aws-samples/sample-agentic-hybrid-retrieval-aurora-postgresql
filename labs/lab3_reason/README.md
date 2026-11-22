@@ -70,6 +70,7 @@ printing it, and changes nothing; an instruction you added shows as a difference
 Add `--answer` to see the answer's lines; try the guide's hints first. `uv run python scripts/lab_state.py apply-solution --lab 3`
 overwrites your edit with the answer; deploy it, then ask the setup request and
 the 100W question yourself and prove them. `uv run python scripts/lab_state.py finish --lab 3`
-installs and deploys the answer in one command.
+installs and deploys the answer in one command, after finishing any earlier lab that
+is not complete.
 
 </details>
