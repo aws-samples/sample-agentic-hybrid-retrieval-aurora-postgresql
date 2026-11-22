@@ -43,8 +43,12 @@ authoritative product-spec row, so the agent can separately answer:
 
 ## Package structure
 
+This tree is `db/` in the repository, not a standalone package: `sql/install.sql`
+includes the two lab SQL files from `../../labs/`, so it needs the rest of the checkout.
+Run the commands below from `db/`.
+
 ```text
-mosaic-data-models-aurora-v1/
+db/
 ├── sql/                         Aurora PostgreSQL DDL, indexes, functions, labs
 ├── models/                      Pydantic, JSON Schema, and DBML contracts
 ├── scripts/                     Render, validate, split/import, and export tools
@@ -77,6 +81,8 @@ The checked-in schema uses `vector(1024)` for the pinned Cohere Embed v4
 catalog. To use another embedding model and dimension, render a separate SQL
 tree and regenerate the embeddings; never relabel vectors from another space.
 
+From `db/`:
+
 ```bash
 uv run python scripts/render_dimension.py --dimension 1536 --output build/render
 psql "$DATABASE_URL" -f build/render/db/sql/install.sql
@@ -85,7 +91,7 @@ psql "$DATABASE_URL" -f build/render/db/sql/install.sql
 The output keeps the repository layout, `db/sql/` and `labs/`, because
 `install.sql` includes the two lab SQL files from `labs/`.
 
-For the included 1024-dimensional version:
+For the included 1024-dimensional version, from `db/`:
 
 ```bash
 psql "$DATABASE_URL" -f sql/install.sql

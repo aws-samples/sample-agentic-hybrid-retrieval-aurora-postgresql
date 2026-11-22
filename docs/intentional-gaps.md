@@ -134,7 +134,7 @@ must grade it as one.
 
 ## Non-gaps
 
-Defects found and fixed in the Phase 1 pass. None was ever intentional; they are
+Defects found and fixed in an earlier review. None was ever intentional; they are
 recorded so nobody reclassifies a fixed bug as an exercise.
 
 | Defect | Why not a gap | Fix |
@@ -144,7 +144,7 @@ recorded so nobody reclassifies a fixed bug as an exercise.
 | MCP `/retrieval/runs/` path | route never existed; nothing to restore | tool requests `/retrieval/events/{id}`; `tests/test_mcp_route_contract.py` resolves it against the real route table |
 | `sql/05_typo_tolerance_lab.sql` targeting `catalog.*` | taught against a schema the API does not read | ported to `labs/lab1_retrieve/hybrid_search.sql` against `mosaic_search` |
 
-All four were measured on the live 500,000-product Aurora cluster before and
+All four were measured on the then-current 500,000-product `reviews-2023-500k-v1` Aurora cluster before and
 after the fix. The shipped `search_fts` left the missions that then declared
 `fts` with an empty full-text search; the fix runs the strict `websearch_to_tsquery`
 match first, and only when that returns zero rows backs off to a conjunctive

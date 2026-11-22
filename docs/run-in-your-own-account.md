@@ -36,8 +36,8 @@ Building the catalog adds the two temporary resources in the last rows of the ta
 Section 4 creates them (step 3) and deletes them (step 6).
 
 The build downloads a lot of data. About 19 GB of product metadata is downloaded once, and
-about 60 GB of review files are read twice, so expect about 120 GB of transfer for them. The
-finished bundle is about 2.5 GB. These sizes come from the pinned source files in
+about 60 GB of review files are read twice, so expect about 120 GB of transfer for them, and
+about 140 GB in all. The finished bundle is about 2.5 GB. These sizes come from the pinned source files in
 `scripts/catalog/fetch_catalog_metadata.py` and `scripts/catalog/fetch_catalog_reviews.py` and
 from `db/config/real-catalog-cache.json`. In the proof run the builder held 15 GB on its
 300 GB disk after the downloads and the embeddings, and the review scans streamed about 60 GB
@@ -525,16 +525,17 @@ bundle, so leave out `--delete-bucket` if you want to deploy again without rebui
 `--delete-bucket` refuses a bucket without the `MosaicOwnAccount=true` tag, and a name that does
 not start with `mosaic-own-account-` unless you named it yourself with `--bucket`.
 
-**Step 3, usually a few hours later.** The two runtimes reach Aurora through a network
-interface that AgentCore creates in your VPC, and AWS keeps that interface for up to 8 hours
-after the runtimes are deleted ([Configure Amazon Bedrock AgentCore Runtime and tools for
+**Step 3, several hours later.** The two runtimes reach Aurora through a network
+interface that AgentCore creates in your VPC, and AWS documents keeping that interface for up
+to 8 hours after the runtimes are deleted ([Configure Amazon Bedrock AgentCore Runtime and tools for
 VPC](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/agentcore-vpc.html)); only
 AWS can remove it. Until then, the two security groups it uses and the VPC around them cannot
 be deleted. When that is all that blocks the delete, `teardown` deletes everything else (the
 database, host, NAT gateway, distributions and runtimes), sets those resources aside, and
 ends with `NOT FINISHED` and the interface's ID. What remains costs nothing. In the proof run
-the first pass took 25 minutes, and AWS removed the interface about 7 hours 45 minutes after
-the runtimes were deleted. Once the command it prints shows no interface, run the same
+the first pass took 25 minutes. In us-east-1 AWS removed the interface about 7 hours 45
+minutes after the first teardown pass, and in us-west-2 about 9 hours after the runtimes were
+deleted, so allow longer than AWS's documented 8 hours. Once the command it prints shows no interface, run the same
 `teardown` command again. CloudFormation never retries resources a delete set aside, so this
 second run deletes them itself (the Code Editor stack, then the database client security
 group) and then the rest; in the proof run it took about a minute.

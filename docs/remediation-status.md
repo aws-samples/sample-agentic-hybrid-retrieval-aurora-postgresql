@@ -1,5 +1,7 @@
 # Remediation status
 
+> Record of 26 September 2026 (superseded). Current release state: [READINESS.md](../READINESS.md).
+
 Tracks the six-task remediation plan and the pre-release handoff. States:
 pending, in progress, code verified, runtime verified, blocked. Runtime
 verification means a recorded run against Aurora or a deployed environment;

@@ -165,7 +165,8 @@ uv run python scripts/checks/rehearsal.py record-stage \
 
 Repeat for `lab_2_rehearsal` and `lab_3_rehearsal` with `reset-lab-2`/`reset-lab-3`
 etc., in order: each later reset refuses to run until the earlier labs are
-repaired and applied, and Lab 3 also needs `make deploy-agent` after its solution. A lab that fails its validate step is recorded `--status failed` with the
+repaired and applied, and a Lab 1 or Lab 2 reset also refuses unless the other lab's SQL file
+can be applied as it stands. Lab 3 also needs `make deploy-agent` after its solution. A lab that fails its validate step is recorded `--status failed` with the
 validator's own failure message in `--detail`; that is a real finding, not a
 tooling error, and belongs in the manifest exactly as it happened.
 

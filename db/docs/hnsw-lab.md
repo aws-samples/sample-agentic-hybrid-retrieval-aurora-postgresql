@@ -22,18 +22,17 @@ Capture at minimum:
 
 - p50, p95, and p99 latency
 - Recall@10
-- QPS
 - index size
 - build time
 - rows and buffers from `EXPLAIN (ANALYZE, BUFFERS, SETTINGS, FORMAT JSON)`
 - execution plan JSON
 
+QPS is recorded only by a runner that measures concurrent load. The current-scale
+measurement does not report it (see `docs/current-scale-benchmarks.md`).
+
 ## Scale labels
 
-| Scale | Expected treatment |
+| Scale | Treatment |
 |---:|---|
-| more than 500,000 | attendee-measured physical catalog |
-| 1M | optional physical expansion |
-| 5M | instructor benchmark or physical lab |
-| 10M | instructor benchmark |
-| 100M | physical only when provisioned; otherwise explicitly projected |
+| 553,911 | the served `reviews-2023-v2` catalog, measured on the physical rows |
+| 1M, 5M, 10M, 100M | projections only (`simulated_calibrated`); no larger physical catalog is saved |

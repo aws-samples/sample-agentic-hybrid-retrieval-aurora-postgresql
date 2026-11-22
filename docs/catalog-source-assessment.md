@@ -1,6 +1,9 @@
 # Real-product catalog assessment
 
-Status, September 22, 2026: the local app and required labs serve the selected
+The served catalog today is `reviews-2023-v2`: 553,911 Amazon Reviews 2023 products (see
+the 2026-09-26 update below).
+
+Historical status, September 22, 2026: the app and required labs served the selected
 500,000 Amazon Reviews 2023 products through `reviews-2023-500k-v1`. Source text
 and saved Cohere Embed v4 input hashes agree; the vectors were reused. The old
 synthetic catalog has been retired, including its development rows and tooling.

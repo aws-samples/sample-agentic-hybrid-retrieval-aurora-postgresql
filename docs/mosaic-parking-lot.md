@@ -1,5 +1,7 @@
 # Mosaic parking lot
 
+> Record of 9 September 2026. Since then AgentCore Runtime and Gateway have shipped as part of Lab 3; see [the managed agent](agentcore-runtime.md). The rows below keep their original wording.
+
 Reviewed 9 September 2026. These are optional product and integration extensions,
 not extra required workshop labs. The primary takeaway remains the Mosaic Hybrid
 Retrieval Skill.

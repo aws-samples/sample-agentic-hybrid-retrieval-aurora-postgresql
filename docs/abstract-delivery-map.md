@@ -91,7 +91,7 @@ run and 100W answer, their decisions and citations back from Aurora without
 another model call. The [presenter brief](../workshop.md) owns the spoken
 narrative and transitions.
 
-Session & Memory leads the untimed optional exercises; the build-a-tool guide and Scale & HNSW are the alternatives. AgentCore Runtime and Gateway are the deployed Lab 3 path. Memory can carry preferences into a later conversation; product claims still require fresh catalog evidence.
+The untimed optional exercises follow the required hour in the guide's order: Scale & HNSW, Session & Memory, Retrieval tool (the build-a-tool guide) and Review examples. AgentCore Runtime and Gateway are the deployed Lab 3 path. Memory can carry preferences into a later conversation; product claims still require fresh catalog evidence.
 
 The closing message is **Use it in your own agent**.
 Introduce reuse in the opening and connect each lab's repair to the behavior an

@@ -4,7 +4,7 @@
 
 ```sql
 BEGIN;
-SELECT mosaic_search.configure_hnsw(100, 'relaxed_order', 20000, 1);
+SELECT mosaic_search.configure_hnsw(100, 'relaxed_order', 20000, 2);
 
 SELECT *
 FROM mosaic_search.search_hybrid_rrf(
@@ -35,16 +35,20 @@ FROM mosaic_search.search_product_evidence(
 ## Compare exact and HNSW
 
 ```sql
--- Exact baseline for recall calculation
-SET LOCAL enable_indexscan = off;
+-- Exact baseline for recall calculation. Session settings, not SET LOCAL,
+-- so they can be reset before the approximate run.
+SET enable_indexscan = off;
+SET enable_bitmapscan = off;
 SELECT product_id
 FROM mosaic_search.product_listing_view
 WHERE embedding IS NOT NULL
 ORDER BY embedding <=> :'query_embedding'::vector(1024)
 LIMIT 10;
+RESET enable_indexscan;
+RESET enable_bitmapscan;
 
 -- Approximate profile
-SELECT mosaic_search.configure_hnsw(100, 'relaxed_order', 20000, 1);
+SELECT mosaic_search.configure_hnsw(100, 'relaxed_order', 20000, 2);
 SELECT product_id
 FROM mosaic_search.product_listing_view
 WHERE embedding IS NOT NULL

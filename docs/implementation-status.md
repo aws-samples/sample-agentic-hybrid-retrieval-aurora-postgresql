@@ -8,8 +8,10 @@ episodic memory. It shows live configuration, scoped events, extracted records
 and relevant memory retrieval. Ask Mosaic can use memories as context while
 Aurora remains the source of product evidence. See [setup and behavior](session-memory.md).
 
-Runtime deployment, Gateway integration and strategy customization remain in
-the [parking lot](mosaic-parking-lot.md). They are not additional required labs.
+AgentCore Runtime and Gateway ship: Lab 3 deploys the Retrieval agent on Runtime with its
+SQL tools served through Gateway (see [the managed agent](agentcore-runtime.md)). Only
+Memory strategy customization remains optional, in the [parking lot](mosaic-parking-lot.md).
+It is not an additional required lab.
 
 ## Current workshop catalog
 
@@ -45,7 +47,8 @@ exercise, not whether semantic retrieval exists.
 - real-catalog HNSW anchors, ground truth and measured performance artifact;
   the historical instrument is withheld when its catalog is incompatible;
 - behavioral assertions `rrf_recomputes` and `rerank_off_invariant`;
-- per-token trigram expansion and the measured 500K fuzzy latency issue;
+- per-token trigram expansion and the fuzzy matching latency issue measured on the earlier 500,000-product
+  `reviews-2023-500k-v1` catalog;
 - a reviewed real-catalog scorecard and measured independent relevance run.
   The real canonical, coverage-probe and held-out contracts are present;
   validating those contracts alone does not measure retrieval quality.

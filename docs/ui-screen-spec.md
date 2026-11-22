@@ -70,7 +70,7 @@ Components:
 - stable product cards with complete 3:2 premium catalog photography;
 - a run status line with a segment per phase and a finding for each finished one,
   counted from the actual plan, searches, comparisons and citations; a collapsed
-  "How Mosaic answered" fold once answered, opened by default on the Builder
+  "How the tools work" fold once answered, opened by default on the Builder
   view (the "Show tool calls" switch): the full Retrieval agent record ID,
   recorded steps and each search's ranks;
 - agent shortlist cards labelled by the searches that retrieved them, the searches
@@ -198,6 +198,17 @@ and the memory switch uses the same blue.
 
 The former `/mosaic-labs` and `/mosaic-labs/studio` routes redirect to Hybrid retrieval. The footer
 and tab strip expose the same three current destinations in the same order.
+
+**`/labs/examples` - Reviewed examples.** A page outside the tab strip, titled "Product
+comparisons | Mosaic", with a "← Hybrid retrieval" link back. Its heading is "Look beyond the
+first match." and it lets a reader pick one of Alex's three needs (headphones, chairs,
+monitors) and then a reviewed case, chosen by the `case` query parameter. A case shows the
+requirement and its requirements list, labelled "From the three labs" or "Optional
+comparison", then one card per original product: the photo, a reviewed summary and assessment,
+the supporting text quoted from the record behind "Read the supporting text", and a "Still to
+check" note. A card whose product record has changed since the review says so and shows no saved
+comparison. The reference comparison follows, and "Where these examples come from" explains the
+ESCI and WANDS labels. The page compares evidence; it does not run a search or change a score.
 
 ## Ownership boundary
 

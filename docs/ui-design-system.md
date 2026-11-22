@@ -686,7 +686,7 @@ request keeps the progress it made and says "Stopped before it finished" or
 "Request interrupted".
 
 **When it has answered**, the plain view (Builder view off) is a collapsed fold
-("How Mosaic answered", with steps, searches, sources and seconds; opening it
+("How the tools work", with steps, searches, sources and seconds; opening it
 lists each phase's finding), the first recommendation as a top-pick card (photo,
 name, a neutral "Top pick" pill that claims only its position, up to two quoted
 facts with citation pills, and a stated requirement judged against the listing),

@@ -46,7 +46,7 @@ still complete the build's instruction, deployment and product conversation.
 
 Lab 1 checks the fuzzy matching contribution and filters. Its optional vector
 recall exercise computes exact neighbors independently. Lab 2 compares participant RRF with an independent
-calculation at five values of `k`; the proposed setting is evaluated on judged
+calculation at five values of `k` (1, 10, 30, 120 and the served 60); the proposed setting is evaluated on judged
 queries. These developer checks remain part of the SQL labs.
 
 In Lab 3 the participant observes actual tool calls, opens a cited record and
@@ -62,9 +62,9 @@ are not participant exercises.
 ## Pacing and release
 
 The source contract allocates 15 minutes to orientation (a 10-minute presenter
-introduction, then 5 to open the prepared tools through Getting started), 10 to
-Lab 1, 10 to Lab 2, 20 to Lab 3 including completion, and 5 to wrap-up and
-questions. Optional exercises are untimed.
+introduction, then 5 to open the prepared tools through Getting started), 15 to
+Lab 1, 10 to Lab 2 and 20 to Lab 3 including completion. There is no wrap-up block.
+Optional exercises are untimed.
 
 Older EC2-only timings do not establish the new managed path's duration. Record
 a timed participant rehearsal of deployment, conversation and completion.

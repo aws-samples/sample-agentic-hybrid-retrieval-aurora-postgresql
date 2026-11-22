@@ -29,8 +29,10 @@ configuration, read [`references/http-api.md`](references/http-api.md), and
 inspect `GET /api/tools?surface=skill`. Do not embed credentials in this folder.
 
 Both adapters expose search, evidence, comparison and retrieval explanation. The
-workflow below uses operation names; MCP and the agent take `search_event_id`,
-the HTTP skill takes `retrieval_scope_id`. Use only the operations actually listed by
+workflow below uses operation names. A search returns a `search_event_id`, which is
+the retrieval scope: MCP evidence and comparison take it as `retrieval_scope_id`, MCP
+`explain_retrieval` takes it as `search_event_id`, and the HTTP skill takes
+`retrieval_scope_id`. Use only the operations actually listed by
 the connected server. Transport details are in
 [`references/composition.md`](references/composition.md).
 

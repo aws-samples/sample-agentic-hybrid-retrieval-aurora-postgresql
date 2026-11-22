@@ -1,5 +1,7 @@
 # Reviewed ESCI and WANDS comparisons
 
+> Dated note, 22 November 2026: these comparisons were measured on the retired `reviews-2023-500k-v1` catalog. The served catalog is now `reviews-2023-v2`; the reviewed examples are described in [docs/reviewed-exercises-2026-09-22.md](../../../docs/reviewed-exercises-2026-09-22.md).
+
 This is a small teaching integration, not a full benchmark import. The search
 corpus remains 500,000 Amazon Reviews 2023 products with its existing vectors.
 

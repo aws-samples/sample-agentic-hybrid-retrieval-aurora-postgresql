@@ -27,8 +27,10 @@ make ui-install
 cp config/.env.example .env
 ```
 
-Edit `.env` with your Aurora connection, selected catalog, and AWS configuration,
-then start the API:
+Edit `.env` with your Aurora connection, selected catalog, and AWS configuration.
+For development on one machine with no nginx in front of the API, also set
+`MOSAIC_REQUIRE_ORIGIN_VERIFICATION=false` in `.env`; the API then serves only requests from
+its own loopback address. Never set it in a deployment. Then start the API:
 
 ```bash
 set -a
@@ -73,7 +75,8 @@ make check-shop-collection
 make check-hnsw-anchors
 ```
 
-The full Python gate includes 13 integration tests against Aurora. See
+The full Python gate includes 13 integration tests against Aurora, which run only when
+`DATABASE_URL` is set and are skipped otherwise. See
 [READINESS.md](../READINESS.md) for the complete release gates and
 [the evaluation plan](evaluation-plan.md) before running model-backed scoring.
 Source CI does not certify a fresh deployment or a new relevance scorecard.

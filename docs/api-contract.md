@@ -364,7 +364,7 @@ adapter exports only aggregate counts and timings; see
 - `POST /api/catalog/counts`
 - `GET /api/catalog/reviews/highlights`
 - `GET /api/products/{product_id}`
-- `GET /api/products/{product_id}/similar` returns up to four distinct, in-stock alternatives from the photographed selection, ordered by cosine distance to the stored product embedding within the same category (or monitor family). This bounded merchandising read does not run the 500K search pipeline or assert accessory compatibility.
+- `GET /api/products/{product_id}/similar` returns up to four distinct, in-stock alternatives from the photographed selection, ordered by cosine distance to the stored product embedding within the same category (or monitor family). This bounded merchandising read does not run the search pipeline over the 553,911-product `reviews-2023-v2` catalog or assert accessory compatibility.
 - `GET /api/evidence/{evidence_id}`
 - `POST /api/products/{product_id}/evidence` requires `retrieval_scope_id`, the
   `search_event_id` of the retrieval that granted the product. A product the
@@ -512,8 +512,9 @@ page labels them differently because they are different kinds of claim.
   payload, and the settings that explain those numbers (`work_mem`,
   `maintenance_work_mem`, `shared_buffers`, `effective_cache_size`,
   `max_parallel_workers_per_gather`). It deliberately does **not** count distinct
-  vectors: deduplicating 500,000 `vector(1024)` values sorts roughly 2 GB against a
-  4 MB `work_mem` and terminated the Aurora backend when tried.
+  vectors: deduplicating 500,000 `vector(1024)` values (on the earlier
+  `reviews-2023-500k-v1` catalog) sorts roughly 2 GB against a 4 MB `work_mem` and
+  terminated the Aurora backend when tried.
 
 - `GET /api/hnsw/measured` serves `data/benchmarks/hnsw_measured.json` verbatim,
   written by `make benchmark-hnsw`. It carries its own provenance (source revision,
@@ -632,7 +633,7 @@ the Reason stage that produces one. The two missing-run cases read differently,
 because they have different next steps: submitting no `agent_run_id` at all,
 and submitting one no turn was persisted under. An unknown `lab_id` is a 404.
 
-The browser applies the CLI's canonical question, target, independent-search,
+The terminal check applies the canonical question, target, independent-search,
 comparison, explanation, execution-origin, eligibility, and evidence predicates
 to the saved turn. If its explained search has no saved EXPLAIN plan, the proof
 captures and replays that plan; this can require embedding and database work.
@@ -643,11 +644,10 @@ serves for it: `evidence_id`, `product_id`, `source_uri`, `revision`, and the
 citation's `quote` against the row's own `text`. A field missing from either
 side is a mismatch, never a vacuous agreement. This is the same comparison
 `scripts/prove_lab.py` makes over the HTTP response, so a fabricated quote
-attached to a real product fails in the browser exactly as it does in the
-terminal.
+attached to a real product fails in every terminal command that runs the check.
 
 The same checks back `scripts/prove_lab.py`; they live in
-`service/lab_checks.py` so the terminal and the browser cannot disagree about
+`service/lab_checks.py` so every terminal command reads one definition of
 whether a lab is finished.
 
 ## Retrieval scorecard
@@ -657,7 +657,7 @@ whether a lab is finished.
   repairs (labs are proved in the terminal). It is a read-only render of
   `data/evals/canonical_scorecard.json`, `data/evals/canonical_queries.jsonl`, the
   `service.assertions` vocabulary, and the tool-contract registry. No DDL, no
-  `eval_run` table (ruling R7) — the response is computed fresh from those files on
+  `eval_run` table; the response is computed fresh from those files on
   every request rather than persisted.
 
   Four sections, never conflated: `retrieval_quality` (population Recall@10, MRR,

@@ -198,8 +198,9 @@ completion proof inside Lab 3:
 MCP interoperability and AgentCore remain a short productionization reveal,
 not a fourth lab. The repository proves shared tool version, output
 schema, and read-only policy for `search_products` and
-`get_product_evidence`. It does not claim a deployed AgentCore Gateway or
-runtime-result parity that the workshop did not measure.
+`get_product_evidence`. Lab 3 deploys the Retrieval agent on AgentCore Runtime with
+its SQL tools served through Gateway; the repository does not claim result parity
+between the MCP server and those Gateway tools, which the workshop did not measure.
 
 ## Final production lesson
 

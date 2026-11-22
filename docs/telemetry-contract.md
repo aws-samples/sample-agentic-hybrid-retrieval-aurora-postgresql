@@ -1,13 +1,13 @@
 # Portable telemetry contract
 
-Mosaic ports the telemetry contract from the PostgreSQL conference demo, not
-its coffee-specific panels. Aurora PostgreSQL remains the evidence ledger; an
+Mosaic records one telemetry contract for each retrieval run and agent turn. Aurora
+PostgreSQL remains the evidence ledger; an
 optional OpenTelemetry adapter projects a smaller operational view to Amazon
 Bedrock AgentCore Observability.
 
 ## Contract map
 
-| Conference concept | Mosaic canonical source | Portable contract |
+| Concept | Mosaic canonical source | Portable contract |
 |---|---|---|
 | plan and stage lifecycle | `mosaic.agent_turn`, `mosaic.agent_tool_event` | ordered `retrieve`, `rank`, `reason` stages with active/completed/failed status and duration |
 | retrieval run | `mosaic.search_event` | request profile, model and Aurora identity, candidate counts, stage timings, source revision, dataset hash, retrieval fingerprint |
@@ -122,9 +122,10 @@ The exporter is an optional dependency and `deploy/mosaic-bootstrap.sh` is
 unchanged. A source release still requires the normal chain:
 
 1. publish the source commit;
-2. repin Workshop Studio with `scripts/repin.py`;
+2. repin Workshop Studio with its `scripts/repin.py`;
 3. verify the source bootstrap and Studio asset remain byte-identical;
 4. run the Workshop Studio repository's `scripts/validate_workshop.py` and its
-   participant-query validator;
+   participant-query validator (`repin.py` and `validate_workshop.py` live in the
+   separate Workshop Studio repository, not in this one);
 5. perform the clean-account deployment rehearsal before claiming release
    readiness.

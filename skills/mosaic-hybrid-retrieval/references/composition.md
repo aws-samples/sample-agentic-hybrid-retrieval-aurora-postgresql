@@ -2,8 +2,7 @@
 
 ## Workshop boundary
 
-This is a reveal, not a lab. It occupies 2 to 3 minutes of the 5-minute scorecard
-segment. It adds no required exercise, no provisioning, and no fourth lab. The
+This is a reveal, not a lab. It adds no required exercise, no provisioning, and no fourth lab. The
 required path remains Retrieve, Rank, Rerank, Reason across three labs. The subject of this document is
 composability — what a capability lets another agent consume, and what it keeps
 hidden — not a tutorial on any particular transport protocol.
@@ -42,8 +41,13 @@ strategy ran, what was fused, what was granted, and to what `authorized_limit`.
 Do not infer transport parity from the shared capability registry. The HTTP
 skill surface has four operations. MCP has four: `search_products`,
 `get_product_evidence`, `compare_products`, and
-`explain_retrieval`. MCP and the agent accept `search_event_id`, while the HTTP
-skill calls the same operation with `retrieval_scope_id`. Shared
+`explain_retrieval`. The `search_event_id` a search returns is the retrieval scope.
+MCP `get_product_evidence` and `compare_products` take it as `retrieval_scope_id`, and MCP
+`explain_retrieval` takes it as `search_event_id`. The HTTP skill names it
+`retrieval_scope_id` for all three, sent as a JSON field for evidence and as the
+`{search_event_id}` path segment for compare and explain. The in-process agent's
+`get_product_evidence` and `compare_products` take no scope argument, because they use the
+searches the agent turn already made, and its `explain_retrieval` takes `search_event_id`. Shared
 capabilities preserve their semantic payload, while wire names, accepted inputs,
 and envelopes may differ by adapter. See [the MCP mapping](mcp.md).
 
@@ -81,9 +85,8 @@ inventory stayed complete, and the inventory does not stay complete.
 four skill operations) returns `plan_json` on its `run` payload —
 `SearchEventRecord.plan_json`, `None` until a plan has been captured. Capture
 itself is a write, `POST /api/retrieval/events/{search_event_id}/plan`, and it
-is deliberately *not* a skill operation — but `ui/src/api.ts:236-240` calls it,
-behind the Playground's "View retrieval event" disclosure and its nested "View
-EXPLAIN" action, so a real, participant-run event can carry a populated
+is deliberately *not* a skill operation, but the Playground calls it when a participant
+opens its "View retrieval event" disclosure, so a real, participant-run event can carry a populated
 `plan_json` by the time a caller reads it back through `explain_retrieval`.
 A captured `EXPLAIN (ANALYZE, BUFFERS, SETTINGS, FORMAT JSON)` plan over the
 run's own fusion SQL then names one storage structure outright:
@@ -128,9 +131,9 @@ whether or not the caller ever reads it, and whether or not a plan happens to
 have been captured for the run the caller is reading.
 
 This is also the claim that actually fits the product. The workshop's own UI
-puts this same diagnostics JSON two clicks away — the Playground tab, then its
-"View retrieval event" disclosure — and the captured plan one click past that,
-behind "View EXPLAIN." A composition document asserting that search identities,
+puts this same diagnostics JSON one click away (the Playground tab's
+"View retrieval event" disclosure) and captures the plan when that disclosure
+opens. A composition document asserting that search identities,
 thresholds, rerank status, or index structures were permanently off-limits
 would contradict a surface the workshop hands every participant. The honest
 claim was always the one that does not need an inventory to defend: nothing
@@ -191,12 +194,14 @@ This application         owns tool exposure and grant scope
 AgentCore                may host the capability in production
 ```
 
-Only the bottom row is optional, and it is a hosting decision, not a curriculum
+Hosting this capability for other agents is a hosting decision, not a curriculum
 topic. Moving the interface does not move retrieval authority, and it does not
-move the grant boundary. This workshop does not deploy an AgentCore Runtime,
-does not configure a Gateway, Identity, Memory, or Policy, does not write Cedar,
-and does not exercise OTEL or Observability. Those are production concerns for
-whoever hosts this capability later, not something a participant does today.
+move the grant boundary. The workshop does deploy its own Retrieval agent on AgentCore
+Runtime, with its SQL tools served through AgentCore Gateway and optional AgentCore Memory
+(see `docs/agentcore-runtime.md` in the repository). It does not expose an A2A
+endpoint, does not configure AgentCore Identity or Policy, and does not write Cedar. A
+production hosting profile for other agents to call this capability is something
+whoever hosts it later decides, not something a participant does today.
 
 If an A2A adapter were ever built, here is the protocol contract quoted from
 the Amazon Bedrock AgentCore A2A protocol contract (read 2026-08-26), condensed to
@@ -236,16 +241,17 @@ own virtual environment, following the `mcp-server/` precedent, and adds zero
 dependencies to the participant runtime — measured: `a2a-sdk` in Strands
 1.48.0's supported range resolves to 0.3.26 and pulls 13 further packages,
 including protobuf, cryptography, google-auth, and requests, which is not a
-cost a 60-minute workshop should pay for an optional reveal.
+cost to pay for an optional reveal.
 
 ## No runtime or deployment claims
 
-Nothing above is running. No A2A endpoint exists, none is provisioned, no
-AgentCore Runtime, Gateway, Identity, Memory, or Policy has been created for
-this workshop, and no dependency for any of it has entered the participant
-environment or `mcp-server/`'s isolated one. This document is a deployment
-profile, written to make the composition story concrete; it is not evidence
-that the story has been built.
+The A2A adapter and the hosting profile above are not deployed. No A2A endpoint exists,
+none is provisioned, no AgentCore Identity or Policy has been created for this workshop, and
+no dependency for A2A has entered the participant environment or `mcp-server/`'s isolated
+one. The workshop's own Retrieval agent does run on AgentCore Runtime with Gateway and
+optional Memory, as described in Section 5. This section is a documentation profile,
+written to make the composition story concrete; it is not evidence that the A2A story has
+been built.
 
 ## Sources
 

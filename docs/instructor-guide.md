@@ -52,8 +52,8 @@ The historical synthetic scorecard and 720 filter cases are not its quality gate
 | 00:30-00:40 | Rank | Repair RRF so the monitor reaches reranking; `advance --lab 2` proves it and prepares Lab 3 |
 | 00:40-01:00 | Reason | Build and deploy the Retrieval agent, ask the setup and 100W requests with `ask_agent.py`, prove the setup run |
 
-The hour has no wrap-up block. Optional exercises are untimed: Session & Memory first, with a
-retrieval tool or HNSW as alternatives.
+The hour has no wrap-up block. Optional exercises are untimed and follow the guide's order: Scale & HNSW,
+Session & Memory, Retrieval tool, Review examples.
 
 ## Eight proof anchors
 
@@ -161,8 +161,8 @@ unchanged results and an unsuccessful wording variant.
 
 Lab 2 ends with `uv run python scripts/lab_state.py advance --lab 2`. It repeats
 Alex's request and the two Dell requests that must still work, saves the
-passing evidence, then installs the Retrieval agent's starting code, so Lab 3 has no
-start command. A rerun proves Lab 2 again and keeps any Lab 3 edits.
+passing evidence, then installs the Retrieval agent's starting code (it runs
+`start --lab 3` itself), so the guide has no separate Lab 3 start step. A rerun proves Lab 2 again and keeps any Lab 3 edits.
 
 ### Lab 3: Reason - Build and deploy the Retrieval agent
 
@@ -369,8 +369,9 @@ guide**, **Download the agent skill**, **Connect over MCP**. MCP or
 HTTP connects another host to a running service; the skill adds workflow and
 evidence-checking guidance for those tools. Neither enforces permissions; the
 service and database role do. The skill does not host the catalog, and the event
-backend expires with the workshop. Then introduce the optional Memory exercise:
-Memory answers what we remember about Alex, not which product fact is true.
+backend expires with the workshop. Then point to the optional exercises, Scale & HNSW
+first. Session & Memory answers what we remember about Alex, not which product fact is
+true.
 
 ## Failure-safe sequence
 
@@ -418,4 +419,4 @@ listing states (90W) or names 100W as a shortfall that listing bears out. An ans
 that never addresses charging, or takes 100W from one reviewer's laptop, fails; the
 participant asks the 100W question again.
 
-Offer Session & Memory first once the required work is done; optional exercises are untimed, and extraction is asynchronous, so do not promise a completed extraction. [Build a retrieval tool](build-retrieval-tool.md) is the alternative: its four hints preserve the final two-budget proof and agent call. HNSW is the other option. Use [the delivery map](abstract-delivery-map.md) to distinguish what attendees implement from what they inspect.
+Once the required work is done, offer the optional exercises in the guide's order: Scale & HNSW, Session & Memory, Retrieval tool and Review examples. They are untimed. Session & Memory extraction is asynchronous, so do not promise a completed extraction. [Build a retrieval tool](build-retrieval-tool.md) has four hints that preserve the final two-budget proof and agent call. Use [the delivery map](abstract-delivery-map.md) to distinguish what attendees implement from what they inspect.

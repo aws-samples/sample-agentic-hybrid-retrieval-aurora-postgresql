@@ -1,10 +1,14 @@
 # Catalog retrieval service
 
-Run from the repository root after loading and embedding the catalog:
+Start the API from the repository root after loading and embedding the catalog, with the
+environment from `.env` loaded, as [the development guide](../docs/development.md)
+describes:
 
 ```bash
-export DATABASE_URL='postgresql://...'
-uvicorn service.main:app --reload --port 8000
+set -a
+source .env
+set +a
+make api-serve
 ```
 
 The API exposes catalog, search, agent, retrieval-run, tool-contract, and

@@ -104,9 +104,7 @@ transaction; removing the checkout check reproduced the failure. Saved receipts
 and test scopes are in the verification record.
 
 This does not establish a new whole-catalog scorecard or a fresh-account
-rehearsal. The Workshop Studio guide tests pass, but its full package validator
-remains blocked by the pre-existing bootstrap asset hash mismatch. No source
-commit, push or Workshop Studio publication was performed in this review.
+rehearsal.
 
 ## How the datasets help
 

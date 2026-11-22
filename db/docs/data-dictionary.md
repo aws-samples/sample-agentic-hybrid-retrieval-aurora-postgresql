@@ -3,7 +3,7 @@
 ## `mosaic` schema
 
 ### `brand`
-Synthetic catalog brand dimension. `brand_key` is stable and machine-friendly; `display_name` is presentation text.
+Brand dimension for the source catalog. `brand_key` is stable and machine-friendly; `display_name` is presentation text.
 
 ### `category`
 Hierarchical taxonomy. `category_path` is the human-readable breadcrumb copied into the retrieval projection.
@@ -63,4 +63,6 @@ through it.
 - `profile`: scale/index/runtime/filter configuration
 - `run`: one benchmark execution and environment
 - `measurement`: latency, recall, QPS, size, build time, plans
-- `vector_item`: physical synthetic vector table for scale experiments
+- `vector_item`: vectors with domain, category and price-bucket columns, created by
+  `db/sql/21_benchmark.sql`. No script in this repository loads it, and the served
+  catalog does not read it.

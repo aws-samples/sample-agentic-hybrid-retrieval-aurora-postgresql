@@ -1,5 +1,7 @@
 # Media and merchandising
 
+> Status note, 22 November 2026: this page describes the retired synthetic catalog's media tiering, which the served `reviews-2023-v2` catalog does not use. The current Shop selection is in `data/real-shop-collection.json`.
+
 ## Recommended tiers
 
 | Tier | Coverage | Media policy |

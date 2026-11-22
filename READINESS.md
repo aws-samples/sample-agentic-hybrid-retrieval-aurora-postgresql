@@ -44,8 +44,12 @@ cd ui && npm test && npm run build
 make ui-audit
 ```
 
-This is the list `.github/workflows/ci.yml` runs on every push and pull
-request; [the development guide](docs/development.md) explains the common subset.
+This list is the core of the offline job in `.github/workflows/ci.yml`, which runs on
+every push to `main` and every pull request. That job also runs `uv pip check`, `cfn-lint`
+on the CloudFormation templates in both Regions and `npx tsc --noEmit`. The Aurora and
+model-backed jobs run only on a manual `workflow_dispatch` or a `v*` tag, on a
+self-hosted runner, and the billed scorecard only on a manual run that asks for it.
+[The development guide](docs/development.md) explains the common subset.
 The offline pytest run covers the whole suite except the files marked `aurora`, which `tests/conftest.py` skips
 without a `DATABASE_URL`. These gates prove source shape, deterministic
 contracts, package integrity, and offline behavior. They do not prove Aurora

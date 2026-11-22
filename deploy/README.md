@@ -4,7 +4,9 @@
 
 What Workshop Studio runs on the Code Editor instance to turn a bare Amazon Linux
 box into a working Mosaic environment: packages, `uv sync`, the cached Aurora
-bootstrap, the nginx front, and the `mosaic-api` and `mosaic-ui` units.
+bootstrap, the nginx front, and the `mosaic-api` and `mosaic-ui` units. The same
+script runs for own-account deploys (`deploy/cloudformation/README.md`):
+`deploy.py publish` uploads it to your own bucket instead of Workshop Studio's.
 
 **This copy is the source of truth.** It lives here because almost everything in
 it is a fact owned by this repository rather than by the workshop:
@@ -32,11 +34,10 @@ development continues to use Vite and `CATALOG_API_PROXY`.
 
 ### Secrets: one value per use, and what CloudFormation must supply
 
-The script previously reused one `CODE_EDITOR_PASSWORD` for four things: the
-sudo user's OS password, the Code Editor connection token, nginx's
-`X-Mosaic-Origin-Verify` origin check, and the curl commands that proved it.
-Reusing one secret across unrelated purposes means compromising or rotating
-any one of them affects all four, and it is now three separate values:
+The script keeps the sudo user's OS password, the Code Editor connection token and
+nginx's `X-Mosaic-Origin-Verify` origin check as three separate values. Reusing one
+secret across unrelated purposes would mean compromising or rotating any one of them
+affects all of them:
 
 | Bootstrap variable | Where it is used | Where it comes from |
 | --- | --- | --- |
@@ -44,18 +45,17 @@ any one of them affects all four, and it is now three separate values:
 | `CODE_EDITOR_CONNECTION_TOKEN` | `code-editor-server --connection-token`, and the token file it reads on start. | **Must remain a CFN-supplied secret.** CloudFormation's `CodeEditorURL` stack output has to embed this same value as its `tkn=` query parameter, so CloudFormation has to know it; the bootstrap cannot generate it locally and report it back. |
 | `ORIGIN_VERIFY_SECRET` | The nginx `X-Mosaic-Origin-Verify` check on both server blocks, and the API's own independent verification of the same header (`MOSAIC_ORIGIN_VERIFY_SECRET` in `.env`; see `docs/api-contract.md`). | **Must remain a CFN-supplied secret.** CloudFront's distribution config sets the custom origin header it forwards to nginx at stack-deploy time, before this script ever runs, so the value has to be known to CloudFormation up front -- the bootstrap cannot generate it locally and hand it to an already-configuring CloudFront distribution. |
 
-The sibling CloudFormation template (out of view from this repository) needs
-updating for the last two rows: rename or replace whatever currently
-generates and passes `CODE_EDITOR_PASSWORD` with two separate generated
-secrets, passed into the EC2 UserData as `CODE_EDITOR_CONNECTION_TOKEN` and
-`ORIGIN_VERIFY_SECRET`, and configure the CloudFront distribution fronting
-this host's port 8081 (and 80, for the editor) to forward
-`ORIGIN_VERIFY_SECRET` as the `X-Mosaic-Origin-Verify` custom origin header.
-Either generator is fine as long as it excludes `"`, `\`, and `$` -- the
-bootstrap asserts `ORIGIN_VERIFY_SECRET` is letters, digits, `-`, and `_`
-only before substituting it into nginx's config, because those three
-characters would break out of nginx's double-quoted string literal or its
-own variable interpolation.
+The template in `deploy/cloudformation/hybrid-retrieval-code-editor.yml` supplies the
+last two values. It generates two separate secrets (`CodeEditorSecret` and
+`OriginVerifySecret`), passes them into the EC2 UserData as
+`CODE_EDITOR_CONNECTION_TOKEN` and `ORIGIN_VERIFY_SECRET`, and sets
+`ORIGIN_VERIFY_SECRET` as the `X-Mosaic-Origin-Verify` custom origin header on both
+CloudFront distributions, the Code Editor's (port 80) and Mosaic's (port 8081). Both
+secrets are generated
+without punctuation, because the bootstrap asserts that `ORIGIN_VERIFY_SECRET` is
+letters, digits, `-`, and `_` only before substituting it into nginx's config:
+`"`, `\`, and `$` would break out of nginx's double-quoted string literal or its own
+variable interpolation.
 
 The nginx `/api/` location also carries `limit_req`/`limit_conn` directives
 (`mosaic_api_perip`, `mosaic_api_room`, `mosaic_api_conn`) sized for a full
@@ -170,7 +170,8 @@ verification, each lab's independent rehearsal, reranker/Ask Mosaic cold and
 warm calls, and a layout walkthrough into one machine-readable evidence
 manifest. `scripts/bench/load_exercise.py` is a separate, opt-in bounded concurrency
 exercise against the deployed HTTP API, meant to check the access-control
-work's admission and timeout behavior once that lands. Neither tool deploys,
+admission and timeout behavior that ships (the per-process model rate limit and
+concurrency cap in `docs/api-contract.md`). Neither tool deploys,
 provisions, or resets anything itself; both need an authorized, already-running
 Aurora and API environment that this repository's own offline tests cannot
 provide.
