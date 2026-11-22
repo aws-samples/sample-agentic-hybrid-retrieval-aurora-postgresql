@@ -14,6 +14,8 @@ import pytest
 from botocore.exceptions import ClientError
 
 from scripts import event_readiness as readiness
+
+REAL_HTTP_GET = readiness.http_get
 from scripts import readiness_checks as checks
 from scripts.deploy_agentcore import RUNTIME_ROLES
 from scripts.readiness_checks import Line
@@ -773,7 +775,9 @@ def test_account_row_reads_the_account_from_sts():
     logs = logs_with([{"events": [{"timestamp": 1, "message": json.dumps(recent)}]}])
     cfn = Cfn([stack("CREATE_COMPLETE")], {})
     row, found = readiness.account_row(
-        session_with({"sts": sts, "logs": logs, "cloudformation": cfn}),
+        session_with(
+            {"sts": sts, "logs": logs, "cloudformation": cfn, "ec2": editor_ec2()}
+        ),
         "us-west-2",
         live=False,
         max_age=10**6,
@@ -859,7 +863,9 @@ def test_account_row_applies_the_stack_verdict_to_a_ready_record():
     logs = logs_with([{"events": [{"timestamp": 1, "message": json.dumps(record())}]}])
     cfn = Cfn([stack("ROLLBACK_COMPLETE")], {"root": [FAILED_EVENT]})
     row, _ = readiness.account_row(
-        session_with({"sts": sts, "logs": logs, "cloudformation": cfn}),
+        session_with(
+            {"sts": sts, "logs": logs, "cloudformation": cfn, "ec2": editor_ec2()}
+        ),
         "us-east-1",
         live=False,
         max_age=10**6,
@@ -990,6 +996,210 @@ def test_live_never_runs_twice_on_one_box(tmp_path):
     assert (rows[2].icon, rows[2].status) == ("⚠️", "same account as a.env")
 
 
+# --- a record speaks only for this stack and its own box --------------------
+
+
+BOX = "i-0123456789abcdef0"
+
+
+def editor_stack(instance_id: str = BOX, root_id: str = "root") -> dict:
+    """The nested Code Editor stack, with the instance it created as an output."""
+    return {
+        "StackId": "editor",
+        "StackName": "mosaic-CodeEditorStack",
+        "ParentId": root_id,
+        "RootId": root_id,
+        "StackStatus": "CREATE_COMPLETE",
+        "CreationTime": NOW,
+        "Outputs": [{"OutputKey": "EditorInstanceId", "OutputValue": instance_id}],
+    }
+
+
+def with_editor(root: dict, instance_id: str = BOX) -> Cfn:
+    return Cfn([root, editor_stack(instance_id)], {})
+
+
+def editor_ec2(state: str = "running") -> Mock:
+    ec2 = Mock()
+    ec2.describe_instances.return_value = {
+        "Reservations": [{"Instances": [{"InstanceId": BOX, "State": {"Name": state}}]}]
+    }
+    return ec2
+
+
+def fresh(**overrides) -> dict:
+    """A READY record that reached CloudWatch after the test stack was created."""
+    later = (NOW + timedelta(minutes=30)).isoformat()
+    return record(recordedAt=later, ingestedAt=later, **overrides)
+
+
+def test_a_record_from_this_stacks_running_box_counts(web):
+    cfn = with_editor(stack("CREATE_COMPLETE"))
+    assert readiness.stack_verdict(READY_ROW, cfn, fresh(), editor_ec2()) == READY_ROW
+
+
+def test_a_record_received_before_the_stack_is_not_this_stacks(web):
+    old = (NOW - timedelta(minutes=5)).isoformat()
+    cfn = with_editor(stack("CREATE_COMPLETE"))
+    row = readiness.stack_verdict(
+        READY_ROW, cfn, record(recordedAt=old, ingestedAt=old), editor_ec2()
+    )
+    assert (row.icon, row.status) == (
+        "⚠️",
+        "no record (the newest record predates this stack)",
+    )
+    assert web.urls == []
+
+
+def test_a_fast_box_clock_cannot_make_an_old_record_current(web):
+    stale = record(
+        recordedAt=(NOW + timedelta(hours=2)).isoformat(),
+        ingestedAt=(NOW - timedelta(minutes=5)).isoformat(),
+    )
+    cfn = with_editor(stack("CREATE_COMPLETE"))
+    row = readiness.stack_verdict(READY_ROW, cfn, stale, editor_ec2())
+    assert row.status == "no record (the newest record predates this stack)"
+
+
+def test_a_record_older_than_an_update_is_not_this_stacks(web):
+    updated = stack("UPDATE_COMPLETE", LastUpdatedTime=NOW + timedelta(hours=1))
+    row = readiness.stack_verdict(
+        READY_ROW, with_editor(updated), fresh(), editor_ec2()
+    )
+    assert row.status == "no record (the newest record predates this stack)"
+
+
+def test_a_created_stacks_own_update_time_does_not_hide_its_record(web):
+    created = stack("CREATE_COMPLETE", LastUpdatedTime=NOW + timedelta(hours=1))
+    row = readiness.stack_verdict(
+        READY_ROW, with_editor(created), fresh(), editor_ec2()
+    )
+    assert row == READY_ROW
+
+
+def test_a_record_from_another_instance_does_not_count(web):
+    cfn = with_editor(stack("CREATE_COMPLETE"), instance_id="i-replacement")
+    row = readiness.stack_verdict(READY_ROW, cfn, fresh(), editor_ec2())
+    assert (row.icon, row.status) == (
+        "⚠️",
+        "no record (the newest record is from another instance)",
+    )
+
+
+def test_a_leftover_editor_of_another_stack_is_not_this_stacks(web):
+    other = editor_stack("i-0123456789abcdef0", root_id="another-root")
+    cfn = Cfn([stack("CREATE_COMPLETE"), other], {})
+    row = readiness.stack_verdict(READY_ROW, cfn, fresh(), editor_ec2())
+    assert (row.icon, row.status) == ("⚠️", "cannot read: NoEditorInstanceIdOutput")
+
+
+@pytest.mark.parametrize("state", ["stopped", "terminated"])
+def test_this_stacks_editor_not_running_is_a_failure(web, state):
+    cfn = with_editor(stack("CREATE_COMPLETE"))
+    row = readiness.stack_verdict(READY_ROW, cfn, fresh(), editor_ec2(state))
+    assert (row.icon, row.status) == ("❌", "Code Editor instance not running")
+
+
+def test_an_editor_instance_that_no_longer_exists_is_not_running(web):
+    ec2 = Mock()
+    ec2.describe_instances.side_effect = client_error("InvalidInstanceID.NotFound")
+    cfn = with_editor(stack("CREATE_COMPLETE"))
+    row = readiness.stack_verdict(READY_ROW, cfn, fresh(), ec2)
+    assert (row.icon, row.status) == ("❌", "Code Editor instance not running")
+
+
+def test_an_unreadable_instance_is_not_ready(web):
+    ec2 = Mock()
+    ec2.describe_instances.side_effect = client_error("UnauthorizedOperation")
+    cfn = with_editor(stack("CREATE_COMPLETE"))
+    row = readiness.stack_verdict(READY_ROW, cfn, fresh(), ec2)
+    assert (row.icon, row.status) == ("⚠️", "cannot read: UnauthorizedOperation")
+
+
+def test_the_log_read_keeps_cloudwatchs_receipt_time():
+    event = {
+        "timestamp": 1,
+        "ingestionTime": int(NOW.timestamp() * 1000),
+        "message": json.dumps(record()),
+    }
+    found = readiness.latest_record(logs_with([{"events": [event]}]))
+    assert datetime.fromisoformat(found["ingestedAt"]) == NOW
+
+
+def test_the_newest_record_is_the_one_cloudwatch_received_last():
+    fast_old_box = {
+        "timestamp": 9_000,
+        "ingestionTime": 1_000,
+        "message": json.dumps(record(final="from the old box")),
+    }
+    current_box = {
+        "timestamp": 2_000,
+        "ingestionTime": 2_000,
+        "message": json.dumps(record(final="from the current box")),
+    }
+    found = readiness.latest_record(
+        logs_with([{"events": [fast_old_box, current_box]}])
+    )
+    assert found["final"] == "from the current box"
+
+
+def test_live_targets_the_instance_this_stack_created():
+    session = session_with({"cloudformation": with_editor(stack("CREATE_COMPLETE"))})
+    assert readiness.box_instance(session) == BOX
+
+
+def test_live_without_this_stacks_editor_output_targets_nothing():
+    session = session_with({"cloudformation": Cfn([stack("CREATE_COMPLETE")], {})})
+    with pytest.raises(readiness.CannotRead) as missing:
+        readiness.box_instance(session)
+    assert missing.value.code == "NoEditorInstanceIdOutput"
+
+
+def test_one_stack_listing_serves_the_status_and_the_editor():
+    cfn = with_editor(stack("CREATE_COMPLETE"))
+    listings = []
+    real = cfn.get_paginator
+
+    def counting(name):
+        listings.append(name)
+        return real(name)
+
+    cfn.get_paginator = counting
+    readiness.stack_verdict(READY_ROW, cfn, fresh(), editor_ec2())
+    assert listings.count("describe_stacks") == 1
+
+
+def test_a_fetch_that_outlives_its_deadline_fails_without_waiting_for_it(monkeypatch):
+    release = threading.Event()
+
+    def hung(_url):
+        release.wait(5)
+        return 200, b"<html>"
+
+    monkeypatch.setattr(readiness, "http_get", hung)
+    monkeypatch.setattr(readiness, "WEB_DEADLINE_SECONDS", 0.05)
+    started = time.monotonic()
+    with pytest.raises(readiness.DeadlineExceeded):
+        readiness.bounded_get("https://d1shop.cloudfront.net/")
+    assert time.monotonic() - started < 1
+    release.set()
+
+
+def test_two_records_received_together_are_ordered_by_the_box_time():
+    first = {
+        "timestamp": 1,
+        "ingestionTime": 5,
+        "message": json.dumps(record(final="a")),
+    }
+    second = {
+        "timestamp": 2,
+        "ingestionTime": 5,
+        "message": json.dumps(record(final="b")),
+    }
+    found = readiness.latest_record(logs_with([{"events": [second, first]}]))
+    assert found["final"] == "b"
+
+
 # --- the participant's browser path ------------------------------------------
 
 
@@ -1031,7 +1241,7 @@ def test_a_ready_account_reads_its_storefront_and_editor_without_the_token(web):
     ],
 )
 def test_a_browser_path_that_does_not_answer_is_not_ready(web, path, answer, status):
-    web.answers[path] = [answer, answer]
+    web.answers[path] = [answer] * readiness.WEB_ATTEMPTS
     row = readiness.stack_verdict(READY_ROW, complete())
     assert (row.icon, row.status) == ("❌", status)
     assert EDITOR_TOKEN not in row.status
@@ -1045,8 +1255,8 @@ def test_one_dropped_connection_is_tried_again(web):
     assert web.urls.count(f"https://{EDITOR_DOMAIN}/healthz") == 2
 
 
-def test_two_dropped_connections_fail_with_the_error_name(web):
-    web.answers["/"] = [ConnectionResetError(), ConnectionResetError()]
+def test_a_connection_dropped_on_every_try_fails_with_the_error_name(web):
+    web.answers["/"] = [ConnectionResetError()] * readiness.WEB_ATTEMPTS
     row = readiness.stack_verdict(READY_ROW, complete())
     assert (row.icon, row.status) == (
         "❌",
@@ -1060,11 +1270,116 @@ def test_a_stack_without_its_url_outputs_is_not_ready(web):
     row = readiness.stack_verdict(READY_ROW, Cfn([bare], {}))
     assert (row.icon, row.status) == (
         "❌",
-        "Code Editor does not answer (no CodeEditorURL)",
+        "Code Editor does not answer (no usable CodeEditorURL)",
     )
     assert not readiness.stack_verdict(
         READY_ROW, Cfn([{**bare, "Outputs": []}], {})
     ).ready
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://d1shop.cloudfront.net/",
+        "https://user:pw@d1shop.cloudfront.net/",
+        "https://d1shop.cloudfront.net:8443/",
+        "https://d1shop.example.com/",
+        "https://cloudfront.net/",
+        "https://d1shop.cloudfront.net.example.com/",
+        "not a url",
+    ],
+)
+def test_an_output_url_outside_cloudfront_is_never_fetched(web, url):
+    odd = stack("CREATE_COMPLETE")
+    odd["Outputs"] = [
+        {**o, "OutputValue": url} if o["OutputKey"] == "MosaicURL" else o
+        for o in odd["Outputs"]
+    ]
+    row = readiness.stack_verdict(READY_ROW, Cfn([odd], {}))
+    assert (row.icon, row.status) == (
+        "❌",
+        "storefront does not answer (no usable MosaicURL)",
+    )
+    assert web.urls == []
+
+
+def test_a_redirect_is_the_answer_and_is_never_followed():
+    import http.server
+    import threading
+
+    followed = []
+
+    class Server(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            if self.path == "/elsewhere":
+                followed.append(self.path)
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(b"<html>")
+                return
+            self.send_response(302)
+            self.send_header("Location", "/elsewhere")
+            self.end_headers()
+
+        def log_message(self, *_args):
+            return
+
+    server = http.server.HTTPServer(("127.0.0.1", 0), Server)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        status, _ = REAL_HTTP_GET(f"http://127.0.0.1:{server.server_port}/")
+    finally:
+        server.shutdown()
+    assert status == 302
+    assert followed == []
+
+
+def test_readiness_gets_three_tries_and_the_page_and_editor_two(web):
+    web.answers["/api/readiness"] = [(503, b"x"), (503, b"x")]
+    assert readiness.stack_verdict(READY_ROW, complete()) == READY_ROW
+    web.urls.clear()
+    web.answers["/"] = [(502, b"x"), (502, b"x")]
+    row = readiness.stack_verdict(READY_ROW, complete())
+    assert row.status == "storefront does not answer (HTTP 502)"
+    assert web.urls.count("https://d1shop.cloudfront.net/") == readiness.PAGE_ATTEMPTS
+
+
+def test_an_account_stops_trying_when_its_time_budget_is_spent(web, monkeypatch):
+    clock = iter([0.0, 0.0, 61.0, 61.0, 61.0, 61.0])
+    monkeypatch.setattr(readiness.time, "monotonic", lambda: next(clock, 61.0))
+    web.answers["/"] = [(502, b"x")]
+    row = readiness.stack_verdict(READY_ROW, complete())
+    assert (
+        row.status == "storefront does not answer (HTTP 502; account time budget spent)"
+    )
+
+
+def test_a_malformed_http_reply_is_retried_like_any_dropped_connection(web):
+    import http.client
+
+    web.answers["/healthz"] = [http.client.IncompleteRead(b"")]
+    assert readiness.stack_verdict(READY_ROW, complete()) == READY_ROW
+
+
+def test_editor_json_without_its_health_field_is_not_the_editor(web):
+    web.answers["/healthz"] = [(200, b'{"status": "ok"}')] * readiness.PAGE_ATTEMPTS
+    row = readiness.stack_verdict(READY_ROW, complete())
+    assert row.status == "Code Editor does not answer (not the Code Editor's health)"
+
+
+def test_a_ready_phrase_without_the_ready_flag_is_not_ready():
+    odd = record(ready=False, final=readiness.READY)
+    assert readiness.record_row("1", "us-east-1", odd, NOW, 24).icon == "❌"
+
+
+def test_no_cell_can_carry_a_terminal_or_bidi_control():
+    sly = "\u202eYDAER\u200b\x1b[2J"
+    row = readiness.Row("1", "us-east-1", f"i-1{sly}", "-", "⚠️", f"oops {sly}")
+    line = readiness.table([row])[1]
+    for char in ("\u202e", "\u200b", "\x1b"):
+        assert char not in line
+    assert "⚠️" in readiness.table([row])[1]
 
 
 def test_a_record_that_is_not_ready_skips_the_browser_path(web):
@@ -1281,11 +1596,17 @@ def event(made: dict, stamp: int = 1) -> dict:
     return {"timestamp": stamp, "message": json.dumps(made)}
 
 
+def live_stack() -> Cfn:
+    """The stack whose nested Code Editor stack created the box --live targets."""
+    return with_editor(stack("CREATE_COMPLETE"))
+
+
 def test_live_returns_the_new_record_even_when_the_command_failed():
     ssm = Invocations("Failed")
     logs = ReadsInTurn([event(record())], [event(record(mode="live", ready=False), 9)])
     found = readiness.live_record(
-        session_with({"logs": logs, "ssm": ssm}), sleep=lambda _s: None
+        session_with({"logs": logs, "ssm": ssm, "cloudformation": live_stack()}),
+        sleep=lambda _s: None,
     )
     assert found["mode"] == "live"
     assert ssm.sent[0]["InstanceIds"] == ["i-0123456789abcdef0"]
@@ -1298,43 +1619,16 @@ def test_live_names_the_finished_command_when_no_record_arrives():
     logs = ReadsInTurn([event(record())], [event(record())])
     with pytest.raises(readiness.CannotRead) as missing:
         readiness.live_record(
-            session_with({"logs": logs, "ssm": Invocations("Failed")}),
+            session_with(
+                {
+                    "logs": logs,
+                    "ssm": Invocations("Failed"),
+                    "cloudformation": live_stack(),
+                }
+            ),
             sleep=lambda _s: None,
         )
     assert missing.value.code.startswith("LiveCommandFailed on i-0123456789abcdef0")
-
-
-def test_without_a_record_live_finds_the_newest_running_editor_host():
-    pages = [
-        {
-            "Reservations": [
-                {
-                    "Instances": [
-                        {"InstanceId": "i-old", "LaunchTime": NOW - timedelta(days=1)},
-                        {"InstanceId": "i-new", "LaunchTime": NOW},
-                    ]
-                }
-            ]
-        }
-    ]
-    ec2 = Mock()
-    ec2.get_paginator.return_value.paginate.return_value = iter(pages)
-    assert readiness.box_instance(session_with({"ec2": ec2}), None) == "i-new"
-    ec2.get_paginator.assert_called_once_with("describe_instances")
-    assert ec2.get_paginator.return_value.paginate.call_args.kwargs["Filters"] == [
-        {"Name": "tag-key", "Values": ["eval-skills:launch-inputs"]},
-        {"Name": "instance-state-name", "Values": ["running"]},
-    ]
-
-
-def test_launcher_tag_matches_the_editor_launcher():
-    launcher = Path(readiness.__file__).resolve().parents[1] / (
-        "deploy/cloudformation/editor_launcher.py"
-    )
-    assert f'INPUTS_TAG = "{readiness.LAUNCHER_TAG}"' in launcher.read_text("utf-8")
-
-
-# --- --live leaves a box alone once a lab has started --------------------------
 
 
 def test_live_on_the_box_refuses_a_started_lab_before_any_check(monkeypatch, capsys):
@@ -1384,7 +1678,9 @@ def test_fleet_row_for_a_box_with_a_lab_in_progress_keeps_the_old_record(monkeyp
     logs = ReadsInTurn([event(previous)], [event(previous)])
     ssm = Invocations("Failed", code=3, output='{"labInProgress": "Lab 2"}\n')
     row, shown = readiness.account_row(
-        session_with({"sts": sts, "logs": logs, "ssm": ssm}),
+        session_with(
+            {"sts": sts, "logs": logs, "ssm": ssm, "cloudformation": live_stack()}
+        ),
         "us-east-1",
         live=True,
         max_age=24,

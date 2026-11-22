@@ -111,9 +111,24 @@ A ✅ also needs the participant's browser path to answer at that moment, throug
 CloudFront, the way a participant's browser reaches it. The laptop fetches the storefront
 page and `/api/readiness` (which reaches Aurora) from the stack's `MosaicURL`, and the
 Code Editor's own `/healthz` from the domain of `CodeEditorURL`. None of them needs a token
-or a sign-in, so no account is claimed. `CodeEditorURL` carries the editor's connection
-token, so the script keeps only its domain and never prints either URL. Each fetch is
-tried twice, 15 seconds each.
+or a sign-in, so no account is claimed, and all three only read: no model call, no row
+written. `CodeEditorURL` carries the editor's connection token, so the script keeps only
+its domain and never prints either URL. Only an `https` URL on a `*.cloudfront.net` host,
+with no user name, password or port, is ever fetched, and a redirect is the answer, never
+followed. Readiness gets three tries, the page and the editor two, 5 seconds apart, each
+with a hard 20-second deadline that also bounds the DNS lookup, and an account spends at
+most 60 seconds on them. A fleet in which nothing answers therefore takes about a minute
+per eight accounts.
+
+A record also has to belong to this stack and its own box. It must have reached
+CloudWatch (by CloudWatch's clock, not the box's) after the stack's current form began:
+its creation, or its last update for a stack in an `UPDATE_*` state. CloudFormation stamps
+an update's start, and Workshop Studio updates each stack once right after creating it, so
+only an updated stack moves that time. The record must also come from the instance the
+stack's nested Code Editor stack created (its `EditorInstanceId` output), and that
+instance must be running. `--live` targets the same instance. After an in-place update,
+every good account reads `⚠️ no record (the newest record predates this stack)` until its
+box records again: run `--live` before participants arrive, which is what it is for.
 
 The box's checks run as the Linux user `participant`, in the repository with its `.env`,
 which is how the Code Editor terminal runs. They do not sign in to Workshop Studio as a
@@ -128,7 +143,10 @@ A status is one of:
 - `❌ setup failed:` and CloudFormation's first failure, for a failed or rolled-back
   root stack, whatever the record says;
 - `❌ storefront does not answer (<why>)` or `❌ Code Editor does not answer (<why>)`,
-  with an HTTP status, `database not ready` or the error's name;
+  with an HTTP status, `database not ready`, `no usable <output>` or the error's name;
+- `❌ Code Editor instance not running`, `⚠️ no record (the newest record predates this
+  stack)`, `⚠️ no record (the newest record is from another instance)` and `⚠️ cannot read:
+  NoEditorInstanceIdOutput` when the record cannot speak for this stack's own box;
 - `⚠️ setup still running (<status>)` for a READY record while the root stack is still
   being created or updated, `⚠️ setup not complete (<status>)` for any other unfinished
   state (a stack being deleted, for example), and `⚠️ no workshop stack in this Region`
@@ -145,7 +163,10 @@ A status is one of:
   `MalformedRecord` (a record whose time is missing, has no zone or lies in the
   future) or `TooManyLogEvents` (more than 100 pages in the 14 days read).
 
-Rows follow file-name order, and at most eight accounts are read at once.
+Rows follow file-name order, and at most eight accounts are read at once. Every cell is
+printed with control, format (bidi overrides included), private-use and unassigned
+characters replaced by `?`, so nothing in a record or a CloudFormation reason can rewrite
+the terminal or reorder the row.
 
 The command exits 0 only when every row is ready and there is at least one row, 1
 otherwise, and 2 on a usage error. Without `--live` it only reads: CloudWatch

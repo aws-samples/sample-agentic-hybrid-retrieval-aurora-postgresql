@@ -30,7 +30,9 @@ import argparse
 import json
 import re
 import sys
+import threading
 import time
+import unicodedata
 import urllib.error
 import urllib.request
 from collections.abc import Callable
@@ -55,7 +57,6 @@ LOG_GROUP = "/aws/mosaic/readiness"
 RECORD_COMMAND = "/usr/local/sbin/mosaic-readiness-record"
 STACK_PARAMETER = "InfrastructureRevision"
 # The editor launcher (deploy/cloudformation/editor_launcher.py) tags every host it starts.
-LAUNCHER_TAG = "eval-skills:launch-inputs"
 DEFAULT_CAP_SECONDS = 90.0
 DEFAULT_MAX_AGE_HOURS = 24.0
 MAX_PARALLEL_ACCOUNTS = 8
@@ -67,12 +68,20 @@ MAX_STACKS_READ = 20
 NO_STACK = "no workshop stack in this Region"
 # The participant's browser path, read from the laptop with no token and no claim.
 STOREFRONT_OUTPUT = "MosaicURL"
+# The nested Code Editor stack names the exact instance it created.
+EDITOR_INSTANCE_OUTPUT = "EditorInstanceId"
 EDITOR_OUTPUT = "CodeEditorURL"
 WEB_TIMEOUT_SECONDS = 15
-WEB_ATTEMPTS = 2
-WEB_PAUSE_SECONDS = 2
+WEB_DEADLINE_SECONDS = 20
+# Readiness reaches Aurora and gets one more try than the page and the editor.
+WEB_ATTEMPTS = 3
+PAGE_ATTEMPTS = 2
+WEB_BUDGET_SECONDS = 60
+WEB_PAUSE_SECONDS = 5
 WEB_BODY_BYTES = 65536
 WEB_AGENT = "mosaic-event-readiness"
+# Both URLs come from the stack's outputs; anything else is never fetched.
+WEB_HOST_SUFFIX = ".cloudfront.net"
 MAX_EVENT_PAGES = 20
 # The root's own operation start: failures before it belong to an older operation.
 OPERATION_STARTS = {"CREATE_IN_PROGRESS", "UPDATE_IN_PROGRESS", "IMPORT_IN_PROGRESS"}
@@ -250,6 +259,11 @@ def aws_client(session: Any, service: str) -> Any:
     return (session or boto3.Session()).client(service, config=config)
 
 
+def received(event: dict[str, Any]) -> tuple[int, int]:
+    """When CloudWatch received a log event, then the time its sender stamped."""
+    return event.get("ingestionTime", event["timestamp"]), event["timestamp"]
+
+
 def latest_record(
     logs: Any, *, stream: str | None = None, since_ms: int | None = None
 ) -> dict[str, Any] | None:
@@ -267,7 +281,7 @@ def latest_record(
             if number > MAX_LOG_PAGES:
                 raise CannotRead("TooManyLogEvents")
             for event in page.get("events", []):
-                if newest is None or event["timestamp"] >= newest["timestamp"]:
+                if newest is None or received(event) >= received(newest):
                     newest = event
     except CannotRead:
         raise
@@ -278,9 +292,15 @@ def latest_record(
     if newest is None:
         return None
     try:
-        return json.loads(newest["message"])
+        found = json.loads(newest["message"])
     except ValueError as error:
         raise CannotRead("MalformedRecord") from error
+    if isinstance(found, dict) and "ingestionTime" in newest:
+        # AWS's clock, not the box's: it judges whether the record is this stack's.
+        found["ingestedAt"] = datetime.fromtimestamp(
+            newest["ingestionTime"] / 1000, UTC
+        ).isoformat()
+    return found
 
 
 def mosaic_stacks(cfn: Any) -> list[dict[str, Any]]:
@@ -339,9 +359,21 @@ def family_events(cfn: Any, root_id: str) -> list[dict[str, Any]]:
     return events
 
 
+UNPRINTABLE = {"Cc", "Cf", "Cs", "Co", "Cn"}
+
+
+def printable(text: str) -> str:
+    """Every control, format (bidi overrides included), surrogate, private-use or
+    unassigned character becomes "?", so no cell can rewrite the terminal or reorder
+    what is shown. Emoji and their variation selectors are marks, so they survive."""
+    return "".join(
+        "?" if unicodedata.category(char) in UNPRINTABLE else char for char in text
+    )
+
+
 def plain(text: str, limit: int = 400) -> str:
     """Text safe for one table cell: no terminal escapes or control characters."""
-    flat = " ".join(TERMINAL_ESCAPE.sub(" ", text).split())
+    flat = printable(" ".join(TERMINAL_ESCAPE.sub(" ", text).split()))
     return flat if len(flat) <= limit else f"{flat[: limit - 1]}…"
 
 
@@ -379,29 +411,31 @@ def first_failure(cfn: Any, root: dict[str, Any]) -> str:
     return f"{first['LogicalResourceId']}: {reason}"
 
 
-def stack_facts(cfn: Any) -> tuple[str, str, dict[str, str]]:
-    """The Mosaic stack's status, why it failed or is unknown, and its outputs."""
+def stack_facts(cfn: Any) -> tuple[str, str, dict[str, Any], str | None]:
+    """From one stack listing: the status, why it failed or is unknown, the root,
+    and the editor instance the root's nested Code Editor stack created."""
     try:
         stacks = mosaic_stacks(cfn)
         root = root_stack(stacks)
         if root is None:
-            return "", NO_STACK, {}
+            return "", NO_STACK, {}, None
         status = root["StackStatus"]
-        outputs = {o["OutputKey"]: o["OutputValue"] for o in root.get("Outputs", [])}
+        editor = editor_instance_id(stacks, root)
     except Exception as error:  # noqa: BLE001 - the row still prints
-        return "", f"{UNREADABLE_STACK}{error_code(error)}", {}
+        return "", f"{UNREADABLE_STACK}{error_code(error)}", {}, None
     if not setup_failed(status):
-        return status, "", outputs
+        return status, "", root, editor
     try:
         reason = first_failure(cfn, root)
     except Exception:  # noqa: BLE001 - the failed status still decides the row
         reason = ""
-    return status, reason or short_reason(root.get("StackStatusReason", "")), outputs
+    reason = reason or short_reason(root.get("StackStatusReason", ""))
+    return status, reason, root, editor
 
 
 def stack_state(cfn: Any) -> tuple[str, str]:
     """The Mosaic stack's status, and why it failed or why it is unknown."""
-    status, reason, _ = stack_facts(cfn)
+    status, reason, _, _ = stack_facts(cfn)
     return status, reason
 
 
@@ -423,20 +457,105 @@ def setup_failed(status: str) -> bool:
     return "FAILED" in status or "ROLLBACK" in status
 
 
-def stack_verdict(row: Row, cfn: Any) -> Row:
+def stack_time(root: dict[str, Any]) -> datetime:
+    """When the stack's current form began: its last update, else its creation.
+
+    CloudFormation stamps LastUpdatedTime at an update's start. Workshop Studio also
+    updates each stack once right after creating it, so a CREATE_COMPLETE root carries
+    a LastUpdatedTime too; only an UPDATE_* status moves the start past creation.
+    """
+    updated = root.get("LastUpdatedTime")
+    if root.get("StackStatus", "").startswith("UPDATE") and updated:
+        return updated
+    return root["CreationTime"]
+
+
+def editor_instance_id(
+    stacks: list[dict[str, Any]], root: dict[str, Any]
+) -> str | None:
+    """The instance this stack's nested Code Editor stack created, from its output."""
+    for stack in stacks:
+        if stack.get("RootId") != root["StackId"]:
+            continue
+        for output in stack.get("Outputs", []):
+            if output["OutputKey"] == EDITOR_INSTANCE_OUTPUT:
+                return output["OutputValue"]
+    return None
+
+
+def instance_running(ec2: Any, instance_id: str) -> bool:
+    try:
+        answer = ec2.describe_instances(InstanceIds=[instance_id])
+    except Exception as error:
+        if error_code(error) == "InvalidInstanceID.NotFound":
+            return False
+        raise
+    return any(
+        instance.get("State", {}).get("Name") == "running"
+        for reservation in answer.get("Reservations", [])
+        for instance in reservation.get("Instances", [])
+    )
+
+
+def record_time(record: dict[str, Any]) -> datetime | None:
+    """CloudWatch's receipt time when there is one, else the box's own time."""
+    try:
+        when = datetime.fromisoformat(
+            str(record.get("ingestedAt") or record["recordedAt"])
+        )
+    except (KeyError, TypeError, ValueError):
+        return None
+    return when if when.tzinfo is not None else None
+
+
+def record_mismatch(
+    record: dict[str, Any], root: dict[str, Any], editor: str | None, ec2: Any
+) -> tuple[str, str] | None:
+    """Why a READY record cannot speak for this stack's running box, or None.
+
+    The log group can outlive a box (an update that replaces only the instance), so
+    a record must reach CloudWatch after the stack's current form began and come
+    from the instance this stack created, which must be running now.
+    """
+    recorded = record_time(record)
+    if recorded is None or recorded < stack_time(root):
+        return "⚠️", "no record (the newest record predates this stack)"
+    if editor is None:
+        return "⚠️", f"cannot read: No{EDITOR_INSTANCE_OUTPUT}Output"
+    try:
+        if record.get("instanceId") != editor:
+            return "⚠️", "no record (the newest record is from another instance)"
+        if not instance_running(ec2, editor):
+            return "❌", "Code Editor instance not running"
+    except Exception as error:  # noqa: BLE001 - the reason is the row
+        return "⚠️", f"cannot read: {error_code(error)}"
+    return None
+
+
+def stack_verdict(
+    row: Row,
+    cfn: Any,
+    record: dict[str, Any] | None = None,
+    ec2: Any = None,
+) -> Row:
     """CloudFormation first: a record never outranks a failed or unfinished stack.
 
     A box can write READY before a later resource fails the stack, so a failed or
     rolled-back root is a failed setup whatever the record says, and a READY record
     counts only once the root has finished without a rollback.
     """
-    status, reason, outputs = stack_facts(cfn)
+    status, reason, root, editor = stack_facts(cfn)
     cells = (row.account, row.region, row.instance, row.recorded)
     if setup_failed(status):
         return Row(*cells, "❌", f"setup failed: {reason or status}")
     if not row.ready:
         return row
     if status in COMPLETE_STACK_STATES:
+        if record is not None:
+            mismatch = record_mismatch(record, root, editor, ec2)
+            if mismatch:
+                return Row(*cells, *mismatch)
+        outputs = {o["OutputKey"]: o["OutputValue"] for o in root.get("Outputs", [])}
         return web_verdict(row, outputs)
     if status in RUNNING_STACK_STATES:
         return Row(*cells, "⚠️", f"setup still running ({status})")
@@ -447,28 +566,75 @@ def stack_verdict(row: Row, cfn: Any) -> Row:
     return Row(*cells, "⚠️", NO_STACK)
 
 
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    """A redirect is the answer, never followed: it could leave the CloudFront host."""
+
+    def redirect_request(self, *_args: Any) -> None:
+        return None
+
+
+WEB_OPENER = urllib.request.build_opener(NoRedirect())
+
+
 def http_get(url: str) -> tuple[int, bytes]:
     """One HTTPS GET as a browser makes it: the status and the start of the body."""
     request = urllib.request.Request(url, headers={"User-Agent": WEB_AGENT})
     try:
-        with urllib.request.urlopen(request, timeout=WEB_TIMEOUT_SECONDS) as response:
+        with WEB_OPENER.open(request, timeout=WEB_TIMEOUT_SECONDS) as response:
             return response.status, response.read(WEB_BODY_BYTES)
     except urllib.error.HTTPError as error:
         return error.code, error.read(WEB_BODY_BYTES)
 
 
-def web_answer(url: str, accept: Callable[[int, bytes], str | None]) -> str | None:
+class DeadlineExceeded(Exception):
+    """A fetch outlived its deadline: urllib's timeout does not bound DNS."""
+
+
+def bounded_get(url: str, deadline: float | None = None) -> tuple[int, bytes]:
+    """http_get in a daemon thread with a hard deadline, so no lookup can stall the
+    fleet and no stuck thread holds the process open at exit."""
+    outcome: dict[str, Any] = {}
+
+    def fetch() -> None:
+        try:
+            outcome["answer"] = http_get(url)
+        except Exception as error:  # noqa: BLE001 - re-raised in the caller
+            outcome["error"] = error
+
+    worker = threading.Thread(target=fetch, daemon=True)
+    worker.start()
+    worker.join(WEB_DEADLINE_SECONDS if deadline is None else deadline)
+    if worker.is_alive():
+        raise DeadlineExceeded
+    if "error" in outcome:
+        raise outcome["error"]
+    return outcome["answer"]
+
+
+def web_answer(
+    url: str,
+    accept: Callable[[int, bytes], str | None],
+    attempts: int,
+    budget_end: float,
+) -> str | None:
     """None once the URL answers as `accept` wants, else why not; never the URL.
 
     A failure is tried once more after a short pause, so one dropped connection
     does not fail an account.
     """
     why = "no answer"
-    for attempt in range(WEB_ATTEMPTS):
+    for attempt in range(attempts):
         if attempt:
-            time.sleep(WEB_PAUSE_SECONDS)
+            time.sleep(min(WEB_PAUSE_SECONDS, max(0.0, budget_end - time.monotonic())))
+        remaining = budget_end - time.monotonic()
+        if remaining <= 0:
+            return (
+                f"{why}; account time budget spent"
+                if attempt
+                else "account time budget spent"
+            )
         try:
-            status, body = http_get(url)
+            status, body = bounded_get(url, min(WEB_DEADLINE_SECONDS, remaining))
         except Exception as error:  # noqa: BLE001 - the reason is the row
             why = type(error).__name__
             continue
@@ -504,6 +670,30 @@ def editor_health(status: int, body: bytes) -> str | None:
     return None if "hasActiveConnections" in answer else "not the Code Editor's health"
 
 
+def cloudfront_host(url: str) -> str | None:
+    """The CloudFront host of an https output URL, or None for anything else.
+
+    A user name, password or port, another scheme or another host is refused, so
+    the laptop never sends a request outside the account's own distributions.
+    """
+    try:
+        parts = urlsplit(url)
+        port = parts.port
+    except ValueError:
+        return None
+    host = parts.hostname or ""
+    if (
+        parts.scheme != "https"
+        or parts.username is not None
+        or parts.password is not None
+        or port is not None
+        or not host.endswith(WEB_HOST_SUFFIX)
+        or host == WEB_HOST_SUFFIX.lstrip(".")
+    ):
+        return None
+    return host
+
+
 def web_verdict(row: Row, outputs: dict[str, str]) -> Row:
     """A ✅ also needs the participant's browser path to answer, through CloudFront.
 
@@ -513,53 +703,47 @@ def web_verdict(row: Row, outputs: dict[str, str]) -> Row:
     kept; neither URL is ever printed.
     """
     cells = (row.account, row.region, row.instance, row.recorded)
-    storefront = outputs.get(STOREFRONT_OUTPUT, "").rstrip("/")
-    editor = urlsplit(outputs.get(EDITOR_OUTPUT, "")).netloc
+    storefront = cloudfront_host(outputs.get(STOREFRONT_OUTPUT, ""))
+    editor = cloudfront_host(outputs.get(EDITOR_OUTPUT, ""))
     if not storefront:
-        return Row(*cells, "❌", f"storefront does not answer (no {STOREFRONT_OUTPUT})")
-    why = web_answer(f"{storefront}/", html_page) or web_answer(
-        f"{storefront}/api/readiness", database_ready
+        return Row(
+            *cells, "❌", f"storefront does not answer (no usable {STOREFRONT_OUTPUT})"
+        )
+    budget_end = time.monotonic() + WEB_BUDGET_SECONDS
+    why = web_answer(
+        f"https://{storefront}/", html_page, PAGE_ATTEMPTS, budget_end
+    ) or web_answer(
+        f"https://{storefront}/api/readiness", database_ready, WEB_ATTEMPTS, budget_end
     )
     if why:
         return Row(*cells, "❌", f"storefront does not answer ({why})")
     if not editor:
-        return Row(*cells, "❌", f"Code Editor does not answer (no {EDITOR_OUTPUT})")
-    why = web_answer(f"https://{editor}/healthz", editor_health)
+        return Row(
+            *cells, "❌", f"Code Editor does not answer (no usable {EDITOR_OUTPUT})"
+        )
+    why = web_answer(
+        f"https://{editor}/healthz", editor_health, PAGE_ATTEMPTS, budget_end
+    )
     if why:
         return Row(*cells, "❌", f"Code Editor does not answer ({why})")
     return row
 
 
-def running_instance(ec2: Any) -> str | None:
-    """The newest running Code Editor instance, by the editor launcher's tag."""
-    pages = ec2.get_paginator("describe_instances").paginate(
-        Filters=[
-            {"Name": "tag-key", "Values": [LAUNCHER_TAG]},
-            {"Name": "instance-state-name", "Values": ["running"]},
-        ]
-    )
-    instances = [
-        instance
-        for page in pages
-        for reservation in page.get("Reservations", [])
-        for instance in reservation.get("Instances", [])
-    ]
-    newest = max(instances, key=lambda instance: instance["LaunchTime"], default=None)
-    return newest["InstanceId"] if newest else None
+def box_instance(session: Any) -> str:
+    """The instance this stack created, from its nested Code Editor stack's output.
 
-
-def box_instance(session: Any, previous: dict[str, Any] | None) -> str:
-    """The instance the newest record names, or else the running Code Editor host."""
-    named = (previous or {}).get("instanceId")
-    if named:
-        return named
+    No record's instance and no tag stands in for it: an old host could still be
+    running while this stack's own instance is not.
+    """
     try:
-        found = running_instance(aws_client(session, "ec2"))
+        stacks = mosaic_stacks(aws_client(session, "cloudformation"))
+        root = root_stack(stacks)
+        created = editor_instance_id(stacks, root) if root else None
     except Exception as error:
         raise CannotRead(error_code(error)) from error
-    if not found:
-        raise CannotRead("NoInstance")
-    return found
+    if not created:
+        raise CannotRead(f"No{EDITOR_INSTANCE_OUTPUT}Output")
+    return created
 
 
 def send_live(ssm: Any, instance_id: str) -> str:
@@ -609,7 +793,7 @@ def live_record(
     """
     logs = aws_client(session, "logs")
     previous = latest_record(logs)
-    instance_id = box_instance(session, previous)
+    instance_id = box_instance(session)
     ssm = aws_client(session, "ssm")
     since_ms = int((datetime.now(UTC) - timedelta(seconds=60)).timestamp() * 1000)
     command_id = send_live(ssm, instance_id)
@@ -699,7 +883,13 @@ def account_row(
             account, region, aws_client(session, "cloudformation")
         ), None
     row = record_row(account, region, record, datetime.now(UTC), max_age)
-    return stack_verdict(row, aws_client(session, "cloudformation")), record
+    verdict = stack_verdict(
+        row,
+        aws_client(session, "cloudformation"),
+        record,
+        aws_client(session, "ec2"),
+    )
+    return verdict, record
 
 
 def parse_credentials(text: str) -> dict[str, str]:
@@ -863,7 +1053,8 @@ def distinct_accounts(files: list[Path], rows: list[Row]) -> list[Row]:
 
 def table(rows: list[Row]) -> list[str]:
     cells = [
-        (r.account, r.region, r.instance, r.recorded, f"{r.icon} {r.status}")
+        tuple(printable(cell) for cell in (r.account, r.region, r.instance, r.recorded))
+        + (f"{r.icon} {printable(r.status)}",)
         for r in rows
     ]
     widths = [
