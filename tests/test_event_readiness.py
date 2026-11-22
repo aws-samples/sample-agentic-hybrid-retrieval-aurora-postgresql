@@ -699,7 +699,10 @@ def test_a_stack_still_creating_without_a_record_is_a_warning():
 
 def test_account_without_a_stack_says_so():
     row = readiness.no_record_row("1", "us-east-1", Cfn([], {}))
-    assert (row.icon, row.status) == ("⚠️", "no record (no Mosaic stack in this Region)")
+    assert (row.icon, row.status) == (
+        "⚠️",
+        "no record (no workshop stack in this Region)",
+    )
 
 
 def session_with(clients: dict) -> SimpleNamespace:
@@ -722,9 +725,14 @@ def test_expired_credentials_are_a_cannot_read_row():
 def test_account_row_reads_the_account_from_sts():
     sts = Mock()
     sts.get_caller_identity.return_value = {"Account": "123456789012"}
-    logs = logs_with([{"events": [{"timestamp": 1, "message": json.dumps(record())}]}])
+    recent = record(recordedAt=(datetime.now(UTC) - timedelta(hours=1)).isoformat())
+    logs = logs_with([{"events": [{"timestamp": 1, "message": json.dumps(recent)}]}])
+    cfn = Cfn([stack("CREATE_COMPLETE")], {})
     row, found = readiness.account_row(
-        session_with({"sts": sts, "logs": logs}), "us-west-2", live=False, max_age=10**6
+        session_with({"sts": sts, "logs": logs, "cloudformation": cfn}),
+        "us-west-2",
+        live=False,
+        max_age=10**6,
     )
     assert (row.account, row.region, row.instance) == (
         "123456789012",
@@ -732,6 +740,183 @@ def test_account_row_reads_the_account_from_sts():
         "i-0123456789abcdef0",
     )
     assert found["final"] == readiness.READY
+
+
+# --- CloudFormation decides before the record ----------------------------------
+
+
+READY_ROW = readiness.Row(
+    "1", "us-east-1", "i-1", "2026-12-01 05:40", "✅", readiness.READY
+)
+FAILED_EVENT = {
+    "StackId": "root",
+    "LogicalResourceId": "AgentRuntime",
+    "ResourceType": "AWS::BedrockAgentCore::Runtime",
+    "ResourceStatus": "CREATE_FAILED",
+    "ResourceStatusReason": "Runtime quota exceeded",
+    "Timestamp": NOW,
+}
+
+
+@pytest.mark.parametrize(
+    "status", ["ROLLBACK_COMPLETE", "CREATE_FAILED", "UPDATE_ROLLBACK_COMPLETE"]
+)
+def test_a_failed_or_rolled_back_stack_outranks_a_ready_record(status):
+    cfn = Cfn([stack(status)], {"root": [FAILED_EVENT]})
+    row = readiness.stack_verdict(READY_ROW, cfn)
+    assert (row.icon, row.status) == (
+        "❌",
+        "setup failed: AgentRuntime: Runtime quota exceeded",
+    )
+    assert not row.ready
+
+
+@pytest.mark.parametrize(
+    "status", ["CREATE_IN_PROGRESS", "UPDATE_COMPLETE_CLEANUP_IN_PROGRESS"]
+)
+def test_a_ready_record_on_a_stack_still_running_is_not_ready(status):
+    row = readiness.stack_verdict(READY_ROW, Cfn([stack(status)], {}))
+    assert (row.icon, row.status) == ("⚠️", f"setup still running ({status})")
+
+
+@pytest.mark.parametrize("status", ["CREATE_COMPLETE", "UPDATE_COMPLETE"])
+def test_a_finished_stack_lets_the_ready_record_decide(status):
+    assert readiness.stack_verdict(READY_ROW, Cfn([stack(status)], {})) == READY_ROW
+
+
+def test_a_failing_record_is_not_hidden_by_a_running_stack():
+    failing = readiness.Row(
+        "1", "us-east-1", "i-1", "-", "❌", "Memory: status CREATING"
+    )
+    assert readiness.stack_verdict(failing, Cfn([stack("CREATE_IN_PROGRESS")], {})) == (
+        failing
+    )
+
+
+def test_a_ready_record_without_a_readable_stack_is_not_ready():
+    missing = readiness.stack_verdict(READY_ROW, Cfn([], {}))
+    assert (missing.icon, missing.status) == ("⚠️", "no workshop stack in this Region")
+    cfn = Mock()
+    cfn.get_paginator.side_effect = client_error("AccessDenied")
+    denied = readiness.stack_verdict(READY_ROW, cfn)
+    assert (denied.icon, denied.status) == ("⚠️", "cannot read: AccessDenied")
+    deleting = readiness.stack_verdict(
+        READY_ROW, Cfn([stack("DELETE_IN_PROGRESS")], {})
+    )
+    assert (deleting.icon, deleting.status) == (
+        "⚠️",
+        "setup not complete (DELETE_IN_PROGRESS)",
+    )
+
+
+def test_account_row_applies_the_stack_verdict_to_a_ready_record():
+    sts = Mock()
+    sts.get_caller_identity.return_value = {"Account": "123456789012"}
+    logs = logs_with([{"events": [{"timestamp": 1, "message": json.dumps(record())}]}])
+    cfn = Cfn([stack("ROLLBACK_COMPLETE")], {"root": [FAILED_EVENT]})
+    row, _ = readiness.account_row(
+        session_with({"sts": sts, "logs": logs, "cloudformation": cfn}),
+        "us-east-1",
+        live=False,
+        max_age=10**6,
+    )
+    assert (row.icon, row.status) == (
+        "❌",
+        "setup failed: AgentRuntime: Runtime quota exceeded",
+    )
+
+
+# --- records and files that cannot be trusted ----------------------------------
+
+
+@pytest.mark.parametrize(
+    "recorded_at",
+    [
+        None,
+        "not a time",
+        "2026-12-01T05:40:00",
+        (NOW + timedelta(minutes=10)).isoformat(),
+    ],
+)
+def test_a_record_without_a_trustworthy_time_is_malformed(recorded_at):
+    odd = record(recordedAt=recorded_at)
+    if recorded_at is None:
+        odd.pop("recordedAt")
+    row = readiness.record_row("1", "us-east-1", odd, NOW, 24)
+    assert (row.icon, row.status) == ("⚠️", "cannot read: MalformedRecord")
+
+
+def test_a_record_that_is_not_an_object_is_malformed():
+    row = readiness.record_row("1", "us-east-1", ["READY FOR LAB 1"], NOW, 24)
+    assert (row.icon, row.status) == ("⚠️", "cannot read: MalformedRecord")
+
+
+def test_log_read_looks_back_fourteen_days_and_stops_at_a_page_cap():
+    seen = {}
+
+    class Counting(Paginator):
+        def paginate(self, **query):
+            seen.update(query)
+            return iter([{"events": []}] * (readiness.MAX_LOG_PAGES + 1))
+
+    logs = Mock()
+    logs.get_paginator.return_value = Counting()
+    with pytest.raises(readiness.CannotRead) as too_many:
+        readiness.latest_record(logs)
+    assert too_many.value.code == "TooManyLogEvents"
+    lookback = datetime.now(UTC) - datetime.fromtimestamp(seen["startTime"] / 1000, UTC)
+    assert timedelta(days=14) - lookback < timedelta(minutes=1)
+
+
+def test_two_values_for_one_key_in_one_file_are_refused(tmp_path):
+    block = (
+        'export AWS_ACCESS_KEY_ID="ASIAONE"\nexport AWS_SECRET_ACCESS_KEY="s1"\n'
+        'export AWS_ACCESS_KEY_ID="ASIATWO"\nAWS_DEFAULT_REGION=us-east-1\n'
+    )
+    path = write_account(tmp_path, "pasted-twice.env", block)
+    row = readiness.file_row(path, live=False, max_age=24)
+    assert (
+        row.status == "cannot read: DuplicateKey AWS_ACCESS_KEY_ID (pasted-twice.env)"
+    )
+    assert "ASIA" not in row.status
+
+
+def test_the_same_key_repeated_with_the_same_value_is_accepted():
+    values = readiness.parse_credentials("AWS_DEFAULT_REGION=us-east-1\n" * 2)
+    assert values == {"AWS_DEFAULT_REGION": "us-east-1"}
+
+
+@pytest.mark.parametrize("region", ["us-east-1x", "useast1", "US-EAST-1", "east-us"])
+def test_a_region_that_is_not_a_region_name_is_refused_without_printing_it(
+    tmp_path, region
+):
+    block = (
+        'export AWS_ACCESS_KEY_ID="ASIAX"\nexport AWS_SECRET_ACCESS_KEY="s"\n'
+        f"AWS_DEFAULT_REGION={region}\n"
+    )
+    row = readiness.file_row(
+        write_account(tmp_path, "a.env", block), live=False, max_age=24
+    )
+    assert row.status.startswith("cannot read: InvalidRegion (a.env;")
+    assert region not in row.status
+
+
+def test_a_second_file_for_the_same_account_is_not_counted(tmp_path):
+    for name in ("a.env", "b.env", "c.env"):
+        write_account(tmp_path, name, "x")
+    accounts = {"a": "111111111111", "b": "222222222222", "c": "111111111111"}
+
+    def row(path, **_):
+        return readiness.Row(accounts[path.stem], "us-east-1", "-", "-", "✅", "ok")
+
+    rows = readiness.fleet_rows(tmp_path, live=False, max_age=24, row=row)
+    assert [(r.icon, r.status) for r in rows] == [
+        ("✅", "ok"),
+        ("✅", "ok"),
+        ("⚠️", "same account as a.env"),
+    ]
+    assert readiness.table(rows)[-1] == "2 of 3 ready"
+    assert readiness.exit_status(rows) == 1
 
 
 # --- the fleet table ----------------------------------------------------------

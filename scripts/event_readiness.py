@@ -68,6 +68,19 @@ FAILED_STACK_STATES = {
     "ROLLBACK_FAILED",
 }
 MAX_STACKS_READ = 20
+NO_STACK = "no workshop stack in this Region"
+UNREADABLE_STACK = "stack unreadable: "
+# Only a finished, non-rollback root lets the box's record decide the row.
+COMPLETE_STACK_STATES = {"CREATE_COMPLETE", "UPDATE_COMPLETE", "IMPORT_COMPLETE"}
+RUNNING_STACK_STATES = {
+    "CREATE_IN_PROGRESS",
+    "UPDATE_IN_PROGRESS",
+    "UPDATE_COMPLETE_CLEANUP_IN_PROGRESS",
+}
+LOG_LOOKBACK = timedelta(days=14)
+MAX_LOG_PAGES = 100
+FUTURE_SKEW = timedelta(minutes=5)
+REGION_NAME = re.compile(r"[a-z]{2}(?:-[a-z]+)+-\d+")
 REASON_CHARS = 160
 SSM_FINISHED = {"Success", "Failed", "Cancelled", "TimedOut"}
 # The box refused --live because a lab has started; it wrote no record.
@@ -236,14 +249,20 @@ def latest_record(
     query: dict[str, Any] = {"logGroupName": LOG_GROUP}
     if stream:
         query["logStreamNames"] = [stream]
-    if since_ms is not None:
-        query["startTime"] = since_ms
+    if since_ms is None:
+        since_ms = int((datetime.now(UTC) - LOG_LOOKBACK).timestamp() * 1000)
+    query["startTime"] = since_ms
     newest = None
     try:
-        for page in logs.get_paginator("filter_log_events").paginate(**query):
+        pages = logs.get_paginator("filter_log_events").paginate(**query)
+        for number, page in enumerate(pages, start=1):
+            if number > MAX_LOG_PAGES:
+                raise CannotRead("TooManyLogEvents")
             for event in page.get("events", []):
                 if newest is None or event["timestamp"] >= newest["timestamp"]:
                     newest = event
+    except CannotRead:
+        raise
     except Exception as error:
         if error_code(error) == "ResourceNotFoundException":
             return None
@@ -332,7 +351,7 @@ def stack_state(cfn: Any) -> tuple[str, str]:
         stacks = mosaic_stacks(cfn)
         root = root_stack(stacks)
         if root is None:
-            return "", "no Mosaic stack in this Region"
+            return "", NO_STACK
         status = root["StackStatus"]
         if "FAILED" not in status and "ROLLBACK" not in status:
             return status, ""
@@ -340,7 +359,7 @@ def stack_state(cfn: Any) -> tuple[str, str]:
             root.get("StackStatusReason", "")
         )
     except Exception as error:  # noqa: BLE001 - the row still prints
-        return "", f"stack unreadable: {error_code(error)}"
+        return "", f"{UNREADABLE_STACK}{error_code(error)}"
     return status, reason
 
 
@@ -351,6 +370,28 @@ def no_record_row(account: str, region: str, cfn: Any) -> Row:
         return Row(account, region, "-", "-", "❌", f"setup failed: {reason or status}")
     summary = ": ".join(part for part in (status, reason) if part)
     return Row(account, region, "-", "-", "⚠️", f"no record ({summary})")
+
+
+def stack_verdict(row: Row, cfn: Any) -> Row:
+    """CloudFormation first: a record never outranks a failed or unfinished stack.
+
+    A box can write READY before a later resource fails the stack, so a failed or
+    rolled-back root is a failed setup whatever the record says, and a READY record
+    counts only once the root has finished without a rollback.
+    """
+    status, reason = stack_state(cfn)
+    cells = (row.account, row.region, row.instance, row.recorded)
+    if "FAILED" in status or "ROLLBACK" in status:
+        return Row(*cells, "❌", f"setup failed: {reason or status}")
+    if not row.ready or status in COMPLETE_STACK_STATES:
+        return row
+    if status in RUNNING_STACK_STATES:
+        return Row(*cells, "⚠️", f"setup still running ({status})")
+    if status:
+        return Row(*cells, "⚠️", f"setup not complete ({status})")
+    if reason.startswith(UNREADABLE_STACK):
+        return Row(*cells, "⚠️", f"cannot read: {reason.removeprefix(UNREADABLE_STACK)}")
+    return Row(*cells, "⚠️", NO_STACK)
 
 
 def running_instance(ec2: Any) -> str | None:
@@ -458,10 +499,23 @@ def age_text(hours: float) -> str:
     return f"{round(hours)} h old" if hours < 48 else f"{round(hours / 24)} days old"
 
 
+def recorded_time(record: Any, now: datetime) -> datetime | None:
+    """The record's time, or None when it is missing, has no zone or lies ahead."""
+    try:
+        recorded = datetime.fromisoformat(str(record["recordedAt"]))
+    except (KeyError, TypeError, ValueError):
+        return None
+    if recorded.tzinfo is None or recorded - now > FUTURE_SKEW:
+        return None
+    return recorded
+
+
 def record_row(
     account: str, region: str, record: dict[str, Any], now: datetime, max_age: float
 ) -> Row:
-    recorded = datetime.fromisoformat(record["recordedAt"])
+    recorded = recorded_time(record, now) if isinstance(record, dict) else None
+    if recorded is None:
+        return Row(account, region, "-", "-", "⚠️", "cannot read: MalformedRecord")
     hours = (now - recorded).total_seconds() / 3600
     cells = (account, region, record.get("instanceId") or "-")
     when = recorded.astimezone(UTC).strftime("%Y-%m-%d %H:%M")
@@ -508,7 +562,8 @@ def account_row(
         return no_record_row(
             account, region, aws_client(session, "cloudformation")
         ), None
-    return record_row(account, region, record, datetime.now(UTC), max_age), record
+    row = record_row(account, region, record, datetime.now(UTC), max_age)
+    return stack_verdict(row, aws_client(session, "cloudformation")), record
 
 
 def parse_credentials(text: str) -> dict[str, str]:
@@ -527,6 +582,8 @@ def parse_credentials(text: str) -> dict[str, str]:
                 for group in (match["double"], match["single"], match["bare"])
                 if group is not None
             )
+            if values.get(match["key"], value) != value:
+                raise CannotRead(f"DuplicateKey {match['key']}")
             values[match["key"]] = value
     return values
 
@@ -535,7 +592,10 @@ def file_session(path: Path) -> tuple[Any, str]:
     """A boto3 session from one account file, and its Region."""
     if path.stat().st_mode & 0o077:
         raise CannotRead(f"FilePermissions ({path.name}; fix: chmod 600 {path.name})")
-    values = parse_credentials(path.read_text(encoding="utf-8"))
+    try:
+        values = parse_credentials(path.read_text(encoding="utf-8"))
+    except CannotRead as error:
+        raise CannotRead(f"{error.code} ({path.name})") from error
     missing = [
         k for k in ("AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY") if not values.get(k)
     ]
@@ -545,6 +605,10 @@ def file_session(path: Path) -> tuple[Any, str]:
     if not region:
         raise CannotRead(
             f"MissingRegion ({path.name}; add AWS_DEFAULT_REGION=<region>)"
+        )
+    if not REGION_NAME.fullmatch(region):
+        raise CannotRead(
+            f"InvalidRegion ({path.name}; AWS_DEFAULT_REGION must look like us-east-1)"
         )
     import boto3
 
@@ -593,7 +657,28 @@ def fleet_rows(
     """One row per *.env file, in file-name order, at most eight accounts at once."""
     files = sorted(directory.glob("*.env"))
     with ThreadPoolExecutor(max_workers=MAX_PARALLEL_ACCOUNTS) as pool:
-        return list(pool.map(lambda path: row(path, live=live, max_age=max_age), files))
+        rows = list(pool.map(lambda path: row(path, live=live, max_age=max_age), files))
+    return distinct_accounts(files, rows)
+
+
+def distinct_accounts(files: list[Path], rows: list[Row]) -> list[Row]:
+    """A second file for an account already listed is a warning, so M counts teams."""
+    first: dict[str, str] = {}
+    distinct = []
+    for path, row in zip(files, rows, strict=True):
+        if row.account != "-" and row.account in first:
+            row = Row(
+                row.account,
+                row.region,
+                row.instance,
+                row.recorded,
+                "⚠️",
+                f"same account as {first[row.account]}",
+            )
+        elif row.account != "-":
+            first[row.account] = path.name
+        distinct.append(row)
+    return distinct
 
 
 def table(rows: list[Row]) -> list[str]:

@@ -82,10 +82,13 @@ uv run scripts/event_readiness.py --live     # record again now, through SSM Run
 ```
 
 Every account: save one file per account in a Git-ignored folder, such as
-`.local/readiness/`, mode 0600. Paste the console's block as it is and add an
-`AWS_DEFAULT_REGION=<region>` line. The script parses the files and never sources them,
-refuses a file that group or others can read, and prints account IDs to the terminal
-only. Delete the folder when you are done.
+`.local/readiness/`, mode 0600, with a name ending in `.env`. The script reads only
+`*.env` files, so a folder of other names reads `0 of 0 ready`. Paste the console's
+block as it is, then add the Region on a line of its own. The copied block has no final
+newline, so write the line with `printf '\nAWS_DEFAULT_REGION=us-east-1\n' >> FILE`,
+not `echo ... >> FILE`. The script parses the files and never sources them, refuses a
+file that group or others can read, and prints account IDs to the terminal only. Delete
+the folder when you are done.
 
 ```bash
 uv run scripts/event_readiness.py --accounts .local/readiness
@@ -100,11 +103,30 @@ Account        Region      Instance              Recorded (UTC)     Status
 1 of 3 ready
 ```
 
-A status is one of `✅ READY FOR LAB 1`, `❌` and the first failing check, `❌ setup
-failed:` and CloudFormation's first failure for a failed or rolled-back stack without a
-record, `⚠️ STALE` for a record older than `--max-age-hours` (default 24), `⚠️ no record`
-with the stack's status (for example, still creating), `⚠️ lab in progress (Lab N), not
-rechecked`, or `⚠️ cannot read:` with the AWS error code, such as `ExpiredToken`.
+CloudFormation decides before the record. A box can write its record before a later
+resource fails the stack, so a ✅ also needs the account's root stack to have finished
+without a rollback (`CREATE_COMPLETE` or `UPDATE_COMPLETE`). A status is one of:
+
+- `✅ READY FOR LAB 1`;
+- `❌` and the first failing check;
+- `❌ setup failed:` and CloudFormation's first failure, for a failed or rolled-back
+  root stack, whatever the record says;
+- `⚠️ setup still running (<status>)` for a READY record while the root stack is still
+  being created or updated, `⚠️ setup not complete (<status>)` for any other unfinished
+  state (a stack being deleted, for example), and `⚠️ no workshop stack in this Region`
+  when no root stack is found (with no record: `⚠️ no record (no workshop stack in this
+  Region)`);
+- `⚠️ STALE` for a record older than `--max-age-hours` (default 24);
+- `⚠️ no record` with the stack's status (for example, still creating);
+- `⚠️ lab in progress (Lab N), not rechecked`;
+- `⚠️ same account as <file>` for a second file of an account already listed, so the
+  count never includes a team twice;
+- `⚠️ cannot read:` with the AWS error code, such as `ExpiredToken`, or the file's
+  problem: `DuplicateKey` (two values for one key, such as two blocks pasted into one
+  file), `InvalidRegion` (the value is never printed), `MissingRegion`,
+  `MalformedRecord` (a record whose time is missing, has no zone or lies in the
+  future) or `TooManyLogEvents` (more than 100 pages in the 14 days read).
+
 Rows follow file-name order, and at most eight accounts are read at once.
 
 The command exits 0 only when every row is ready and there is at least one row, 1
