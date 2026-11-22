@@ -826,6 +826,126 @@ def test_account_row_applies_the_stack_verdict_to_a_ready_record():
     )
 
 
+def test_a_reason_with_terminal_escapes_prints_as_plain_text():
+    raw = "\x1b[31mBootstrap failed\x1b[0m\nline two\x07\ttab"
+    assert readiness.short_reason(raw) == "Bootstrap failed line two tab"
+
+
+def test_a_long_failing_record_line_keeps_its_fix_and_loses_its_escapes():
+    fix = (
+        "AgentCore Runtime mosaic_agent: platform V2, not the pinned V1. Fix: in the "
+        "box's terminal, before Lab 3, run uv run python scripts/deploy_agentcore.py "
+        "deploy; it updates the runtime in place on V1"
+    )
+    bad = record(ready=False, final=f"x FAIL  \x1b[1m{fix}\x1b[0m")
+    row = readiness.record_row("1", "us-east-1", bad, NOW, 24)
+    assert (row.icon, row.status) == ("❌", fix)
+
+
+def root_start(status: str, at: datetime) -> dict:
+    return {
+        "ResourceStatus": status,
+        "Timestamp": at,
+        "LogicalResourceId": "mosaic",
+        "PhysicalResourceId": ROOT_ARN,
+        "ResourceType": "AWS::CloudFormation::Stack",
+    }
+
+
+def failure(name: str, at: datetime, reason: str) -> dict:
+    return {
+        "ResourceStatus": "CREATE_FAILED",
+        "Timestamp": at,
+        "LogicalResourceId": name,
+        "ResourceType": "AWS::Lambda::Function",
+        "ResourceStatusReason": reason,
+    }
+
+
+def test_only_failures_of_the_latest_root_operation_are_named():
+    events = {
+        ROOT_ARN: [
+            failure("OldFunction", NOW - timedelta(hours=3), "an older failed update"),
+            root_start("UPDATE_IN_PROGRESS", NOW - timedelta(hours=1)),
+            failure(
+                "NewFunction", NOW - timedelta(minutes=30), "this operation's cause"
+            ),
+        ]
+    }
+    root = stack("UPDATE_ROLLBACK_COMPLETE", StackId=ROOT_ARN)
+    row = readiness.no_record_row("1", "us-east-1", Cfn([root], events))
+    assert row.status == "setup failed: NewFunction: this operation's cause"
+
+
+class VanishingNested(Cfn):
+    """The root's events read; a nested stack's events cannot."""
+
+    def get_paginator(self, name):
+        if name == "describe_stacks":
+            return super().get_paginator(name)
+
+        def paginate(StackName):
+            if StackName == EDITOR_ARN:
+                raise client_error("ValidationError")
+            return iter([{"StackEvents": self.events[StackName]}])
+
+        return SimpleNamespace(paginate=paginate)
+
+
+def test_a_nested_stack_that_cannot_be_read_does_not_hide_the_failure():
+    events = {
+        ROOT_ARN: [
+            {
+                "ResourceStatus": "CREATE_FAILED",
+                "Timestamp": NOW,
+                "LogicalResourceId": "CodeEditorStack",
+                "PhysicalResourceId": EDITOR_ARN,
+                "ResourceType": "AWS::CloudFormation::Stack",
+                "ResourceStatusReason": f"Embedded stack {EDITOR_ARN} was not created",
+            },
+            failure("ReadinessLogs", NOW, "log group already exists"),
+        ]
+    }
+    root = stack("ROLLBACK_COMPLETE", StackId=ROOT_ARN)
+    row = readiness.no_record_row("1", "us-east-1", VanishingNested([root], events))
+    assert (row.icon, row.status) == (
+        "❌",
+        "setup failed: ReadinessLogs: log group already exists",
+    )
+
+
+def test_a_failed_root_whose_events_cannot_be_read_still_fails():
+    cfn = Mock()
+    cfn.get_paginator.side_effect = lambda name: (
+        Paginator([{"Stacks": [stack("ROLLBACK_COMPLETE", StackStatusReason="")]}])
+        if name == "describe_stacks"
+        else Paginator(error=client_error("Throttling"))
+    )
+    row = readiness.stack_verdict(READY_ROW, cfn)
+    assert (row.icon, row.status) == ("❌", "setup failed: ROLLBACK_COMPLETE")
+
+
+def test_live_never_runs_twice_on_one_box(tmp_path):
+    for name in ("a.env", "b.env", "c.env"):
+        write_account(tmp_path, name, "x")
+    accounts = {"a": "111111111111", "b": "222222222222", "c": "111111111111"}
+    ran = []
+
+    def row(path, **_):
+        ran.append(path.name)
+        return readiness.Row(accounts[path.stem], "us-east-1", "-", "-", "✅", "ok")
+
+    rows = readiness.fleet_rows(
+        tmp_path,
+        live=True,
+        max_age=24,
+        row=row,
+        account_of=lambda path: accounts[path.stem],
+    )
+    assert sorted(ran) == ["a.env", "b.env"]
+    assert (rows[2].icon, rows[2].status) == ("⚠️", "same account as a.env")
+
+
 # --- records and files that cannot be trusted ----------------------------------
 
 

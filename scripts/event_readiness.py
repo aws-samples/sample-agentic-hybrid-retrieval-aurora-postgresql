@@ -60,15 +60,12 @@ LIVE_WAIT_SECONDS = 240
 LIVE_POLL_SECONDS = 5
 LIVE_GRACE_POLLS = 3
 NESTED_STACK = "AWS::CloudFormation::Stack"
-# A rollback deletes the stack's own readiness log group, and the failure record in it.
-FAILED_STACK_STATES = {
-    "CREATE_FAILED",
-    "ROLLBACK_IN_PROGRESS",
-    "ROLLBACK_COMPLETE",
-    "ROLLBACK_FAILED",
-}
 MAX_STACKS_READ = 20
 NO_STACK = "no workshop stack in this Region"
+MAX_EVENT_PAGES = 20
+# The root's own operation start: failures before it belong to an older operation.
+OPERATION_STARTS = {"CREATE_IN_PROGRESS", "UPDATE_IN_PROGRESS", "IMPORT_IN_PROGRESS"}
+TERMINAL_ESCAPE = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]|[\x00-\x1f\x7f-\x9f]")
 UNREADABLE_STACK = "stack unreadable: "
 # Only a finished, non-rollback root lets the box's record decide the row.
 COMPLETE_STACK_STATES = {"CREATE_COMPLETE", "UPDATE_COMPLETE", "IMPORT_COMPLETE"}
@@ -294,7 +291,12 @@ def root_stack(stacks: list[dict[str, Any]]) -> dict[str, Any] | None:
 
 def stack_events(cfn: Any, stack_id: str) -> list[dict[str, Any]]:
     pages = cfn.get_paginator("describe_stack_events").paginate(StackName=stack_id)
-    return [event for page in pages for event in page.get("StackEvents", [])]
+    events: list[dict[str, Any]] = []
+    for number, page in enumerate(pages, start=1):
+        if number > MAX_EVENT_PAGES:
+            break
+        events += page.get("StackEvents", [])
+    return events
 
 
 def family_events(cfn: Any, root_id: str) -> list[dict[str, Any]]:
@@ -310,7 +312,12 @@ def family_events(cfn: Any, root_id: str) -> list[dict[str, Any]]:
         if stack_id in seen:
             continue
         seen.add(stack_id)
-        found = stack_events(cfn, stack_id)
+        try:
+            found = stack_events(cfn, stack_id)
+        except Exception:  # one vanished nested stack must not hide the others
+            if stack_id == root_id:
+                raise
+            continue
         events += found
         pending += [
             event["PhysicalResourceId"]
@@ -321,9 +328,15 @@ def family_events(cfn: Any, root_id: str) -> list[dict[str, Any]]:
     return events
 
 
+def plain(text: str, limit: int = 400) -> str:
+    """Text safe for one table cell: no terminal escapes or control characters."""
+    flat = " ".join(TERMINAL_ESCAPE.sub(" ", text).split())
+    return flat if len(flat) <= limit else f"{flat[: limit - 1]}…"
+
+
 def short_reason(text: str) -> str:
     """A reason that fits one row. A wait condition's cause ends its message."""
-    reason = re.sub(r"'? for uniqueId: \S+$", "", " ".join(text.split()))
+    reason = re.sub(r"'? for uniqueId: \S+$", "", plain(text, limit=len(text)))
     if len(reason) <= REASON_CHARS:
         return reason
     return f"{reason[:40]} … {reason[-(REASON_CHARS - 43) :]}"
@@ -331,10 +344,20 @@ def short_reason(text: str) -> str:
 
 def first_failure(cfn: Any, root: dict[str, Any]) -> str:
     """The earliest failed resource's reason across the root and its nested stacks."""
+    events = family_events(cfn, root["StackId"])
+    starts = [
+        event["Timestamp"]
+        for event in events
+        if event.get("PhysicalResourceId") == root["StackId"]
+        and event.get("ResourceType") == NESTED_STACK
+        and event.get("ResourceStatus") in OPERATION_STARTS
+    ]
+    since = max(starts, default=None)
     failures = [
         event
-        for event in family_events(cfn, root["StackId"])
-        if event.get("ResourceStatus", "").endswith("_FAILED")
+        for event in events
+        if (since is None or event["Timestamp"] >= since)
+        and event.get("ResourceStatus", "").endswith("_FAILED")
         and "cancelled" not in event.get("ResourceStatusReason", "")
         and "Embedded stack" not in event.get("ResourceStatusReason", "")
     ]
@@ -353,23 +376,33 @@ def stack_state(cfn: Any) -> tuple[str, str]:
         if root is None:
             return "", NO_STACK
         status = root["StackStatus"]
-        if "FAILED" not in status and "ROLLBACK" not in status:
-            return status, ""
-        reason = first_failure(cfn, root) or short_reason(
-            root.get("StackStatusReason", "")
-        )
     except Exception as error:  # noqa: BLE001 - the row still prints
         return "", f"{UNREADABLE_STACK}{error_code(error)}"
-    return status, reason
+    if not setup_failed(status):
+        return status, ""
+    try:
+        reason = first_failure(cfn, root)
+    except Exception:  # noqa: BLE001 - the failed status still decides the row
+        reason = ""
+    return status, reason or short_reason(root.get("StackStatusReason", ""))
 
 
 def no_record_row(account: str, region: str, cfn: Any) -> Row:
     """An account with no record: a failed setup, or what CloudFormation says."""
     status, reason = stack_state(cfn)
-    if status in FAILED_STACK_STATES:
+    if setup_failed(status):
         return Row(account, region, "-", "-", "❌", f"setup failed: {reason or status}")
     summary = ": ".join(part for part in (status, reason) if part)
     return Row(account, region, "-", "-", "⚠️", f"no record ({summary})")
+
+
+def setup_failed(status: str) -> bool:
+    """A failed or rolled-back stack: the record cannot outrank it.
+
+    A rollback also deletes the stack's own readiness log group, and any failure
+    record in it, so CloudFormation is the only witness left.
+    """
+    return "FAILED" in status or "ROLLBACK" in status
 
 
 def stack_verdict(row: Row, cfn: Any) -> Row:
@@ -381,7 +414,7 @@ def stack_verdict(row: Row, cfn: Any) -> Row:
     """
     status, reason = stack_state(cfn)
     cells = (row.account, row.region, row.instance, row.recorded)
-    if "FAILED" in status or "ROLLBACK" in status:
+    if setup_failed(status):
         return Row(*cells, "❌", f"setup failed: {reason or status}")
     if not row.ready or status in COMPLETE_STACK_STATES:
         return row
@@ -524,7 +557,7 @@ def record_row(
     if record.get("ready") is True and record.get("final") == READY:
         return Row(*cells, when, "✅", READY)
     final = str(record.get("final") or "no final line")
-    return Row(*cells, when, "❌", final.removeprefix("x FAIL").strip())
+    return Row(*cells, when, "❌", plain(final.removeprefix("x FAIL")))
 
 
 def busy_row(account: str, region: str, busy: LabInProgress) -> Row:
@@ -651,13 +684,57 @@ def file_row(path: Path, *, live: bool, max_age: float) -> Row:
         )
 
 
-def fleet_rows(
-    directory: Path, *, live: bool, max_age: float, row: Callable[..., Row] = file_row
-) -> list[Row]:
-    """One row per *.env file, in file-name order, at most eight accounts at once."""
-    files = sorted(directory.glob("*.env"))
+def file_account(path: Path) -> str | None:
+    """The account a file's credentials reach, or None when they cannot say."""
+    try:
+        session, _ = file_session(path)
+        return aws_client(session, "sts").get_caller_identity()["Account"]
+    except Exception:  # noqa: BLE001 - that file's own row reports why
+        return None
+
+
+def live_duplicates(
+    files: list[Path], account_of: Callable[[Path], str | None]
+) -> dict[Path, tuple[str, str]]:
+    """Files whose account an earlier file already names: they get no --live run."""
     with ThreadPoolExecutor(max_workers=MAX_PARALLEL_ACCOUNTS) as pool:
-        rows = list(pool.map(lambda path: row(path, live=live, max_age=max_age), files))
+        accounts = list(pool.map(account_of, files))
+    first: dict[str, str] = {}
+    repeats: dict[Path, tuple[str, str]] = {}
+    for path, account in zip(files, accounts, strict=True):
+        if account is None:
+            continue
+        if account in first:
+            repeats[path] = (account, first[account])
+        else:
+            first[account] = path.name
+    return repeats
+
+
+def fleet_rows(
+    directory: Path,
+    *,
+    live: bool,
+    max_age: float,
+    row: Callable[..., Row] = file_row,
+    account_of: Callable[[Path], str | None] = file_account,
+) -> list[Row]:
+    """One row per *.env file, in file-name order, at most eight accounts at once.
+
+    Before --live, each file's account is read first, so one box never gets two
+    --live runs at once from two files of the same account.
+    """
+    files = sorted(directory.glob("*.env"))
+    repeats = live_duplicates(files, account_of) if live else {}
+
+    def one(path: Path) -> Row:
+        if path in repeats:
+            account, original = repeats[path]
+            return Row(account, "-", "-", "-", "⚠️", f"same account as {original}")
+        return row(path, live=live, max_age=max_age)
+
+    with ThreadPoolExecutor(max_workers=MAX_PARALLEL_ACCOUNTS) as pool:
+        rows = list(pool.map(one, files))
     return distinct_accounts(files, rows)
 
 
