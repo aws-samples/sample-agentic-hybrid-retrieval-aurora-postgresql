@@ -105,12 +105,30 @@ Account        Region      Instance              Recorded (UTC)     Status
 
 CloudFormation decides before the record. A box can write its record before a later
 resource fails the stack, so a ✅ also needs the account's root stack to have finished
-without a rollback (`CREATE_COMPLETE` or `UPDATE_COMPLETE`). A status is one of:
+without a rollback (`CREATE_COMPLETE` or `UPDATE_COMPLETE`).
+
+A ✅ also needs the participant's browser path to answer at that moment, through
+CloudFront, the way a participant's browser reaches it. The laptop fetches the storefront
+page and `/api/readiness` (which reaches Aurora) from the stack's `MosaicURL`, and the
+Code Editor's own `/healthz` from the domain of `CodeEditorURL`. None of them needs a token
+or a sign-in, so no account is claimed. `CodeEditorURL` carries the editor's connection
+token, so the script keeps only its domain and never prints either URL. Each fetch is
+tried twice, 15 seconds each.
+
+The box's checks run as the Linux user `participant`, in the repository with its `.env`,
+which is how the Code Editor terminal runs. They do not sign in to Workshop Studio as a
+participant. Only a participant joining the event claims a team: on the DAT410 test event
+of 22 November, a team read with the Ops role (console sign-in included), read mode and
+`--live` still showed no participant afterwards.
+
+A status is one of:
 
 - `✅ READY FOR LAB 1`;
 - `❌` and the first failing check;
 - `❌ setup failed:` and CloudFormation's first failure, for a failed or rolled-back
   root stack, whatever the record says;
+- `❌ storefront does not answer (<why>)` or `❌ Code Editor does not answer (<why>)`,
+  with an HTTP status, `database not ready` or the error's name;
 - `⚠️ setup still running (<status>)` for a READY record while the root stack is still
   being created or updated, `⚠️ setup not complete (<status>)` for any other unfinished
   state (a stack being deleted, for example), and `⚠️ no workshop stack in this Region`

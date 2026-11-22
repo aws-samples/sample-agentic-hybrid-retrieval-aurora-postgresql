@@ -8,6 +8,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
+from urllib.parse import urlsplit
 
 import pytest
 from botocore.exceptions import ClientError
@@ -603,6 +604,10 @@ def test_ready_flag_without_the_ready_phrase_is_not_ready():
     assert readiness.record_row("1", "us-east-1", odd, NOW, 24).icon == "❌"
 
 
+EDITOR_DOMAIN = "d1editorexample.cloudfront.net"
+EDITOR_TOKEN = "tkn-secret-0123456789"
+
+
 def stack(status: str, **extra) -> dict:
     return {
         "StackId": "root",
@@ -612,8 +617,47 @@ def stack(status: str, **extra) -> dict:
         "Parameters": [
             {"ParameterKey": "InfrastructureRevision", "ParameterValue": "x"}
         ],
+        "Outputs": [
+            {"OutputKey": "MosaicURL", "OutputValue": "https://d1shop.cloudfront.net/"},
+            {
+                "OutputKey": "CodeEditorURL",
+                "OutputValue": f"https://{EDITOR_DOMAIN}/?workspace=/w&tkn={EDITOR_TOKEN}",
+            },
+        ],
         **extra,
     }
+
+
+HEALTHY_WEB = {
+    "/": (200, b"<!doctype html><html lang='en'>"),
+    "/api/readiness": (200, b'{"status": "ready"}'),
+    "/healthz": (200, b'{"hasActiveConnections": false}'),
+}
+
+
+class Web:
+    """The participant's browser path: healthy unless a test says otherwise."""
+
+    def __init__(self):
+        self.answers: dict[str, list] = {}
+        self.urls: list[str] = []
+
+    def __call__(self, url: str):
+        self.urls.append(url)
+        path = urlsplit(url).path
+        queued = self.answers.get(path)
+        answer = queued.pop(0) if queued else HEALTHY_WEB[path]
+        if isinstance(answer, Exception):
+            raise answer
+        return answer
+
+
+@pytest.fixture(autouse=True)
+def web(monkeypatch) -> Web:
+    fake = Web()
+    monkeypatch.setattr(readiness, "http_get", fake)
+    monkeypatch.setattr(readiness, "WEB_PAUSE_SECONDS", 0)
+    return fake
 
 
 ROOT_ARN = "arn:aws:cloudformation:us-east-1:111122223333:stack/mosaic/0"
@@ -944,6 +988,89 @@ def test_live_never_runs_twice_on_one_box(tmp_path):
     )
     assert sorted(ran) == ["a.env", "b.env"]
     assert (rows[2].icon, rows[2].status) == ("⚠️", "same account as a.env")
+
+
+# --- the participant's browser path ------------------------------------------
+
+
+def complete() -> Cfn:
+    return Cfn([stack("CREATE_COMPLETE")], {})
+
+
+def test_a_ready_account_reads_its_storefront_and_editor_without_the_token(web):
+    assert readiness.stack_verdict(READY_ROW, complete()) == READY_ROW
+    assert web.urls == [
+        "https://d1shop.cloudfront.net/",
+        "https://d1shop.cloudfront.net/api/readiness",
+        f"https://{EDITOR_DOMAIN}/healthz",
+    ]
+    assert not any(EDITOR_TOKEN in url for url in web.urls)
+
+
+@pytest.mark.parametrize(
+    ("path", "answer", "status"),
+    [
+        ("/", (502, b"Bad Gateway"), "storefront does not answer (HTTP 502)"),
+        ("/", (200, b"{}"), "storefront does not answer (not an HTML page)"),
+        (
+            "/api/readiness",
+            (503, b"Database is not ready"),
+            "storefront does not answer (HTTP 503)",
+        ),
+        (
+            "/api/readiness",
+            (200, b'{"status": "degraded"}'),
+            "storefront does not answer (database not ready)",
+        ),
+        ("/healthz", (403, b"Forbidden."), "Code Editor does not answer (HTTP 403)"),
+        (
+            "/healthz",
+            (200, b"<html>"),
+            "Code Editor does not answer (health is not JSON)",
+        ),
+    ],
+)
+def test_a_browser_path_that_does_not_answer_is_not_ready(web, path, answer, status):
+    web.answers[path] = [answer, answer]
+    row = readiness.stack_verdict(READY_ROW, complete())
+    assert (row.icon, row.status) == ("❌", status)
+    assert EDITOR_TOKEN not in row.status
+    assert EDITOR_DOMAIN not in row.status
+    assert "d1shop" not in row.status
+
+
+def test_one_dropped_connection_is_tried_again(web):
+    web.answers["/healthz"] = [TimeoutError("timed out")]
+    assert readiness.stack_verdict(READY_ROW, complete()) == READY_ROW
+    assert web.urls.count(f"https://{EDITOR_DOMAIN}/healthz") == 2
+
+
+def test_two_dropped_connections_fail_with_the_error_name(web):
+    web.answers["/"] = [ConnectionResetError(), ConnectionResetError()]
+    row = readiness.stack_verdict(READY_ROW, complete())
+    assert (row.icon, row.status) == (
+        "❌",
+        "storefront does not answer (ConnectionResetError)",
+    )
+
+
+def test_a_stack_without_its_url_outputs_is_not_ready(web):
+    bare = stack("CREATE_COMPLETE")
+    bare["Outputs"] = [o for o in bare["Outputs"] if o["OutputKey"] != "CodeEditorURL"]
+    row = readiness.stack_verdict(READY_ROW, Cfn([bare], {}))
+    assert (row.icon, row.status) == (
+        "❌",
+        "Code Editor does not answer (no CodeEditorURL)",
+    )
+    assert not readiness.stack_verdict(
+        READY_ROW, Cfn([{**bare, "Outputs": []}], {})
+    ).ready
+
+
+def test_a_record_that_is_not_ready_skips_the_browser_path(web):
+    failing = readiness.Row("1", "us-east-1", "i-1", "-", "❌", "Memory: CREATING")
+    assert readiness.stack_verdict(failing, complete()) == failing
+    assert web.urls == []
 
 
 # --- records and files that cannot be trusted ----------------------------------

@@ -31,6 +31,8 @@ import json
 import re
 import sys
 import time
+import urllib.error
+import urllib.request
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import redirect_stdout
@@ -38,6 +40,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
@@ -62,6 +65,14 @@ LIVE_GRACE_POLLS = 3
 NESTED_STACK = "AWS::CloudFormation::Stack"
 MAX_STACKS_READ = 20
 NO_STACK = "no workshop stack in this Region"
+# The participant's browser path, read from the laptop with no token and no claim.
+STOREFRONT_OUTPUT = "MosaicURL"
+EDITOR_OUTPUT = "CodeEditorURL"
+WEB_TIMEOUT_SECONDS = 15
+WEB_ATTEMPTS = 2
+WEB_PAUSE_SECONDS = 2
+WEB_BODY_BYTES = 65536
+WEB_AGENT = "mosaic-event-readiness"
 MAX_EVENT_PAGES = 20
 # The root's own operation start: failures before it belong to an older operation.
 OPERATION_STARTS = {"CREATE_IN_PROGRESS", "UPDATE_IN_PROGRESS", "IMPORT_IN_PROGRESS"}
@@ -368,23 +379,30 @@ def first_failure(cfn: Any, root: dict[str, Any]) -> str:
     return f"{first['LogicalResourceId']}: {reason}"
 
 
-def stack_state(cfn: Any) -> tuple[str, str]:
-    """The Mosaic stack's status, and why it failed or why it is unknown."""
+def stack_facts(cfn: Any) -> tuple[str, str, dict[str, str]]:
+    """The Mosaic stack's status, why it failed or is unknown, and its outputs."""
     try:
         stacks = mosaic_stacks(cfn)
         root = root_stack(stacks)
         if root is None:
-            return "", NO_STACK
+            return "", NO_STACK, {}
         status = root["StackStatus"]
+        outputs = {o["OutputKey"]: o["OutputValue"] for o in root.get("Outputs", [])}
     except Exception as error:  # noqa: BLE001 - the row still prints
-        return "", f"{UNREADABLE_STACK}{error_code(error)}"
+        return "", f"{UNREADABLE_STACK}{error_code(error)}", {}
     if not setup_failed(status):
-        return status, ""
+        return status, "", outputs
     try:
         reason = first_failure(cfn, root)
     except Exception:  # noqa: BLE001 - the failed status still decides the row
         reason = ""
-    return status, reason or short_reason(root.get("StackStatusReason", ""))
+    return status, reason or short_reason(root.get("StackStatusReason", "")), outputs
+
+
+def stack_state(cfn: Any) -> tuple[str, str]:
+    """The Mosaic stack's status, and why it failed or why it is unknown."""
+    status, reason, _ = stack_facts(cfn)
+    return status, reason
 
 
 def no_record_row(account: str, region: str, cfn: Any) -> Row:
@@ -412,12 +430,14 @@ def stack_verdict(row: Row, cfn: Any) -> Row:
     rolled-back root is a failed setup whatever the record says, and a READY record
     counts only once the root has finished without a rollback.
     """
-    status, reason = stack_state(cfn)
+    status, reason, outputs = stack_facts(cfn)
     cells = (row.account, row.region, row.instance, row.recorded)
     if setup_failed(status):
         return Row(*cells, "❌", f"setup failed: {reason or status}")
-    if not row.ready or status in COMPLETE_STACK_STATES:
+    if not row.ready:
         return row
+    if status in COMPLETE_STACK_STATES:
+        return web_verdict(row, outputs)
     if status in RUNNING_STACK_STATES:
         return Row(*cells, "⚠️", f"setup still running ({status})")
     if status:
@@ -425,6 +445,89 @@ def stack_verdict(row: Row, cfn: Any) -> Row:
     if reason.startswith(UNREADABLE_STACK):
         return Row(*cells, "⚠️", f"cannot read: {reason.removeprefix(UNREADABLE_STACK)}")
     return Row(*cells, "⚠️", NO_STACK)
+
+
+def http_get(url: str) -> tuple[int, bytes]:
+    """One HTTPS GET as a browser makes it: the status and the start of the body."""
+    request = urllib.request.Request(url, headers={"User-Agent": WEB_AGENT})
+    try:
+        with urllib.request.urlopen(request, timeout=WEB_TIMEOUT_SECONDS) as response:
+            return response.status, response.read(WEB_BODY_BYTES)
+    except urllib.error.HTTPError as error:
+        return error.code, error.read(WEB_BODY_BYTES)
+
+
+def web_answer(url: str, accept: Callable[[int, bytes], str | None]) -> str | None:
+    """None once the URL answers as `accept` wants, else why not; never the URL.
+
+    A failure is tried once more after a short pause, so one dropped connection
+    does not fail an account.
+    """
+    why = "no answer"
+    for attempt in range(WEB_ATTEMPTS):
+        if attempt:
+            time.sleep(WEB_PAUSE_SECONDS)
+        try:
+            status, body = http_get(url)
+        except Exception as error:  # noqa: BLE001 - the reason is the row
+            why = type(error).__name__
+            continue
+        why = accept(status, body)
+        if why is None:
+            return None
+    return why
+
+
+def html_page(status: int, body: bytes) -> str | None:
+    if status != 200:
+        return f"HTTP {status}"
+    return None if b"<html" in body[:4096].lower() else "not an HTML page"
+
+
+def database_ready(status: int, body: bytes) -> str | None:
+    if status != 200:
+        return f"HTTP {status}"
+    try:
+        answer = json.loads(body)
+    except ValueError:
+        return "readiness is not JSON"
+    return None if answer.get("status") == "ready" else "database not ready"
+
+
+def editor_health(status: int, body: bytes) -> str | None:
+    if status != 200:
+        return f"HTTP {status}"
+    try:
+        answer = json.loads(body)
+    except ValueError:
+        return "health is not JSON"
+    return None if "hasActiveConnections" in answer else "not the Code Editor's health"
+
+
+def web_verdict(row: Row, outputs: dict[str, str]) -> Row:
+    """A ✅ also needs the participant's browser path to answer, through CloudFront.
+
+    The storefront page and its readiness (which reaches Aurora) and the Code
+    Editor's own health answer without a token or a sign-in, so no account is
+    claimed. The editor URL carries its connection token, so only its domain is
+    kept; neither URL is ever printed.
+    """
+    cells = (row.account, row.region, row.instance, row.recorded)
+    storefront = outputs.get(STOREFRONT_OUTPUT, "").rstrip("/")
+    editor = urlsplit(outputs.get(EDITOR_OUTPUT, "")).netloc
+    if not storefront:
+        return Row(*cells, "❌", f"storefront does not answer (no {STOREFRONT_OUTPUT})")
+    why = web_answer(f"{storefront}/", html_page) or web_answer(
+        f"{storefront}/api/readiness", database_ready
+    )
+    if why:
+        return Row(*cells, "❌", f"storefront does not answer ({why})")
+    if not editor:
+        return Row(*cells, "❌", f"Code Editor does not answer (no {EDITOR_OUTPUT})")
+    why = web_answer(f"https://{editor}/healthz", editor_health)
+    if why:
+        return Row(*cells, "❌", f"Code Editor does not answer ({why})")
+    return row
 
 
 def running_instance(ec2: Any) -> str | None:
