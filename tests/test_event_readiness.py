@@ -928,7 +928,7 @@ def test_a_failed_root_whose_events_cannot_be_read_still_fails():
 def test_live_never_runs_twice_on_one_box(tmp_path):
     for name in ("a.env", "b.env", "c.env"):
         write_account(tmp_path, name, "x")
-    accounts = {"a": "111111111111", "b": "222222222222", "c": "111111111111"}
+    accounts = {"a": "111122223333", "b": "444455556666", "c": "111122223333"}
     ran = []
 
     def row(path, **_):
@@ -1024,7 +1024,7 @@ def test_a_region_that_is_not_a_region_name_is_refused_without_printing_it(
 def test_a_second_file_for_the_same_account_is_not_counted(tmp_path):
     for name in ("a.env", "b.env", "c.env"):
         write_account(tmp_path, name, "x")
-    accounts = {"a": "111111111111", "b": "222222222222", "c": "111111111111"}
+    accounts = {"a": "111122223333", "b": "444455556666", "c": "111122223333"}
 
     def row(path, **_):
         return readiness.Row(accounts[path.stem], "us-east-1", "-", "-", "✅", "ok")
