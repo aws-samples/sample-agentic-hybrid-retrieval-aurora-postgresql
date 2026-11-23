@@ -215,10 +215,16 @@ def separate_next(
     return bold_next(_separate_next(message, rerun), stream)
 
 
+_ANSI_CODE = re.compile(r"\033\[[0-9;]*m")
+
+
 def _separate_next(message: str, rerun: str | None) -> str:
-    if message.count("Next: ") > 1 or "\n\nNext: " in message:
+    # A message already laid out for a terminal has its `Next:` in bold; read it without
+    # the colour codes, or it looks like it has none and gets a second, generic one.
+    plain = _ANSI_CODE.sub("", message)
+    if plain.count("Next: ") > 1 or "\n\nNext: " in plain:
         return message
-    if "Next: " in message:
+    if "Next: " in plain:
         return _INLINE_NEXT.sub("\n\n", message, count=1)
     if rerun is None:
         return message

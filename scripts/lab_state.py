@@ -1397,11 +1397,26 @@ def _executable_outside_changes(lab: int, repo: Path) -> list[Difference]:
         return []
 
 
-def _outside_changes_between(lab: int, yours: str, expected: str) -> list[Difference]:
-    """The executable differences outside the marked blocks of two versions of a lab file."""
+def _outside_changes_between(
+    lab: int, yours: str, expected: str, *, numbered_as: str | None = None
+) -> list[Difference]:
+    """The executable differences outside the marked blocks of two versions of a lab file.
+
+    Args:
+        lab: The lab whose marked blocks bound the comparison.
+        yours: The version judged.
+        expected: The version it should match outside the blocks.
+        numbered_as: The file the participant sees, when yours was derived from it by
+            rewriting only the blocks and marker lines. Lines are then numbered as they
+            appear there, not in yours, whose block can be longer or shorter.
+    """
     blocks = LABS[lab][1]
     expected_lines, _ = _outside_markers(expected, blocks)
     yours_lines, numbers = _outside_markers(yours, blocks)
+    if numbered_as is not None:
+        _shown, shown_numbers = _outside_markers(numbered_as, blocks)
+        if len(shown_numbers) == len(numbers):
+            numbers = shown_numbers
     if lab_sql_tokens("\n".join(yours_lines)) == lab_sql_tokens(
         "\n".join(expected_lines)
     ):
@@ -1887,7 +1902,9 @@ def _outside_edits_stop(labs: list[int], *, label: str, resume: str) -> None:
             current = (REPO / LABS[number][0]).read_text(encoding="utf-8")
             reference = shipped_text(solution_path(Path(LABS[number][0])), REPO)
             answered = _lab_source_as(number, current, solved=True, whole_file=False)
-            changes = _outside_changes_between(number, answered, reference)
+            changes = _outside_changes_between(
+                number, answered, reference, numbered_as=current
+            )
         except (OSError, ValueError, StopIteration):
             continue
         if not changes:

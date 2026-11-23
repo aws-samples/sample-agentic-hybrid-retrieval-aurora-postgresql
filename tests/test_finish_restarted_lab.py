@@ -8,7 +8,9 @@ the checkout; only the commands `finish` and `skip-to` would spawn are recorded.
 
 from __future__ import annotations
 
+import io
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -30,6 +32,11 @@ from service.participant_commands import (
     skip_to_command,
     start_command,
 )
+
+class _Terminal(io.StringIO):
+    def isatty(self) -> bool:
+        return True
+
 
 STARTED = "2026-11-19T10:00:00+00:00"
 RESTARTED = "2026-11-20T03:00:00+00:00"
@@ -294,6 +301,45 @@ def test_an_edit_outside_the_block_stops_finishing_before_any_step_and_names_the
     assert message.index("reset --lab 1") < message.index(resume(lab))
     assert message.count("Next:") == 1
     assert path.read_text() == edited
+
+
+@pytest.mark.parametrize(
+    ("action", "resume"), [("finish", finish_command), ("skip-to", skip_to_command)]
+)
+def test_a_line_pulled_into_the_end_marker_is_named_at_your_line_with_one_next(
+    repo, monkeypatch, action, resume
+):
+    _start(repo, 1)
+    solution = solution_path(Path(LABS[1][0]))
+    (repo / solution).parent.mkdir(parents=True, exist_ok=True)
+    copy2(REPO / solution, repo / solution)
+    path = repo / LABS[1][0]
+    start, end, _fixed, broken = LABS[1][1][0]
+    starting = _replace_block(path.read_text(), start, end, broken)
+    cut = starting.index(end) + len(end)
+    assert starting[cut] == "\n"
+    pulled_in = starting[:cut] + starting[cut + 1 :]
+    path.write_text(pulled_in)
+    your_line = next(
+        number for number, line in enumerate(pulled_in.splitlines(), 1) if end in line
+    )
+    monkeypatch.setattr(
+        lab_state.subprocess, "run", lambda *a, **k: pytest.fail("ran a step")
+    )
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    monkeypatch.setenv("TERM", "xterm-256color")
+    monkeypatch.setattr(sys, "stderr", _Terminal())
+    lab = 1 if action == "finish" else 3
+    monkeypatch.setattr(sys, "argv", ["lab_state.py", action, "--lab", str(lab)])
+
+    with pytest.raises(SystemExit) as stopped:
+        lab_state.main()
+
+    message = re.sub(r"\033\[[0-9;]*m", "", str(stopped.value))
+    assert f"after line {your_line}:" in message
+    assert message.count("Next:") == 1
+    assert "reset --lab 1" in message and resume(lab) in message
+    assert path.read_text() == pulled_in
 
 
 def test_finish_runs_through_a_glued_marker_because_the_answer_repairs_it(

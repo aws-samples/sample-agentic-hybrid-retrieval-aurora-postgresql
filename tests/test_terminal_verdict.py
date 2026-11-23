@@ -273,6 +273,15 @@ def test_separate_next_adds_the_rerun_when_the_message_names_none():
     assert separate_next("It broke.") == "It broke."
 
 
+def test_separate_next_keeps_a_bold_next_and_adds_no_second_one(monkeypatch):
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    monkeypatch.setenv("TERM", "xterm-256color")
+    laid_out = separate_next("It broke.\nNext: reset, then run it again.", stream=Terminal())
+    assert "\033[" in laid_out
+
+    assert separate_next(laid_out, "uv run python x.py") == laid_out
+
+
 def test_tidy_turns_ctrl_c_into_a_stop_and_the_same_command_again(monkeypatch, capsys):
     monkeypatch.setattr(sys, "argv", ["scripts/lab_state.py", "advance", "--lab", "1"])
 
