@@ -28,10 +28,14 @@ from __future__ import annotations
 
 import argparse
 import csv
+import errno
+import io
 import json
 import math
 import os
 import re
+import stat
+import subprocess
 import sys
 import threading
 import time
@@ -65,6 +69,10 @@ DEFAULT_MAX_AGE_HOURS = 24.0
 # The morning recheck reads a run saved the day before, after provisioning.
 RECHECK_MAX_AGE_HOURS = 36.0
 SAVE_VERSION = 1
+# A credential file, the Teams CSV or a saved run is far smaller than this.
+MAX_INPUT_BYTES = 4 * 1024 * 1024
+# Lines after the first in `ls -led` that list a macOS access control entry.
+ACL_ENTRY = re.compile(r"\s*\d+: ")
 # Every saved account entry has exactly these fields, of these types.
 SAVED_FIELDS = {
     "region": str,
@@ -943,12 +951,87 @@ def parse_credentials(text: str) -> dict[str, str]:
     return values
 
 
+class PrivateFileError(Exception):
+    """A file that is not owner-only text; `code` names the rule, `fix` the repair."""
+
+    def __init__(self, code: str, fix: str) -> None:
+        super().__init__(code)
+        self.code = code
+        self.fix = fix
+
+
+def has_acl(path: Path) -> bool:
+    """Whether macOS lists an access control entry, which mode bits cannot show.
+
+    `--` keeps a name that starts with a dash from reading as options, and a listing
+    that fails refuses the file rather than passing it.
+    """
+    if sys.platform != "darwin":
+        return False
+    try:
+        listing = subprocess.run(
+            ["/bin/ls", "-led", "--", str(path)],
+            capture_output=True,
+            text=True,
+            errors="replace",
+            check=True,
+            timeout=10,
+        )
+    except (OSError, ValueError, subprocess.SubprocessError) as error:
+        raise PrivateFileError(
+            f"AclUnreadable {type(error).__name__}", f"ls -led {path.name}"
+        ) from error
+    return any(ACL_ENTRY.match(line) for line in listing.stdout.splitlines()[1:])
+
+
+def private_text(path: Path, encoding: str = "utf-8") -> str:
+    """A regular file only its owner can read, decoded, at most MAX_INPUT_BYTES.
+
+    It opens without blocking or following a link and checks the open file, so a
+    FIFO or a device is refused instead of hanging the run, and the file checked
+    for an access control list is the file named.
+    """
+    flags = os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW
+    try:
+        descriptor = os.open(path, flags)
+    except OSError as error:
+        if error.errno == errno.ELOOP:
+            raise PrivateFileError(
+                "NotAFile", f"pass the file itself, not the link {path.name}"
+            ) from error
+        raise PrivateFileError(
+            type(error).__name__, f"check that {path.name} exists and can be read"
+        ) from error
+    try:
+        with os.fdopen(descriptor, "rb") as handle:
+            info = os.fstat(handle.fileno())
+            if not stat.S_ISREG(info.st_mode):
+                raise PrivateFileError(
+                    "NotAFile", f"pass {path.name} itself, a plain file"
+                )
+            if info.st_mode & 0o077:
+                raise PrivateFileError("FilePermissions", f"chmod 600 {path.name}")
+            data = handle.read(MAX_INPUT_BYTES + 1)
+    except OSError as error:
+        raise PrivateFileError(
+            type(error).__name__, f"check that {path.name} can be read"
+        ) from error
+    if len(data) > MAX_INPUT_BYTES:
+        raise PrivateFileError("FileTooLarge", f"{path.name} must be under 4 MB")
+    if has_acl(path):
+        raise PrivateFileError("FileAcl", f"chmod -N {path.name}")
+    try:
+        return data.decode(encoding)
+    except UnicodeDecodeError as error:
+        raise PrivateFileError("NotText", f"save {path.name} as UTF-8") from error
+
+
 def file_session(path: Path) -> tuple[Any, str]:
     """A boto3 session from one account file, and its Region."""
-    if path.stat().st_mode & 0o077:
-        raise CannotRead(f"FilePermissions ({path.name}; fix: chmod 600 {path.name})")
     try:
-        values = parse_credentials(path.read_text(encoding="utf-8"))
+        values = parse_credentials(private_text(path))
+    except PrivateFileError as error:
+        raise CannotRead(f"{error.code} ({path.name}; fix: {error.fix})") from error
     except CannotRead as error:
         raise CannotRead(f"{error.code} ({path.name})") from error
     missing = [
@@ -1112,9 +1195,14 @@ class UnusableFile(Exception):
     """A saved run or Teams CSV that cannot be used; the message names the fix."""
 
 
-def private_file(path: Path) -> None:
-    if path.stat().st_mode & 0o077:
-        raise UnusableFile(f"{path} is readable by others; fix: chmod 600 {path}")
+def unusable_text(path: Path, encoding: str = "utf-8") -> str:
+    """private_text for a saved run or the Teams CSV, as a usage error."""
+    try:
+        return private_text(path, encoding)
+    except PrivateFileError as error:
+        raise UnusableFile(
+            f"{path} cannot be used ({error.code}); fix: {error.fix}"
+        ) from error
 
 
 BOX_NOT_READY = "the box's record is not ready"
@@ -1146,11 +1234,9 @@ def unique_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
 def load_saved(path: Path) -> dict[str, dict[str, Any]]:
     """The accounts of a saved run, by account ID. A file others can read, a repeated
     key, an entry that is not one account's, or nesting too deep is refused."""
-    private_file(path)
+    text = unusable_text(path)
     try:
-        saved = json.loads(
-            path.read_text(encoding="utf-8"), object_pairs_hook=unique_keys
-        )
+        saved = json.loads(text, object_pairs_hook=unique_keys)
         accounts = saved["accounts"]
         if saved.get("version") != SAVE_VERSION or not isinstance(accounts, dict):
             raise ValueError("not this script's saved-run shape")
@@ -1282,9 +1368,8 @@ def event_teams(path: Path) -> Teams:
     Only the team name and account ID are read. The file holds no credentials, but
     its join URLs claim teams, so it must be 0600 like the credential files.
     """
-    private_file(path)
-    with path.open(newline="", encoding="utf-8-sig") as handle:
-        reader = csv.DictReader(handle)
+    reader = csv.DictReader(io.StringIO(unusable_text(path, "utf-8-sig"), newline=""))
+    try:
         missing = [c for c in TEAM_COLUMNS if c not in (reader.fieldnames or [])]
         if missing:
             raise UnusableFile(
@@ -1292,6 +1377,11 @@ def event_teams(path: Path) -> Teams:
                 "console's Teams CSV; fix: Teams > Download CSV"
             )
         cells = [tuple(team_cell(row, c) for c in TEAM_COLUMNS) for row in reader]
+    except csv.Error as error:
+        raise UnusableFile(
+            f"{path} cannot be used (TeamsFile: csv.Error); fix: Teams > Download "
+            "CSV, and do not re-save it from a spreadsheet"
+        ) from error
     accounts: dict[str, str] = {}
     unassigned: list[str] = []
     for team, account in cells:

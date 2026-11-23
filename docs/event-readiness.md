@@ -86,10 +86,18 @@ Every account: save one file per account in a Git-ignored folder, such as
 `*.env` files, so a folder of other names reads `0 of 0 ready`. Paste the console's
 block as it is, then add the Region on a line of its own. The copied block has no final
 newline, so write the line with `printf '\nAWS_DEFAULT_REGION=us-east-1\n' >> FILE`,
-not `echo ... >> FILE`. The script parses the files and never sources them, refuses a
-file that group or others can read, and prints account IDs to the terminal; only
-`--save` writes them to a file, mode 0600, beside each account's result and CloudFront
-hosts. Delete the folder when you are done.
+not `echo ... >> FILE`. The script parses the files and never sources them, and prints
+account IDs to the terminal; only `--save` writes them to a file, mode 0600, beside each
+account's result and CloudFront hosts. Delete the folder when you are done.
+
+Every file the script reads (an account file, the Teams CSV or a saved run) must be a
+regular file that only its owner can read: it is refused, without waiting, if it is a FIFO,
+another special file or a link (`NotAFile`), if group or others can read it (`FilePermissions`,
+fix `chmod 600 FILE`), if a macOS access control list could let others read it at mode
+0600 (`FileAcl`, fix `chmod -N FILE`), if it is over 4 MB (`FileTooLarge`) or if it is not
+UTF-8 text (`NotText`). A file that cannot be opened or read names the error, for example
+`FileNotFoundError`. An account file's problem becomes that account's `⚠️ cannot read`
+row; a Teams CSV or saved run with one stops the run before any account is read.
 
 ```bash
 uv run scripts/event_readiness.py --accounts .local/readiness
@@ -199,7 +207,8 @@ team of that event.
 
 The console's Teams > Download CSV holds no credentials, but its join URLs claim teams, so
 keep it mode 0600 like the credential files (`chmod 600 FILE`); the script refuses it
-otherwise. It reads only the `Team name` and `AWS account ID` columns, pads an account ID
+otherwise. A CSV re-saved from a spreadsheet in another encoding, or one the CSV parser
+cannot read, is refused with the fix to download it again. It reads only the `Team name` and `AWS account ID` columns, pads an account ID
 whose leading zeros a spreadsheet dropped, and refuses a file without those columns or with
 an account ID that is not up to 12 digits. Every team must then have a row: a team with no
 row reads `⚠️ not in this run (<team>)`, or `⚠️ not in the saved run (<team>)` on a recheck;

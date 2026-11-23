@@ -1,7 +1,11 @@
 """The event readiness record and fleet view report ready only when they can prove it."""
 
+import errno
 import json
+import os
 import re
+import subprocess
+import sys
 import threading
 import time
 from datetime import UTC, datetime, timedelta
@@ -90,6 +94,97 @@ def test_file_readable_by_others_is_refused_before_it_is_read(tmp_path):
     row = readiness.file_row(path, live=False, max_age=24)
     assert row.icon == "⚠️"
     assert row.status == "cannot read: FilePermissions (a.env; fix: chmod 600 a.env)"
+
+
+def finishes_within(seconds: float, work):
+    """Run work in a daemon thread; a hang fails the test instead of the suite."""
+    outcome = {}
+    worker = threading.Thread(target=lambda: outcome.update(value=work()), daemon=True)
+    worker.start()
+    worker.join(seconds)
+    assert not worker.is_alive(), "it waited on the file instead of refusing it"
+    return outcome.get("value")
+
+
+def test_a_fifo_account_file_is_refused_without_waiting(tmp_path):
+    path = tmp_path / "a.env"
+    os.mkfifo(path, 0o600)
+    row = finishes_within(5, lambda: readiness.file_row(path, live=False, max_age=24))
+    assert row.status.startswith("cannot read: NotAFile (a.env; fix:")
+
+
+def test_an_account_file_that_is_not_utf8_reads_as_its_own_row(tmp_path):
+    path = tmp_path / "a.env"
+    path.write_bytes(b"AWS_ACCESS_KEY_ID=\xc9\n")
+    path.chmod(0o600)
+    row = readiness.file_row(path, live=False, max_age=24)
+    assert row.status == "cannot read: NotText (a.env; fix: save a.env as UTF-8)"
+
+
+def test_an_account_file_over_4_mb_is_refused(tmp_path):
+    path = tmp_path / "a.env"
+    path.write_bytes(b"#" * (readiness.MAX_INPUT_BYTES + 1))
+    path.chmod(0o600)
+    row = readiness.file_row(path, live=False, max_age=24)
+    assert row.status.startswith("cannot read: FileTooLarge (a.env;")
+
+
+def test_a_link_is_refused_so_the_file_checked_is_the_file_named(tmp_path):
+    target = write_account(tmp_path, "real.txt", "AWS_ACCESS_KEY_ID=A")
+    link = tmp_path / "a.env"
+    link.symlink_to(target)
+    row = readiness.file_row(link, live=False, max_age=24)
+    assert row.status.startswith(
+        "cannot read: NotAFile (a.env; fix: pass the file itself"
+    )
+
+
+def test_a_read_error_after_the_open_is_that_files_row(tmp_path, monkeypatch):
+    path = write_account(tmp_path, "a.env", "AWS_ACCESS_KEY_ID=A")
+
+    def failing(_descriptor):
+        raise OSError(errno.EIO, "Input/output error")
+
+    monkeypatch.setattr(readiness.os, "fstat", failing)
+    row = readiness.file_row(path, live=False, max_age=24)
+    assert (
+        row.status == "cannot read: OSError (a.env; fix: check that a.env can be read)"
+    )
+
+
+def test_a_file_that_will_not_open_names_its_error(tmp_path):
+    row = readiness.file_row(tmp_path / "gone.env", live=False, max_age=24)
+    assert row.status.startswith("cannot read: FileNotFoundError (gone.env;")
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="macOS access control lists")
+def test_a_name_that_starts_with_a_dash_is_listed_as_a_name(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    write_account(tmp_path, "-l a.env", "AWS_ACCESS_KEY_ID=A")
+    row = readiness.file_row(Path("-l a.env"), live=False, max_age=24)
+    assert row.status.startswith("cannot read: MissingCredentials (-l a.env lacks")
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="macOS access control lists")
+def test_a_listing_that_fails_refuses_the_file(tmp_path, monkeypatch):
+    path = write_account(tmp_path, "a.env", "AWS_ACCESS_KEY_ID=A")
+
+    def failing(*_args, **_kwargs):
+        raise subprocess.TimeoutExpired("/bin/ls", 10)
+
+    monkeypatch.setattr(readiness.subprocess, "run", failing)
+    row = readiness.file_row(path, live=False, max_age=24)
+    assert row.status.startswith("cannot read: AclUnreadable TimeoutExpired (a.env;")
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="macOS access control lists")
+def test_an_access_control_list_is_refused_even_at_mode_600(tmp_path):
+    path = write_account(tmp_path, "a.env", "AWS_ACCESS_KEY_ID=A")
+    assert readiness.has_acl(path) is False
+    subprocess.run(["/bin/chmod", "+a", "everyone allow read", str(path)], check=True)
+    assert path.stat().st_mode & 0o777 == 0o600
+    row = readiness.file_row(path, live=False, max_age=24)
+    assert row.status == "cannot read: FileAcl (a.env; fix: chmod -N a.env)"
 
 
 def test_file_without_a_region_names_the_fix(tmp_path):
@@ -1700,6 +1795,46 @@ def test_a_bad_teams_csv_stops_before_any_account_is_read(tmp_path, monkeypatch)
     with pytest.raises(SystemExit) as refused:
         readiness.main(["--accounts", str(tmp_path), "--teams", str(open_csv)])
     assert refused.value.code == 2
+
+
+def test_a_fifo_teams_csv_stops_the_run_without_waiting(tmp_path):
+    path = tmp_path / "teams.csv"
+    os.mkfifo(path, 0o600)
+
+    def run():
+        with pytest.raises(SystemExit) as refused:
+            readiness.main(["--accounts", str(tmp_path), "--teams", str(path)])
+        return refused.value.code
+
+    assert finishes_within(5, run) == 2
+
+
+def test_a_teams_csv_resaved_in_a_windows_encoding_is_refused(tmp_path):
+    path = tmp_path / "teams.csv"
+    path.write_bytes(b"Team name,AWS account ID\n\xc9quipe 1,111122223333\n")
+    path.chmod(0o600)
+    with pytest.raises(readiness.UnusableFile, match="NotText"):
+        readiness.event_teams(path)
+
+
+def test_a_csv_the_parser_rejects_is_refused_not_raised(tmp_path):
+    path = tmp_path / "teams.csv"
+    path.write_text(f'Team name,AWS account ID\n"{"x" * 200000}",{A}\n')
+    path.chmod(0o600)
+    with pytest.raises(readiness.UnusableFile, match=r"TeamsFile: csv\.Error"):
+        readiness.event_teams(path)
+
+
+def test_a_fifo_saved_run_is_refused_without_waiting(tmp_path):
+    path = tmp_path / "run.json"
+    os.mkfifo(path, 0o600)
+
+    def load():
+        with pytest.raises(readiness.UnusableFile, match="NotAFile"):
+            readiness.load_saved(path)
+        return True
+
+    assert finishes_within(5, load)
 
 
 def test_a_teams_csv_others_can_read_is_refused_because_its_links_claim_teams(tmp_path):
