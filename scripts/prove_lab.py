@@ -16,6 +16,7 @@ import argparse
 import json
 import os
 import sys
+from http.client import HTTPException
 from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
@@ -109,6 +110,12 @@ def _request(
             f"{path} is unavailable at {base_url}: {error.reason}; "
             "fix: run `systemctl status mosaic-api` in the terminal. If it is not "
             "active, tell your facilitator"
+        ) from error
+    except (HTTPException, ConnectionError, ValueError) as error:
+        raise LabValidationError(
+            f"{path} dropped the connection before its answer was complete "
+            f"({type(error).__name__}); fix: run the command again, and if it repeats, "
+            "give this message to your facilitator"
         ) from error
 
 

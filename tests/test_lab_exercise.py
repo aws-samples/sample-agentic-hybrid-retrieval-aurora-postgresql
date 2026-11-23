@@ -841,3 +841,19 @@ def test_a_valid_saved_formula_that_aurora_does_not_run_leads_with_apply(
     assert "Apply your saved file" in out
     next_line = out[out.rindex("Next:") :]
     assert next_line.lstrip("Next: ").startswith("apply your saved Lab 2 file")
+
+
+def test_a_cut_off_saved_context_is_a_grade_rule_with_the_command_that_saves_it(
+    tmp_path, monkeypatch
+):
+    from scripts import lab_exercise
+
+    monkeypatch.setattr(lab_exercise, "REPO", tmp_path)
+    context = tmp_path / ".local/lab-2/context.json"
+    context.parent.mkdir(parents=True)
+    context.write_text('{"query": "monit')
+    with pytest.raises(lab_exercise.ExerciseError) as refused:
+        lab_exercise.load_context(2)
+    message = str(refused.value)
+    assert "context.json is cut off" in message
+    assert "lab_request.py send --lab 2 --phase after" in message

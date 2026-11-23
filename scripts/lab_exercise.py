@@ -34,6 +34,7 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
 import psycopg
+from botocore.exceptions import BotoCoreError, ClientError
 from psycopg.rows import dict_row
 
 from scripts import lab2_tuning, lab_state
@@ -55,6 +56,7 @@ from scripts.terminal_text import (
 from service.catalog_runtime import LIVE_INDEXES
 from service.db import DatabaseNotConfigured
 from service.lab_files import LAB2_SQL
+from service.model_runtime import ModelRuntimeError, model_error_code
 from service.participant_commands import (
     ADVANCE_TO_LAB_3,
     APPLY_SQL,
@@ -129,7 +131,14 @@ def load_context(lab: int) -> dict[str, str]:
             f"no saved context at {path.relative_to(REPO)}; run "
             f"`{repeat_request_command(lab)}` first"
         )
-    return json.loads(path.read_text(encoding="utf-8"))
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except ValueError as error:
+        rewrite = grade_setup_run_command() if lab == 3 else repeat_request_command(lab)
+        raise ExerciseError(
+            f"the saved context at {path.relative_to(REPO)} is cut off; run "
+            f"`{rewrite}`, which saves it again"
+        ) from error
 
 
 def _quoted(value: str) -> str:
@@ -945,6 +954,24 @@ def aurora_unavailable(lab: int, error: Exception, retry: str) -> int:
     return 2
 
 
+def bedrock_unavailable(lab: int, error: Exception, retry: str) -> int:
+    """Report a grade an Amazon Bedrock call cut off, and the same grade to run again.
+
+    The first grade of a setup run captures the search's query plan, which embeds the
+    query through Bedrock; a timeout or throttle there says nothing about the run.
+    """
+    code = model_error_code(error)
+    cause = f" ({code})" if code else ""
+    print(
+        verdict(
+            f"Lab {lab} exercise: CANNOT GRADE - Amazon Bedrock did not answer during "
+            f"the check{cause}. Nothing is wrong with your run."
+        )
+    )
+    next_step("run the same check again:", retry)
+    return 2
+
+
 def wait_for_saved_answer(question: str, run_id: str) -> int:
     """Report an outstanding required turn without sending a second request."""
     label = "100W" if question == "follow_up" else "setup"
@@ -1017,6 +1044,8 @@ def main(
         return 2
     except (DatabaseNotConfigured, psycopg.Error) as error:
         return aurora_unavailable(args.lab, error, retry)
+    except (ModelRuntimeError, ClientError, BotoCoreError) as error:
+        return bedrock_unavailable(args.lab, error, retry)
     # The setup picker can see a retry still running. A passing saved pair is
     # immediately usable; only a retry that could fix this grade warrants waiting.
     if args.lab == 3 and pending_answers and report["failures"]:
@@ -1039,7 +1068,17 @@ def main(
     try:
         # Recorded before anything prints, so a cut-off write shows no verdict at all.
         if context.exists():
-            record_decision(args.lab, report, json.loads(context.read_text()))
+            record_decision(args.lab, report, load_context(args.lab))
+    except ExerciseError as error:
+        print(
+            verdict(
+                lay_out_next(
+                    f"Lab {args.lab} exercise: CANNOT GRADE - {error}",
+                    stream=sys.stdout,
+                )
+            )
+        )
+        return 2
     except (DatabaseNotConfigured, psycopg.Error) as error:
         return aurora_unavailable(args.lab, error, retry)
     {1: _print_lab1, 2: _print_lab2, 3: _print_lab3}[args.lab](report)

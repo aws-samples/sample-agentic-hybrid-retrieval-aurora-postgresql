@@ -1019,3 +1019,34 @@ def test_the_precheck_reads_the_saved_block_before_aurora(monkeypatch, tmp_path)
 
     assert problem is not None
     assert problem.finding.startswith("Lab 1 is not repaired: in labs/lab1_retrieve")
+
+
+@pytest.mark.parametrize("dropped", ["disconnected", "reset", "cut-off body"])
+def test_a_dropped_api_connection_is_a_named_failure_not_a_traceback(
+    monkeypatch, dropped
+):
+    import http.client
+    import io
+
+    class CutOff(io.BytesIO):
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_exc):
+            return False
+
+    def urlopen(_request, timeout):
+        if dropped == "disconnected":
+            raise http.client.RemoteDisconnected("Remote end closed connection")
+        if dropped == "reset":
+            raise ConnectionResetError(104, "Connection reset by peer")
+        return CutOff(b'{"results": [')
+
+    monkeypatch.setattr(prove_lab, "urlopen", urlopen)
+    with pytest.raises(prove_lab.LabValidationError) as caught:
+        prove_lab._request("http://127.0.0.1:8000", "/api/search", {"query": "q"})
+    message = str(caught.value)
+    assert message.startswith(
+        "/api/search dropped the connection before its answer was complete"
+    )
+    assert "fix: run the command again" in message

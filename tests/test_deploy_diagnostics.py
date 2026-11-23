@@ -646,6 +646,25 @@ def test_a_network_failure_and_a_file_failure_name_causes_not_exception_classes(
     assert DEPLOY_AGENT in local
 
 
+def test_a_deploy_wait_that_times_out_prints_its_own_rule_once():
+    own = (
+        "Runtime deployment rule: the agent runtime was not ready after 900 s "
+        f"(last seen: CREATING); fix: retry {DEPLOY_AGENT}; if it repeats, share this "
+        "line with your facilitator."
+    )
+    message = deploy.explain_failure(TimeoutError(own), DEPLOY_AGENT)
+    assert message == own
+    assert "Local file or process rule" not in message
+    assert message.count("fix:") == 1
+
+
+def test_a_socket_timeout_is_still_reported_as_a_local_failure():
+    message = deploy.explain_failure(
+        TimeoutError(110, "Connection timed out"), DEPLOY_AGENT
+    )
+    assert message.startswith("Local file or process rule: connection timed out")
+
+
 def test_missing_credentials_are_not_blamed_on_the_network():
     from botocore.exceptions import NoCredentialsError
 

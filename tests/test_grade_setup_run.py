@@ -509,6 +509,41 @@ def test_a_second_grade_saving_its_run_meanwhile_does_not_change_this_ones(
     assert receipt["agent_run_id"] == str(mine)
 
 
+@pytest.mark.parametrize("failure", ["timeout", "throttled"])
+def test_a_bedrock_call_that_fails_during_the_grade_names_a_retry_without_a_traceback(
+    monkeypatch, capsys, proof, failure
+) -> None:
+    from botocore.exceptions import ClientError
+
+    from service.bedrock import search_timeout_message
+    from service.model_runtime import BedrockTimeoutError
+    from service.participant_commands import grade_setup_run_command
+
+    picked = _run(5, "grounded")
+    _turns(monkeypatch, [picked])
+
+    def bedrock_failed(lab, *, agent_run_id):
+        if failure == "timeout":
+            raise BedrockTimeoutError(search_timeout_message("query embedding"))
+        raise ClientError(
+            {"Error": {"Code": "ThrottlingException", "Message": "slow down"}},
+            "InvokeModel",
+        )
+
+    monkeypatch.setattr("service.lab_proof.completion_proof", bedrock_failed)
+    monkeypatch.setattr(sys, "argv", ["grade_setup_run.py"])
+
+    assert grade_setup_run.main() == 2
+
+    out = capsys.readouterr().out
+    assert "Traceback" not in out
+    assert "Lab 3 exercise: CANNOT GRADE - Amazon Bedrock did not answer" in out
+    assert ("ThrottlingException" in out) == (failure == "throttled")
+    assert "Nothing is wrong with your run" in out
+    assert out.endswith(grade_setup_run_command(str(picked["agent_turn_id"])) + "\n")
+    assert not (grade_setup_run.ROOT / ".local/lab-3/exercise-receipt.json").exists()
+
+
 @pytest.mark.parametrize("named", [True, False])
 def test_aurora_timing_out_after_the_pick_names_a_retry_of_that_run(
     monkeypatch, capsys, proof, named

@@ -781,6 +781,9 @@ def explain_failure(error: Exception, retry: str) -> str:
             f"{safe_text(error)}; fix: check the Code Editor's network connection, "
             f"then retry {retry}."
         )
+    if isinstance(error, TimeoutError) and error.errno is None:
+        # A deploy wait raised it with its own rule and fix; wrapping it would give two.
+        return safe_text(error, 1500)
     if isinstance(error, (OSError, subprocess.SubprocessError)):
         return (
             f"Local file or process rule: {_local_cause(error)}; "
