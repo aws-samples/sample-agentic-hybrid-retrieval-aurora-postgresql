@@ -754,15 +754,39 @@ def _markers_intact(source: str, start: str, end: str) -> bool:
     )
 
 
+def _glued_marker(source: str, start: str, end: str) -> str | None:
+    """Say which marker shares its line with code, and the keystroke that separates them.
+
+    A paste that ends without a line break, or a selection that took the marker's line
+    break, joins code to a marker: `FROM fuzzy-- LAB1_EDIT_END` is valid SQL that reads as
+    a change outside the block, and `-- LAB1_EDIT_START UNION ALL` hides `UNION ALL` in a
+    comment that the checks would otherwise read as code.
+    """
+    for marker in (start, end):
+        first, last = _marker_line(source, marker)
+        line = source[first:last]
+        before, _, after = line.partition(marker)
+        if before.strip() or after.strip():
+            shown = " ".join(line.split())
+            shown = shown if len(shown) <= 80 else shown[:77] + "..."
+            cursor = "after" if after.strip() else "before"
+            return (
+                f"code shares a line with '{marker}' (`{shown}`): put the cursor just "
+                f"{cursor} '{marker}' and press Enter, so the marker has a line of its "
+                "own; your code stays as it is"
+            )
+    return None
+
+
 def _markers_problem(source: str, start: str, end: str) -> str | None:
-    """Say which marker line is missing, repeated or out of order, and the way out.
+    """Say which marker line is missing, repeated, out of order or shared with code.
 
     It names the exact lines and the comment above the block rather than pointing
     at git diff: the checkout commits the repaired file, so git diff would print
     the reference answer.
     """
     if _markers_intact(source, start, end):
-        return None
+        return _glued_marker(source, start, end)
     lab = next(lab for lab, seam in LABS.items() if seam.blocks[0].start == start)
     faults = []
     for marker in (start, end):
@@ -1388,8 +1412,7 @@ def _marker_problem_in(lab: int, repo: Path) -> LabProblem | None:
         if reason := _markers_problem(source, start, end):
             return LabProblem(
                 f"Lab {lab}: in {path}, {reason}.",
-                "put the marker lines back around your edit as the message says, save, "
-                f"then run {APPLY_SQL}",
+                f"fix the marker lines as the message says, save, then run {APPLY_SQL}",
             )
     return None
 
@@ -1826,6 +1849,28 @@ def _lab_2_blocks_skipping_lab_1(lab: int, earlier: list[int]) -> None:
     )
 
 
+def _outside_edits_stop(labs: list[int], *, label: str, resume: str) -> None:
+    """Stop before any step when a SQL lab the chain answers changed outside its block.
+
+    The reference answer replaces only the marked block, so the chain's first apply
+    would refuse the file part-way through. Only a reset puts the whole starting file
+    back, and it discards that lab's edits, so the participant runs it, not the chain.
+    """
+    for number in labs:
+        problem = outside_block_problem(number, repo=REPO) if number in (1, 2) else None
+        if problem is None:
+            continue
+        raise SystemExit(
+            separate_next(
+                f"{problem.finding}\n{label} rule: the reference answer replaces only "
+                f"Lab {number}'s marked block, so the rest of the file must be as it "
+                f"shipped. Next: run {reset_command(number)} to put back Lab {number}'s "
+                f"starting file (your Lab {number} edits go), then run {resume} again.",
+                stream=sys.stderr,
+            )
+        )
+
+
 def _run_steps(steps: list[str], *, label: str, resume: str) -> int:
     """Run participant commands in order, each with its usual time; stop at the first failure."""
     progress = Progress(label, name="step", commands=True)
@@ -1858,6 +1903,7 @@ def finish_lab(lab: int) -> int:
     attempt and saved SQL keeps the participant's repair.
     """
     labs = [*_earlier_labs_to_finish(lab), lab]
+    _outside_edits_stop(labs, label="Finish", resume=finish_command(lab))
     steps = _finish_chain_steps(labs)
     code = _run_steps(steps, label=f"Finish Lab {lab}", resume=finish_command(lab))
     if code:
@@ -1887,6 +1933,7 @@ def skip_to_lab(lab: int) -> int:
     """
     earlier = _earlier_labs_to_finish(lab)
     _lab_2_blocks_skipping_lab_1(lab, earlier)
+    _outside_edits_stop(earlier, label="Skip", resume=skip_to_command(lab))
     steps = _finish_chain_steps(earlier) if earlier else []
     code = _run_steps(
         steps or [start_command(lab)],

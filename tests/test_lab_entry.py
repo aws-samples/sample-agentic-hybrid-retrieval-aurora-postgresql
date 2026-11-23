@@ -1771,3 +1771,41 @@ def test_every_entry_apply_refuses_sql_changed_outside_a_block(
     message = str(refused.value)
     assert "Nothing was applied" in message and "Next:" in message
     assert submitted_sql == []
+
+
+def _without(repo: Path, lab: int, marker: str) -> None:
+    path = repo / lab_entry.LABS[lab][0]
+    path.write_text(path.read_text().replace(marker, "", 1))
+
+
+def test_a_missing_start_marker_is_a_marker_rule_not_an_index_error(repo):
+    start = lab_entry.LABS[1][1][0][0]
+    _without(repo, 1, start)
+    with pytest.raises(ValueError, match="marker"):
+        lab_entry._seam(1, (repo / lab_entry.LABS[1][0]).read_text())
+
+
+def test_a_lab_1_handoff_never_matches_a_file_without_its_start_marker(
+    repo, monkeypatch
+):
+    monkeypatch.setattr(lab_entry, "_read_handoff", lambda _repo: {"binding": {}})
+    _without(repo, 1, lab_entry.LABS[1][1][0][0])
+    assert lab_entry._lab_1_handoff_matches(None, repo) is False
+
+
+def test_installing_a_fault_into_a_file_without_its_markers_names_the_reset(repo):
+    _without(repo, 2, lab_entry.LABS[2][1][0][1])
+    record = {"version": 1, "lab": 2, "steps": {}}
+    with pytest.raises(lab_entry.LabEntryError) as refused:
+        lab_entry._install_fault(2, repo, record, lambda _line: None)
+    assert "LAB2_EDIT_END' is missing" in str(refused.value)
+    assert "lab_state.py reset --lab 2" in str(refused.value)
+
+
+def test_a_cut_off_saved_request_during_start_names_the_start_again(tmp_path):
+    (tmp_path / "before-state.json").write_text('{"run_id": "ab')
+    with pytest.raises(lab_entry.LabEntryError) as refused:
+        lab_entry._captured_run_id(1, tmp_path)
+    message = str(refused.value)
+    assert "before-state.json was cut off" in message
+    assert "lab_state.py start --lab 1" in message

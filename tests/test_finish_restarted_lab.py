@@ -20,6 +20,7 @@ from scripts import lab_state
 from scripts.lab_entry import record_path
 from scripts.lab_state import LABS, REPO, _replace_block
 from scripts.prove_lab import record_completion
+from service.lab_files import solution_path
 from service.participant_commands import (
     ADVANCE_TO_LAB_2,
     APPLY_SQL,
@@ -259,3 +260,37 @@ def test_refinishing_lab_1_behind_a_complete_lab_2_points_past_lab_2(
     assert code == 0 and _in_order(finish_steps(1), ran)
     assert "Lab 1: finished with the reference answer." in out
     assert "lab-2/context.psql" not in out
+
+
+@pytest.mark.parametrize(
+    ("action", "resume"), [("finish", finish_command), ("skip-to", skip_to_command)]
+)
+def test_an_edit_outside_the_block_stops_finishing_before_any_step_and_names_the_reset(
+    repo, monkeypatch, action, resume
+):
+    _start(repo, 1)
+    solution = solution_path(Path(LABS[1][0]))
+    (repo / solution).parent.mkdir(parents=True, exist_ok=True)
+    copy2(REPO / solution, repo / solution)
+    path = repo / LABS[1][0]
+    source = path.read_text()
+    edited = source.replace(
+        "fuzzy_limit integer DEFAULT 80", "fuzzy_limit integer DEFAULT 8", 1
+    )
+    assert edited != source
+    path.write_text(edited)
+    monkeypatch.setattr(
+        lab_state.subprocess, "run", lambda *a, **k: pytest.fail("ran a step")
+    )
+    lab = 1 if action == "finish" else 2
+    monkeypatch.setattr(sys, "argv", ["lab_state.py", action, "--lab", str(lab)])
+
+    with pytest.raises(SystemExit) as stopped:
+        lab_state.main()
+
+    message = str(stopped.value)
+    assert "changed outside the marked block" in message
+    assert "reset --lab 1" in message and resume(lab) in message
+    assert message.index("reset --lab 1") < message.index(resume(lab))
+    assert message.count("Next:") == 1
+    assert path.read_text() == edited

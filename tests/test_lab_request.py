@@ -515,3 +515,17 @@ def test_send_names_an_unreachable_aurora_in_words_and_its_own_rerun(
     )
     assert max(map(len, message.splitlines())) <= 100
     assert "\n\nNext: " in message
+
+
+def test_a_cut_off_saved_request_takes_the_start_records_recovery(tmp_path):
+    from scripts import lab_request
+    from scripts.lab_entry import StartRecordError
+
+    path = tmp_path / "before-state.json"
+    path.write_text('{"request": {"query": "hea')
+    with pytest.raises(StartRecordError) as refused:
+        lab_request.saved_before(1, path)
+    message = str(refused.value)
+    assert ".local/lab-1/before-state.json cannot be read (it is cut off)" in message
+    assert "lab_state.py reset --lab 1" in message
+    assert lab_request.saved_before(1, tmp_path / "missing.json") is None

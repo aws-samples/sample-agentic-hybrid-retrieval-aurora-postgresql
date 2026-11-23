@@ -26,6 +26,7 @@ from scripts.lab_state import (
     REPO,
     LabDatabaseState,
     LabProblem,
+    _markers_problem,
     _replace_block,
     applied_problem,
     assert_workshop_database,
@@ -70,12 +71,12 @@ class StartRecordError(LabEntryError, ValueError):
     unreadable deploy record, which is one.
     """
 
-    def __init__(self, lab: int, problem: str) -> None:
+    def __init__(self, lab: int, problem: str, *, file: str = "start.json") -> None:
         self.lab = lab
         self.problem = problem
         sentence, commands = start_record_recovery(lab)
         self.finding = (
-            f"Lab {lab} start record rule: .local/lab-{lab}/start.json cannot be read "
+            f"Lab {lab} start record rule: .local/lab-{lab}/{file} cannot be read "
             f"({problem})."
         )
         again = ["Then ask both Lab 3 questions again."] if lab == 3 else []
@@ -391,6 +392,10 @@ def _save(lab: int, repo: Path, record: dict[str, Any]) -> None:
 
 
 def _seam(lab: int, source: str) -> str:
+    """The lab's marked blocks; a file whose marker lines are not intact has none."""
+    for start, end, _, _ in LABS[lab][1]:
+        if problem := _markers_problem(source, start, end):
+            raise ValueError(f"Lab {lab} marker rule: {problem}")
     return "\n".join(
         source.split(start, 1)[1].split(end, 1)[0] for start, end, _, _ in LABS[lab][1]
     )
@@ -496,6 +501,10 @@ def _install_fault(lab: int, repo: Path, record: dict[str, Any], say: Say) -> No
         # code rather than failing; the fault is then already in place.
         set_lab_state(lab, solved=False, repo=repo)
         say(f"Put back {LABS[lab][0]} with its starting code; it was deleted.")
+    source = path.read_text()
+    for start, end, _fixed, _broken in LABS[lab][1]:
+        if problem := _markers_problem(source, start, end):
+            raise LabEntryError(f"Lab {lab}: in {LABS[lab][0]}, {problem}.")
     current = _seam_sha256(lab, path.read_text())
     broken = _broken_seam_sha256(lab, path.read_text())
     if step.get("state") == "installing" and current not in {step["before"], broken}:
@@ -580,8 +589,18 @@ def _failing_search_evidence(
             "state": "done",
             "note": "search already finds the target; no failing run saved",
         }
-    saved = json.loads((output / "before-state.json").read_text())
-    return {"state": "done", "search_event_id": str(saved["run_id"])}
+    return {"state": "done", "search_event_id": _captured_run_id(lab, output)}
+
+
+def _captured_run_id(lab: int, output: Path) -> str:
+    """The failing run this start just saved; a write cut off mid-way is saved again."""
+    try:
+        return str(json.loads((output / "before-state.json").read_text())["run_id"])
+    except (ValueError, KeyError, TypeError) as error:
+        raise LabEntryError(
+            f"Lab {lab} start rule: .local/lab-{lab}/before-state.json was cut off while "
+            f"it was saved; fix: run {start_command(lab)} again, which saves it again."
+        ) from error
 
 
 def _capture(

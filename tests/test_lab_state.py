@@ -1719,13 +1719,44 @@ def test_diff_names_code_left_on_lab_3s_end_marker_line(lab_repo: Path) -> None:
         )
     )
 
-    report, differs = lab_diff(3, repo=lab_repo)
+    with pytest.raises(ValueError) as refused:
+        lab_diff(3, repo=lab_repo)
 
-    assert differs
-    assert "Outside the markers" in report
-    assert ")    # LAB3_EDIT_END" in report
-    assert "reset --lab" not in report
-    assert "deploy_agentcore.py deploy" in report
+    message = str(refused.value)
+    assert "code shares a line with '# LAB3_EDIT_END' (`) # LAB3_EDIT_END`)" in message
+    assert "put the cursor just before '# LAB3_EDIT_END' and press Enter" in message
+    assert "your code stays as it is" in message and "reset --lab" not in message
+
+
+@pytest.mark.parametrize(
+    ("lab", "glued", "cursor"),
+    [
+        (1, ("FROM fuzzy\n-- LAB1_EDIT_END", "FROM fuzzy-- LAB1_EDIT_END"), "before"),
+        (
+            1,
+            ("-- LAB1_EDIT_START\n    UNION ALL", "-- LAB1_EDIT_START    UNION ALL"),
+            "after",
+        ),
+        (2, (")\n-- LAB2_EDIT_END", ")-- LAB2_EDIT_END"), "before"),
+    ],
+)
+def test_sql_pasted_onto_a_marker_line_is_named_with_the_keystroke_that_fixes_it(
+    lab_repo: Path, lab: int, glued: tuple[str, str], cursor: str
+) -> None:
+    set_lab_state(lab, solved=True, repo=lab_repo)
+    path = lab_repo / LABS[lab].exercise
+    source = path.read_text()
+    assert source.count(glued[0]) == 1, glued[0]
+    path.write_text(source.replace(*glued))
+
+    with pytest.raises(ValueError) as refused:
+        lab_diff(lab, repo=lab_repo)
+
+    message = str(refused.value)
+    assert "code shares a line with" in message
+    assert f"put the cursor just {cursor}" in message
+    assert "matches the reference answer" not in message
+    assert "restore those lines exactly" not in message
 
 
 def _start_record(repo: Path, lab: int) -> None:

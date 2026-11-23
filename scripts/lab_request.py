@@ -11,7 +11,7 @@ import re
 import sys
 import time
 from pathlib import Path
-from typing import TextIO
+from typing import Any, TextIO
 from urllib.error import HTTPError, URLError
 from urllib.request import urlopen
 from uuid import UUID
@@ -316,6 +316,27 @@ def _without_before(lab: int, output: Path) -> str:
     )
 
 
+def saved_before(lab: int, path: Path) -> dict[str, Any] | None:
+    """The failing request the lab's start saved, or None when it saved none.
+
+    Only a reset saves it again, so a cut-off file takes the start record's recovery,
+    which keeps the participant's edits.
+    """
+    if not path.exists():
+        return None
+    try:
+        saved = json.loads(path.read_text())
+    except ValueError as error:
+        raise StartRecordError(
+            lab, "it is cut off", file="before-state.json"
+        ) from error
+    if not isinstance(saved, dict):
+        raise StartRecordError(
+            lab, "it is not a saved request", file="before-state.json"
+        )
+    return saved
+
+
 def prepare(
     lab: int, phase: str, api_url: str, output: Path, *, handoff: bool = False
 ) -> Path:
@@ -358,11 +379,7 @@ def prepare(
     output.mkdir(parents=True, exist_ok=True)
     before_path = output / "before-state.json"
     payload = request_payload(mission)
-    before = (
-        json.loads(before_path.read_text())
-        if phase == "after" and before_path.exists()
-        else None
-    )
+    before = saved_before(lab, before_path) if phase == "after" else None
     if phase == "after" and before is None:
         print(_without_before(lab, output), flush=True)
     elif phase == "after":
