@@ -1394,12 +1394,22 @@ def test_a_record_that_is_not_ready_skips_the_browser_path(web):
 A, B, C = "111122223333", "444455556666", "123456789012"
 
 
-def saved_row(account: str, icon: str = "✅", status: str = readiness.READY) -> object:
+def shown(hours_ago: float) -> str:
+    when = datetime.now(UTC) - timedelta(hours=hours_ago)
+    return when.strftime(readiness.SHOWN_TIME)
+
+
+def saved_row(
+    account: str,
+    icon: str = "✅",
+    status: str = readiness.READY,
+    recorded: str | None = None,
+) -> object:
     return readiness.Row(
         account,
         "us-east-1",
         "i-1",
-        "2026-12-01 05:40",
+        recorded or shown(1),
         icon,
         status,
         storefront="d1shop.cloudfront.net",
@@ -1433,7 +1443,7 @@ def test_saving_merges_by_account_and_never_saves_an_unread_or_repeated_row(tmp_
     )
     accounts = json.loads(path.read_text())["accounts"]
     assert sorted(accounts) == [A, B]
-    assert accounts[B]["status"] == "❌ Memory: CREATING"
+    assert accounts[B]["status"] == "❌ not ready"
 
 
 def test_a_damaged_saved_run_is_moved_aside_and_saving_continues(tmp_path, capsys):
@@ -1466,7 +1476,7 @@ def test_the_recheck_keeps_an_account_that_was_not_ready(tmp_path, web):
     row = readiness.recheck_rows(path, 36)[0]
     assert (row.icon, row.status) == (
         "⚠️",
-        "not ready at the saved run (❌ Memory: CREATING)",
+        "not ready at the saved run (❌ not ready)",
     )
     assert web.urls == []
 
@@ -1493,6 +1503,77 @@ def test_a_saved_run_older_than_its_limit_must_be_run_again(tmp_path, web):
     old = datetime.now(UTC) - timedelta(hours=40)
     row = readiness.recheck_rows(saved_file(tmp_path, [saved_row(A)], old), 36)[0]
     assert (row.icon, row.status) == ("⚠️", "saved run STALE (40 h old); run --accounts")
+
+
+def test_a_record_that_was_nearly_stale_at_the_save_is_stale_by_the_morning(
+    tmp_path, web
+):
+    at_save = datetime.now(UTC) - timedelta(hours=12)
+    row = saved_row(A, recorded=shown(35))
+    path = saved_file(tmp_path, [row], at_save)
+    found = readiness.recheck_rows(path, 24)[0]
+    assert (found.icon, found.status) == ("⚠️", "STALE (35 h old)")
+    assert web.urls == []
+
+
+@pytest.mark.parametrize("recorded", ["-", "yesterday", shown(-2)])
+def test_a_ready_entry_without_a_real_record_time_never_passes(tmp_path, web, recorded):
+    path = saved_file(tmp_path, [saved_row(A, recorded=recorded)])
+    found = readiness.recheck_rows(path, 36)[0]
+    assert (found.icon, found.status) == ("⚠️", "cannot read: MalformedSavedRun")
+    assert web.urls == []
+
+
+@pytest.mark.parametrize(
+    ("icon", "status", "saved"),
+    [
+        ("⚠️", "setup still running (CREATE_IN_PROGRESS)", "⚠️ setup still running"),
+        ("⚠️", "cannot read: ExpiredToken", "⚠️ cannot read"),
+        (
+            "❌",
+            "storefront does not answer (HTTP 503)",
+            "❌ storefront does not answer",
+        ),
+        ("❌", "Bedrock model access denied for arn:aws:bedrock:...", "❌ not ready"),
+    ],
+)
+def test_only_the_scripts_own_words_are_saved(tmp_path, icon, status, saved):
+    path = saved_file(tmp_path, [saved_row(A, icon, status)])
+    assert json.loads(path.read_text())["accounts"][A]["status"] == saved
+
+
+@pytest.mark.parametrize("flag", ["--max-age-hours", "--cap"])
+@pytest.mark.parametrize("value", ["nan", "inf", "-inf", "0", "-1"])
+def test_an_age_limit_or_cap_that_cannot_be_compared_is_refused(flag, value):
+    with pytest.raises(SystemExit) as refused:
+        readiness.main([flag, value])
+    assert refused.value.code == 2
+
+
+def test_the_saved_file_keeps_a_status_category_never_its_detail(tmp_path):
+    detail = "setup failed: EditorInstance: handler said token=abc123 in its log tail"
+    path = saved_file(tmp_path, [saved_row(A, "❌", detail)])
+    text = path.read_text()
+    assert json.loads(text)["accounts"][A]["status"] == "❌ setup failed"
+    assert "abc123" not in text and "EditorInstance" not in text
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        f'{{"version": 1, "accounts": {{"{A}": {{}}, "{A}": {{}}}}}}',
+        '{"version": 1, "accounts": {"not-an-account": {}}}',
+        f'{{"version": 1, "accounts": {{"{A}": "ready"}}}}',
+        '{"version": 1, "accounts": ' + "[" * 100000 + "]" * 100000 + "}",
+        '{"version": 2, "accounts": {}}',
+    ],
+)
+def test_a_saved_file_this_script_did_not_write_is_refused(tmp_path, body):
+    path = tmp_path / "run.json"
+    path.write_text(body)
+    path.chmod(0o600)
+    with pytest.raises(readiness.UnusableFile, match="not a saved run"):
+        readiness.recheck_rows(path, 36)
 
 
 def test_the_recheck_refuses_a_saved_run_others_can_read(tmp_path):

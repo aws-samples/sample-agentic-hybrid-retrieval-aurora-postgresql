@@ -29,6 +29,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import math
 import os
 import re
 import sys
@@ -64,6 +65,8 @@ DEFAULT_MAX_AGE_HOURS = 24.0
 # The morning recheck reads a run saved the day before, after provisioning.
 RECHECK_MAX_AGE_HOURS = 36.0
 SAVE_VERSION = 1
+# The table and the saved run show a record's time in UTC to the minute.
+SHOWN_TIME = "%Y-%m-%d %H:%M"
 # A spreadsheet that reopened the Teams CSV may have dropped leading zeros.
 ACCOUNT_DIGITS = re.compile(r"[0-9]{1,12}")
 TEAM_COLUMNS = ("Team name", "AWS account ID")
@@ -851,7 +854,7 @@ def record_row(
         return Row(account, region, "-", "-", "⚠️", "cannot read: MalformedRecord")
     hours = (now - recorded).total_seconds() / 3600
     cells = (account, region, record.get("instanceId") or "-")
-    when = recorded.astimezone(UTC).strftime("%Y-%m-%d %H:%M")
+    when = recorded.astimezone(UTC).strftime(SHOWN_TIME)
     if hours > max_age:
         return Row(*cells, when, "⚠️", f"STALE ({age_text(hours)})")
     if record.get("ready") is True and record.get("final") == READY:
@@ -866,7 +869,7 @@ def busy_row(account: str, region: str, busy: LabInProgress) -> Row:
     when = "-"
     if previous.get("recordedAt"):
         recorded = datetime.fromisoformat(previous["recordedAt"]).astimezone(UTC)
-        when = recorded.strftime("%Y-%m-%d %H:%M")
+        when = recorded.strftime(SHOWN_TIME)
     instance = previous.get("instanceId") or busy.instance_id
     status = f"lab in progress ({busy.lab}), not rechecked"
     return Row(account, region, instance, when, "⚠️", status)
@@ -1101,20 +1104,60 @@ def private_file(path: Path) -> None:
         raise UnusableFile(f"{path} is readable by others; fix: chmod 600 {path}")
 
 
+SAVED_WORDS = frozenset(
+    {
+        READY,
+        NO_STACK,
+        "setup failed",
+        "setup still running",
+        "setup not complete",
+        "no record",
+        "Code Editor instance not running",
+        "cannot read",
+        "lab in progress",
+        "STALE",
+        "storefront does not answer",
+        "Code Editor does not answer",
+    }
+)
+
+
+def unique_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    keys = [key for key, _ in pairs]
+    if len(keys) != len(set(keys)):
+        raise ValueError("a key appears twice")
+    return dict(pairs)
+
+
 def load_saved(path: Path) -> dict[str, dict[str, Any]]:
-    """The accounts of a saved run, by account ID; refuses a file others can read."""
+    """The accounts of a saved run, by account ID. A file others can read, a repeated
+    key, an entry that is not one account's, or nesting too deep is refused."""
     private_file(path)
     try:
-        saved = json.loads(path.read_text(encoding="utf-8"))
+        saved = json.loads(
+            path.read_text(encoding="utf-8"), object_pairs_hook=unique_keys
+        )
         accounts = saved["accounts"]
         if saved.get("version") != SAVE_VERSION or not isinstance(accounts, dict):
-            raise ValueError("unexpected shape")
-    except (ValueError, KeyError, TypeError) as error:
+            raise ValueError("not this script's saved-run shape")
+        for account, entry in accounts.items():
+            if len(account) != 12 or not ACCOUNT_DIGITS.fullmatch(account):
+                raise ValueError("a key that is not an account ID")
+            if not isinstance(entry, dict):
+                raise TypeError("an account entry that is not an object")
+    except (ValueError, KeyError, TypeError, RecursionError) as error:
         raise UnusableFile(
-            f"{path} is not a saved run ({type(error).__name__}); fix: run --accounts "
-            "with --save again"
+            f"{path} is not a saved run ({type(error).__name__}: "
+            f"{plain(str(error), 80)}); fix: run --accounts with --save again"
         ) from error
     return accounts
+
+
+def saved_status(row: Row) -> str:
+    """The row's status as one of this script's own words, else "not ready", so a
+    CloudFormation reason, a check's detail or a log line never reaches the file."""
+    head = re.split(r":| \(", row.status, maxsplit=1)[0].strip()
+    return f"{row.icon} {head if head in SAVED_WORDS else 'not ready'}"
 
 
 def save_run(path: Path, rows: list[Row], now: datetime) -> None:
@@ -1142,7 +1185,7 @@ def save_run(path: Path, rows: list[Row], now: datetime) -> None:
             "instance": row.instance,
             "recorded": row.recorded,
             "ready": row.ready,
-            "status": f"{row.icon} {row.status}",
+            "status": saved_status(row),
             "storefront": row.storefront,
             "editor": row.editor,
             "checkedAt": now.isoformat(),
@@ -1156,13 +1199,22 @@ def save_run(path: Path, rows: list[Row], now: datetime) -> None:
     os.chmod(path, 0o600)
 
 
+def shown_time(text: str) -> datetime | None:
+    """A record time as the table shows it, in UTC to the minute."""
+    try:
+        return datetime.strptime(text, SHOWN_TIME).replace(tzinfo=UTC)
+    except ValueError:
+        return None
+
+
 def recheck_row(
     account: str, entry: dict[str, Any], now: datetime, max_age: float
 ) -> Row:
     """One saved account, read again through its browser path with no credentials.
 
-    A ✅ needs the account to have been ✅ at the saved run and its storefront,
-    readiness (which reaches Aurora) and Code Editor health to answer now.
+    A ✅ needs the account to have been ✅ at the saved run, its box record to be
+    no older than the limit now, and its storefront, readiness (which reaches
+    Aurora) and Code Editor health to answer now.
     """
     cells = (
         account,
@@ -1178,8 +1230,14 @@ def recheck_row(
     if hours > max_age:
         return Row(*cells, "⚠️", f"saved run STALE ({age_text(hours)}); run --accounts")
     if entry.get("ready") is not True:
-        saved = plain(str(entry.get("status", "")))
+        saved = plain(str(entry.get("status", "")), 80)
         return Row(*cells, "⚠️", f"not ready at the saved run ({saved})")
+    recorded = shown_time(cells[3])
+    if recorded is None or recorded - now > FUTURE_SKEW:
+        return Row(*cells, "⚠️", "cannot read: MalformedSavedRun")
+    record_hours = (now - recorded).total_seconds() / 3600
+    if record_hours > max_age:
+        return Row(*cells, "⚠️", f"STALE ({age_text(record_hours)})")
     failure = browser_path(
         cloudfront_host(f"https://{entry.get('storefront', '')}/"),
         cloudfront_host(f"https://{entry.get('editor', '')}/"),
@@ -1325,8 +1383,12 @@ def validate(cli: argparse.ArgumentParser, args: argparse.Namespace) -> None:
         args.max_age_hours = (
             RECHECK_MAX_AGE_HOURS if args.recheck else DEFAULT_MAX_AGE_HOURS
         )
-    if args.max_age_hours <= 0:
-        cli.error(f"--max-age-hours must be positive, not {args.max_age_hours:g}")
+    if not math.isfinite(args.max_age_hours) or args.max_age_hours <= 0:
+        cli.error(
+            f"--max-age-hours must be a positive number, not {args.max_age_hours:g}"
+        )
+    if not math.isfinite(args.cap) or args.cap <= 0:
+        cli.error(f"--cap must be a positive number of seconds, not {args.cap:g}")
     if args.accounts and not args.accounts.is_dir():
         cli.error(f"--accounts {args.accounts} is not a directory")
     if args.save and not args.accounts:

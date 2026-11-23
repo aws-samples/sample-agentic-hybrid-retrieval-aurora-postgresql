@@ -215,12 +215,14 @@ account that is not a team of this event reads `⚠️ not a team of this event`
    ```
 
    The Teams CSV and the save folder are checked before any account is read, and the
-   folder is created with mode 0700 if it is missing. `--save` keeps each account's result,
-   its instance and its two CloudFront hosts, never a token, in a file with mode 0600,
-   merged by account ID with any earlier save. Only real reads are saved: never a row with
-   no account, a second file of one account, or a row the Teams CSV added. A file that
-   cannot be read is moved aside to `<name>.damaged-<UTC time>`, so it never blocks the next
-   save. Repair or replace every account that is not ✅ and run again for those accounts,
+   folder is created with mode 0700 if it is missing. `--save` keeps each account's
+   verdict, its instance, its box record's time and its two CloudFront hosts, never a
+   token, in a file with mode 0600, merged by account ID with any earlier save. A status is
+   saved as one of the script's own words (`setup failed`, `cannot read`, `storefront does
+   not answer`, and so on) or as `not ready`, never with CloudFormation's reason or a
+   check's detail. Only real reads are saved: never a row with no account, a second file of
+   one account, or a row the Teams CSV added. A file that cannot be read is moved aside to
+   `<name>.damaged-<UTC time>`, so it never blocks the next save. Repair or replace every account that is not ✅ and run again for those accounts,
    then delete the credential folder.
 2. **On the day of the session.** With no credentials at all, recheck every saved account:
 
@@ -229,13 +231,16 @@ account that is not a team of this event reads `⚠️ not a team of this event`
      --teams ~/mosaic-event/<event>-teams.csv
    ```
 
-   The recheck makes no AWS call. A row is ✅ only if the account was ✅ in the saved run
-   and its storefront page, its readiness through CloudFront to Aurora and its Code
-   Editor's health answer now. It reads `⚠️ not ready at the saved run (<status>)`, `❌` with
-   the browser path's reason, or `⚠️ saved run STALE` for a run older than
-   `--max-age-hours` (36 for a recheck, so sweep after provisioning no more than 36 hours
-   before doors open). The saved file must be mode 0600, and a host edited into it is never
-   fetched unless it is an `https` `*.cloudfront.net` host. Run it once early and again
+   The recheck makes no AWS call. A row is ✅ only if the account was ✅ in the saved run,
+   its box record is no older than `--max-age-hours` now (36 for a recheck), and its
+   storefront page, its readiness through CloudFront to Aurora and its Code Editor's health
+   answer now. It reads `⚠️ not ready at the saved run (<status>)`, `⚠️ STALE (<age>)` for a
+   box record past the limit, `⚠️ saved run STALE` for a saved run past it, or `❌` with the
+   browser path's reason. Sweep with `--live` no more than 36 hours before doors open, so
+   every record is fresh. The saved file must be mode 0600; a file with a repeated key, an
+   entry that is not one account's, nesting too deep or a ready entry without a record time
+   is refused, and a host edited into it is never fetched unless it is an `https`
+   `*.cloudfront.net` host. `--max-age-hours` must be a positive finite number. Run it once early and again
    shortly before doors open.
 3. **Only for the accounts that fail,** fetch their Ops credentials and run `--accounts`
    (with `--live` while nobody has joined) to see why.
