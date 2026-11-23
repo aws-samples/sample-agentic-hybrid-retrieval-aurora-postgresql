@@ -87,8 +87,9 @@ Every account: save one file per account in a Git-ignored folder, such as
 block as it is, then add the Region on a line of its own. The copied block has no final
 newline, so write the line with `printf '\nAWS_DEFAULT_REGION=us-east-1\n' >> FILE`,
 not `echo ... >> FILE`. The script parses the files and never sources them, refuses a
-file that group or others can read, and prints account IDs to the terminal only. Delete
-the folder when you are done.
+file that group or others can read, and prints account IDs to the terminal; only
+`--save` writes them to a file, mode 0600, beside each account's result and CloudFront
+hosts. Delete the folder when you are done.
 
 ```bash
 uv run scripts/event_readiness.py --accounts .local/readiness
