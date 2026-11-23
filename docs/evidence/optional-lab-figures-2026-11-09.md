@@ -12,7 +12,7 @@ Step 1 ran the guide's own block (four read-only plans of Lab 1's request). Step
 `.local/lab-1/recall.sql` with the guide's block, the exact query was written, and
 `scripts/lab_exercise.py grade --lab 1` graded it.
 
-| Measurement | 22 October, 18.3 (guide) | 9 November, 18.6 |
+| Measurement | 22 October, 18.3 | 9 November, 18.6 |
 |---|---|---|
 | A. `relaxed_order` (the app) | 150 rows | 150 rows, 11.8 ms, 343 removed by the filter |
 | B. `strict_order` | 150 rows | 150 rows, 14.4 ms, 386 removed |
@@ -21,7 +21,9 @@ Step 1 ran the guide's own block (four read-only plans of Lab 1's request). Step
 | Recall, planner's plan and forced HNSW | 0.760 (114 of 150) | 0.753 (113 of 150), `Lab 1 exercise: PASS` |
 
 Every plan used `Index Scan using product_search_vector_idx`. Each event builds its own HNSW
-graph, so C, D and recall move between events, as the guide says. The lesson holds on both
+graph, so C, D and recall move between events, as the guide says. The guide's screenshot
+comes from a later recorded run in which C and D returned no rows after filtering; it
+quotes neither column above. The lesson holds on both
 engines: without iterative scanning far fewer than 150 eligible rows return, and more initial
 effort returns more but not all of them.
 
