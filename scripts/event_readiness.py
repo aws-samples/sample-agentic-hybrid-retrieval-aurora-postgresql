@@ -27,7 +27,9 @@ Exit status: 0 when every row reads READY FOR LAB 1 (and there is at least one),
 from __future__ import annotations
 
 import argparse
+import csv
 import json
+import os
 import re
 import sys
 import threading
@@ -38,7 +40,7 @@ import urllib.request
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import redirect_stdout
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -59,6 +61,10 @@ STACK_PARAMETER = "InfrastructureRevision"
 # The editor launcher (deploy/cloudformation/editor_launcher.py) tags every host it starts.
 DEFAULT_CAP_SECONDS = 90.0
 DEFAULT_MAX_AGE_HOURS = 24.0
+# The morning recheck reads a run saved the day before, after provisioning.
+RECHECK_MAX_AGE_HOURS = 36.0
+SAVE_VERSION = 1
+ACCOUNT_ID = re.compile(r"\d{12}")
 MAX_PARALLEL_ACCOUNTS = 8
 LIVE_WAIT_SECONDS = 240
 LIVE_POLL_SECONDS = 5
@@ -136,6 +142,8 @@ class Row:
     recorded: str
     icon: str
     status: str
+    storefront: str = field(default="", compare=False)
+    editor: str = field(default="", compare=False)
 
     @property
     def ready(self) -> bool:
@@ -694,21 +702,11 @@ def cloudfront_host(url: str) -> str | None:
     return host
 
 
-def web_verdict(row: Row, outputs: dict[str, str]) -> Row:
-    """A ✅ also needs the participant's browser path to answer, through CloudFront.
-
-    The storefront page and its readiness (which reaches Aurora) and the Code
-    Editor's own health answer without a token or a sign-in, so no account is
-    claimed. The editor URL carries its connection token, so only its domain is
-    kept; neither URL is ever printed.
-    """
-    cells = (row.account, row.region, row.instance, row.recorded)
-    storefront = cloudfront_host(outputs.get(STOREFRONT_OUTPUT, ""))
-    editor = cloudfront_host(outputs.get(EDITOR_OUTPUT, ""))
+def browser_path(storefront: str | None, editor: str | None) -> str | None:
+    """None when the storefront page, its readiness and the editor's health answer
+    from these CloudFront hosts; else the row's ❌ status."""
     if not storefront:
-        return Row(
-            *cells, "❌", f"storefront does not answer (no usable {STOREFRONT_OUTPUT})"
-        )
+        return f"storefront does not answer (no usable {STOREFRONT_OUTPUT})"
     budget_end = time.monotonic() + WEB_BUDGET_SECONDS
     why = web_answer(
         f"https://{storefront}/", html_page, PAGE_ATTEMPTS, budget_end
@@ -716,17 +714,30 @@ def web_verdict(row: Row, outputs: dict[str, str]) -> Row:
         f"https://{storefront}/api/readiness", database_ready, WEB_ATTEMPTS, budget_end
     )
     if why:
-        return Row(*cells, "❌", f"storefront does not answer ({why})")
+        return f"storefront does not answer ({why})"
     if not editor:
-        return Row(
-            *cells, "❌", f"Code Editor does not answer (no usable {EDITOR_OUTPUT})"
-        )
+        return f"Code Editor does not answer (no usable {EDITOR_OUTPUT})"
     why = web_answer(
         f"https://{editor}/healthz", editor_health, PAGE_ATTEMPTS, budget_end
     )
-    if why:
-        return Row(*cells, "❌", f"Code Editor does not answer ({why})")
-    return row
+    return f"Code Editor does not answer ({why})" if why else None
+
+
+def web_verdict(row: Row, outputs: dict[str, str]) -> Row:
+    """A ✅ also needs the participant's browser path to answer, through CloudFront.
+
+    The storefront page and its readiness (which reaches Aurora) and the Code
+    Editor's own health answer without a token or a sign-in, so no account is
+    claimed. The editor URL carries its connection token, so only its domain is
+    kept; neither URL is ever printed. The row keeps both hosts for --save.
+    """
+    storefront = cloudfront_host(outputs.get(STOREFRONT_OUTPUT, ""))
+    editor = cloudfront_host(outputs.get(EDITOR_OUTPUT, ""))
+    hosts = {"storefront": storefront or "", "editor": editor or ""}
+    failure = browser_path(storefront, editor)
+    if failure:
+        return replace(row, icon="❌", status=failure, **hosts)
+    return replace(row, **hosts)
 
 
 def box_instance(session: Any) -> str:
@@ -1076,6 +1087,153 @@ def exit_status(rows: list[Row]) -> int:
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# the day-before run saved, and the morning recheck that needs no credentials
+# ---------------------------------------------------------------------------
+
+
+class SavedRunError(Exception):
+    """The saved run cannot be trusted; the message names the fix."""
+
+
+def load_saved(path: Path) -> dict[str, dict[str, Any]]:
+    """The accounts of a saved run, by account ID; refuses a file others can read."""
+    if path.stat().st_mode & 0o077:
+        raise SavedRunError(f"{path} is readable by others; fix: chmod 600 {path}")
+    try:
+        saved = json.loads(path.read_text(encoding="utf-8"))
+        accounts = saved["accounts"]
+        if saved.get("version") != SAVE_VERSION or not isinstance(accounts, dict):
+            raise ValueError("unexpected shape")
+    except (ValueError, KeyError, TypeError) as error:
+        raise SavedRunError(
+            f"{path} is not a saved run ({type(error).__name__}); fix: run --accounts "
+            "with --save again"
+        ) from error
+    return accounts
+
+
+def save_run(path: Path, rows: list[Row], now: datetime) -> None:
+    """Merge this run's accounts into the saved run, by account ID, mode 0600.
+
+    Only CloudFront hosts are kept, never a token. A row with no account or a second
+    file of an account never replaces the real row. A damaged file is moved aside,
+    so it never blocks the next save.
+    """
+    accounts: dict[str, dict[str, Any]] = {}
+    if path.exists():
+        try:
+            accounts = load_saved(path)
+        except SavedRunError:
+            aside = path.with_name(f"{path.name}.damaged-{now:%Y%m%dT%H%M%SZ}")
+            path.rename(aside)
+            print(
+                f"Readiness: {path.name} could not be read; moved it to {aside.name}."
+            )
+    for row in rows:
+        if row.account == "-" or row.status.startswith("same account as"):
+            continue
+        accounts[row.account] = {
+            "region": row.region,
+            "instance": row.instance,
+            "recorded": row.recorded,
+            "ready": row.ready,
+            "status": f"{row.icon} {row.status}",
+            "storefront": row.storefront,
+            "editor": row.editor,
+            "checkedAt": now.isoformat(),
+        }
+    body = json.dumps({"version": SAVE_VERSION, "accounts": accounts}, indent=2)
+    temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+        handle.write(body)
+    os.replace(temporary, path)
+    os.chmod(path, 0o600)
+
+
+def recheck_row(
+    account: str, entry: dict[str, Any], now: datetime, max_age: float
+) -> Row:
+    """One saved account, read again through its browser path with no credentials.
+
+    A ✅ needs the account to have been ✅ at the saved run and its storefront,
+    readiness (which reaches Aurora) and Code Editor health to answer now.
+    """
+    cells = (
+        account,
+        str(entry.get("region", "-")),
+        str(entry.get("instance", "-")),
+        str(entry.get("recorded", "-")),
+    )
+    try:
+        checked = datetime.fromisoformat(str(entry["checkedAt"]))
+        hours = (now - checked).total_seconds() / 3600
+    except (KeyError, ValueError, TypeError):
+        return Row(*cells, "⚠️", "cannot read: MalformedSavedRun")
+    if hours > max_age:
+        return Row(*cells, "⚠️", f"saved run STALE ({age_text(hours)}); run --accounts")
+    if entry.get("ready") is not True:
+        saved = plain(str(entry.get("status", "")))
+        return Row(*cells, "⚠️", f"not ready at the saved run ({saved})")
+    failure = browser_path(
+        cloudfront_host(f"https://{entry.get('storefront', '')}/"),
+        cloudfront_host(f"https://{entry.get('editor', '')}/"),
+    )
+    if failure:
+        return Row(*cells, "❌", failure)
+    return Row(*cells, "✅", READY)
+
+
+def event_teams(path: Path) -> dict[str, str]:
+    """Account ID to team name from the console's Teams CSV, which holds no
+    credentials. Its join URLs are never read."""
+    with path.open(newline="", encoding="utf-8-sig") as handle:
+        rows = list(csv.DictReader(handle))
+    teams = {
+        row.get("AWS account ID", "").strip(): row.get("Team name", "").strip()
+        for row in rows
+    }
+    if not teams or not all(ACCOUNT_ID.fullmatch(account) for account in teams):
+        raise SavedRunError(
+            f"{path} is not the console's Teams CSV (no AWS account ID column); "
+            "fix: Teams > Download CSV"
+        )
+    return teams
+
+
+def recheck_rows(path: Path, teams_csv: Path | None, max_age: float) -> list[Row]:
+    """Every saved account rechecked, eight at once; with the Teams CSV, also every
+    team the saved run missed and every saved account not in this event."""
+    accounts = load_saved(path)
+    now = datetime.now(UTC)
+    ordered = sorted(accounts.items())
+    with ThreadPoolExecutor(max_workers=MAX_PARALLEL_ACCOUNTS) as pool:
+        rows = list(pool.map(lambda item: recheck_row(*item, now, max_age), ordered))
+    if teams_csv is None:
+        return rows
+    teams = event_teams(teams_csv)
+    rows = [
+        row
+        if row.account in teams
+        else replace(row, icon="⚠️", status="not a team of this event")
+        for row in rows
+    ]
+    missed = sorted(set(teams) - set(accounts))
+    rows += [
+        Row(
+            account,
+            "-",
+            "-",
+            "-",
+            "⚠️",
+            f"not in the saved run ({plain(teams[account])})",
+        )
+        for account in missed
+    ]
+    return rows
+
+
 def parser() -> argparse.ArgumentParser:
     cli = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
     cli.add_argument(
@@ -1089,7 +1247,25 @@ def parser() -> argparse.ArgumentParser:
         action="store_true",
         help="record again on each box through SSM Run Command",
     )
-    cli.add_argument("--max-age-hours", type=float, default=DEFAULT_MAX_AGE_HOURS)
+    cli.add_argument(
+        "--save",
+        type=Path,
+        metavar="FILE",
+        help="with --accounts: keep each account's result and CloudFront hosts (0600)",
+    )
+    cli.add_argument(
+        "--recheck",
+        type=Path,
+        metavar="FILE",
+        help="no credentials: recheck a saved run's browser path",
+    )
+    cli.add_argument(
+        "--teams",
+        type=Path,
+        metavar="CSV",
+        help="with --recheck: the console's Teams CSV, to find missed accounts",
+    )
+    cli.add_argument("--max-age-hours", type=float)
     box = cli.add_argument_group("on the box: bootstrap and SSM only")
     box.add_argument("--record", action="store_true", help=argparse.SUPPRESS)
     box.add_argument("--failed", metavar="REASON", help=argparse.SUPPRESS)
@@ -1105,10 +1281,24 @@ def validate(cli: argparse.ArgumentParser, args: argparse.Namespace) -> None:
         cli.error("--record runs on the box; --accounts runs on a laptop")
     if args.failed and not args.record:
         cli.error("--failed belongs to --record")
+    if args.max_age_hours is None:
+        args.max_age_hours = (
+            RECHECK_MAX_AGE_HOURS if args.recheck else DEFAULT_MAX_AGE_HOURS
+        )
     if args.max_age_hours <= 0:
         cli.error(f"--max-age-hours must be positive, not {args.max_age_hours:g}")
     if args.accounts and not args.accounts.is_dir():
         cli.error(f"--accounts {args.accounts} is not a directory")
+    if args.save and not args.accounts:
+        cli.error("--save goes with --accounts")
+    if args.save and not args.save.parent.is_dir():
+        cli.error(f"--save {args.save}: {args.save.parent} is not a directory")
+    if args.teams and not args.recheck:
+        cli.error("--teams goes with --recheck")
+    if args.recheck and (args.accounts or args.live or args.record):
+        cli.error("--recheck needs no credentials: use it without --accounts or --live")
+    if args.recheck and not args.recheck.is_file():
+        cli.error(f"--recheck {args.recheck} is not a file")
 
 
 def one_account(args: argparse.Namespace) -> int:
@@ -1133,9 +1323,18 @@ def main(argv: list[str] | None = None) -> int:
     validate(cli, args)
     if args.record:
         return record_on_box(args)
+    if args.recheck:
+        try:
+            rows = recheck_rows(args.recheck, args.teams, args.max_age_hours)
+        except (SavedRunError, OSError) as error:
+            cli.error(str(error))
+        print("\n".join(table(rows)))
+        return exit_status(rows)
     if args.accounts:
         rows = fleet_rows(args.accounts, live=args.live, max_age=args.max_age_hours)
         print("\n".join(table(rows)))
+        if args.save:
+            save_run(args.save, rows, datetime.now(UTC))
         return exit_status(rows)
     return one_account(args)
 

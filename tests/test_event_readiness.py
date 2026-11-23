@@ -1388,6 +1388,182 @@ def test_a_record_that_is_not_ready_skips_the_browser_path(web):
     assert web.urls == []
 
 
+# --- the saved run and the morning recheck -----------------------------------
+
+
+A, B, C = "111122223333", "444455556666", "123456789012"
+
+
+def saved_row(account: str, icon: str = "✅", status: str = readiness.READY) -> object:
+    return readiness.Row(
+        account,
+        "us-east-1",
+        "i-1",
+        "2026-12-01 05:40",
+        icon,
+        status,
+        storefront="d1shop.cloudfront.net",
+        editor=EDITOR_DOMAIN,
+    )
+
+
+def saved_file(tmp_path, rows, at=None) -> Path:
+    path = tmp_path / "mosaic-run.json"
+    readiness.save_run(path, rows, at or datetime.now(UTC))
+    return path
+
+
+def test_the_saved_run_is_private_and_keeps_hosts_never_a_token(tmp_path):
+    path = saved_file(tmp_path, [saved_row(A)])
+    assert path.stat().st_mode & 0o777 == 0o600
+    text = path.read_text()
+    assert EDITOR_DOMAIN in text and "d1shop.cloudfront.net" in text
+    assert EDITOR_TOKEN not in text and "tkn" not in text
+    assert json.loads(text)["accounts"][A]["ready"] is True
+
+
+def test_saving_merges_by_account_and_never_saves_an_unread_or_repeated_row(tmp_path):
+    path = saved_file(tmp_path, [saved_row(A)])
+    unread = readiness.Row("-", "-", "-", "-", "⚠️", "cannot read: ExpiredToken")
+    repeat = readiness.Row(B, "-", "-", "-", "⚠️", "same account as b.env")
+    readiness.save_run(
+        path,
+        [saved_row(B, "❌", "Memory: CREATING"), unread, repeat],
+        datetime.now(UTC),
+    )
+    accounts = json.loads(path.read_text())["accounts"]
+    assert sorted(accounts) == [A, B]
+    assert accounts[B]["status"] == "❌ Memory: CREATING"
+
+
+def test_a_damaged_saved_run_is_moved_aside_and_saving_continues(tmp_path, capsys):
+    path = tmp_path / "mosaic-run.json"
+    path.write_text("{not json")
+    path.chmod(0o600)
+    readiness.save_run(path, [saved_row(A)], datetime(2026, 12, 1, 6, 0, tzinfo=UTC))
+    assert (tmp_path / "mosaic-run.json.damaged-20261201T060000Z").exists()
+    assert A in json.loads(path.read_text())["accounts"]
+    assert "could not be read" in capsys.readouterr().out
+
+
+def test_the_recheck_makes_no_aws_call_and_passes_a_ready_account(
+    tmp_path, web, monkeypatch
+):
+    import boto3
+
+    def no_aws(*_args, **_kwargs):
+        raise AssertionError("the recheck must not call AWS")
+
+    monkeypatch.setattr(boto3, "Session", no_aws)
+    monkeypatch.setattr(boto3, "client", no_aws)
+    rows = readiness.recheck_rows(saved_file(tmp_path, [saved_row(A)]), None, 36)
+    assert [(r.account, r.icon, r.status) for r in rows] == [(A, "✅", readiness.READY)]
+    assert web.urls[-1] == f"https://{EDITOR_DOMAIN}/healthz"
+
+
+def test_the_recheck_keeps_an_account_that_was_not_ready(tmp_path, web):
+    path = saved_file(tmp_path, [saved_row(A, "❌", "Memory: CREATING")])
+    row = readiness.recheck_rows(path, None, 36)[0]
+    assert (row.icon, row.status) == (
+        "⚠️",
+        "not ready at the saved run (❌ Memory: CREATING)",
+    )
+    assert web.urls == []
+
+
+def test_the_recheck_fails_an_account_whose_browser_path_stopped_answering(
+    tmp_path, web
+):
+    web.answers["/api/readiness"] = [(503, b"x")] * readiness.WEB_ATTEMPTS
+    row = readiness.recheck_rows(saved_file(tmp_path, [saved_row(A)]), None, 36)[0]
+    assert (row.icon, row.status) == ("❌", "storefront does not answer (HTTP 503)")
+
+
+def test_the_recheck_never_fetches_a_host_edited_into_the_file(tmp_path, web):
+    path = saved_file(tmp_path, [saved_row(A)])
+    saved = json.loads(path.read_text())
+    saved["accounts"][A]["storefront"] = "attacker.example.com"
+    path.write_text(json.dumps(saved))
+    row = readiness.recheck_rows(path, None, 36)[0]
+    assert row.status == "storefront does not answer (no usable MosaicURL)"
+    assert web.urls == []
+
+
+def test_a_saved_run_older_than_its_limit_must_be_run_again(tmp_path, web):
+    old = datetime.now(UTC) - timedelta(hours=40)
+    row = readiness.recheck_rows(saved_file(tmp_path, [saved_row(A)], old), None, 36)[0]
+    assert (row.icon, row.status) == ("⚠️", "saved run STALE (40 h old); run --accounts")
+
+
+def test_the_recheck_refuses_a_saved_run_others_can_read(tmp_path):
+    path = saved_file(tmp_path, [saved_row(A)])
+    path.chmod(0o644)
+    with pytest.raises(readiness.SavedRunError, match="chmod 600"):
+        readiness.recheck_rows(path, None, 36)
+
+
+def test_the_teams_csv_finds_missed_and_foreign_accounts_without_join_urls(
+    tmp_path, web
+):
+    path = saved_file(tmp_path, [saved_row(A), saved_row(B)])
+    teams = tmp_path / "teams.csv"
+    teams.write_text(
+        "Team name,AWS account ID,Join event URL\n"
+        f"Team 1,{A},https://catalog.workshops.aws/join?access-code=SECRET1\n"
+        f"Team 3,{C},https://catalog.workshops.aws/join?access-code=SECRET3\n"
+    )
+    rows = readiness.recheck_rows(path, teams, 36)
+    assert [(r.account, r.icon, r.status) for r in rows] == [
+        (A, "✅", readiness.READY),
+        (B, "⚠️", "not a team of this event"),
+        (C, "⚠️", "not in the saved run (Team 3)"),
+    ]
+    printed = "\n".join(readiness.table(rows))
+    assert "SECRET" not in printed and "join" not in printed
+    assert readiness.exit_status(rows) == 1
+
+
+def test_a_csv_that_is_not_the_teams_export_is_refused(tmp_path):
+    path = saved_file(tmp_path, [saved_row(A)])
+    other = tmp_path / "other.csv"
+    other.write_text("name,email\nx,y\n")
+    with pytest.raises(readiness.SavedRunError, match="Download CSV"):
+        readiness.recheck_rows(path, other, 36)
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["--save", "x.json"],
+        ["--teams", "t.csv"],
+        ["--recheck", "{run}", "--live"],
+        ["--recheck", "{run}", "--accounts", "{dir}"],
+        ["--recheck", "{dir}/missing.json"],
+    ],
+)
+def test_save_recheck_and_teams_are_refused_out_of_place(tmp_path, argv):
+    run = saved_file(tmp_path, [saved_row(A)])
+    filled = [a.format(run=run, dir=tmp_path) for a in argv]
+    with pytest.raises(SystemExit) as refused:
+        readiness.main(filled)
+    assert refused.value.code == 2
+
+
+def test_main_rechecks_a_saved_run_and_exits_by_its_rows(tmp_path, web, capsys):
+    run = saved_file(tmp_path, [saved_row(A)])
+    assert readiness.main(["--recheck", str(run)]) == 0
+    assert capsys.readouterr().out.strip().endswith("1 of 1 ready")
+
+
+def test_main_saves_after_a_fleet_read(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(
+        readiness, "fleet_rows", lambda *_a, **_k: [saved_row(A), saved_row(B)]
+    )
+    target = tmp_path / "run.json"
+    assert readiness.main(["--accounts", str(tmp_path), "--save", str(target)]) == 0
+    assert sorted(json.loads(target.read_text())["accounts"]) == [A, B]
+
+
 # --- records and files that cannot be trusted ----------------------------------
 
 
