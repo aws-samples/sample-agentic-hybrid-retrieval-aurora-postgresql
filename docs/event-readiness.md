@@ -219,8 +219,8 @@ account that is not a team of this event reads `⚠️ not a team of this event`
    verdict, its instance, its box record's time and its two CloudFront hosts, never a
    token, in a file with mode 0600, merged by account ID with any earlier save. A status is
    saved as one of the script's own words (`setup failed`, `cannot read`, `storefront does
-   not answer`, and so on) or as `not ready`, never with CloudFormation's reason or a
-   check's detail. Only real reads are saved: never a row with no account, a second file of
+   not answer`, and so on) or as `the box's record is not ready` for a failing box check,
+   never with CloudFormation's reason or a check's detail. Only real reads are saved: never a row with no account, a second file of
    one account, or a row the Teams CSV added. A file that cannot be read is moved aside to
    `<name>.damaged-<UTC time>`, so it never blocks the next save. Repair or replace every account that is not ✅ and run again for those accounts,
    then delete the credential folder.

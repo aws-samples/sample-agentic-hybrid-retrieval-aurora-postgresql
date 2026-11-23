@@ -1117,6 +1117,7 @@ def private_file(path: Path) -> None:
         raise UnusableFile(f"{path} is readable by others; fix: chmod 600 {path}")
 
 
+BOX_NOT_READY = "the box's record is not ready"
 SAVED_WORDS = frozenset(
     {
         READY,
@@ -1169,10 +1170,11 @@ def load_saved(path: Path) -> dict[str, dict[str, Any]]:
 
 
 def saved_status(row: Row) -> str:
-    """The row's status as one of this script's own words, else "not ready", so a
-    CloudFormation reason, a check's detail or a log line never reaches the file."""
+    """The row's status as one of this script's own words, so a CloudFormation
+    reason, a check's detail or a log line never reaches the file. Every other
+    status is a box check's failure line; DAT416 and DAT432 save the same words."""
     head = re.split(r":| \(", row.status, maxsplit=1)[0].strip()
-    return f"{row.icon} {head if head in SAVED_WORDS else 'not ready'}"
+    return head if head in SAVED_WORDS else BOX_NOT_READY
 
 
 def save_run(path: Path, rows: list[Row], now: datetime) -> None:

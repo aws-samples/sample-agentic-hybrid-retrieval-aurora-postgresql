@@ -1443,7 +1443,7 @@ def test_saving_merges_by_account_and_never_saves_an_unread_or_repeated_row(tmp_
     )
     accounts = json.loads(path.read_text())["accounts"]
     assert sorted(accounts) == [A, B]
-    assert accounts[B]["status"] == "❌ not ready"
+    assert accounts[B]["status"] == "the box's record is not ready"
 
 
 def test_a_damaged_saved_run_is_moved_aside_and_saving_continues(tmp_path, capsys):
@@ -1476,7 +1476,7 @@ def test_the_recheck_keeps_an_account_that_was_not_ready(tmp_path, web):
     row = readiness.recheck_rows(path, 36)[0]
     assert (row.icon, row.status) == (
         "⚠️",
-        "not ready at the saved run (❌ not ready)",
+        "not ready at the saved run (the box's record is not ready)",
     )
     assert web.urls == []
 
@@ -1527,14 +1527,18 @@ def test_a_ready_entry_without_a_real_record_time_never_passes(tmp_path, web, re
 @pytest.mark.parametrize(
     ("icon", "status", "saved"),
     [
-        ("⚠️", "setup still running (CREATE_IN_PROGRESS)", "⚠️ setup still running"),
-        ("⚠️", "cannot read: ExpiredToken", "⚠️ cannot read"),
+        ("⚠️", "setup still running (CREATE_IN_PROGRESS)", "setup still running"),
+        ("⚠️", "cannot read: ExpiredToken", "cannot read"),
         (
             "❌",
             "storefront does not answer (HTTP 503)",
-            "❌ storefront does not answer",
+            "storefront does not answer",
         ),
-        ("❌", "Bedrock model access denied for arn:aws:bedrock:...", "❌ not ready"),
+        (
+            "❌",
+            "Bedrock model access denied for arn:aws:bedrock:...",
+            "the box's record is not ready",
+        ),
     ],
 )
 def test_only_the_scripts_own_words_are_saved(tmp_path, icon, status, saved):
@@ -1593,7 +1597,7 @@ def test_the_saved_file_keeps_a_status_category_never_its_detail(tmp_path):
     detail = "setup failed: EditorInstance: handler said token=abc123 in its log tail"
     path = saved_file(tmp_path, [saved_row(A, "❌", detail)])
     text = path.read_text()
-    assert json.loads(text)["accounts"][A]["status"] == "❌ setup failed"
+    assert json.loads(text)["accounts"][A]["status"] == "setup failed"
     assert "abc123" not in text and "EditorInstance" not in text
 
 
