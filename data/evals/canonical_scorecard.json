@@ -34,7 +34,7 @@
     "scan_mem_multiplier": 2.0
   },
   "k": 10,
-  "measured_at": "2026-11-23T01:01:24.167742+00:00",
+  "measured_at": "2026-11-23T01:06:42.963033+00:00",
   "metrics": {
     "mrr": 0.7592592592592592,
     "ndcg@10": 0.8032961425511451,
@@ -121,7 +121,7 @@
   "product_retrieval_query_count": 9,
   "query_set": "data/evals/canonical_queries.jsonl",
   "query_set_sha256": "337b8158e378c31a09e7d8292b7d85ed09d24721e6ff0fd5399683bdfe15c8d1",
-  "query_vectors_sha256": "27f91a652ed06b9ccdc1fdd1b70e372dff581c651f78c870c04261d5e6a8a01f",
+  "query_vectors_sha256": "6a5a6e799655c5dc106354b3f86d228b0b915ea1d23e038149d2a17e62748666",
   "ranked_result_sha256": "5d6c5929a8472574c847a66a1caf4a2a846c2902f3474fcea15ef1828e09ccca",
   "retrieval_fingerprint": "96ab651da5377328d949fb70fb59d85ad3f6e8696d271dd3c8c7b9bcc007a3f9",
   "retrieval_profile": {
@@ -145,7 +145,7 @@
   "scorecard_methodology_sha256": "9036308993d2007abeecfe695ade9846e1af37ade8c971c05fabd2a109389164",
   "scored_query_set_sha256": "952f034619dec9b0964e7dd3dac061619894f7ce315dfdef9ac28ccaf6c7b06d",
   "source": {
-    "revision": "908c4d06bd2eb52e47e50f27c352f3becb31f829",
+    "revision": "ea49cc05612187c3468a99d64eb05e43410b9e7a",
     "worktree_dirty": false
   },
   "strategy": "rrf_fusion+rerank+exact_sku_preservation"
