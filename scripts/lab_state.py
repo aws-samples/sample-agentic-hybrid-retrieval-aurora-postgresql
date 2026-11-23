@@ -556,22 +556,32 @@ def set_lab_state(
     if not path.exists():
         _put_back_lab_folder(Path(relative_path), repo)
     source = path.read_text(encoding="utf-8") if path.exists() else ""
-    if whole_file or not all(
-        _markers_intact(source, start, end) for start, end, _, _ in blocks
-    ):
-        # A reset, a deleted file, or a deleted or repeated marker that hides where the
-        # block is: start from the reference file, which the shipped file matches.
-        source = shipped_text(solution_path(Path(relative_path)), REPO)
-    for start, end, fixed, broken in blocks:
-        source = _replace_block(source, start, end, fixed if solved else broken)
-    source = _restore_marker_lines(
-        source,
-        shipped_text(solution_path(Path(relative_path)), REPO),
-        [marker for start, end, _, _ in blocks for marker in (start, end)],
-    )
+    source = _lab_source_as(lab, source, solved=solved, whole_file=whole_file)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(source, encoding="utf-8")
     return path
+
+
+def _lab_source_as(lab: int, source: str, *, solved: bool, whole_file: bool) -> str:
+    """A lab file's text once its blocks hold the reference answer or the starting code.
+
+    A reset, a deleted file, or a deleted or repeated marker that hides where the block is
+    starts from the reference file, which the shipped file matches. Otherwise the lines
+    outside the blocks stay, and each marker line is put back as the reference holds it.
+    """
+    relative_path, blocks = LABS[lab]
+    reference = shipped_text(solution_path(Path(relative_path)), REPO)
+    if whole_file or not all(
+        _markers_intact(source, start, end) for start, end, _, _ in blocks
+    ):
+        source = reference
+    for start, end, fixed, broken in blocks:
+        source = _replace_block(source, start, end, fixed if solved else broken)
+    return _restore_marker_lines(
+        source,
+        reference,
+        [marker for start, end, _, _ in blocks for marker in (start, end)],
+    )
 
 
 def _sql_tokens(source: str) -> list[str]:
@@ -760,9 +770,12 @@ def _glued_marker(source: str, start: str, end: str) -> str | None:
     A paste that ends without a line break, or a selection that took the marker's line
     break, joins code to a marker: `FROM fuzzy-- LAB1_EDIT_END` is valid SQL that reads as
     a change outside the block, and `-- LAB1_EDIT_START UNION ALL` hides `UNION ALL` in a
-    comment that the checks would otherwise read as code.
+    comment that the checks would otherwise read as code. Lab 3's end marker is a Python
+    comment that may follow code, as in `)    # LAB3_EDIT_END`, which has always passed, so
+    only its start marker is checked.
     """
-    for marker in (start, end):
+    markers = (start,) if end.lstrip().startswith("#") else (start, end)
+    for marker in markers:
         first, last = _marker_line(source, marker)
         line = source[first:last]
         before, _, after = line.partition(marker)
@@ -1375,14 +1388,20 @@ def _executable_outside_changes(lab: int, repo: Path) -> list[Difference]:
     column may not. A missing file or marker returns nothing: the checks that run
     before this one report those.
     """
-    relative_path, blocks = LABS[lab]
+    relative_path, _blocks = LABS[lab]
     try:
         yours = (repo / relative_path).read_text(encoding="utf-8")
         expected = shipped_text(solution_path(Path(relative_path)), REPO)
-        expected_lines, _ = _outside_markers(expected, blocks)
-        yours_lines, numbers = _outside_markers(yours, blocks)
+        return _outside_changes_between(lab, yours, expected)
     except (OSError, ValueError, StopIteration):
         return []
+
+
+def _outside_changes_between(lab: int, yours: str, expected: str) -> list[Difference]:
+    """The executable differences outside the marked blocks of two versions of a lab file."""
+    blocks = LABS[lab][1]
+    expected_lines, _ = _outside_markers(expected, blocks)
+    yours_lines, numbers = _outside_markers(yours, blocks)
     if lab_sql_tokens("\n".join(yours_lines)) == lab_sql_tokens(
         "\n".join(expected_lines)
     ):
@@ -1430,13 +1449,16 @@ def outside_block_problem(lab: int, *, repo: Path = REPO) -> LabProblem | None:
     and still change the guide's `psql` queries, which pass only three. The finding names
     each line and the original text, which lies outside the block and is not the answer.
     """
-    path = LABS[lab][0]
     markers = _marker_problem_in(lab, repo)
     if markers is not None:
         return markers
     changes = _executable_outside_changes(lab, repo)
-    if not changes:
-        return None
+    return _outside_change_problem(lab, changes) if changes else None
+
+
+def _outside_change_problem(lab: int, changes: list[Difference]) -> LabProblem:
+    """The finding and fix for executable changes outside a lab file's marked block."""
+    path = LABS[lab][0]
     places = [
         f"{where[0].lower()}{where[1:]}: the original has {_shown(original)}, yours has "
         f"{_shown(yours)}"
@@ -1852,14 +1874,25 @@ def _lab_2_blocks_skipping_lab_1(lab: int, earlier: list[int]) -> None:
 def _outside_edits_stop(labs: list[int], *, label: str, resume: str) -> None:
     """Stop before any step when a SQL lab the chain answers changed outside its block.
 
-    The reference answer replaces only the marked block, so the chain's first apply
-    would refuse the file part-way through. Only a reset puts the whole starting file
-    back, and it discards that lab's edits, so the participant runs it, not the chain.
+    The file is judged as the reference answer will leave it: that step rewrites the
+    block and the marker lines (so a glued marker passes) and rebuilds a file whose
+    markers are broken. An edit it keeps would make the chain's first apply refuse the
+    file part-way through. Only a reset puts the whole starting file back, and it
+    discards that lab's edits, so the participant runs it, not the chain.
     """
     for number in labs:
-        problem = outside_block_problem(number, repo=REPO) if number in (1, 2) else None
-        if problem is None:
+        if number not in (1, 2):
             continue
+        try:
+            current = (REPO / LABS[number][0]).read_text(encoding="utf-8")
+            reference = shipped_text(solution_path(Path(LABS[number][0])), REPO)
+            answered = _lab_source_as(number, current, solved=True, whole_file=False)
+            changes = _outside_changes_between(number, answered, reference)
+        except (OSError, ValueError, StopIteration):
+            continue
+        if not changes:
+            continue
+        problem = _outside_change_problem(number, changes)
         raise SystemExit(
             separate_next(
                 f"{problem.finding}\n{label} rule: the reference answer replaces only "

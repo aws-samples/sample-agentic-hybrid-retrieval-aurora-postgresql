@@ -1719,13 +1719,44 @@ def test_diff_names_code_left_on_lab_3s_end_marker_line(lab_repo: Path) -> None:
         )
     )
 
+    report, differs = lab_diff(3, repo=lab_repo)
+
+    assert differs
+    assert "Outside the markers" in report
+    assert ")    # LAB3_EDIT_END" in report
+    assert "reset --lab" not in report
+    assert "deploy_agentcore.py deploy" in report
+
+
+def test_code_before_lab_3s_end_marker_is_valid_python_and_still_passes(
+    lab_repo: Path,
+) -> None:
+    set_lab_state(3, solved=True, repo=lab_repo)
+    path = lab_repo / LABS[3].exercise
+    path.write_text(
+        path.read_text().replace(
+            "        callback_handler=None,\n    )\n    # LAB3_EDIT_END",
+            "        callback_handler=None,\n    )    # LAB3_EDIT_END",
+        )
+    )
+    assert lab_source_is_repaired(3, repo=lab_repo)
+
+
+def test_code_after_lab_3s_start_marker_is_hidden_in_a_comment_and_named(
+    lab_repo: Path,
+) -> None:
+    set_lab_state(3, solved=True, repo=lab_repo)
+    path = lab_repo / LABS[3].exercise
+    source = path.read_text()
+    start = LABS[3][1][0][0]
+    first_line = source.split(start, 1)[1].split("\n", 2)[1]
+    path.write_text(
+        source.replace(f"{start}\n{first_line}", f"{start} {first_line.strip()}", 1)
+    )
+
     with pytest.raises(ValueError) as refused:
         lab_diff(3, repo=lab_repo)
-
-    message = str(refused.value)
-    assert "code shares a line with '# LAB3_EDIT_END' (`) # LAB3_EDIT_END`)" in message
-    assert "put the cursor just before '# LAB3_EDIT_END' and press Enter" in message
-    assert "your code stays as it is" in message and "reset --lab" not in message
+    assert f"code shares a line with '{start.strip()}'" in str(refused.value)
 
 
 @pytest.mark.parametrize(

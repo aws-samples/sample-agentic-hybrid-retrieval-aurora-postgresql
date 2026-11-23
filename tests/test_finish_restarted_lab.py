@@ -294,3 +294,22 @@ def test_an_edit_outside_the_block_stops_finishing_before_any_step_and_names_the
     assert message.index("reset --lab 1") < message.index(resume(lab))
     assert message.count("Next:") == 1
     assert path.read_text() == edited
+
+
+def test_finish_runs_through_a_glued_marker_because_the_answer_repairs_it(
+    repo, monkeypatch, capsys
+):
+    _start(repo, 1)
+    solution = solution_path(Path(LABS[1][0]))
+    (repo / solution).parent.mkdir(parents=True, exist_ok=True)
+    copy2(REPO / solution, repo / solution)
+    path = repo / LABS[1][0]
+    source = path.read_text()
+    end = LABS[1][1][0][1]
+    assert source.count(f"\n{end}") == 1
+    path.write_text(source.replace(f"\n{end}", f" {end}", 1))
+
+    code, ran, _out = _run(monkeypatch, capsys, "finish", 1)
+
+    assert code == 0
+    assert _in_order(lab_state.finish_steps(1), ran)
