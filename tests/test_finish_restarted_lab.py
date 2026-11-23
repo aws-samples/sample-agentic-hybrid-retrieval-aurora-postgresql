@@ -33,6 +33,7 @@ from service.participant_commands import (
     start_command,
 )
 
+
 class _Terminal(io.StringIO):
     def isatty(self) -> bool:
         return True
