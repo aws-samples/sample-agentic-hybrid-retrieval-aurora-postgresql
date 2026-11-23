@@ -34,7 +34,7 @@
     "scan_mem_multiplier": 2.0
   },
   "k": 10,
-  "measured_at": "2026-11-22T23:25:50.501611+00:00",
+  "measured_at": "2026-11-23T00:38:28.089405+00:00",
   "metrics": {
     "mrr": 0.7592592592592592,
     "ndcg@10": 0.8032961425511451,
@@ -145,7 +145,7 @@
   "scorecard_methodology_sha256": "9036308993d2007abeecfe695ade9846e1af37ade8c971c05fabd2a109389164",
   "scored_query_set_sha256": "952f034619dec9b0964e7dd3dac061619894f7ce315dfdef9ac28ccaf6c7b06d",
   "source": {
-    "revision": "375954122200c18566b27229cb594b22e4f33ea9",
+    "revision": "2d267ed1be723a9fca76dd1ea7cae3c521b97b01",
     "worktree_dirty": false
   },
   "strategy": "rrf_fusion+rerank+exact_sku_preservation"
