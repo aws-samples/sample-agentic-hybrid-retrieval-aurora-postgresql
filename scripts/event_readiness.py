@@ -64,7 +64,9 @@ DEFAULT_MAX_AGE_HOURS = 24.0
 # The morning recheck reads a run saved the day before, after provisioning.
 RECHECK_MAX_AGE_HOURS = 36.0
 SAVE_VERSION = 1
-ACCOUNT_ID = re.compile(r"\d{12}")
+# A spreadsheet that reopened the Teams CSV may have dropped leading zeros.
+ACCOUNT_DIGITS = re.compile(r"[0-9]{1,12}")
+TEAM_COLUMNS = ("Team name", "AWS account ID")
 MAX_PARALLEL_ACCOUNTS = 8
 LIVE_WAIT_SECONDS = 240
 LIVE_POLL_SECONDS = 5
@@ -1085,28 +1087,30 @@ def exit_status(rows: list[Row]) -> int:
 
 
 # ---------------------------------------------------------------------------
-
-
-# ---------------------------------------------------------------------------
-# the day-before run saved, and the morning recheck that needs no credentials
+# the day-before run saved, the morning recheck without credentials, and the
+# event's own list of teams
 # ---------------------------------------------------------------------------
 
 
-class SavedRunError(Exception):
-    """The saved run cannot be trusted; the message names the fix."""
+class UnusableFile(Exception):
+    """A saved run or Teams CSV that cannot be used; the message names the fix."""
+
+
+def private_file(path: Path) -> None:
+    if path.stat().st_mode & 0o077:
+        raise UnusableFile(f"{path} is readable by others; fix: chmod 600 {path}")
 
 
 def load_saved(path: Path) -> dict[str, dict[str, Any]]:
     """The accounts of a saved run, by account ID; refuses a file others can read."""
-    if path.stat().st_mode & 0o077:
-        raise SavedRunError(f"{path} is readable by others; fix: chmod 600 {path}")
+    private_file(path)
     try:
         saved = json.loads(path.read_text(encoding="utf-8"))
         accounts = saved["accounts"]
         if saved.get("version") != SAVE_VERSION or not isinstance(accounts, dict):
             raise ValueError("unexpected shape")
     except (ValueError, KeyError, TypeError) as error:
-        raise SavedRunError(
+        raise UnusableFile(
             f"{path} is not a saved run ({type(error).__name__}); fix: run --accounts "
             "with --save again"
         ) from error
@@ -1124,7 +1128,7 @@ def save_run(path: Path, rows: list[Row], now: datetime) -> None:
     if path.exists():
         try:
             accounts = load_saved(path)
-        except SavedRunError:
+        except UnusableFile:
             aside = path.with_name(f"{path.name}.damaged-{now:%Y%m%dT%H%M%SZ}")
             path.rename(aside)
             print(
@@ -1185,53 +1189,89 @@ def recheck_row(
     return Row(*cells, "✅", READY)
 
 
-def event_teams(path: Path) -> dict[str, str]:
-    """Account ID to team name from the console's Teams CSV, which holds no
-    credentials. Its join URLs are never read."""
+@dataclass(frozen=True)
+class Teams:
+    """This event's teams from the console's Teams CSV."""
+
+    accounts: dict[str, str]
+    unassigned: list[str]
+
+
+def team_cell(row: dict[str, str | None], column: str) -> str:
+    return (row.get(column) or "").strip()
+
+
+def event_teams(path: Path) -> Teams:
+    """Account ID to team name, and the teams with no account yet.
+
+    Only the team name and account ID are read. The file holds no credentials, but
+    its join URLs claim teams, so it must be 0600 like the credential files.
+    """
+    private_file(path)
     with path.open(newline="", encoding="utf-8-sig") as handle:
-        rows = list(csv.DictReader(handle))
-    teams = {
-        row.get("AWS account ID", "").strip(): row.get("Team name", "").strip()
+        reader = csv.DictReader(handle)
+        missing = [c for c in TEAM_COLUMNS if c not in (reader.fieldnames or [])]
+        if missing:
+            raise UnusableFile(
+                f"{path} has no {' or '.join(missing)} column, so it is not the "
+                "console's Teams CSV; fix: Teams > Download CSV"
+            )
+        cells = [tuple(team_cell(row, c) for c in TEAM_COLUMNS) for row in reader]
+    accounts: dict[str, str] = {}
+    unassigned: list[str] = []
+    for team, account in cells:
+        if not account:
+            unassigned.append(team or "a team with no name")
+        elif ACCOUNT_DIGITS.fullmatch(account):
+            accounts[account.zfill(12)] = team
+        else:
+            raise UnusableFile(
+                f"{path}: {plain(team, 60) or 'a team'} has AWS account ID "
+                f"{plain(account, 24)!r}, not up to 12 digits; fix: use the "
+                "downloaded CSV unedited"
+            )
+    if not accounts and not unassigned:
+        raise UnusableFile(f"{path} lists no teams; fix: Teams > Download CSV")
+    return Teams(accounts, unassigned)
+
+
+def against_teams(rows: list[Row], teams: Teams, absent: str) -> list[Row]:
+    """The event's teams decide the count: an account outside them is flagged, and
+    each team with no row, or with no account yet, gets a ⚠️ row of its own."""
+    checked = [
+        row
+        if row.account == "-" or row.account in teams.accounts
+        else replace(row, icon="⚠️", status="not a team of this event")
         for row in rows
-    }
-    if not teams or not all(ACCOUNT_ID.fullmatch(account) for account in teams):
-        raise SavedRunError(
-            f"{path} is not the console's Teams CSV (no AWS account ID column); "
-            "fix: Teams > Download CSV"
-        )
-    return teams
+    ]
+    seen = {row.account for row in rows}
+    checked += [
+        Row(account, "-", "-", "-", "⚠️", f"{absent} ({plain(team)})")
+        for account, team in sorted(teams.accounts.items())
+        if account not in seen
+    ]
+    checked += [
+        Row("-", "-", "-", "-", "⚠️", f"no AWS account in the Teams CSV ({plain(team)})")
+        for team in teams.unassigned
+    ]
+    return checked
 
 
-def recheck_rows(path: Path, teams_csv: Path | None, max_age: float) -> list[Row]:
-    """Every saved account rechecked, eight at once; with the Teams CSV, also every
-    team the saved run missed and every saved account not in this event."""
+def recheck_rows(path: Path, max_age: float) -> list[Row]:
+    """Every saved account rechecked through its browser path, eight at once."""
     accounts = load_saved(path)
     now = datetime.now(UTC)
     ordered = sorted(accounts.items())
     with ThreadPoolExecutor(max_workers=MAX_PARALLEL_ACCOUNTS) as pool:
-        rows = list(pool.map(lambda item: recheck_row(*item, now, max_age), ordered))
-    if teams_csv is None:
-        return rows
-    teams = event_teams(teams_csv)
-    rows = [
-        row
-        if row.account in teams
-        else replace(row, icon="⚠️", status="not a team of this event")
-        for row in rows
-    ]
-    missed = sorted(set(teams) - set(accounts))
-    rows += [
-        Row(
-            account,
-            "-",
-            "-",
-            "-",
-            "⚠️",
-            f"not in the saved run ({plain(teams[account])})",
-        )
-        for account in missed
-    ]
-    return rows
+        return list(pool.map(lambda item: recheck_row(*item, now, max_age), ordered))
+
+
+def save_folder(path: Path) -> None:
+    """Create the saved run's folder, private, before any account is read."""
+    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+
+
+# ---------------------------------------------------------------------------
 
 
 def parser() -> argparse.ArgumentParser:
@@ -1263,7 +1303,7 @@ def parser() -> argparse.ArgumentParser:
         "--teams",
         type=Path,
         metavar="CSV",
-        help="with --recheck: the console's Teams CSV, to find missed accounts",
+        help="the console's Teams CSV (0600): every team needs a row",
     )
     cli.add_argument("--max-age-hours", type=float)
     box = cli.add_argument_group("on the box: bootstrap and SSM only")
@@ -1291,10 +1331,8 @@ def validate(cli: argparse.ArgumentParser, args: argparse.Namespace) -> None:
         cli.error(f"--accounts {args.accounts} is not a directory")
     if args.save and not args.accounts:
         cli.error("--save goes with --accounts")
-    if args.save and not args.save.parent.is_dir():
-        cli.error(f"--save {args.save}: {args.save.parent} is not a directory")
-    if args.teams and not args.recheck:
-        cli.error("--teams goes with --recheck")
+    if args.teams and not (args.accounts or args.recheck):
+        cli.error("--teams goes with --accounts or --recheck")
     if args.recheck and (args.accounts or args.live or args.record):
         cli.error("--recheck needs no credentials: use it without --accounts or --live")
     if args.recheck and not args.recheck.is_file():
@@ -1317,25 +1355,37 @@ def one_account(args: argparse.Namespace) -> int:
     return exit_status([row])
 
 
+def fleet(cli: argparse.ArgumentParser, args: argparse.Namespace) -> int:
+    """Every input is checked before any account is read, so a bad path never
+    wastes a sweep; the saved run holds real reads only, never a team-list row."""
+    try:
+        teams = event_teams(args.teams) if args.teams else None
+        if args.save:
+            save_folder(args.save)
+        if args.recheck:
+            rows = recheck_rows(args.recheck, args.max_age_hours)
+    except (UnusableFile, OSError) as error:
+        cli.error(str(error))
+    if args.accounts:
+        rows = fleet_rows(args.accounts, live=args.live, max_age=args.max_age_hours)
+    shown = rows
+    if teams:
+        absent = "not in the saved run" if args.recheck else "not in this run"
+        shown = against_teams(rows, teams, absent)
+    print("\n".join(table(shown)))
+    if args.save:
+        save_run(args.save, rows, datetime.now(UTC))
+    return exit_status(shown)
+
+
 def main(argv: list[str] | None = None) -> int:
     cli = parser()
     args = cli.parse_args(argv)
     validate(cli, args)
     if args.record:
         return record_on_box(args)
-    if args.recheck:
-        try:
-            rows = recheck_rows(args.recheck, args.teams, args.max_age_hours)
-        except (SavedRunError, OSError) as error:
-            cli.error(str(error))
-        print("\n".join(table(rows)))
-        return exit_status(rows)
-    if args.accounts:
-        rows = fleet_rows(args.accounts, live=args.live, max_age=args.max_age_hours)
-        print("\n".join(table(rows)))
-        if args.save:
-            save_run(args.save, rows, datetime.now(UTC))
-        return exit_status(rows)
+    if args.recheck or args.accounts:
+        return fleet(cli, args)
     return one_account(args)
 
 

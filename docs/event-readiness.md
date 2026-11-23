@@ -192,47 +192,54 @@ reads on a DAT410 dry run before relying on them.
 
 ## Event day: one credential sweep, then a morning recheck without credentials
 
-Workshop Studio provisions about ten accounts at a time, so a large event is provisioned
-the day before. Ops credentials last about twelve hours, so the ones copied that day have
-expired by the morning. Fetch them once, after provisioning, and recheck the next morning
-without any:
+Ops credentials last about twelve hours, so credentials copied the day before have expired
+by the session. Fetch them once, after provisioning, and recheck on the day without any.
+Keep one saved file and one Teams CSV per event: a recheck flags any account that is not a
+team of that event.
+
+The console's Teams > Download CSV holds no credentials, but its join URLs claim teams, so
+keep it mode 0600 like the credential files (`chmod 600 FILE`); the script refuses it
+otherwise. It reads only the `Team name` and `AWS account ID` columns, pads an account ID
+whose leading zeros a spreadsheet dropped, and refuses a file without those columns or with
+an account ID that is not up to 12 digits. Every team must then have a row: a team with no
+row reads `⚠️ not in this run (<team>)`, or `⚠️ not in the saved run (<team>)` on a recheck;
+a team with no account yet reads `⚠️ no AWS account in the Teams CSV (<team>)`; and an
+account that is not a team of this event reads `⚠️ not a team of this event`.
 
 1. **The day before, after provisioning.** Before anyone joins, collect each team's Ops
    credentials into the folder, then run the full check and save it:
 
    ```bash
    uv run scripts/event_readiness.py --accounts .local/readiness --live \
-     --save ~/mosaic-event/mosaic-run.json
+     --save ~/mosaic-event/<event>.json --teams ~/mosaic-event/<event>-teams.csv
    ```
 
-   `--save` keeps each account's result, its instance and its two CloudFront hosts, never
-   a token, in a file with mode 0600, merged by account ID with any earlier save. A row with
-   no account and a second file of one account are never saved. A file that cannot be read
-   is moved aside to `<name>.damaged-<UTC time>`, so it never blocks the next save. Repair or
-   replace every account that is not ✅, run again, then delete the credential folder.
-2. **The morning of the session.** With no credentials at all, recheck every saved account
-   from the console's Teams CSV (Teams > Download CSV; it holds no credentials):
+   The Teams CSV and the save folder are checked before any account is read, and the
+   folder is created with mode 0700 if it is missing. `--save` keeps each account's result,
+   its instance and its two CloudFront hosts, never a token, in a file with mode 0600,
+   merged by account ID with any earlier save. Only real reads are saved: never a row with
+   no account, a second file of one account, or a row the Teams CSV added. A file that
+   cannot be read is moved aside to `<name>.damaged-<UTC time>`, so it never blocks the next
+   save. Repair or replace every account that is not ✅ and run again for those accounts,
+   then delete the credential folder.
+2. **On the day of the session.** With no credentials at all, recheck every saved account:
 
    ```bash
-   uv run scripts/event_readiness.py --recheck ~/mosaic-event/mosaic-run.json \
-     --teams ~/Downloads/<event>_teams_<date>.csv
+   uv run scripts/event_readiness.py --recheck ~/mosaic-event/<event>.json \
+     --teams ~/mosaic-event/<event>-teams.csv
    ```
 
    The recheck makes no AWS call. A row is ✅ only if the account was ✅ in the saved run
    and its storefront page, its readiness through CloudFront to Aurora and its Code
    Editor's health answer now. It reads `⚠️ not ready at the saved run (<status>)`, `❌` with
    the browser path's reason, or `⚠️ saved run STALE` for a run older than
-   `--max-age-hours` (36 for a recheck). With `--teams`, a team the saved run missed reads
-   `⚠️ not in the saved run (<team>)` and a saved account from another event reads `⚠️ not
-   a team of this event`, so the count is always this event's teams. Only the CSV's account
-   IDs and team names are read; its join URLs never are. The saved file must be mode 0600,
-   and a host edited into it is never fetched unless it is an `https` `*.cloudfront.net`
-   host. Run it once early and again shortly before doors open.
+   `--max-age-hours` (36 for a recheck, so sweep after provisioning no more than 36 hours
+   before doors open). The saved file must be mode 0600, and a host edited into it is never
+   fetched unless it is an `https` `*.cloudfront.net` host. Run it once early and again
+   shortly before doors open.
 3. **Only for the accounts that fail,** fetch their Ops credentials and run `--accounts`
    (with `--live` while nobody has joined) to see why.
 
-Collecting a hundred credential blocks by hand takes 30 to 40 minutes. A collector that
-drives the facilitator's own signed-in console can do it, one team every few seconds; it
-lives outside this repository because it depends on the console's internal pages. Tell the
-Workshop Studio team before using it on a production event, and keep the manual copy as
-the fallback: the console's own Teams > Access AWS account > Ops role, one team at a time.
+Opening Teams > Access AWS account > Ops role in the console does not claim a team: on a
+test event, only that team's Last account access changed, and its Last joined stayed
+empty.

@@ -1456,14 +1456,14 @@ def test_the_recheck_makes_no_aws_call_and_passes_a_ready_account(
 
     monkeypatch.setattr(boto3, "Session", no_aws)
     monkeypatch.setattr(boto3, "client", no_aws)
-    rows = readiness.recheck_rows(saved_file(tmp_path, [saved_row(A)]), None, 36)
+    rows = readiness.recheck_rows(saved_file(tmp_path, [saved_row(A)]), 36)
     assert [(r.account, r.icon, r.status) for r in rows] == [(A, "✅", readiness.READY)]
     assert web.urls[-1] == f"https://{EDITOR_DOMAIN}/healthz"
 
 
 def test_the_recheck_keeps_an_account_that_was_not_ready(tmp_path, web):
     path = saved_file(tmp_path, [saved_row(A, "❌", "Memory: CREATING")])
-    row = readiness.recheck_rows(path, None, 36)[0]
+    row = readiness.recheck_rows(path, 36)[0]
     assert (row.icon, row.status) == (
         "⚠️",
         "not ready at the saved run (❌ Memory: CREATING)",
@@ -1475,7 +1475,7 @@ def test_the_recheck_fails_an_account_whose_browser_path_stopped_answering(
     tmp_path, web
 ):
     web.answers["/api/readiness"] = [(503, b"x")] * readiness.WEB_ATTEMPTS
-    row = readiness.recheck_rows(saved_file(tmp_path, [saved_row(A)]), None, 36)[0]
+    row = readiness.recheck_rows(saved_file(tmp_path, [saved_row(A)]), 36)[0]
     assert (row.icon, row.status) == ("❌", "storefront does not answer (HTTP 503)")
 
 
@@ -1484,51 +1484,154 @@ def test_the_recheck_never_fetches_a_host_edited_into_the_file(tmp_path, web):
     saved = json.loads(path.read_text())
     saved["accounts"][A]["storefront"] = "attacker.example.com"
     path.write_text(json.dumps(saved))
-    row = readiness.recheck_rows(path, None, 36)[0]
+    row = readiness.recheck_rows(path, 36)[0]
     assert row.status == "storefront does not answer (no usable MosaicURL)"
     assert web.urls == []
 
 
 def test_a_saved_run_older_than_its_limit_must_be_run_again(tmp_path, web):
     old = datetime.now(UTC) - timedelta(hours=40)
-    row = readiness.recheck_rows(saved_file(tmp_path, [saved_row(A)], old), None, 36)[0]
+    row = readiness.recheck_rows(saved_file(tmp_path, [saved_row(A)], old), 36)[0]
     assert (row.icon, row.status) == ("⚠️", "saved run STALE (40 h old); run --accounts")
 
 
 def test_the_recheck_refuses_a_saved_run_others_can_read(tmp_path):
     path = saved_file(tmp_path, [saved_row(A)])
     path.chmod(0o644)
-    with pytest.raises(readiness.SavedRunError, match="chmod 600"):
-        readiness.recheck_rows(path, None, 36)
+    with pytest.raises(readiness.UnusableFile, match="chmod 600"):
+        readiness.recheck_rows(path, 36)
 
 
-def test_the_teams_csv_finds_missed_and_foreign_accounts_without_join_urls(
-    tmp_path, web
+TEAMS_HEADER = "Team name,Team code,AWS account ID,Join event URL\n"
+
+
+def teams_csv(tmp_path, *lines: str, mode: int = 0o600) -> Path:
+    path = tmp_path / "teams.csv"
+    path.write_text(TEAMS_HEADER + "".join(f"{line}\n" for line in lines))
+    path.chmod(mode)
+    return path
+
+
+def join(code: str) -> str:
+    return f"https://catalog.workshops.aws/join?access-code={code}"
+
+
+def test_the_recheck_counts_this_events_teams_and_never_prints_a_join_url(
+    tmp_path, web, capsys
 ):
-    path = saved_file(tmp_path, [saved_row(A), saved_row(B)])
-    teams = tmp_path / "teams.csv"
-    teams.write_text(
-        "Team name,AWS account ID,Join event URL\n"
-        f"Team 1,{A},https://catalog.workshops.aws/join?access-code=SECRET1\n"
-        f"Team 3,{C},https://catalog.workshops.aws/join?access-code=SECRET3\n"
+    run = saved_file(tmp_path, [saved_row(A), saved_row(B)])
+    csv_path = teams_csv(
+        tmp_path, f"Team 1,c1,{A},{join('SECRET1')}", f"Team 3,c3,{C},{join('SECRET3')}"
     )
-    rows = readiness.recheck_rows(path, teams, 36)
+    assert readiness.main(["--recheck", str(run), "--teams", str(csv_path)]) == 1
+    printed = capsys.readouterr().out
+    assert f"{A}   us-east-1" in printed and "✅ READY FOR LAB 1" in printed
+    assert f"{B}" in printed and "⚠️ not a team of this event" in printed
+    assert f"{C}" in printed and "⚠️ not in the saved run (Team 3)" in printed
+    assert "SECRET" not in printed and "join" not in printed and "c3" not in printed
+    assert printed.strip().endswith("1 of 3 ready")
+
+
+def test_the_day_before_run_names_teams_it_missed_but_saves_only_real_reads(
+    tmp_path, monkeypatch, capsys
+):
+    monkeypatch.setattr(readiness, "fleet_rows", lambda *_a, **_k: [saved_row(A)])
+    csv_path = teams_csv(
+        tmp_path, f"Team 1,c1,{A},{join('x')}", f"Team 2,c2,{B},{join('y')}"
+    )
+    target = tmp_path / "event" / "run.json"
+    argv = [
+        "--accounts",
+        str(tmp_path),
+        "--save",
+        str(target),
+        "--teams",
+        str(csv_path),
+    ]
+    assert readiness.main(argv) == 1
+    assert "⚠️ not in this run (Team 2)" in capsys.readouterr().out
+    assert sorted(json.loads(target.read_text())["accounts"]) == [A]
+
+
+def test_the_save_folder_is_created_private_before_any_account_is_read(
+    tmp_path, monkeypatch
+):
+    target = tmp_path / "new" / "event" / "run.json"
+
+    def read(*_args, **_kwargs):
+        assert target.parent.is_dir()
+        return [saved_row(A)]
+
+    monkeypatch.setattr(readiness, "fleet_rows", read)
+    assert readiness.main(["--accounts", str(tmp_path), "--save", str(target)]) == 0
+    assert target.parent.stat().st_mode & 0o777 == 0o700
+
+
+def test_a_bad_teams_csv_stops_before_any_account_is_read(tmp_path, monkeypatch):
+    def read(*_args, **_kwargs):
+        raise AssertionError("no account may be read with an unusable Teams CSV")
+
+    monkeypatch.setattr(readiness, "fleet_rows", read)
+    open_csv = teams_csv(tmp_path, f"Team 1,c1,{A},{join('x')}", mode=0o644)
+    with pytest.raises(SystemExit) as refused:
+        readiness.main(["--accounts", str(tmp_path), "--teams", str(open_csv)])
+    assert refused.value.code == 2
+
+
+def test_a_teams_csv_others_can_read_is_refused_because_its_links_claim_teams(tmp_path):
+    with pytest.raises(readiness.UnusableFile, match="chmod 600"):
+        readiness.event_teams(teams_csv(tmp_path, f"Team 1,c1,{A},x", mode=0o644))
+
+
+def test_an_account_id_that_lost_its_leading_zeros_is_padded_back(tmp_path):
+    dropped = "12345678901"
+    teams = readiness.event_teams(teams_csv(tmp_path, f"Team 1,c1,{dropped},x"))
+    assert teams.accounts == {"0" + dropped: "Team 1"}
+
+
+def test_a_team_with_no_account_yet_gets_its_own_row(tmp_path):
+    teams = readiness.event_teams(
+        teams_csv(tmp_path, f"Team 1,c1,{A},x", "Team 2,c2,,x")
+    )
+    rows = readiness.against_teams([saved_row(A)], teams, "not in this run")
     assert [(r.account, r.icon, r.status) for r in rows] == [
         (A, "✅", readiness.READY),
-        (B, "⚠️", "not a team of this event"),
-        (C, "⚠️", "not in the saved run (Team 3)"),
+        ("-", "⚠️", "no AWS account in the Teams CSV (Team 2)"),
     ]
-    printed = "\n".join(readiness.table(rows))
-    assert "SECRET" not in printed and "join" not in printed
-    assert readiness.exit_status(rows) == 1
 
 
-def test_a_csv_that_is_not_the_teams_export_is_refused(tmp_path):
-    path = saved_file(tmp_path, [saved_row(A)])
-    other = tmp_path / "other.csv"
-    other.write_text("name,email\nx,y\n")
-    with pytest.raises(readiness.SavedRunError, match="Download CSV"):
-        readiness.recheck_rows(path, other, 36)
+def test_a_short_row_reads_as_a_team_without_an_account(tmp_path):
+    teams = readiness.event_teams(teams_csv(tmp_path, f"Team 1,c1,{A},x", "Team 2"))
+    assert teams.unassigned == ["Team 2"]
+
+
+def test_an_unreadable_credential_row_is_kept_beside_the_team_it_hides(tmp_path):
+    teams = readiness.event_teams(teams_csv(tmp_path, f"Team 1,c1,{A},x"))
+    unread = readiness.Row("-", "-", "-", "-", "⚠️", "cannot read: ExpiredToken")
+    rows = readiness.against_teams([unread], teams, "not in this run")
+    assert [r.status for r in rows] == [
+        "cannot read: ExpiredToken",
+        "not in this run (Team 1)",
+    ]
+
+
+@pytest.mark.parametrize(
+    ("body", "message"),
+    [
+        ("name,email\nx,y\n", "no Team name or AWS account ID column"),
+        ("Team name,AWS account ID\nTeam 1,3.05102E+11\n", "not up to 12 digits"),
+        ("Team name,AWS account ID\nTeam 1,1234567890123\n", "not up to 12 digits"),
+        ("Team name,AWS account ID\n", "lists no teams"),
+    ],
+)
+def test_a_csv_that_is_not_the_unedited_teams_export_is_refused(
+    tmp_path, body, message
+):
+    path = tmp_path / "teams.csv"
+    path.write_text(body)
+    path.chmod(0o600)
+    with pytest.raises(readiness.UnusableFile, match=message):
+        readiness.event_teams(path)
 
 
 @pytest.mark.parametrize(
@@ -1536,6 +1639,7 @@ def test_a_csv_that_is_not_the_teams_export_is_refused(tmp_path):
     [
         ["--save", "x.json"],
         ["--teams", "t.csv"],
+        ["--teams", "t.csv", "--live"],
         ["--recheck", "{run}", "--live"],
         ["--recheck", "{run}", "--accounts", "{dir}"],
         ["--recheck", "{dir}/missing.json"],
