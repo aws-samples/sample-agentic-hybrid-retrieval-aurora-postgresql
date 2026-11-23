@@ -1550,6 +1550,45 @@ def test_an_age_limit_or_cap_that_cannot_be_compared_is_refused(flag, value):
     assert refused.value.code == 2
 
 
+@pytest.mark.parametrize("value", ["72.01", "1e9"])
+def test_an_age_limit_past_72_hours_is_refused(value):
+    with pytest.raises(SystemExit) as refused:
+        readiness.main(["--max-age-hours", value])
+    assert refused.value.code == 2
+
+
+def test_an_age_limit_of_72_hours_is_accepted(tmp_path, web):
+    run = saved_file(tmp_path, [saved_row(A)])
+    assert readiness.main(["--recheck", str(run), "--max-age-hours", "72"]) == 0
+
+
+def deep(levels: int) -> object:
+    value: object = "x"
+    for _ in range(levels):
+        value = [value]
+    return value
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        lambda entry: entry.pop("recorded"),
+        lambda entry: entry.update(extra="x"),
+        lambda entry: entry.update(ready="true"),
+        lambda entry: entry.update(ready=1),
+        lambda entry: entry.update(storefront=["d1shop.cloudfront.net"]),
+        lambda entry: entry.update(region=deep(50)),
+    ],
+)
+def test_a_saved_entry_without_exactly_the_saved_fields_is_refused(tmp_path, change):
+    path = saved_file(tmp_path, [saved_row(A)])
+    saved = json.loads(path.read_text())
+    change(saved["accounts"][A])
+    path.write_text(json.dumps(saved))
+    with pytest.raises(readiness.UnusableFile, match="not a saved run"):
+        readiness.recheck_rows(path, 36)
+
+
 def test_the_saved_file_keeps_a_status_category_never_its_detail(tmp_path):
     detail = "setup failed: EditorInstance: handler said token=abc123 in its log tail"
     path = saved_file(tmp_path, [saved_row(A, "❌", detail)])

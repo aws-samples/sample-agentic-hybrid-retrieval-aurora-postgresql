@@ -65,6 +65,19 @@ DEFAULT_MAX_AGE_HOURS = 24.0
 # The morning recheck reads a run saved the day before, after provisioning.
 RECHECK_MAX_AGE_HOURS = 36.0
 SAVE_VERSION = 1
+# Every saved account entry has exactly these fields, of these types.
+SAVED_FIELDS = {
+    "region": str,
+    "instance": str,
+    "recorded": str,
+    "ready": bool,
+    "status": str,
+    "storefront": str,
+    "editor": str,
+    "checkedAt": str,
+}
+# Above this, a typo such as 1e9 would switch STALE off.
+MAX_AGE_LIMIT_HOURS = 72.0
 # The table and the saved run show a record's time in UTC to the minute.
 SHOWN_TIME = "%Y-%m-%d %H:%M"
 # A spreadsheet that reopened the Teams CSV may have dropped leading zeros.
@@ -1143,8 +1156,10 @@ def load_saved(path: Path) -> dict[str, dict[str, Any]]:
         for account, entry in accounts.items():
             if len(account) != 12 or not ACCOUNT_DIGITS.fullmatch(account):
                 raise ValueError("a key that is not an account ID")
-            if not isinstance(entry, dict):
-                raise TypeError("an account entry that is not an object")
+            if not isinstance(entry, dict) or entry.keys() != SAVED_FIELDS.keys():
+                raise TypeError("an account entry without exactly the saved fields")
+            if not all(type(entry[k]) is kind for k, kind in SAVED_FIELDS.items()):
+                raise TypeError("a saved field of the wrong type")
     except (ValueError, KeyError, TypeError, RecursionError) as error:
         raise UnusableFile(
             f"{path} is not a saved run ({type(error).__name__}: "
@@ -1383,9 +1398,10 @@ def validate(cli: argparse.ArgumentParser, args: argparse.Namespace) -> None:
         args.max_age_hours = (
             RECHECK_MAX_AGE_HOURS if args.recheck else DEFAULT_MAX_AGE_HOURS
         )
-    if not math.isfinite(args.max_age_hours) or args.max_age_hours <= 0:
+    if not 0 < args.max_age_hours <= MAX_AGE_LIMIT_HOURS:
         cli.error(
-            f"--max-age-hours must be a positive number, not {args.max_age_hours:g}"
+            f"--max-age-hours must be above 0 and at most {MAX_AGE_LIMIT_HOURS:g}, "
+            f"not {args.max_age_hours:g}"
         )
     if not math.isfinite(args.cap) or args.cap <= 0:
         cli.error(f"--cap must be a positive number of seconds, not {args.cap:g}")

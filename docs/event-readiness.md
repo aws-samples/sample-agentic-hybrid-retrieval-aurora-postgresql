@@ -237,10 +237,12 @@ account that is not a team of this event reads `⚠️ not a team of this event`
    answer now. It reads `⚠️ not ready at the saved run (<status>)`, `⚠️ STALE (<age>)` for a
    box record past the limit, `⚠️ saved run STALE` for a saved run past it, or `❌` with the
    browser path's reason. Sweep with `--live` no more than 36 hours before doors open, so
-   every record is fresh. The saved file must be mode 0600; a file with a repeated key, an
-   entry that is not one account's, nesting too deep or a ready entry without a record time
-   is refused, and a host edited into it is never fetched unless it is an `https`
-   `*.cloudfront.net` host. `--max-age-hours` must be a positive finite number. Run it once early and again
+   every record is fresh. The saved file must be mode 0600; a file with a repeated key, a
+   key that is not an account ID, an entry without exactly the saved fields and their
+   types, or nesting too deep is refused, a ready entry without a record time never passes,
+   and a host edited into it is never fetched unless it is an `https` `*.cloudfront.net`
+   host. `--max-age-hours` must be above 0 and at most 72, so no typo can switch `STALE`
+   off. Run it once early and again
    shortly before doors open.
 3. **Only for the accounts that fail,** fetch their Ops credentials and run `--accounts`
    (with `--live` while nobody has joined) to see why.
