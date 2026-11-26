@@ -41,7 +41,6 @@ from service import lab_checks
 from service.db import DatabaseNotConfigured
 from service.lab_checks import FACILITATOR
 from service.participant_commands import (
-    ADVANCE_TO_LAB_2,
     grade_exercise_command,
     grade_setup_run_command,
     repeat_request_command,
@@ -548,7 +547,9 @@ def _send_next(lab: int, phase: str, saved: Path) -> None:
     elif phase == "before":
         lab_ready_step(lab)
     elif lab == 1:
-        next_step("check the repair and hand off to Lab 2:", ADVANCE_TO_LAB_2)
+        next_step(
+            "open Shop and select the Lab 1 suggestion for Alex's mistyped listing ID."
+        )
     elif lab == 2:
         next_step("check your formula against this run:", grade_exercise_command(2))
     else:

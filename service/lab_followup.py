@@ -9,6 +9,7 @@ from typing import Any
 
 from service.claim_review import ClaimReview
 from service.lab_checks import LabCheck, same_request
+from service.participant_commands import ASK_100W_IN_MOSAIC
 from service.telemetry_contract import load_agent_turn_rows
 
 CHANGED_REQUIREMENT_CHECK = "changed requirement checked"
@@ -361,8 +362,6 @@ def changed_requirement_check(
     mission, rows, setup_rows, resolved_evidence, *, managed: bool = False
 ) -> LabCheck:
     """Check the actual answer/decline, new searches, and the product records it read."""
-    from service.participant_commands import ask_agent_command
-
     requirement = mission["changed_requirement"]
     failure = "no answered changed-requirement run was saved since Lab 3 started"
     if rows is not None and setup_rows is not None:
@@ -420,5 +419,5 @@ def changed_requirement_check(
         falsifier="the changed question was skipped, used other code, did not search/read the named product, its answer/decline lacks checked support for the new requirement, or a grounded answer never gives the wattage the product's listing states for charging (or the required wattage as a shortfall the listing bears out), or takes the required wattage from a review",
         detail=f"Changed-requirement run {rows.turn['agent_turn_id']} checked against current sources"
         if not failure
-        else f"Changed requirement: {failure}. Next: {ask_agent_command(requirement['query'])}, then grade again.",
+        else f"Changed requirement: {failure}. Next: {ASK_100W_IN_MOSAIC} Then grade again.",
     )

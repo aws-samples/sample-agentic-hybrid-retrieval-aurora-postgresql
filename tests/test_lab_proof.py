@@ -1272,7 +1272,7 @@ def test_grade_repeats_only_stale_or_unsupported_answers(
     monkeypatch, stale, bad_followup, ask_setup, ask_followup
 ):
     from scripts import lab_exercise
-    from service.participant_commands import ask_100w_command, ask_setup_command
+    from service.participant_commands import ASK_100W_IN_MOSAIC, ASK_SETUP_IN_MOSAIC
 
     connection = _managed_run(monkeypatch, searched_with=CURRENT_SQL)
     old = connection.turn if stale == "setup" else connection.followup.turn
@@ -1293,8 +1293,9 @@ def test_grade_repeats_only_stale_or_unsupported_answers(
         "follow_up": ask_followup,
     }
     reasons = "\n".join(report["failures"])
-    assert (ask_setup_command() in reasons) is ask_setup
-    assert (ask_100w_command() in reasons) is ask_followup
+    assert "ask_agent.py" not in reasons
+    assert (ASK_SETUP_IN_MOSAIC in reasons) is ask_setup
+    assert (ASK_100W_IN_MOSAIC in reasons) is ask_followup
 
 
 def test_a_run_saved_before_the_last_apply_is_not_credited(monkeypatch) -> None:
@@ -1307,7 +1308,7 @@ def test_a_run_saved_before_the_last_apply_is_not_credited(monkeypatch) -> None:
     assert proof.status == "fail"
     assert not check.passed
     assert EARLIER_SQL[:12] in check.detail and CURRENT_SQL[:12] in check.detail
-    assert "ask_agent.py" in check.detail
+    assert "choose Complete my setup" in check.detail
 
 
 def test_a_run_without_a_deploy_since_lab_3_started_is_not_credited(
@@ -1371,7 +1372,7 @@ def test_a_run_made_by_code_no_longer_deployed_is_not_credited(
     check = _deployment_check(proof)
     assert proof.status == "fail"
     assert not check.passed
-    assert "ask_agent.py" in check.detail
+    assert "choose Complete my setup" in check.detail
 
 
 def test_an_edit_after_the_deploy_is_named_without_asking_the_agent(
@@ -1397,7 +1398,7 @@ def test_an_edit_after_the_deploy_is_named_without_asking_the_agent(
 
     assert not check.passed
     assert "changed after your deploy at 00:05 UTC" in check.detail
-    assert DEPLOY_AGENT in check.detail and "ask_agent.py" in check.detail
+    assert DEPLOY_AGENT in check.detail and "choose Complete my setup" in check.detail
     assert "Error" not in check.detail
 
 
@@ -1422,7 +1423,7 @@ def test_a_deployment_check_the_agent_refuses_names_no_exception_class(
     assert "Error" not in check.detail and "10.0.0.7" not in check.detail
     assert VERIFY_AGENT in check.detail
     assert "if it reports changed code" not in check.detail
-    assert "ask_agent.py" in check.detail
+    assert "choose Complete my setup" in check.detail
 
 
 @pytest.mark.parametrize(

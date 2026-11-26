@@ -62,11 +62,11 @@ the same request. Your repairs carry forward from one lab to the next.
 | **Lab 2: Rank and rerank - Tune rank fusion and reranking** | Which candidates survive rank fusion, and how does reranking change their order? | [`labs/lab2_rank/`](labs/lab2_rank/) |
 | **Lab 3: Reason - Build and deploy the Retrieval agent** | Can your Retrieval agent complete Alex's setup, support each choice with sources, and respond when his requirements change? | [`labs/lab3_reason/`](labs/lab3_reason/) |
 
-Labs 1 and 2 are SQL exercises: you diagnose in `psql`, repair the marked SQL file and
-apply it to Aurora. In Lab 3 you build the Retrieval agent in Python and deploy it to
-AgentCore Runtime. Ask it to complete Alex's setup. Check one claim against a listing
-and one against a review. Then ask whether the monitor can supply 100W and grade both
-saved answers from the terminal. Optional exercises cover
+In Labs 1 and 2, repair the SQL, apply it to Aurora and try Alex’s searches in
+**Shop**. In Lab 3, build the Retrieval agent in Python and deploy it to AgentCore
+Runtime. In **Ask Mosaic**, select **Complete my setup** and check the sources
+behind the chair recommendation. Start a new conversation for the 100W question.
+Grade both saved answers in the terminal, then try a shopping question of your own. Optional exercises cover
 a smaller and faster HNSW index for filtered semantic search, AgentCore Memory, building your
 own retrieval tool and reviewing recorded results; **Lab 2 in depth** compares weighted and
 standard rank fusion.
@@ -137,7 +137,7 @@ The commands you use most:
 | Hand off Lab 1: prove it and prepare Lab 2 | `uv run python scripts/lab_state.py advance --lab 1` |
 | Hand off Lab 2: prove it and prepare Lab 3 | `uv run python scripts/lab_state.py advance --lab 2` |
 | Deploy your Retrieval agent (Lab 3) | `uv run python scripts/deploy_agentcore.py deploy` |
-| Ask the deployed Retrieval agent | `uv run python scripts/ask_agent.py "QUESTION"` |
+| Ask the deployed Retrieval agent from the terminal | `uv run python scripts/ask_agent.py "QUESTION"` |
 | Grade Lab 3: your setup run and 100W answer | `uv run python scripts/grade_setup_run.py` |
 | Catch up by installing a lab's reference answer | `uv run python scripts/lab_state.py finish --lab N` |
 

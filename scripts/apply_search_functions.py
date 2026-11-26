@@ -27,7 +27,6 @@ from service.participant_commands import (
     APPLY_SQL,
     DIFF,
     grade_exercise_command,
-    open_psql_command,
     repeat_request_command,
 )
 from service.search_sql import (
@@ -224,24 +223,22 @@ def _fix_as_next(message: str) -> str:
 
 
 def _applied_next() -> None:
-    """Print the step after an apply: the guide's check in psql, then the repeated request."""
+    """Repeat the saved request and, for Lab 2, grade the applied formula."""
     from scripts.lab_entry import load_record
 
     lab_2 = load_record(2, ROOT)
-    lab = 2 if lab_2 and lab_2.get("completed_at") else 1
-    check = "count query" if lab == 1 else "position check"
-    follow_up = (
-        (repeat_request_command(1),)
-        if lab == 1
-        else (repeat_request_command(2), grade_exercise_command(2))
-    )
-    next_step(
-        f"in psql, run the guide's {check} again to see the repair. If psql is closed, "
-        "open it first:",
-        open_psql_command(lab),
-        "then leave psql with \\q and repeat Alex's request:",
-        *follow_up,
-    )
+    if lab_2 and lab_2.get("completed_at"):
+        next_step(
+            "at the shell prompt ($), repeat Alex's monitor search:",
+            repeat_request_command(2),
+            "If it succeeds, check your formula:",
+            grade_exercise_command(2),
+        )
+    else:
+        next_step(
+            "at the shell prompt ($), repeat Alex's saved headphone search:",
+            repeat_request_command(1),
+        )
 
 
 @tidy

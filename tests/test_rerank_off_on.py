@@ -120,7 +120,7 @@ def test_a_search_that_fell_back_without_reranking_is_not_the_comparison(
     out = capsys.readouterr().out
     assert "Reranking did not run on the second search (status: unavailable)" in out
     assert out.rstrip().endswith(off_on.RERANK_OFF_ON)
-    assert off_on.COMPARE_SETTINGS not in out
+    assert "open Shop" not in out
 
 
 @pytest.mark.parametrize("argv", [["--help"]])

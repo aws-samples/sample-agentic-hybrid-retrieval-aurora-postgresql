@@ -23,7 +23,6 @@ from service import lab_checks
 from service.participant_commands import (
     ADVANCE_TO_LAB_2,
     DEPLOY_AGENT,
-    LIST_TOOLS,
     load_context_command,
     open_psql_command,
     repeat_request_command,
@@ -165,8 +164,8 @@ def test_send_after_a_saved_before_groups_target_before_and_after(
 @pytest.mark.parametrize(
     ("lab", "phase", "snippets"),
     [
-        (1, "before", [open_psql_command(1), load_context_command(1)]),
-        (1, "after", [ADVANCE_TO_LAB_2]),
+        (1, "before", ["hybrid_search.sql", "channels"]),
+        (1, "after", ["open Shop", "mistyped listing ID"]),
     ],
 )
 def test_send_ends_with_the_step_the_guide_gives_next(
@@ -336,7 +335,7 @@ def test_advance_lab_2_ends_with_the_lab_3_editor_step(
 
     _advance(2, checkout)
 
-    last = assert_ends_with_next(capsys.readouterr().out, LIST_TOOLS)
+    last = assert_ends_with_next(capsys.readouterr().out, "find create_agent")
     assert "labs/lab3_reason/agent.py" in last
 
 
@@ -375,7 +374,7 @@ def test_start_ends_with_the_first_step_of_the_lab_it_prepared() -> None:
     finally:
         sys.stdout = saved
 
-    last = assert_ends_with_next(buffer.getvalue(), LIST_TOOLS)
+    last = assert_ends_with_next(buffer.getvalue(), "find create_agent")
     assert "agent.py" in last
 
 
@@ -439,7 +438,7 @@ def test_status_on_a_started_broken_lab_points_at_its_diagnosis_not_the_fix(
     lab_state.main()
 
     last = assert_ends_with_next(
-        capsys.readouterr().out, "PSQLRC=.local/lab-1/context.psql psql"
+        capsys.readouterr().out, "hybrid_search.sql", "channels"
     )
     assert "fix the marked block" not in last
 
@@ -602,7 +601,7 @@ def test_the_lab_2_grade_colours_each_k_line_and_the_verdict_on_a_terminal(
     assert passing.count(f"\033[{GREEN}mcontribution correct\033[0m") == 2
 
 
-def test_the_lab_3_grade_prints_its_verdict_before_the_wrap_up_step(
+def test_the_lab_3_grade_invites_a_question_after_the_verdict(
     monkeypatch, tmp_path
 ) -> None:
     _, out = _grade(monkeypatch, tmp_path, 3, {"failures": []}, io.StringIO())
@@ -610,7 +609,7 @@ def test_the_lab_3_grade_prints_its_verdict_before_the_wrap_up_step(
     paragraphs = assert_well_laid_out(out)
     assert paragraphs[0].startswith("Your Retrieval agent is live")
     assert paragraphs[1].startswith("Lab 3 exercise: PASS")
-    assert paragraphs[2].startswith("Next: the guide's Wrap-up")
+    assert paragraphs[2].startswith("Next: start a new conversation in Ask Mosaic")
 
 
 def test_a_failed_lab_3_grade_asks_for_a_new_run_instead_of_the_wrap_up(
@@ -723,12 +722,10 @@ def test_the_proof_colours_pass_on_a_terminal_only(proof, monkeypatch) -> None:
     assert "\033" not in outputs["pipe"]
 
 
-def test_rerank_off_on_ends_with_the_comparison_of_settings(
+def test_rerank_off_on_ends_with_the_monitor_search_in_shop(
     monkeypatch, capsys
 ) -> None:
     import importlib.util
-
-    from service.participant_commands import COMPARE_SETTINGS
 
     script = REPO / "labs" / "lab2_rank" / "rerank_off_on.py"
     spec = importlib.util.spec_from_file_location("rerank_layout", script)
@@ -749,7 +746,7 @@ def test_rerank_off_on_ends_with_the_comparison_of_settings(
     out = capsys.readouterr().out
     paragraphs = assert_well_laid_out(out)
     assert paragraphs[1].startswith(" #")
-    assert_ends_with_next(out, COMPARE_SETTINGS)
+    assert_ends_with_next(out, "open Shop", "monitor request")
 
 
 @pytest.mark.parametrize(
@@ -833,7 +830,9 @@ def test_apply_separates_what_was_applied_from_the_verified_settings(
     paragraphs = assert_well_laid_out(capsys.readouterr().out)
     assert paragraphs[0].startswith("Applied participant SQL to ")
     assert paragraphs[1].startswith("Aurora retrieval settings verified")
-    assert paragraphs[2].startswith("Next: in psql, run the guide's count query again")
+    assert paragraphs[2].startswith(
+        "Next: at the shell prompt ($), repeat Alex's saved headphone search"
+    )
 
 
 def test_apply_ends_with_the_repeated_request_for_lab_1(apply_command, capsys) -> None:
@@ -841,8 +840,6 @@ def test_apply_ends_with_the_repeated_request_for_lab_1(apply_command, capsys) -
 
     assert_ends_with_next(
         capsys.readouterr().out,
-        open_psql_command(1),
-        "\\q",
         repeat_request_command(1),
     )
 
@@ -861,7 +858,6 @@ def test_apply_ends_with_the_request_and_the_grade_once_lab_2_has_started(
 
     assert_ends_with_next(
         capsys.readouterr().out,
-        open_psql_command(2),
         repeat_request_command(2),
         grade_exercise_command(2),
     )
@@ -962,13 +958,13 @@ def test_diff_ends_with_what_to_do_with_the_lines_it_named(
 @pytest.mark.parametrize(
     ("action", "lab", "snippets"),
     [
-        ("start", 1, [open_psql_command(1), load_context_command(1)]),
-        ("reset", 1, [open_psql_command(1)]),
+        ("start", 1, ["hybrid_search.sql", "channels"]),
+        ("reset", 1, ["hybrid_search.sql"]),
         ("start", 2, [open_psql_command(2), load_context_command(2)]),
         ("advance", 1, [open_psql_command(2)]),
-        ("advance", 2, [LIST_TOOLS, "labs/lab3_reason/agent.py"]),
-        ("start", 3, [LIST_TOOLS, "labs/lab3_reason/agent.py"]),
-        ("reset", 3, [LIST_TOOLS]),
+        ("advance", 2, ["labs/lab3_reason/agent.py", "find create_agent"]),
+        ("start", 3, ["labs/lab3_reason/agent.py", "find create_agent"]),
+        ("reset", 3, ["find create_agent"]),
     ],
 )
 def test_start_advance_and_reset_end_with_the_first_step_of_the_lab_they_prepared(
@@ -999,13 +995,9 @@ def test_finish_ends_with_the_first_step_of_the_lab_it_handed_off_to(
     assert_ends_with_next(out, open_psql_command(2))
 
 
-def test_finish_lab_3_ends_with_asking_both_questions(monkeypatch, capsys) -> None:
-    from service.participant_commands import (
-        ask_100w_command,
-        ask_setup_command,
-        grade_setup_run_command,
-    )
-
+def test_finish_lab_3_ends_with_the_setup_question_in_ask_mosaic(
+    monkeypatch, capsys
+) -> None:
     monkeypatch.setattr(lab_state, "_run_steps", lambda *_a, **_k: 0)
     monkeypatch.setattr(lab_state, "_earlier_labs_to_finish", lambda _lab: [])
 
@@ -1014,9 +1006,7 @@ def test_finish_lab_3_ends_with_asking_both_questions(monkeypatch, capsys) -> No
 
     out = capsys.readouterr().out
     assert out.startswith("Lab 3: the reference Retrieval agent is deployed.\n\nNext: ")
-    assert_ends_with_next(
-        out, ask_setup_command(), ask_100w_command(), grade_setup_run_command()
-    )
+    assert_ends_with_next(out, "open Ask Mosaic", "choose Complete my setup")
 
 
 def test_skip_to_ends_with_the_first_step_of_the_lab_it_started(

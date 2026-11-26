@@ -59,19 +59,24 @@ def report(
 
 
 def differing_lab(name: str | None, *, repo: Path = REPO) -> int | None:
-    """The lab `name` names, or the first lab whose file differs; None when none does."""
-    if name:
-        return lab_for(name)
-    return next((lab for lab in sorted(LABS) if lab_diff(lab, repo=repo)[1]), None)
+    """Return the first checked lab that differs, or None when every checked file matches."""
+    labs = [lab_for(name)] if name else sorted(LABS)
+    return next((lab for lab in labs if lab_diff(lab, repo=repo)[1]), None)
 
 
-def _next_after(lab: int | None) -> None:
+def _next_after(lab: int | None, name: str | None = None) -> None:
     """Print what to do with the lines a report named: edit, save, then apply or deploy."""
-    if lab is None and deploy_due():
+    comments_only = lab is not None and comment_only_difference(lab)
+    if name and lab_for(name) in (1, 2) and (lab is None or comments_only):
+        next_step(
+            "if you have not applied this SQL yet, run this at the shell prompt:",
+            APPLY_SQL,
+        )
+    elif lab is None and deploy_due():
         next_step("nothing differs. Deploy your Retrieval agent:", DEPLOY_AGENT)
     elif lab is None:
         next_step("nothing differs. Check where your labs stand:", STATUS)
-    elif comment_only_difference(lab):
+    elif comments_only:
         next_step(
             "only comment lines differ, so there is nothing to change. Check where "
             "your labs stand:",
@@ -106,7 +111,7 @@ def main() -> int:
         lab = differing_lab(args.file)
     except ValueError as error:
         raise SystemExit(str(error)) from error
-    _next_after(lab)
+    _next_after(lab, args.file)
     return 0
 
 

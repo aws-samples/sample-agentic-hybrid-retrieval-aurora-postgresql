@@ -886,7 +886,9 @@ def _grade_next(
                 grade_exercise_command(2),
             )
     elif passed:
-        next_step("the guide's Wrap-up. Lab 3's required work is complete.")
+        next_step(
+            "start a new conversation in Ask Mosaic and try a shopping question of your own."
+        )
     else:
         steps, commands = lab3_steps(**(needs or {}))
         next_step(f"fix what FAIL names above, then {steps}", *commands)

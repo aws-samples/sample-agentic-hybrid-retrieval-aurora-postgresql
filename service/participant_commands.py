@@ -21,6 +21,10 @@ VERIFY_AGENT = "uv run python scripts/deploy_agentcore.py verify"
 AGENTCORE_RESOURCES = "uv run python scripts/deploy_agentcore.py resources"
 COMPARE_SETTINGS = "uv run python scripts/lab_exercise.py compare --lab 2"
 RERANK_OFF_ON = "uv run python labs/lab2_rank/rerank_off_on.py"
+ASK_SETUP_IN_MOSAIC = (
+    "open Ask Mosaic. In a new conversation, choose Complete my setup."
+)
+ASK_100W_IN_MOSAIC = "start a new conversation in Ask Mosaic and send the 100W question from the Lab 3 guide."
 HNSW_GRADE = "uv run python scripts/hnsw_exercise.py grade"
 # The Scale & HNSW exercise's own files, which the index checker grades.
 HNSW_FILES = (
@@ -169,7 +173,7 @@ def grade_setup_run_command(run_id: str | None = None) -> str:
 def lab3_steps(
     *, deploy: bool = False, setup: bool = True, follow_up: bool = True
 ) -> tuple[str, tuple[str, ...]]:
-    """What Lab 3 completion still needs, in order: a `Next:` sentence and its commands.
+    """What Lab 3 completion still needs, in guide order, across Ask Mosaic and Code Editor.
 
     Completion checks the newest setup run and the newest answered 100W question since
     Lab 3 started, both made by the code deployed now, so a deploy needs both again. A
@@ -181,22 +185,18 @@ def lab3_steps(
         setup: Alex's setup request still needs a run from the deployed code.
         follow_up: The 100W question still needs an answer from the deployed code.
     """
-    setup = setup or deploy
-    follow_up = follow_up or deploy
     steps: list[str] = []
-    commands: list[str] = []
     if deploy:
-        steps.append("deploy your Retrieval agent")
-        commands.append(DEPLOY_AGENT)
-    if setup:
-        steps.append("ask Alex's setup request")
-        commands.append(ask_setup_command())
-    if follow_up:
-        steps.append("the 100W question" if setup else "ask the 100W question")
-        commands.append(ask_100w_command())
-    steps.append("check both answers:" if setup and follow_up else "check completion:")
-    commands.append(grade_setup_run_command())
-    return ", then ".join(steps), tuple(commands)
+        steps.extend(("deploy your Retrieval agent:", DEPLOY_AGENT))
+    if deploy or setup:
+        steps.append(f"Then {ASK_SETUP_IN_MOSAIC}" if steps else ASK_SETUP_IN_MOSAIC)
+    if deploy or follow_up:
+        steps.append(f"Then {ASK_100W_IN_MOSAIC}" if steps else ASK_100W_IN_MOSAIC)
+    steps.append(
+        "Return to Code Editor and check completion:" if steps else "check completion:"
+    )
+    steps.append(grade_setup_run_command())
+    return steps[0], tuple(steps[1:])
 
 
 def validate_applied_command(lab: int) -> str:

@@ -29,29 +29,21 @@ exact requests, filters, targets and assertions. Protect its **45-minute
 hands-on budget**. The hour has no wrap-up block. Completion is inside Lab 3; Scale & HNSW leads the untimed optional exercises, then Session & Memory, Retrieval tool and Review examples.
 These are planned allocations, not measured human completion times.
 
-During setup, use **Getting started** to open Code Editor from the Event Dashboard, then
-run one readiness query in `psql` and save Lab 1's failing search in its terminal. Those two
-sections are required; an optional section with an animation shows Claude Code, the coding
-coach, and says to follow the guide when the coach's steps differ. Two collapsed boxes in Getting started start a later lab and tour Mosaic; the
-catalog tour is on **Lab 1 in depth**, after Wrap-up.
-Mosaic's first visit to Shop opens a guided tour of its controls
-(Next or Skip the tour); the compass in the header replays it. One-time tips then point
-at the Playground link after the first Shop search and at the Retrieval agent's button and steps.
-Lab 1 starts in Code Editor with `hybrid_search.sql`, then moves to `psql` with the
-request Getting started saved; Shop shows the same search as an optional check, run by
-the suggested search **Lab 1: a mistyped listing ID** with its filters. Lab 2 starts the
-same way with `rrf_contribution.sql`, then `psql` with the monitor request that Lab 1's
-handoff saved. Its optional Shop check, the suggested search
-**Lab 2: Alex's monitor request**, selects Monitor itself, without depending on
-the participant having visited Shop in Lab 1. In Shop, each result card prints
+During setup, participants open Code Editor and Mosaic, take the Shop tour, check the catalog
+and save Alex's headphone search. Shop may suggest the Playground after the first search.
+
+Lab 1 starts in Code Editor with `hybrid_search.sql`. After the repair, participants repeat
+the saved request and run **Lab 1: a mistyped listing ID** in Shop before handing off.
+Lab 2 starts in `psql` with the monitor request that handoff saved. After the repair and
+rerank comparison, participants select **Lab 2: Alex’s monitor request** in Shop. In Shop, each result card prints
 its path (the searches that found it with their ranks, then its combined and
 final positions), and Why this match puts each search's 1 ÷ (k + position) value
 beside the contribution the search recorded.
 Lab 2 ends with `advance --lab 2`, which proves Lab 2 and installs the
-Retrieval agent's starting code. In Lab 3, participants deploy the agent and ask it to
-complete Alex's setup from the terminal. They compare one claim with its listing and one
-with its review, then ask about the new 100W requirement. `scripts/grade_setup_run.py`
-checks both saved runs. Ask Mosaic can run the same questions in the browser.
+Retrieval agent's starting code. Participants build and deploy the agent, then use **Ask
+Mosaic** to complete Alex's setup. They check a citation and ask the 100W question
+in a new conversation. `scripts/grade_setup_run.py` checks both saved runs. Leave
+time for participants to try a shopping question of their own.
 
 Each lab opens with its time and a link to **Running behind**. That section's
 collapsed **Use the reference answer (replaces your exercise)** command runs
@@ -77,7 +69,7 @@ under each heading, name the editor, terminal or `psql`; each command is followe
 expected result and a screenshot. A screenshot's numbered callouts are labeled on the image
 and in its alt text, never in the sentences. A step that pastes into
 two prompts, such as `\q` then a shell command, keeps two copy blocks: pasting both lines at
-once runs the second line in the wrong prompt. Labs 1 and 2 open `psql` with the saved request
+once runs the second line in the wrong prompt. Lab 2 opens `psql` with the saved request
 in one shell command, `PSQLRC=.local/lab-N/context.psql psql`; `\i` reloads it only in a
 recovery box. App walkthroughs use **See it in Mosaic** on the
 Exercise page; supporting animations use collapsed **📷 See it in motion** sections.
@@ -211,7 +203,7 @@ Lab 3 edits. Weighted RRF is optional.
 
 ### Lab 3: build, deploy and use the Retrieval agent
 
-Discover Gateway tools, then complete `create_agent` inside `LAB3_EDIT` in
+Open `create_agent` inside `LAB3_EDIT` in
 `labs/lab3_reason/agent.py`. Participants keep the supplied model, tools, source
 rules and hooks; an instruction of their own is optional. Deploy using the guide.
 
@@ -222,9 +214,9 @@ after five minutes without completion; this is a support cue, not a deployment
 timeout. `finish` and `skip-to` show the same: each step's usual time and how
 long is left.
 
-After the deploy, participants ask Alex's setup request from the terminal with
-`uv run python scripts/ask_agent.py "..."`, copied from the guide so it matches
-the request completion checks word for word. While they wait, one line redraws in
+After the deploy, participants choose **Complete my setup** in **Ask Mosaic**.
+For a terminal walkthrough, `uv run python scripts/ask_agent.py "..."` accepts
+the same setup question. While they wait, one line redraws in
 place with the stage, the running tool and the time waited, and each tool call
 stays as its own line. A draft the answer checks refuse prints its reason at once,
 then a line saying the agent is told why and drafts again. The answer then prints paragraph by paragraph as the API
@@ -299,7 +291,7 @@ Ask Mosaic shows a missing deploy, or any other step left in the participant's o
 agent code, as a **Finish setting up your Retrieval agent** card with the command to
 copy; Gateway and Runtime faults still show as errors.
 
-Ask Mosaic is optional. Its **Complete my setup** suggested question sends the same
+In Ask Mosaic, **Complete my setup** sends the same
 request and passes completion only as the first message of a fresh chat (use
 **New conversation**); its **Show tool calls** switch, on by default, shows the full run
 ID, recorded steps and per-search ranks under each answer. When an answer has finished
@@ -315,7 +307,7 @@ separately from listening noise cancellation.
 
 Ask the guide's changed 100W requirement against the monitor's 90W record.
 The Retrieval agent must acknowledge the mismatch and any unknown compatibility.
-Prove the **original setup run**, then finish the Wrap-up. Completion
+Prove the **original setup run**, then invite participants to try their own question in Ask Mosaic. Completion
 reuses the saved answer; a deployed endpoint alone is not a participant pass.
 
 ## Keep the architecture explanation short

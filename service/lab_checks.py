@@ -39,9 +39,9 @@ from service.assertions import evaluate_signal_assertions, falsifier_for, label_
 from service.lab_files import LAB1_SQL, LAB2_SQL
 from service.participant_commands import (
     APPLY_SQL,
+    ASK_SETUP_IN_MOSAIC,
     DEPLOY_AGENT,
     DIFF,
-    ask_agent_command,
     grade_setup_run_command,
     validate_applied_command,
 )
@@ -333,8 +333,6 @@ def same_request(first: object, second: object) -> bool:
 def mission_request_check(
     mission: Mapping[str, Any], agent: Mapping[str, Any]
 ) -> LabCheck:
-    from service.participant_commands import ask_setup_command, grade_setup_run_command
-
     matched = same_request(mission.get("query"), agent.get("question"))
     return LabCheck(
         name="canonical mission request answered",
@@ -348,7 +346,7 @@ def mission_request_check(
             "a run that asked a different question from Alex's setup request, such as "
             "the 100W follow-up",
             f"run {grade_setup_run_command()} without --run-id to check your newest setup run, "
-            f"or ask the setup request with {ask_setup_command()}",
+            f"or {ASK_SETUP_IN_MOSAIC}",
         ),
     )
 
@@ -1482,12 +1480,11 @@ def agent_response_checks(
 
 
 def reason_fix() -> str:
-    """The Lab 3 recovery in the participant's own commands: deploy, ask, grade."""
+    """Retry the setup question and grade the saved answer."""
     return (
-        f"deploy your Retrieval agent with {DEPLOY_AGENT}, because Mosaic runs the "
-        "deployed copy, not the file in Code Editor; then ask Alex's setup request:\n"
-        f"{ask_agent_command(mission_for_lab(3)['query'])}\n"
-        f"and grade it with {grade_setup_run_command()}"
+        "if Runtime still runs an earlier agent, deploy your saved code in Code Editor:\n"
+        f"{DEPLOY_AGENT}\nThen {ASK_SETUP_IN_MOSAIC}\n"
+        f"Then check completion in Code Editor:\n{grade_setup_run_command()}"
     )
 
 

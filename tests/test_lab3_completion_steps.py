@@ -25,8 +25,8 @@ from service.participant_commands import (
 )
 
 SETUP, FOLLOW_UP, CHECK = (
-    ask_setup_command(),
-    ask_100w_command(),
+    "open Ask Mosaic. In a new conversation, choose Complete my setup.",
+    "start a new conversation in Ask Mosaic and send the 100W question from the Lab 3 guide.",
     grade_setup_run_command(),
 )
 
@@ -65,17 +65,17 @@ def assert_absent(text: str, *commands: str) -> None:
 def test_the_steps_name_only_what_completion_still_needs(needs, commands) -> None:
     prose, named = lab3_steps(**needs)
 
-    assert named == commands
-    assert prose.endswith(":")
+    output = "\n".join((prose, *named))
+    assert_in_order(output, *commands)
+    assert_absent(
+        output, *(c for c in (SETUP, FOLLOW_UP, DEPLOY_AGENT) if c not in commands)
+    )
+    assert_absent(output, ask_setup_command(), ask_100w_command())
 
 
 def test_a_deploy_needs_both_runs_again_whatever_was_saved() -> None:
-    assert lab3_steps(deploy=True, setup=False, follow_up=False)[1] == (
-        DEPLOY_AGENT,
-        SETUP,
-        FOLLOW_UP,
-        CHECK,
-    )
+    steps, lines = lab3_steps(deploy=True, setup=False, follow_up=False)
+    assert_in_order("\n".join((steps, *lines)), DEPLOY_AGENT, SETUP, FOLLOW_UP, CHECK)
 
 
 def test_finish_lab_3_names_both_runs_then_the_check(monkeypatch, capsys) -> None:
@@ -85,7 +85,8 @@ def test_finish_lab_3_names_both_runs_then_the_check(monkeypatch, capsys) -> Non
     assert lab_state.finish_lab(3) == 0
 
     out = capsys.readouterr().out
-    assert_in_order(out, SETUP, FOLLOW_UP, CHECK)
+    assert_in_order(out, "Ask Mosaic", "Complete my setup", "100W question", CHECK)
+    assert_absent(out, ask_setup_command(), ask_100w_command())
 
 
 def test_status_of_a_deployed_unproved_lab_3_names_only_the_check(capsys) -> None:
@@ -140,7 +141,7 @@ def test_validating_lab_3_names_a_deploy_unless_this_code_is_deployed(
 
     out = capsys.readouterr().out
     assert_in_order(out, *named)
-    assert_absent(out, *absent)
+    assert_absent(out, ask_setup_command(), ask_100w_command(), *absent)
 
 
 @pytest.mark.parametrize(
@@ -170,7 +171,7 @@ def test_a_failed_grade_names_only_the_runs_it_needs(
 
     out = capsys.readouterr().out
     assert_in_order(out, *named)
-    assert_absent(out, *absent)
+    assert_absent(out, ask_setup_command(), ask_100w_command(), *absent)
 
 
 def test_grading_lab_3_before_any_run_sends_to_the_check(monkeypatch, tmp_path) -> None:

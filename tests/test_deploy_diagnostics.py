@@ -496,8 +496,6 @@ def _deploy_with_passing_checks(monkeypatch, stream):
 
 
 def test_deploy_puts_a_blank_line_before_its_closing_summary_and_next(monkeypatch):
-    from service.participant_commands import ask_setup_command
-
     output = _deploy_with_passing_checks(monkeypatch, io.StringIO())
 
     parts = output.rstrip("\n").split("\n\n")
@@ -505,7 +503,10 @@ def test_deploy_puts_a_blank_line_before_its_closing_summary_and_next(monkeypatc
     assert parts[-2] == (
         "Your Retrieval agent is deployed and its SQL tools are connected through Gateway."
     )
-    assert parts[-1] == f"Next: ask Alex's setup request:\n{ask_setup_command()}"
+    assert (
+        parts[-1]
+        == "Next: open Ask Mosaic. In a new conversation, choose Complete my setup."
+    )
     assert parts[-3].splitlines()[-1].startswith("  Done in ")
 
 
@@ -549,15 +550,13 @@ def test_verify_colours_each_passed_on_a_terminal_only(
 
 
 def test_verify_alone_ends_with_asking_the_setup_request(monkeypatch, capsys):
-    from service.participant_commands import ask_setup_command
-
     monkeypatch.setattr(sys, "argv", ["deploy_agentcore.py", "verify"])
     monkeypatch.setattr(deploy, "verify", lambda: print("Runtime code: passed"))
 
     assert deploy.main() == 0
 
     assert capsys.readouterr().out == (
-        f"Runtime code: passed\n\nNext: ask Alex's setup request:\n{ask_setup_command()}\n"
+        "Runtime code: passed\n\nNext: open Ask Mosaic. In a new conversation, choose Complete my setup.\n"
     )
 
 

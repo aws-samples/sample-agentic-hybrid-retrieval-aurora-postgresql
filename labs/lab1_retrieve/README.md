@@ -11,12 +11,8 @@ disappears.
 
 Getting started saved Alex's mistyped request with
 `uv run python scripts/lab_state.py start --lab 1`. First read which searches `channels`
-reads in `hybrid_search.sql`. Then, at the shell prompt, open `psql` with that request loaded,
-`PSQLRC=.local/lab-1/context.psql psql`, and count what each search contributed to
-`search_hybrid_rrf`: all 50 candidates come from semantic search, no Logitech,
-no error. Then run the three searches separately. Fuzzy matching finds the
-Logitech on its own; do its rows ever reach `channels`? A reranker cannot
-recover a product it never receives.
+reads in `hybrid_search.sql`. A reranker can only reorder products that reach the
+shortlist. The guide’s **Lab 1 in depth** page has the SQL for checking each search separately.
 
 ## Connect fuzzy matching
 
@@ -25,20 +21,13 @@ In [hybrid_search.sql](hybrid_search.sql), edit only between
 with the same five columns as the others: product ID, search name `'fuzzy'`,
 position, raw score and the contribution from
 `mosaic_search.reciprocal_rank_contribution`. Saving changes nothing in Aurora
-until you apply it. At the `mosaic_catalog=>` prompt, `\!` runs the command from `psql`
-and returns you to the same session:
+until you apply it. At the shell prompt ending in `$`, run:
 
-```sql
-\! uv run python scripts/apply_search_functions.py
+```bash
+uv run python scripts/apply_search_functions.py
 ```
 
 ## Prove fuzzy matching puts the Logitech back on the shortlist
-
-In `psql`, repeat the shortlist count with the same saved request. Then leave `psql`:
-
-```sql
-\q
-```
 
 At the shell prompt ending in `$`, repeat the identical request:
 
@@ -46,7 +35,10 @@ At the shell prompt ending in `$`, repeat the identical request:
 uv run python scripts/lab_request.py send --lab 1 --phase after
 ```
 
-## Check the exact ID and its description, then hand off
+In **Shop**, select **Lab 1: a mistyped listing ID**. Open **Why this match** on
+the Logitech to see how it reached the shortlist.
+
+## Hand off to Lab 2
 
 ```bash
 uv run python scripts/lab_state.py advance --lab 1

@@ -46,15 +46,15 @@ lines of your lab files differ from the reference answer without changing
 anything, run `uv run python scripts/diff.py`; it does not print the answer.
 `uv run python scripts/diff.py --answer` does, so try the hints first.
 
-In Lab 1 you find out why Alex's mistyped listing ID returns other headphones, repair
-the search, and `advance --lab 1` proves Lab 1 and prepares Lab 2. Run
-`uv run python scripts/lab_state.py status` at any time to see where each lab stands.
-In Lab 2 you repair the rank contribution, then read what reranking changed
-and compare three settings; `advance --lab 2` then proves
-Lab 2 and prepares Lab 3. In Lab 3, deploy your Retrieval agent and ask it to
-complete Alex's setup with `scripts/ask_agent.py`. Check one claim against a listing
-and one against a review. Ask the 100W question, then run
-`uv run python scripts/grade_setup_run.py` to check both saved answers.
+In Lab 1, repair the search and try Alex’s mistyped listing ID in **Shop**.
+The handoff proves the repair and prepares Lab 2. In Lab 2, fix the ranking
+formula. Try his monitor search in **Shop** before comparing settings and handing
+off to Lab 3. Use `uv run python scripts/lab_state.py status` to see where each lab stands.
+
+After deploying your agent in Lab 3, open **Ask Mosaic** and choose **Complete my setup**.
+Check the source behind a claim about the chair. Start a new conversation for the 100W
+question, then run `uv run python scripts/grade_setup_run.py` to check both saved
+answers. Try your own question after the check passes.
 
 After the labs, open **Playground → Use it in your own agent** and choose
 **Download the agent skill** to keep the agentic hybrid retrieval skill, or

@@ -8,13 +8,9 @@ setup against source records, using the SQL you repaired in Labs 1 and 2.
 
 ## Open the Retrieval agent's starting code
 
-Lab 2's handoff installed the Retrieval agent's starting code and
-reported **Your Retrieval agent is not built yet**; `create_agent` raises
-`NotImplementedError`. List the Gateway tools your Retrieval agent will get:
-
-```bash
-uv run python scripts/deploy_agentcore.py tools
-```
+Lab 2's handoff installed the starting code. Open [agent.py](agent.py) and find
+`create_agent`. It raises `NotImplementedError`. The guide's **Hints** tab shows
+how to list the Gateway tools if you'd like to inspect them.
 
 `create_agent` receives the model, five tools, source instructions and
 tool-call hooks. It has to return an `Agent` built from them; until it does,
@@ -38,17 +34,13 @@ tools are connected through Gateway.`
 
 ## Complete Alex's setup, with sources
 
-Ask the guide's setup request from the terminal with
-`uv run python scripts/ask_agent.py "..."`. It prints the answer, the plan, the
-tool trace, each citation with the record line closest to the claim, the outcome and
-the **Run ID**. Read one listing citation and one review citation against the
-sentences that cite them. When the line shown is not enough,
-`uv run python scripts/read_citation.py NUMBER` prints that record whole, as the setup run
-completion grades saved it (add `--run-id RUN_ID` for another run).
+In **Ask Mosaic**, choose **Complete my setup** in a new conversation. Open a
+citation beside a claim about the chair. Read the listing or review to see
+what it supports.
 
 ## Change a need, then prove the run
 
-Ask the guide's 100W follow-up the same way. Then prove both runs:
+Start a new conversation for the guide's 100W question. Then check both saved answers at the shell prompt:
 
 ```bash
 uv run python scripts/grade_setup_run.py
@@ -60,11 +52,12 @@ a retry that stopped on HTTP 503, then reads your deployed code, that run and yo
 newest 100W answer without generating another answer. If you lose the connection during either question, wait
 a minute and run the same check. Its `Next:` line tells you whether to wait or which
 question to ask again. Use `--run-id <run-id>` to select a particular setup run.
+Once the check passes, try your own shopping question in a new conversation.
 
 <details>
 <summary>🛠️ Compare with or install the reference answer</summary>
 
-`uv run python scripts/diff.py` names the lines of your file that differ from the
+`uv run python scripts/diff.py agent.py` names the lines of your file that differ from the
 [reference answer](solution/agent.py), inside and outside the markers, without
 printing it, and changes nothing; an instruction you added shows as a difference.
 Add `--answer` to see the answer's lines; try the guide's hints first. `uv run python scripts/lab_state.py apply-solution --lab 3`

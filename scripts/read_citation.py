@@ -47,7 +47,7 @@ from scripts.terminal_text import (
     wrap_words,
 )
 from service.db import DatabaseNotConfigured
-from service.participant_commands import ask_setup_command, read_citation_command
+from service.participant_commands import ASK_SETUP_IN_MOSAIC, read_citation_command
 
 _SENTENCE = re.compile(r"(?<=[.!?])\s+|\n+")
 _LABEL = re.compile(r"^(?:title|description)\s*:\s*", re.IGNORECASE)
@@ -293,8 +293,9 @@ def problem(run: dict[str, Any] | None, run_id: UUID | None, number: int) -> str
     """Why there is no citation to read, with the way out."""
     if run is None and run_id is None:
         return (
-            "Citation rule: found no answer to Alex's setup request since Lab 3 started; "
-            "fix: ask it first, then read one of its citations"
+            "Citation rule: found no answer to Alex's setup request since Lab 3 started. "
+            f"Next: {ASK_SETUP_IN_MOSAIC} Then read one of its citations in Code Editor:\n"
+            f"{read_citation_command(str(number))}"
         )
     if run is None:
         return (
@@ -316,9 +317,7 @@ def problem(run: dict[str, Any] | None, run_id: UUID | None, number: int) -> str
     return None
 
 
-def _rerun(run: dict[str, Any] | None, run_id: UUID | None) -> str:
-    if run is None and run_id is None:
-        return ask_setup_command()
+def _rerun(run: dict[str, Any] | None) -> str:
     if run is not None and run["citations"]:
         return read_citation_command("NUMBER", str(run["agent_turn_id"]))
     return read_citation_command()
@@ -367,7 +366,7 @@ def main(argv: list[str] | None = None) -> int:
     reason = problem(run, args.run_id, args.number)
     if reason:
         print(
-            separate_next(reason, _rerun(run, args.run_id), stream=sys.stderr),
+            separate_next(reason, _rerun(run), stream=sys.stderr),
             file=sys.stderr,
         )
         return 2

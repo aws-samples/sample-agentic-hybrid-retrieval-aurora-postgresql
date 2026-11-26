@@ -44,10 +44,10 @@ from service.lab_validation_receipt import application_digest, participant_sql_d
 from service.participant_commands import (
     AGENTCORE_RESOURCES,
     APPLY_SQL,
+    ASK_SETUP_IN_MOSAIC,
     DEPLOY_AGENT,
     DEPLOY_PHASE_SECONDS,
     VERIFY_AGENT,
-    ask_setup_command,
 )
 
 
@@ -860,7 +860,7 @@ def _verified_next() -> None:
     if lab_3_solved():
         next_step("the guide's next step. Lab 3 is complete.")
     else:
-        next_step("ask Alex's setup request:", ask_setup_command())
+        next_step(ASK_SETUP_IN_MOSAIC)
 
 
 @tidy

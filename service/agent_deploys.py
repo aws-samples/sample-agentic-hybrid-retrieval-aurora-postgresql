@@ -18,7 +18,11 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
-from service.participant_commands import DEPLOY_AGENT, grade_setup_run_command
+from service.participant_commands import (
+    ASK_SETUP_IN_MOSAIC,
+    DEPLOY_AGENT,
+    grade_setup_run_command,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -223,7 +227,11 @@ def deploy_due(root: Path | None = None) -> bool:
 
 
 def run_deploy_problem(
-    run_created_at: datetime, run_sha256: object, *, root: Path | None = None
+    run_created_at: datetime,
+    run_sha256: object,
+    *,
+    root: Path | None = None,
+    ask_again: str = ASK_SETUP_IN_MOSAIC,
 ) -> str | None:
     """Why a Lab 3 run did not come from the participant's own deploy, or None.
 
@@ -239,7 +247,7 @@ def run_deploy_problem(
         return (
             f"You have not deployed since Lab 3 started at {_clock(started)}, so this run "
             "came from the reference Retrieval agent this account was prepared with. "
-            f"Next: deploy with {DEPLOY_AGENT}, ask Alex's setup request again, then run "
+            f"Next: deploy with {DEPLOY_AGENT}, then {ask_again} Run "
             f"{grade_setup_run_command()}."
         )
     if any(
@@ -250,5 +258,5 @@ def run_deploy_problem(
     return (
         f"This run, made at {_clock(run_created_at)}, did not come from a deploy of yours "
         f"since Lab 3 started; your first was at {_clock(since[0].deployed_at)}. "
-        f"Next: ask Alex's setup request again, then run {grade_setup_run_command()}."
+        f"Next: {ask_again} Run {grade_setup_run_command()}."
     )

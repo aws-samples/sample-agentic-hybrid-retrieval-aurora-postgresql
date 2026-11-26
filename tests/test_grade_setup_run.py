@@ -13,7 +13,11 @@ import pytest
 from scripts import grade_setup_run
 from service.agent_deploys import lab_3_started_at as REAL_LAB_3_STARTED_AT
 from service.lab_checks import mission_for_lab
-from service.participant_commands import ask_100w_command, ask_setup_command
+from service.participant_commands import (
+    ASK_100W_IN_MOSAIC,
+    ASK_SETUP_IN_MOSAIC,
+    grade_setup_run_command,
+)
 
 REQUEST = mission_for_lab(3)["query"]
 STARTED = datetime(2026, 10, 25, 10, 0, tzinfo=UTC)
@@ -134,15 +138,13 @@ def _turns(monkeypatch, turns: list[dict]) -> None:
 def test_no_checkable_setup_run_says_how_to_make_one(
     monkeypatch, capsys, workspace, turns, said
 ) -> None:
-    from service.participant_commands import ask_setup_command
-
     _turns(monkeypatch, turns)
     monkeypatch.setattr(sys, "argv", ["grade_setup_run.py"])
 
     assert grade_setup_run.main() == 2
 
     output = capsys.readouterr().out
-    assert said in output and ask_setup_command() in output
+    assert said in output and ASK_SETUP_IN_MOSAIC in output
     assert workspace == []
 
 
@@ -200,7 +202,11 @@ def test_in_progress_setup_waits_before_asking_again(
     out = capsys.readouterr().out
     assert str(pending["agent_turn_id"]) in out and "setup" in out
     assert out.rstrip().endswith("uv run python scripts/grade_setup_run.py")
-    assert "scripts/ask_agent.py" not in out and workspace == []
+    assert (
+        "Ask Mosaic" not in out
+        and "scripts/ask_agent.py" not in out
+        and workspace == []
+    )
 
 
 def test_a_100w_run_in_flight_without_a_setup_run_asks_setup_now(
@@ -214,8 +220,8 @@ def test_a_100w_run_in_flight_without_a_setup_run_asks_setup_now(
 
     assert grade_setup_run.main() == 2
     out = capsys.readouterr().out
-    assert ask_setup_command() in out
-    assert ask_100w_command() not in out and workspace == []
+    assert ASK_SETUP_IN_MOSAIC in out
+    assert ASK_100W_IN_MOSAIC not in out and workspace == []
 
 
 def test_later_conversation_turn_cannot_be_the_setup_run():
@@ -273,7 +279,8 @@ def test_an_extra_pending_attempt_does_not_hide_an_existing_pair(
     receipt = tmp_path / ".local/lab-3/exercise-receipt.json"
     if missing in (pending_kind, "both"):
         assert result == 2 and not receipt.exists()
-        assert str(pending["agent_turn_id"]) in output and "ask_agent.py" not in output
+        assert str(pending["agent_turn_id"]) in output
+        assert "Ask Mosaic" not in output and "ask_agent.py" not in output
     else:
         assert result == (1 if missing else 0) and receipt.exists()
         assert str(pending["agent_turn_id"]) not in output
@@ -335,12 +342,6 @@ def test_no_checkable_run_ends_with_asking_what_is_missing_then_checking(
     monkeypatch, capsys, workspace, follow_up_saved
 ) -> None:
     """A 100W answer already saved from the deployed code is not asked for again."""
-    from service.participant_commands import (
-        ask_100w_command,
-        ask_setup_command,
-        grade_setup_run_command,
-    )
-
     _turns(monkeypatch, [])
     monkeypatch.setattr(grade_setup_run, "follow_up_saved", lambda *_a: follow_up_saved)
     monkeypatch.setattr(sys, "argv", ["grade_setup_run.py"])
@@ -349,17 +350,12 @@ def test_no_checkable_run_ends_with_asking_what_is_missing_then_checking(
 
     out = capsys.readouterr().out
     assert not out.startswith("\n") and "\n\n\n" not in out
-    if follow_up_saved:
-        assert out.endswith(
-            "\n\nNext: ask Alex's setup request, then check completion:\n"
-            f"{ask_setup_command()}\n{grade_setup_run_command()}\n"
-        )
-    else:
-        assert out.endswith(
-            "\n\nNext: ask Alex's setup request, then the 100W question, then check "
-            f"both answers:\n{ask_setup_command()}\n{ask_100w_command()}\n"
-            f"{grade_setup_run_command()}\n"
-        )
+    follow_up = "" if follow_up_saved else f"Then {ASK_100W_IN_MOSAIC}\n"
+    assert out.endswith(
+        f"\n\nNext: {ASK_SETUP_IN_MOSAIC}\n{follow_up}"
+        f"Return to Code Editor and check completion:\n{grade_setup_run_command()}\n"
+    )
+    assert "ask_agent.py" not in out
 
 
 def test_an_unreachable_aurora_ends_with_opening_a_new_terminal(
@@ -409,7 +405,10 @@ def test_the_verdict_comes_before_the_next_step(monkeypatch, capsys, tmp_path) -
     assert parts[0].startswith("Checking your newest setup run, ")
     assert parts[1].startswith("Your Retrieval agent is live")
     assert parts[2].startswith("Lab 3 exercise: PASS")
-    assert parts[3] == "Next: the guide's Wrap-up. Lab 3's required work is complete."
+    assert (
+        parts[3]
+        == "Next: start a new conversation in Ask Mosaic and try a shopping question of your own."
+    )
     assert len(parts) == 4
 
 
@@ -623,7 +622,6 @@ def test_a_grade_before_lab_3_starts_names_the_start_not_the_questions(
 ) -> None:
     """Before the start the shipped reference agent answers, so no run would count."""
     from scripts.lab_entry import entry_command
-    from service.participant_commands import ask_setup_command
 
     monkeypatch.setattr(
         "service.agent_deploys.lab_3_started_at", lambda _root=None: None
@@ -636,5 +634,5 @@ def test_a_grade_before_lab_3_starts_names_the_start_not_the_questions(
     out = capsys.readouterr().out
     assert out.startswith("Lab 3 exercise: CANNOT GRADE - Lab 3 has not started")
     assert entry_command(3, grade_setup_run.ROOT) in out
-    assert ask_setup_command() not in out
+    assert ASK_SETUP_IN_MOSAIC not in out
     assert workspace == []

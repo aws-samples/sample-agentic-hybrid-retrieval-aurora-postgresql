@@ -353,7 +353,10 @@ def test_lab_3_without_a_graded_run_points_at_the_completion_check(
     monkeypatch, tmp_path
 ):
     """The check finds the newest setup run and names any question still missing."""
-    from service.participant_commands import ask_setup_command, grade_setup_run_command
+    from service.participant_commands import (
+        ASK_SETUP_IN_MOSAIC,
+        grade_setup_run_command,
+    )
 
     monkeypatch.setattr(lab_exercise, "REPO", tmp_path)
 
@@ -362,7 +365,7 @@ def test_lab_3_without_a_graded_run_points_at_the_completion_check(
 
     message = str(refused.value)
     assert grade_setup_run_command() in message
-    assert ask_setup_command() not in message
+    assert ASK_SETUP_IN_MOSAIC not in message
     assert "lab_request" not in message
 
 
@@ -458,13 +461,18 @@ def test_the_recall_report_fits_the_terminal_without_breaking_a_word(capsys):
 
 def test_a_failure_wraps_its_prose_and_keeps_each_command_whole():
     from service.lab_checks import reason_fix
-    from service.participant_commands import ask_setup_command
+    from service.participant_commands import (
+        ASK_SETUP_IN_MOSAIC,
+        DEPLOY_AGENT,
+        grade_setup_run_command,
+    )
 
     text = lab_exercise.failure_lines("no run ID was given; fix: " + reason_fix())
 
     lines = text.splitlines()
     assert lines[0].startswith("FAIL: ")
-    assert ask_setup_command() in lines
+    assert f"Then {ASK_SETUP_IN_MOSAIC}" in lines
+    assert DEPLOY_AGENT in lines and grade_setup_run_command() in lines
     assert all(len(line) <= 100 for line in lines if not line.startswith("uv run "))
     assert all(not line.endswith("-") for line in lines)
 

@@ -11,28 +11,16 @@ handoff saved: does the intended listing survive ranking?
 
 At the shell prompt, open `psql` with the request loaded,
 `PSQLRC=.local/lab-2/context.psql psql`. Follow
-the guide's query to compare the ViewSonic VG2756-4K's semantic position with
-its membership in the fused shortlist. Then score a few positions with
-`reciprocal_rank_contribution` and compare them with `1 / (60 + position)`. If
-every position earns the same contribution, product ID decides which
-candidates make the cut.
+the guide's query to compare the ViewSonic and the BenQ. Did a higher semantic
+position earn more points? Enter `\q` to return to the shell.
 
 ## Give each position its own score
 
-In [rrf_contribution.sql](rrf_contribution.sql), edit only the
-`SELECT` between `LAB2_EDIT_START` and `LAB2_EDIT_END`, so each
-source position earns `1 / (rrf_k + source_rank)`. Keep the signature, the
-`double precision` result and the configured `rrf_k`. Then apply it from the same
-`psql` session at the `mosaic_catalog=>` prompt:
+In [rrf_contribution.sql](rrf_contribution.sql), replace the `1.0` after the plus
+sign with the product's position. Save the file and apply it at the shell prompt:
 
-```sql
-\! uv run python scripts/apply_search_functions.py
-```
-
-In `psql`, repeat the position check with the same saved request. Then leave `psql`:
-
-```sql
-\q
+```bash
+uv run python scripts/apply_search_functions.py
 ```
 
 At the shell prompt ending in `$`, repeat the identical request and grade the applied
@@ -47,11 +35,15 @@ uv run python scripts/lab_exercise.py grade --lab 2
 
 Run Alex's request with reranking off, then on, and compare the two pages of
 12; [rerank_off_on.py](rerank_off_on.py) shows that the calls differ only in
-`rerank`. Shop is an optional view of this evidence.
+`rerank`.
 
 ```bash
 uv run python labs/lab2_rank/rerank_off_on.py
 ```
+
+In **Shop**, select **Lab 2: Alex’s monitor request**. Open **Why this match** on
+the ViewSonic to see how its position changed. Then choose **Compare positions**
+above the results and check the Acer's resolution.
 
 ## Test whether changing k helps, then hand off to Lab 3
 

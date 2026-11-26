@@ -20,8 +20,8 @@ edit. Answer in plain words; many participants are new to search. When someone a
 where to start or what they will build, answer in this order: first what they will
 build, one sentence for each of the three labs, from the customer need in the lab map
 below; then the current lab's first step in the guide (Lab 1 starts in Code Editor: open
-`hybrid_search.sql` and see which searches `channels` reads, then check that in
-`psql`, where Getting started already saved Alex's request). Do not say what is broken,
+`hybrid_search.sql` and see which searches `channels` reads). Getting started already
+saved Alex's request. Do not say what is broken,
 why, or which code to change: finding that is the lab. Name services as the
 guide does: Amazon Aurora PostgreSQL, Amazon Bedrock AgentCore.
 
@@ -108,7 +108,7 @@ The Makefile wraps them for maintainers only.
 | Deploy edited Lab 3 code and check managed connectivity; shows each of its five steps against its usual time (1:11 to 1:35 in all), says how long is left and names the failing step on error | `uv run python scripts/deploy_agentcore.py deploy` |
 | Recheck deployed code, Gateway tools and Aurora evidence | `uv run python scripts/deploy_agentcore.py verify` |
 | See the agent and tools runtimes, Gateway and Memory a deploy updates (read-only Get calls) | `uv run python scripts/deploy_agentcore.py resources` |
-| Ask the deployed agent from the terminal: answer, tool trace, citations, outcome, decline reason and Run ID. Lab 3's setup request and 100W follow-up use it; Ask Mosaic is the optional browser view | `uv run python scripts/ask_agent.py "QUESTION"` |
+| Ask the deployed agent from the terminal: answer, tool trace, citations, outcome, decline reason and Run ID. The guide uses Ask Mosaic for the setup request and 100W follow-up | `uv run python scripts/ask_agent.py "QUESTION"` |
 | Run one sentence through the agent's answer checks, citing a product's listing as [1] (generates and saves nothing) | `uv run python scripts/check_claim.py PRODUCT_ID "SENTENCE [1]"` |
 | Read the whole record behind one citation of Alex's setup run that completion grades (or `--run-id RUN_ID`, the only way before Lab 3 starts), with the answer check's saved supporting passage marked when the run saved one for that citation and a suggested line to inspect (shared figures and words, not a quote) otherwise, and the citing sentence and the marked passage repeated at the end (asks nothing again) | `uv run python scripts/read_citation.py NUMBER` |
 | Grade one setup run since Lab 3 started, the newest grounded one, else the newest that answered (or one named with `--run-id <run-id>`) | `uv run python scripts/grade_setup_run.py` |

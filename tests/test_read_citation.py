@@ -189,7 +189,10 @@ def test_with_no_setup_run_it_names_the_setup_request(monkeypatch, capsys):
 
     err = capsys.readouterr().err
     assert "found no answer to Alex's setup request since Lab 3 started" in err
-    assert read_citation.ask_setup_command() in err
+    assert (
+        "Next: open Ask Mosaic. In a new conversation, choose Complete my setup." in err
+    )
+    assert err.rstrip().endswith("uv run python scripts/read_citation.py 1")
 
 
 def test_the_default_is_the_graders_own_pick(monkeypatch):

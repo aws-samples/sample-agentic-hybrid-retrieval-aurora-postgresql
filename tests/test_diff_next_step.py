@@ -8,7 +8,7 @@ import pytest
 from scripts import diff
 from service import agent_deploys
 from service.lab_validation_receipt import application_digest
-from service.participant_commands import DEPLOY_AGENT, STATUS
+from service.participant_commands import APPLY_SQL, DEPLOY_AGENT, STATUS
 
 STARTED = datetime(2026, 11, 12, 9, 0, tzinfo=UTC)
 
@@ -75,6 +75,26 @@ def test_nothing_differs_before_lab_3_starts_keeps_the_status_step(monkeypatch, 
     assert _next_line(monkeypatch, capsys) == STATUS
 
 
+@pytest.mark.parametrize(
+    ("filename", "command"),
+    [
+        ("hybrid_search.sql", APPLY_SQL),
+        ("rrf_contribution.sql", APPLY_SQL),
+        ("agent.py", DEPLOY_AGENT),
+    ],
+)
+def test_named_matching_file_needs_no_edits(
+    filename, command, lab_3_workspace, monkeypatch, capsys
+):
+    _start_lab_3(lab_3_workspace)
+    monkeypatch.setattr("sys.argv", ["diff.py", filename])
+    assert diff.main() == 0
+    output = capsys.readouterr().out
+    assert "matches the reference answer" in output
+    assert "edit the lines" not in output
+    assert output.rstrip().splitlines()[-1] == command
+
+
 def _lab_2_with_kept_todo(repo, code: str | None = None) -> None:
     """The smallest repair: the starter's two TODO lines stay beside the answer's code."""
     from scripts.lab_state import LAB2_STARTER, LABS, _replace_block
@@ -87,8 +107,12 @@ def _lab_2_with_kept_todo(repo, code: str | None = None) -> None:
     )
 
 
+@pytest.mark.parametrize(
+    ("args", "expected_next"),
+    [([], STATUS), (["rrf_contribution.sql"], APPLY_SQL)],
+)
 def test_kept_todo_comments_are_reported_as_comment_only_not_as_a_difference(
-    tmp_path, monkeypatch, capsys
+    args, expected_next, tmp_path, monkeypatch, capsys
 ):
     from shutil import copy2
 
@@ -115,11 +139,11 @@ def test_kept_todo_comments_are_reported_as_comment_only_not_as_a_difference(
     monkeypatch.setattr(diff, "report", lambda *a, **k: report)
     monkeypatch.setattr(diff, "differing_lab", lambda *a, **k: 2)
     monkeypatch.setattr(diff, "comment_only_difference", lambda lab: True)
-    monkeypatch.setattr("sys.argv", ["diff.py"])
+    monkeypatch.setattr("sys.argv", ["diff.py", *args])
     assert diff.main() == 0
     out = capsys.readouterr().out
-    assert "only comment lines differ, so there is nothing to change" in out
-    assert out.rstrip().splitlines()[-1] == STATUS
+    assert "only comment lines differ" in out
+    assert out.rstrip().splitlines()[-1] == expected_next
 
 
 def test_a_different_line_beside_kept_comments_is_still_a_difference(tmp_path):
@@ -146,7 +170,6 @@ def test_an_edit_outside_the_markers_names_the_line_and_the_apply_step_not_reset
     from shutil import copy2
 
     from scripts.lab_state import LABS, REPO, lab_diff
-    from service.participant_commands import APPLY_SQL
 
     for relative_path in {definition[0] for definition in LABS.values()}:
         (tmp_path / relative_path).parent.mkdir(parents=True, exist_ok=True)

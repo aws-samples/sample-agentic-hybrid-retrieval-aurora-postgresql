@@ -23,7 +23,6 @@ from scripts.prove_lab import LabValidationError, _request
 from scripts.terminal_text import BOLD, next_step, separate_next, tidy, tint
 from service.lab_checks import mission_for_lab
 from service.participant_commands import (
-    COMPARE_SETTINGS,
     RERANK_OFF_ON,
     validate_applied_command,
 )
@@ -136,10 +135,7 @@ def main(argv: list[str] | None = None) -> int:
             RERANK_OFF_ON,
         )
         return 1
-    next_step(
-        "test whether changing k helps more right answers reach reranking:",
-        COMPARE_SETTINGS,
-    )
+    next_step("open Shop and select the Lab 2 suggestion for Alex's monitor request.")
     return 0
 
 

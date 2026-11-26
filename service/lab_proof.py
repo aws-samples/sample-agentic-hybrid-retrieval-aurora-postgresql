@@ -78,10 +78,11 @@ from service.models import (
 )
 from service.participant_commands import (
     APPLY_SQL,
+    ASK_100W_IN_MOSAIC,
+    ASK_SETUP_IN_MOSAIC,
     DEPLOY_AGENT,
     DIFF,
     VERIFY_AGENT,
-    ask_setup_command,
     proof_steps_text,
     start_command,
 )
@@ -570,7 +571,7 @@ def _run_sql_digests(rows: AgentTurnRows) -> list[str]:
 
 
 def _managed_agent_checks(
-    rows: AgentTurnRows | None, root: Path, managed: bool
+    rows: AgentTurnRows | None, root: Path, managed: bool, ask_again: str
 ) -> list[LabCheck]:
     """Whether Runtime, Gateway, Aurora and the run itself all carry today's work.
 
@@ -593,7 +594,7 @@ def _managed_agent_checks(
 
     deployed = False
     detail = "Your Retrieval agent and SQL tools match the code in Code Editor, and Aurora runs your SQL."
-    failure = f"Your deployed Retrieval agent or SQL tools do not match this run. Next: deploy with {DEPLOY_AGENT} in Code Editor, then ask Alex's question again."
+    failure = f"Your deployed Retrieval agent or SQL tools do not match this run. Next: deploy with {DEPLOY_AGENT} in Code Editor, then {ask_again}"
     try:
         workspace_code = application_digest()
         edited = undeployed_edit(workspace_code, root=root)
@@ -605,13 +606,13 @@ def _managed_agent_checks(
                 "Your code in Code Editor changed after your deploy at "
                 f"{edited.deployed_at.astimezone(UTC):%H:%M} UTC, so AgentCore Runtime "
                 f"still runs the earlier code. Next: deploy with {DEPLOY_AGENT} in Code "
-                f"Editor, then ask Alex's setup request again:\n{ask_setup_command()}"
+                f"Editor, then {ask_again}"
             )
         else:
             status = agentcore_transport.deployed_status()
             if rows and rows.searches:
                 deployed, found = _run_matches_deployment(
-                    rows, status, workspace_code, root
+                    rows, status, workspace_code, root, ask_again
                 )
                 failure = found or failure
     except (RuntimeRunsEarlierCode, StartRecordError) as error:
@@ -623,7 +624,7 @@ def _managed_agent_checks(
             else (
                 "Your deployed Retrieval agent did not answer the deployment check. "
                 f"Next: run {VERIFY_AGENT} in Code Editor, which names what it found, "
-                f"then ask Alex's setup request again:\n{ask_setup_command()}"
+                f"then {ask_again}"
             )
         )
     return [
@@ -637,7 +638,11 @@ def _managed_agent_checks(
 
 
 def _run_matches_deployment(
-    rows: AgentTurnRows, status: Mapping[str, Any], workspace_code: str, root: Path
+    rows: AgentTurnRows,
+    status: Mapping[str, Any],
+    workspace_code: str,
+    root: Path,
+    ask_again: str,
 ) -> tuple[bool, str | None]:
     """Whether the run, Gateway, Aurora and Runtime all carry today's work, and why not."""
     from service import gateway_tools
@@ -655,19 +660,19 @@ def _run_matches_deployment(
     code_deployed = status.get("application_sha256") == workspace_code
     run_code = _as_dict(rows.turn.get("extracted_intent")).get("application_sha256")
     run_sql = _run_sql_digests(rows)
-    not_own_deploy = run_deploy_problem(rows.turn["created_at"], run_code, root=root)
+    not_own_deploy = run_deploy_problem(
+        rows.turn["created_at"], run_code, root=root, ask_again=ask_again
+    )
     if code_deployed and not sql_applied:
         return False, (
             "Aurora runs search SQL different from your lab files in Code Editor. "
-            f"Next: apply it with {APPLY_SQL}, then ask Alex's setup request again:\n"
-            f"{ask_setup_command()}"
+            f"Next: apply it with {APPLY_SQL}, then {ask_again}"
         )
     if code_deployed and run_sql != [workspace_sql]:
         return False, (
             f"This run searched with SQL {', '.join(d[:12] for d in run_sql)}, "
             f"not your lab files' {workspace_sql[:12]}: it was saved before "
-            "your last apply. Next: ask Alex's setup request again:\n"
-            f"{ask_setup_command()}\nthen grade the new run."
+            f"your last apply. Next: {ask_again} Then grade the new run."
         )
     if code_deployed and run_code != workspace_code:
         made_by = (
@@ -676,10 +681,7 @@ def _run_matches_deployment(
             if isinstance(run_code, str)
             else "does not record which Retrieval agent code made it"
         )
-        return False, (
-            f"This run {made_by}. Next: ask Alex's setup request again:\n"
-            f"{ask_setup_command()}\nthen grade the new run."
-        )
+        return False, f"This run {made_by}. Next: {ask_again} Then grade the new run."
     return code_deployed and not_own_deploy is None, not_own_deploy
 
 
@@ -737,7 +739,7 @@ def completion_proof(
                 mission, rows, run, str(agent_run_id) if agent_run_id else None
             )
         )
-        checks.extend(_managed_agent_checks(rows, root, managed))
+        checks.extend(_managed_agent_checks(rows, root, managed, ASK_SETUP_IN_MOSAIC))
         if rows is not None:
             from service.agent_deploys import lab_3_started_at
             from service.lab_followup import (
@@ -746,7 +748,6 @@ def completion_proof(
                 claim_review_problem,
                 load_changed_requirement,
             )
-            from service.participant_commands import ask_agent_command
 
             problem = claim_review_problem(rows.turn)
             checks.append(
@@ -756,7 +757,7 @@ def completion_proof(
                     falsifier="the final answer has no matching completed claim-support review, or its review rejected a claim",
                     detail="The finished setup answer passed its claim-support review"
                     if problem is None
-                    else f"Claim support: {problem}. Next: {ask_setup_command()}, then grade again.",
+                    else f"Claim support: {problem}. Next: {ASK_SETUP_IN_MOSAIC} Then grade again.",
                 )
             )
             with connect() as connection:
@@ -784,18 +785,15 @@ def completion_proof(
                 )
             )
             if followup is not None:
-                for check in _managed_agent_checks(followup, root, managed):
+                for check in _managed_agent_checks(
+                    followup, root, managed, ASK_100W_IN_MOSAIC
+                ):
                     checks.append(
                         LabCheck(
                             name=CHANGED_REQUIREMENT_DEPLOYMENT,
                             passed=check.passed,
                             falsifier=check.falsifier,
-                            detail=check.detail.replace(
-                                ask_setup_command(),
-                                ask_agent_command(
-                                    mission["changed_requirement"]["query"]
-                                ),
-                            ).replace("setup request", "changed-requirement request"),
+                            detail=check.detail,
                         )
                     )
         # The turn's own receipts, not new ones: this path issues no retrieval,

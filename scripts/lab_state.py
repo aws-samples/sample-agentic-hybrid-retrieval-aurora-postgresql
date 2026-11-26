@@ -49,15 +49,13 @@ from service.participant_commands import (
     ADVANCE_TO_LAB_2,
     ADVANCE_TO_LAB_3,
     APPLY_SQL,
+    ASK_SETUP_IN_MOSAIC,
     DEPLOY_AGENT,
     DIFF,
     DIFF_ANSWER,
-    LIST_TOOLS,
     STATUS,
     USUAL_SECONDS,
     apply_solution_command,
-    ask_100w_command,
-    ask_setup_command,
     finish_command,
     finish_steps,
     grade_exercise_command,
@@ -92,8 +90,8 @@ LINE_CHARS = 100
 #: the others repeat the lab guide's contract for the edit, not its answer.
 LAB1_STARTER = """-- TODO(Lab 1): one search's candidates never reach `channels`. Find which,
 -- then add its branch here with the same five columns as the others."""
-LAB2_STARTER = """-- TODO(Lab 2): replace the SELECT below so each position earns its own score.
--- Keep the signature, the double precision result and the configured rrf_k.
+LAB2_STARTER = """-- TODO(Lab 2): Replace the 1.0 after the plus sign with the product's position.
+-- Keep the 1.0 above the division sign on line 22 unchanged.
 SELECT
     1.0::double precision
     / (
@@ -328,16 +326,14 @@ def _diff_footer(
             f"{COMMAND_INDENT}{DEPLOY_AGENT if lab == 3 else APPLY_SQL}",
         ]
     if block_differs and lab == 3:
+        deploy, steps = lab3_steps(deploy=True)
         footer += [
             (
                 "An instruction of your own after the supplied ones, if you add one, "
                 "also shows as a difference."
             ),
-            f"Deploy:   {DEPLOY_AGENT}",
-            "Then ask Alex's setup request and the 100W question:",
-            f"{COMMAND_INDENT}{ask_setup_command()}",
-            f"{COMMAND_INDENT}{ask_100w_command()}",
-            f"Check:    {grade_setup_run_command()}",
+            f"Next, {deploy}",
+            *steps,
         ]
     elif block_differs:
         check = ADVANCE_TO_LAB_2 if lab == 1 else grade_exercise_command(lab)
@@ -1758,17 +1754,14 @@ def solution_summary(lab: int, path: Path, *, run_by: str | None = None) -> str:
 
 
 def lab_ready_step(lab: int) -> None:
-    """Print the first step of a lab that has just been prepared, as the guide begins it.
-
-    Labs 1 and 2 open in `psql` with the saved request, so the step works from the terminal
-    or from `psql`; Lab 3 opens in the editor.
-    """
-    if lab == 3:
+    """Print the guide's first step for the prepared lab."""
+    if lab == 1:
         next_step(
-            "open labs/lab3_reason/agent.py in Code Editor and complete create_agent. To "
-            "see the SQL tools it can call first, run:",
-            LIST_TOOLS,
+            f"open {LAB1_SQL} in Code Editor and check which searches channels reads."
         )
+        return
+    if lab == 3:
+        next_step(f"open {LAB3_AGENT} in Code Editor and find create_agent.")
         return
     next_step(
         f"open psql with Alex's saved request for Lab {lab}. From the terminal, run:",
@@ -1794,7 +1787,7 @@ def later_lab_begun(lab: int) -> bool:
 
 
 def workshop_next() -> None:
-    """Print the step `status` ends with: the first lab not solved yet, or Wrap-up.
+    """Print the next guide step for the participant's current lab state.
 
     A check rerun on a lab that has handed off uses it, so the cheat sheet's
     checks never send a participant back into a lab they already left.
@@ -1960,8 +1953,12 @@ def finish_lab(lab: int) -> int:
         return code
     if lab == 3:
         print("\nLab 3: the reference Retrieval agent is deployed.")
-        steps, commands = lab3_steps()
-        next_step(steps, *commands)
+        next_step(
+            ASK_SETUP_IN_MOSAIC,
+            "Follow the guide to check the sources and ask the 100W question in a new conversation.",
+            "Then check both answers:",
+            grade_setup_run_command(),
+        )
     else:
         print(f"\nLab {lab}: finished with the reference answer.")
         if lab == 1 and _handoff_holds(2) is None:
