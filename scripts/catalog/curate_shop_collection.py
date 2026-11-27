@@ -247,8 +247,12 @@ SHELF_ROWS_SQL = """
 def database_rows(dataset: str) -> list[dict]:
     """Read the shelf's candidate source rows from the served catalog in Aurora."""
     kinds = set(GROUPS.values())
-    with connect(statement_timeout_ms=600_000) as connection:
-        cursor = connection.execute(
+    # Each fetch can cross the maintenance tunnel within its own statement timeout.
+    with (
+        connect(statement_timeout_ms=600_000) as connection,
+        connection.cursor(name="shop_shelf_candidates") as cursor,
+    ):
+        cursor.execute(
             SHELF_ROWS_SQL.format(schema=search_schema()), {"dataset": dataset}
         )
         return [

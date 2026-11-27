@@ -2,6 +2,7 @@
 
 import json
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 from test_source_catalog import source_row
@@ -142,6 +143,25 @@ def test_a_changed_selection_names_the_products_it_adds_and_drops():
     regenerated = {"groups": [{"category": "monitors", "parent_asins": ["A", "C"]}]}
     assert curate.drift(committed, regenerated) == "monitors adds ['C'], drops ['B']"
     assert "same products" in curate.drift(committed, committed)
+
+
+def test_shelf_check_streams_candidates_through_a_named_cursor(monkeypatch):
+    connect = MagicMock()
+    monkeypatch.setattr(curate, "connect", connect)
+    monkeypatch.setattr(curate, "search_schema", lambda: "mosaic_search")
+    connection = connect.return_value.__enter__.return_value
+    rows = connection.cursor.return_value.__enter__.return_value
+    monitor = record()
+    accessory = record(categories=["Electronics", "Monitor Stands"])
+    rows.__iter__.return_value = [monitor, accessory]
+
+    assert curate.database_rows("reviews-2023-v2") == [monitor]
+    assert connection.cursor.call_args.kwargs["name"]
+    rows.execute.assert_called_once_with(
+        curate.SHELF_ROWS_SQL.format(schema="mosaic_search"),
+        {"dataset": "reviews-2023-v2"},
+    )
+    connect.assert_called_once_with(statement_timeout_ms=600_000)
 
 
 def test_curation_refuses_to_guess_the_served_catalog(monkeypatch):
