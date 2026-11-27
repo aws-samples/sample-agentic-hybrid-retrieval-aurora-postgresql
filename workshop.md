@@ -301,8 +301,8 @@ arriving, the panel returns to the answer's start, with those steps below it.
 ask about headphones even if you just searched for monitors in Shop.
 The suggested question runs on its own filters and shows "Shop filters
 were cleared for this lab request." when it replaces filters a participant had
-set. After the request, Shop shows the terminal command that checks that run,
-with its run ID filled in.
+set. After the answer, the Ask Mosaic question box is empty and ready for a
+follow-up. Shop shows the terminal command that checks that run, with its run ID filled in.
 Inspect separate searches for the headphones, monitor and chair; all three in
 the comparison and final shortlist; their supporting citations; and a ranking
 explanation. Open the chair's listing and review: adjustable features and one

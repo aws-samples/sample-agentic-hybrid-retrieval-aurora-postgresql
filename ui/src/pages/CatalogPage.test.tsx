@@ -714,8 +714,12 @@ describe("CatalogPage", () => {
 
     it("sends a typed question without Shop filters across reopening until Shop changes", async () => {
       await openMonitorSearch();
+      const firstQuestion = "Which monitor would you compare with the ViewSonic?";
+      fireEvent.change(screen.getByLabelText("Ask Mosaic request"), { target: { value: firstQuestion } });
       fireEvent.click(screen.getByRole("button", { name: "Send request" }));
-      expect(vi.mocked(api.agentStream).mock.calls[0]?.[1]).toMatchObject(monitor.filters);
+      expect(vi.mocked(api.agentStream).mock.calls[0]?.slice(0, 2)).toEqual([
+        firstQuestion, expect.objectContaining(monitor.filters),
+      ]);
       fireEvent.click(screen.getByRole("button", { name: "New conversation" }));
       const panel = screen.getByRole("complementary", { name: "Ask Mosaic" });
       fireEvent.click(within(panel).getByRole("button", { name: "Close Ask Mosaic" }));
@@ -751,6 +755,31 @@ describe("CatalogPage", () => {
       expect(screen.queryByText("Search filters")).toBeNull();
       expect(api.agentStream).not.toHaveBeenCalled();
     });
+
+    it.each([true, false])(
+      "keeps the composer empty after the setup starter, with a prior reset: %s",
+      async (resetFirst) => {
+        vi.mocked(window.matchMedia).mockReturnValue({ ...window.matchMedia(""), matches: true });
+        await openMonitorSearch();
+        if (resetFirst) {
+          fireEvent.click(screen.getByRole("button", { name: "New conversation" }));
+        }
+        fireEvent.click(screen.getByRole("button", { name: "Complete my setup" }));
+        const send = await screen.findByRole("button", { name: "Send request" });
+        const input = screen.getByLabelText("Ask Mosaic request") as HTMLInputElement;
+        expect(input.value).toBe("");
+        await waitFor(() => expect(document.activeElement).toBe(input));
+        expect(new URLSearchParams(window.location.search).get("q")).toBe(monitor.query);
+        expect(screen.queryByText("Search filters")).toBeNull();
+
+        const followUp = "Can the ViewSonic charge my laptop at 100W?";
+        fireEvent.change(input, { target: { value: input.value + followUp } });
+        fireEvent.click(send);
+        const [, followUpCall] = vi.mocked(api.agentStream).mock.calls;
+        expect(followUpCall.slice(0, 2)).toEqual([followUp, {}]);
+        expect(followUpCall[3]?.previous_agent_run_id).toBe(agentResponse.agent_run_id);
+      },
+    );
   });
 
   it("aborts an in-flight request when the conversation is cleared", async () => {
@@ -2427,6 +2456,12 @@ describe("CatalogPage", () => {
     expect(vi.mocked(api.agentStream).mock.calls.at(-1)?.[1]).toMatchObject({
       domain: "consumer_electronics", category_key: "monitor",
     });
+    const followUp = "Which monitor supports 90W charging?";
+    fireEvent.change(screen.getByLabelText("Ask Mosaic request"), { target: { value: followUp } });
+    fireEvent.click(await screen.findByRole("button", { name: "Send request" }));
+    expect(vi.mocked(api.agentStream).mock.calls[1]?.slice(0, 2)).toEqual([
+      followUp, expect.objectContaining({ domain: "consumer_electronics", category_key: "monitor" }),
+    ]);
   });
 
   describe("Shop filters and Ask Mosaic starters", () => {

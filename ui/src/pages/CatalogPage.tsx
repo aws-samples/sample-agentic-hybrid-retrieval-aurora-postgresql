@@ -169,7 +169,11 @@ function resultsViewKey(search: string): string {
  * one that changed the request, so it records the stale run anyway.
  */
 function retrievalRequestKey(query: string, filters: SearchFilters): string {
-  return JSON.stringify([query, filters]);
+  // A starter can supply the same filters in a different order from the Shop URL.
+  const orderedFilters = Object.fromEntries(
+    Object.entries(filters).sort(([left], [right]) => left.localeCompare(right)),
+  );
+  return JSON.stringify([query, orderedFilters]);
 }
 
 /**
@@ -331,7 +335,10 @@ export function CatalogPage() {
    * one is never mistaken for the run this URL is asking for. */
   const [servedRequest, setServedRequest] = useState("");
   const [agentOpen, setAgentOpen] = useState(false);
-  const [useShopContext, setUseShopContext] = useState(true);
+  const [clearedComposer, setClearedComposer] = useState<{
+    shopRequest: string;
+    keepFilters: boolean;
+  } | null>(null);
   const [filtersClearedForLab, setFiltersClearedForLab] = useState(false);
   const [highlightedProductId, setHighlightedProductId] = useState<number | null>(null);
   const [drawerProductId, setDrawerProductId] = useState<number | null>(null);
@@ -405,9 +412,13 @@ export function CatalogPage() {
     attributes: forwardedSearchFilters(searchParams).attributes as SearchFilters["attributes"],
   };
   const retrievalRequest = retrievalRequestKey(activeQuery, filters);
-  // A new conversation can ask across the catalog while Shop keeps its own results.
-  // A different Shop query or filter supplies fresh context; closing the panel does not.
-  useEffect(() => setUseShopContext(true), [retrievalRequest]);
+  // New conversation drops the Shop filters. A starter keeps its own filters for
+  // follow-ups, but its update to Shop's results must not refill the question box.
+  const clearedForThisSearch = clearedComposer?.shopRequest === retrievalRequest;
+  const useShopContext = !clearedForThisSearch || clearedComposer.keepFilters;
+  useEffect(() => {
+    setClearedComposer((previous) => previous?.shopRequest === retrievalRequest ? previous : null);
+  }, [retrievalRequest]);
   const agentFilters = useShopContext ? filters : {};
   // Products and their receipts must answer the same request as the heading,
   // including while a replacement search is pending or has failed.
@@ -1023,7 +1034,7 @@ export function CatalogPage() {
    */
   function clearAgentConversation() {
     clearAgentThread();
-    setUseShopContext(false);
+    setClearedComposer({ shopRequest: retrievalRequest, keepFilters: false });
     setFiltersClearedForLab(false);
     setHighlightedProductId(null);
   }
@@ -1772,7 +1783,7 @@ export function CatalogPage() {
           memory={memory}
           imageByProductId={gridImages}
           open={agentOpen}
-          seedQuery={useShopContext ? searchParams.get(ASK_MOSAIC_PROMPT_PARAM) ?? activeQuery : ""}
+          seedQuery={clearedForThisSearch ? "" : searchParams.get(ASK_MOSAIC_PROMPT_PARAM) ?? activeQuery}
           contextFilters={useShopContext ? filterChips.map((chip) => chip.label) : []}
           turns={agentTurns}
           pending={agentPending}
@@ -1799,11 +1810,13 @@ export function CatalogPage() {
             for (const [key, value] of Object.entries(normalizedFilters)) {
               if (value !== undefined) next.set(key, typeof value === "object" ? JSON.stringify(value) : String(value));
             }
-            setSearchParams(next);
             const requestFilters = replaceShopFilters
               ? normalizedFilters
               : { ...agentFilters, ...normalizedFilters };
-            void askAgent(query, requestFilters, retrievalRequestKey(activeQuery, requestFilters));
+            const starterRequest = retrievalRequestKey(activeQuery, requestFilters);
+            setClearedComposer({ shopRequest: starterRequest, keepFilters: true });
+            setSearchParams(next);
+            void askAgent(query, requestFilters, starterRequest);
           }}
           onHighlight={setHighlightedProductId}
           onSelectProduct={openProductDrawer}

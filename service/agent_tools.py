@@ -22,6 +22,7 @@ from service.answerability import (
 )
 from service.catalog import fetch_and_register_product_evidence, get_product_summaries
 from service.catalog_runtime import active_dataset, search_schema
+from service.claim_review import PreviousAnswer
 from service.config import get_settings
 from service.coverage import decline_note, decline_reason, near_listing
 from service.db import connect
@@ -126,12 +127,12 @@ def _uuid_list(values: Any, field: str) -> list[UUID]:
 
 def _load_conversation_context(
     context: AgentConversationContext,
-) -> tuple[UUID, list[ProductSummary], list[UUID]]:
+) -> tuple[UUID, list[ProductSummary], list[UUID], PreviousAnswer]:
     """Authorize a follow-up against the previous answer of record."""
     with connect() as connection:
         row = connection.execute(
             """
-            SELECT turn.agent_session_id, turn.user_message,
+            SELECT turn.agent_session_id, turn.user_message, turn.assistant_message,
                    turn.extracted_intent, synthesis.input_payload
             FROM mosaic.agent_turn AS turn
             JOIN LATERAL (
@@ -310,7 +311,11 @@ def _load_conversation_context(
             raise ConversationContextError(
                 "The follow-up product identities do not match the catalog"
             )
-    return row["agent_session_id"], products, context_event_ids
+    previous_answer = PreviousAnswer(
+        text=row["assistant_message"],
+        first_product_id=selected_ids[0] if persisted_products else None,
+    )
+    return row["agent_session_id"], products, context_event_ids, previous_answer
 
 
 def start_run(
@@ -328,11 +333,13 @@ def start_run(
         agent_session_id = session_id or uuid4()
         context_products: list[ProductSummary] = []
         context_search_event_ids: list[UUID] = []
+        previous_answer: PreviousAnswer | None = None
     else:
         (
             agent_session_id,
             context_products,
             context_search_event_ids,
+            previous_answer,
         ) = _load_conversation_context(context)
     agent_turn_id = uuid4()
     state: dict[str, Any] = {
@@ -342,6 +349,7 @@ def start_run(
         "agent_run_id": agent_turn_id,
         "question": question,
         "previous_question": context.previous_question if context is not None else None,
+        "previous_answer": previous_answer,
         "base_filters": base_filters,
         "result_limit": result_limit,
         "execution_path": (
@@ -1606,6 +1614,7 @@ def synthesize_cited_answer(
             limits=_reported_limits(state),
             current_request=state["question"],
             earlier_refusals=state.get("synthesis_refusals", ()),
+            previous_answer=state.get("previous_answer"),
         )
     except SynthesisDeclined as decline:
         set_unsupported_answer_of_record(state, decline)
@@ -1930,6 +1939,7 @@ def _synthesize_supported(
             limits=_reported_limits(state),
             current_request=state["question"],
             earlier_refusals=state.get("synthesis_refusals", ()),
+            previous_answer=state.get("previous_answer"),
         )
 
     try:

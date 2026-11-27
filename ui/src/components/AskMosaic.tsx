@@ -390,7 +390,13 @@ export function AskMosaic({
                 {renderTurn(turns[turns.length - 1], turns.length - 1)}
               </>
             ) : (
-              <StarterCards suggestions={suggestions} onRun={onRun} />
+              <StarterCards
+                suggestions={suggestions}
+                onRun={(query, filters, replaceShopFilters) => {
+                  editRequest("");
+                  onRun(query, filters, replaceShopFilters);
+                }}
+              />
             )}
           </div>
         </div>

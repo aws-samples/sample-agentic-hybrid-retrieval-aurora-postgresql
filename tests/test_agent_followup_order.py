@@ -25,6 +25,7 @@ def saved_answer(monkeypatch):
     row = {
         "agent_session_id": session_id,
         "user_message": "Headphones for clear calls",
+        "assistant_message": "Headphone 2 is my first pick [2].",
         "input_payload": {"product_ids": [1, 2, 3]},
         "extracted_intent": {
             "selected_products": [
@@ -67,10 +68,13 @@ def test_followup_preserves_answer_order_independent_of_synthesis_order(
 ):
     context, row, hydrate = saved_answer
     row["input_payload"]["product_ids"] = selection_order
-    session_id, products, events = agent_tools._load_conversation_context(context)
+    session_id, products, events, previous = agent_tools._load_conversation_context(
+        context
+    )
     assert session_id == row["agent_session_id"]
     assert [item.product_id for item in products] == [2, 1, 3]
     assert len(events) == 1
+    assert previous == {"text": row["assistant_message"], "first_product_id": 2}
     hydrate.assert_called_once_with([2, 1, 3])
 
 
@@ -79,7 +83,7 @@ def test_followup_accepts_an_answer_that_left_out_a_repeated_listing(saved_answe
     context, row, hydrate = saved_answer
     row["input_payload"]["product_ids"] = [1, 2, 3, 4]
 
-    _, products, _ = agent_tools._load_conversation_context(context)
+    _, products, _, _ = agent_tools._load_conversation_context(context)
 
     assert [item.product_id for item in products] == [2, 1, 3]
     hydrate.assert_called_once_with([2, 1, 3])
@@ -140,10 +144,21 @@ def test_followup_keeps_long_source_titles_and_an_unspecified_model(saved_answer
     hydrate.side_effect = None
     hydrate.return_value = [product(**identity) for identity in identities]
 
-    _, products, _ = agent_tools._load_conversation_context(context)
+    _, products, _, _ = agent_tools._load_conversation_context(context)
 
     assert products[0].title == identities[0]["title"]
     assert products[0].model == ""
+
+
+def test_legacy_scope_does_not_supply_a_previous_first_pick(saved_answer):
+    context, row, _ = saved_answer
+    del row["extracted_intent"]["selected_products"]
+    row["input_payload"]["product_ids"] = [2, 1, 3]
+
+    _, products, _, previous = agent_tools._load_conversation_context(context)
+
+    assert [p.product_id for p in products] == [2, 1, 3]
+    assert previous["first_product_id"] is None
 
 
 def test_followup_reports_a_catalog_change_without_reusing_an_old_product(saved_answer):

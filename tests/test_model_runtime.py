@@ -1019,6 +1019,7 @@ def test_followup_context_is_loaded_from_the_grounded_aurora_turn(
                     one={
                         "agent_session_id": session_id,
                         "user_message": "Find travel headphones under $200.",
+                        "assistant_message": "AuriLogic Flight ANC is my pick [1].",
                         "input_payload": {"product_ids": [101]},
                         "extracted_intent": {
                             "search_event_ids": [],
@@ -1079,8 +1080,8 @@ def test_followup_context_is_loaded_from_the_grounded_aurora_turn(
         lambda product_ids: [product()] if product_ids == [101] else [],
     )
 
-    loaded_session, products, event_ids = agent_tools._load_conversation_context(
-        request.context
+    loaded_session, products, event_ids, previous = (
+        agent_tools._load_conversation_context(request.context)
     )
 
     assert loaded_session == session_id
@@ -1088,6 +1089,7 @@ def test_followup_context_is_loaded_from_the_grounded_aurora_turn(
     assert products[0].signals is not None
     assert products[0].signals.rerank_score == 0.91
     assert event_ids == [inherited_event_id]
+    assert previous["first_product_id"] == 101
 
 
 def test_followup_context_rejects_client_supplied_product_identity(monkeypatch):
