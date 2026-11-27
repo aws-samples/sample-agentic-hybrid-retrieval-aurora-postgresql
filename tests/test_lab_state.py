@@ -677,6 +677,91 @@ def test_diff_reports_a_match_for_the_shipped_repair(lab_repo: Path, lab: int) -
     )
 
 
+ONE_LINE_AGENT = (
+    "    return Agent(model=model, tools=tools, system_prompt=instructions, "
+    "hooks=hooks, callback_handler=None)"
+)
+
+
+def test_diff_matches_the_one_line_agent_and_requires_no_edit(lab_repo: Path) -> None:
+    from scripts.diff import differing_lab, report
+
+    path = lab_repo / LABS[3].exercise
+    path.write_text(path.read_text().replace(LABS[3].blocks[0].fixed, ONE_LINE_AGENT))
+
+    assert "matches the reference answer" in report(path.name, repo=lab_repo)
+    assert differing_lab(path.name, repo=lab_repo) is None
+
+
+@pytest.mark.parametrize(
+    "agent",
+    [
+        ONE_LINE_AGENT.replace("tools=tools", "tools=[]"),
+        ONE_LINE_AGENT.removesuffix(")"),
+        ONE_LINE_AGENT.lstrip(),
+    ],
+    ids=["different-tools", "unfinished-call", "outside-function"],
+)
+def test_diff_reports_a_changed_or_invalid_agent_without_the_answer(
+    lab_repo: Path, agent: str
+) -> None:
+    path = lab_repo / LABS[3].exercise
+    path.write_text(path.read_text().replace(LABS[3].blocks[0].fixed, agent))
+
+    hint, differs = lab_diff(3, repo=lab_repo)
+    assert differs and "where your" in hint
+    assert "  Reference answer:" not in hint
+    assert "  Reference answer:" in lab_diff(3, repo=lab_repo, answer=True)[0]
+
+
+@pytest.mark.parametrize("lab", [1, 2])
+def test_diff_matches_reflowed_sql_in_the_marked_block(
+    lab_repo: Path, lab: int
+) -> None:
+    path = lab_repo / LABS[lab].exercise
+    fixed = LABS[lab].blocks[0].fixed
+    reflowed = " ".join(fixed.split()).replace("+ source_rank", "+source_rank")
+    path.write_text(path.read_text().replace(fixed, reflowed))
+
+    report, differs = lab_diff(lab, repo=lab_repo)
+    assert not differs and "matches the reference answer" in report
+
+
+@pytest.mark.parametrize(
+    ("lab", "original", "changed"),
+    [
+        (1, "'fuzzy'", "'fuzzy '"),
+        (2, "::", ": :"),
+        (2, "source_rank", "1.0"),
+        (2, "+ source_rank", "/* /* */ + source_rank"),
+    ],
+)
+def test_diff_still_reports_changed_sql_tokens_inside_reflowed_blocks(
+    lab_repo: Path, lab: int, original: str, changed: str
+) -> None:
+    path = lab_repo / LABS[lab].exercise
+    fixed = LABS[lab].blocks[0].fixed
+    different = " ".join(fixed.split()).replace(original, changed)
+    path.write_text(path.read_text().replace(fixed, different))
+
+    report, differs = lab_diff(lab, repo=lab_repo)
+    assert differs and "where your" in report
+    assert "  Reference answer:" not in report
+
+
+def test_diff_names_only_the_kept_comment_beside_reflowed_sql(lab_repo: Path) -> None:
+    path = lab_repo / LABS[2].exercise
+    fixed = LABS[2].blocks[0].fixed
+    comment = "-- Keep the numerator unchanged."
+    path.write_text(
+        path.read_text().replace(fixed, comment + "\n" + " ".join(fixed.split()))
+    )
+
+    report, differs = lab_diff(2, repo=lab_repo)
+    assert differs and "only comment lines differ" in report
+    assert comment in report and "source_rank" not in report
+
+
 @pytest.mark.parametrize("lab", sorted(LABS))
 def test_diff_hides_the_answer_unless_asked(lab_repo: Path, lab: int) -> None:
     set_lab_state(lab, solved=False, repo=lab_repo)

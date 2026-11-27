@@ -331,6 +331,7 @@ export function CatalogPage() {
    * one is never mistaken for the run this URL is asking for. */
   const [servedRequest, setServedRequest] = useState("");
   const [agentOpen, setAgentOpen] = useState(false);
+  const [useShopContext, setUseShopContext] = useState(true);
   const [filtersClearedForLab, setFiltersClearedForLab] = useState(false);
   const [highlightedProductId, setHighlightedProductId] = useState<number | null>(null);
   const [drawerProductId, setDrawerProductId] = useState<number | null>(null);
@@ -404,6 +405,10 @@ export function CatalogPage() {
     attributes: forwardedSearchFilters(searchParams).attributes as SearchFilters["attributes"],
   };
   const retrievalRequest = retrievalRequestKey(activeQuery, filters);
+  // A new conversation can ask across the catalog while Shop keeps its own results.
+  // A different Shop query or filter supplies fresh context; closing the panel does not.
+  useEffect(() => setUseShopContext(true), [retrievalRequest]);
+  const agentFilters = useShopContext ? filters : {};
   // Products and their receipts must answer the same request as the heading,
   // including while a replacement search is pending or has failed.
   const retrieval = activeQuery && servedRequest === retrievalRequest ? retrievalResponse : null;
@@ -424,7 +429,7 @@ export function CatalogPage() {
     run: askAgent,
     turns: agentTurns,
   } = useAskMosaicConversation(
-    filters,
+    agentFilters,
     (question) => memory.enabled && !isGradedReasonRequest(question),
   );
   const activeFilterCount = [
@@ -1018,6 +1023,7 @@ export function CatalogPage() {
    */
   function clearAgentConversation() {
     clearAgentThread();
+    setUseShopContext(false);
     setFiltersClearedForLab(false);
     setHighlightedProductId(null);
   }
@@ -1766,8 +1772,8 @@ export function CatalogPage() {
           memory={memory}
           imageByProductId={gridImages}
           open={agentOpen}
-          seedQuery={searchParams.get(ASK_MOSAIC_PROMPT_PARAM) ?? activeQuery}
-          contextFilters={filterChips.map((chip) => chip.label)}
+          seedQuery={useShopContext ? searchParams.get(ASK_MOSAIC_PROMPT_PARAM) ?? activeQuery : ""}
+          contextFilters={useShopContext ? filterChips.map((chip) => chip.label) : []}
           turns={agentTurns}
           pending={agentPending}
           suggestions={agentSuggestions}
@@ -1779,16 +1785,14 @@ export function CatalogPage() {
           onRun={(query, suggestedFilters, replaceShopFilters) => {
             setFiltersClearedForLab(Boolean(replaceShopFilters) && activeFilterCount > 0);
             if (!suggestedFilters) {
-              void askAgent(query, filters, retrievalRequest);
+              void askAgent(query, agentFilters, retrievalRequestKey(activeQuery, agentFilters));
               return;
             }
             const next = new URLSearchParams(searchParams);
             next.delete("event");
             next.delete("offset");
-            // A lab request is graded against its own gates, so Shop's are
-            // dropped from the URL as well as from the request. Otherwise the
-            // answer's context key would never match the page it belongs to.
-            if (replaceShopFilters) {
+            // Shop shows this starter's picks, so its URL must carry the same filters.
+            if (replaceShopFilters || !useShopContext) {
               for (const name of SHOP_FILTER_PARAMS) next.delete(name);
             }
             const normalizedFilters = sourceFilters(suggestedFilters, real);
@@ -1798,7 +1802,7 @@ export function CatalogPage() {
             setSearchParams(next);
             const requestFilters = replaceShopFilters
               ? normalizedFilters
-              : { ...filters, ...normalizedFilters };
+              : { ...agentFilters, ...normalizedFilters };
             void askAgent(query, requestFilters, retrievalRequestKey(activeQuery, requestFilters));
           }}
           onHighlight={setHighlightedProductId}

@@ -65,7 +65,8 @@ the same request. Your repairs carry forward from one lab to the next.
 In Labs 1 and 2, repair the SQL, apply it to Aurora and try Alex’s searches in
 **Shop**. In Lab 3, build the Retrieval agent in Python and deploy it to AgentCore
 Runtime. In **Ask Mosaic**, select **Complete my setup** and check the sources
-behind the chair recommendation. Start a new conversation for the 100W question.
+behind the chair recommendation. Choose **New conversation** for the 100W question.
+It opens an empty question box and clears Shop filters for the new chat.
 Grade both saved answers in the terminal, then try a shopping question of your own. Optional exercises cover
 a smaller and faster HNSW index for filtered semantic search, AgentCore Memory, building your
 own retrieval tool and reviewing recorded results; **Lab 2 in depth** compares weighted and

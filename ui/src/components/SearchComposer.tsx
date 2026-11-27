@@ -1,10 +1,11 @@
 import { ArrowRight, CircleStop, LoaderCircle, Search } from "lucide-react";
-import { FormEvent, ReactNode, useEffect, useState } from "react";
+import { FormEvent, ReactNode, type Ref, useEffect, useState } from "react";
 
 interface SearchComposerProps {
   initialValue?: string;
   placeholder?: string;
   inputLabel?: string;
+  inputRef?: Ref<HTMLInputElement>;
   pending?: boolean;
   compact?: boolean;
   submitLabel?: string;
@@ -22,6 +23,7 @@ export function SearchComposer({
   initialValue = "",
   placeholder = "Describe the product, constraint, or use case",
   inputLabel = "Product search",
+  inputRef,
   pending = false,
   compact = false,
   submitLabel,
@@ -53,6 +55,7 @@ export function SearchComposer({
         <Search size={compact ? 18 : 22} aria-hidden="true" />
       )}
       <input
+        ref={inputRef}
         aria-label={inputLabel}
         value={value}
         onChange={(event) => setValue(event.target.value)}

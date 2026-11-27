@@ -27,7 +27,7 @@ interface AskMosaicProps {
   open: boolean;
   /** What the composer starts with. The Shop query on a cold open. */
   seedQuery: string;
-  /** Active Shop filters passed to every agent request. */
+  /** Shop filters applied when the shopper types a question. */
   contextFilters: string[];
   /** A one-line fact about how the last request was sent, shown above the composer. */
   notice?: string;
@@ -81,6 +81,7 @@ export function AskMosaic({
   });
   const layerRef = useRef<HTMLDivElement | null>(null);
   const sidecarRef = useRef<HTMLElement | null>(null);
+  const composerInput = useRef<HTMLInputElement>(null);
   const threadRef = useRef<HTMLDivElement | null>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
   const closeRef = useRef(onClose);
@@ -96,6 +97,7 @@ export function AskMosaic({
   const [unseen, setUnseen] = useState(false);
   const latest = turns.length ? turns[turns.length - 1] : null;
   const hasTurns = latest !== null;
+  const canStartNew = hasTurns || Boolean(seedQuery) || contextFilters.length > 0;
   const [builder, setBuilder] = useBuilderView();
   const [showPrior, setShowPrior] = useState(false);
 
@@ -271,13 +273,17 @@ export function AskMosaic({
       version: current.version + 1,
     }));
     window.requestAnimationFrame(() => {
-      const input = sidecarRef.current?.querySelector<HTMLInputElement>(
-        ".ask-mosaic-composer input",
-      );
+      const input = composerInput.current;
       input?.focus();
       input?.setSelectionRange(question.length, question.length);
     });
   };
+
+  function startNewConversation() {
+    onClear();
+    setShowPrior(false);
+    editRequest("");
+  }
 
   const earlier = turns.slice(0, -1);
   const renderTurn = (turn: AskMosaicTurn, index: number) => (
@@ -407,13 +413,11 @@ export function AskMosaic({
               Jump to latest
             </button>
           ) : null}
-          {memory || turns.length ? (
+          {memory || canStartNew ? (
             <div className="ask-mosaic-meta">
               {memory ? <MemoryControl memory={memory} pending={pending} /> : null}
-              {/* Only once there is something to discard: on the entry state it
-                  would clear nothing, beside the starters it appears to threaten. */}
-              {turns.length ? (
-                <button className="ask-new-conversation" type="button" onClick={() => { setShowPrior(false); onClear(); }}>
+              {canStartNew ? (
+                <button className="ask-new-conversation" type="button" onClick={startNewConversation}>
                   <Eraser size={14} aria-hidden="true" />
                   New conversation
                 </button>
@@ -437,6 +441,7 @@ export function AskMosaic({
             clearOnSubmit
             initialValue={composerDraft.value}
             inputLabel="Ask Mosaic request"
+            inputRef={composerInput}
             pending={pending}
             submitIcon={<Send size={18} aria-hidden="true" />}
             submitLabel="Send request"

@@ -360,13 +360,25 @@ def _comment_prefix(exercise: str) -> str:
     return "#" if exercise.endswith(".py") else "--"
 
 
-def _code_only(lines: list[str], prefix: str) -> list[str]:
-    """The lines that are neither blank nor a whole-line comment, trimmed."""
-    return [
-        line.strip()
-        for line in lines
-        if line.strip() and not line.strip().startswith(prefix)
-    ]
+def _same_block_code(path: Path, expected: list[str], yours: list[str]) -> bool:
+    def parse_block(lines: list[str]) -> list[str] | str:
+        if path.suffix == ".sql":
+            # Only standalone -- comments get their own report. Keep other
+            # comment delimiters: an unclosed block comment can hide later SQL.
+            sql = "\n".join(
+                line for line in lines if not line.lstrip().startswith("--")
+            )
+            return _sql_tokens(sql, keep_comments=True)
+
+        # Keep the block in its function body: dedenting an invalid return to
+        # column zero would make it look identical to a correctly nested return.
+        return ast.dump(ast.parse("def create_agent():\n    pass\n" + "\n".join(lines)))
+
+    try:
+        return parse_block(expected) == parse_block(yours)
+    except SyntaxError:
+        # A half-typed call still needs the regular line hint.
+        return False
 
 
 Difference = tuple[str, str, list[str], list[str]]
@@ -389,6 +401,7 @@ def _diff_groups(
     expected_path = REPO / solution_path(Path(relative_path))
     yours_source = path.read_text(encoding="utf-8")
     expected_source = shipped_text(solution_path(Path(relative_path)), REPO)
+    prefix = _comment_prefix(relative_path)
     inside = []
     for start, end, _fixed, _broken in blocks:
         markers = _markers_problem(yours_source, start, end)
@@ -399,12 +412,26 @@ def _diff_groups(
         )
         yours_first, yours = _block_span(yours_source, start, end, path=path)
         numbers = list(range(yours_first, yours_first + len(yours)))
+        if _same_block_code(path, expected, yours):
+            expected = [line for line in expected if line.lstrip().startswith(prefix)]
+            comments_by_line = {
+                number: line
+                for number, line in zip(numbers, yours)
+                if line.lstrip().startswith(prefix)
+            }
+            numbers, yours = list(comments_by_line), list(comments_by_line.values())
         marker_line = yours_source.split(start, 1)[0].count("\n") + 1
         inside.extend(
             _plain_differences(expected, yours, numbers, fallback_line=marker_line)
         )
-    prefix = _comment_prefix(relative_path)
-    code = [g for g in inside if _code_only(g[2], prefix) != _code_only(g[3], prefix)]
+    code = [
+        g
+        for g in inside
+        if any(
+            line.strip() and not line.lstrip().startswith(prefix)
+            for line in g[2] + g[3]
+        )
+    ]
     comments = [g for g in inside if g not in code]
     expected_outside, _numbers = _outside_markers(expected_source, blocks)
     yours_outside, numbers = _outside_markers(yours_source, blocks)
@@ -580,7 +607,7 @@ def _lab_source_as(lab: int, source: str, *, solved: bool, whole_file: bool) -> 
     )
 
 
-def _sql_tokens(source: str) -> list[str]:
+def _sql_tokens(source: str, *, keep_comments: bool = False) -> list[str]:
     pattern = (
         r"--[^\n]*|/\*.*?\*/|'(?:''|[^'])*'|\"(?:\"\"|[^\"])*\"|"
         r"\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|[A-Za-z_]\w*|::|<>|!=|<=|>=|\S"
@@ -588,7 +615,7 @@ def _sql_tokens(source: str) -> list[str]:
     return [
         token if token.startswith(("'", '"')) else token.lower()
         for token in re.findall(pattern, source, re.DOTALL)
-        if not token.startswith(("--", "/*"))
+        if keep_comments or not token.startswith(("--", "/*"))
     ]
 
 

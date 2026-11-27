@@ -155,7 +155,8 @@ product and the search that found it, as Shop does, and end in a command or a fa
 handoff; an apply error names the participant's file and line, and
 `uv run python scripts/diff.py` names in plain words the lines of a lab file that
 differ from the reference answer, inside and outside the markers, without printing
-the answer (`--answer` adds it). A start whose
+the answer (`--answer` adds it). In Lab 3, the same `Agent(...)` call matches
+whether you write it on one line or several. A start whose
 search already works records that instead of stopping, and repeating a request
 without a saved Before shows the search alone. Shop shows symptoms before
 diagnosis and does not credit pre-start searches as repairs. Lab 2's card leads with
@@ -295,7 +296,10 @@ In Ask Mosaic, **Complete my setup** sends the same
 request and passes completion only as the first message of a fresh chat (use
 **New conversation**); its **Show tool calls** switch, on by default, shows the full run
 ID, recorded steps and per-search ranks under each answer. When an answer has finished
-arriving, the panel returns to the answer's start, with those steps below it. The suggested question runs on its own filters and shows "Shop filters
+arriving, the panel returns to the answer's start, with those steps below it.
+**New conversation** clears the question box and puts the cursor there. You can
+ask about headphones even if you just searched for monitors in Shop.
+The suggested question runs on its own filters and shows "Shop filters
 were cleared for this lab request." when it replaces filters a participant had
 set. After the request, Shop shows the terminal command that checks that run,
 with its run ID filled in.

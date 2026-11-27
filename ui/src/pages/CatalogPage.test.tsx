@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { pipelineRequests } from "../labMissions";
+import { pipelineRequests, shopSearchExamples } from "../labMissions";
 
 import {
   act,
@@ -674,6 +674,83 @@ describe("CatalogPage", () => {
     expect(
       within(dialog).getByRole("list", { name: "Example questions" }),
     ).toBeTruthy();
+  });
+
+  describe("New conversation after Alex’s monitor search", () => {
+    const monitor = shopSearchExamples.find((example) => example.id === "keyword-monitor")!;
+
+    async function openMonitorSearch() {
+      vi.mocked(useCatalogSource).mockReturnValue({ dataset_id: "reviews-2023-v2", real: true });
+      renderPage();
+      const searches = await screen.findByRole("group", { name: "Suggested searches" });
+      fireEvent.click(within(searches).getByRole("button", { name: monitor.label }));
+      await waitFor(() => expect(api.search).toHaveBeenCalledTimes(1));
+      openAskMosaic();
+      return screen.getByLabelText("Ask Mosaic request") as HTMLInputElement;
+    }
+
+    it("clears the seeded query and focuses the empty composer even in the modal", async () => {
+      vi.mocked(window.matchMedia).mockReturnValue({
+        ...window.matchMedia(""),
+        matches: true,
+      });
+      const input = await openMonitorSearch();
+      expect(input.value).toBe(monitor.query);
+      const panel = screen.getByRole("dialog", { name: "Ask Mosaic" });
+      const close = within(panel).getByRole("button", { name: "Close Ask Mosaic" });
+      await waitFor(() => expect(document.activeElement).toBe(close));
+      fireEvent.click(within(panel).getByRole("button", { name: "Send request" }));
+      fireEvent.click(close);
+      openAskMosaic();
+      const reopened = screen.getByRole("dialog", { name: "Ask Mosaic" });
+      expect((within(reopened).getByLabelText("Ask Mosaic request") as HTMLInputElement).value)
+        .toBe(monitor.query);
+      fireEvent.click(within(reopened).getByRole("button", { name: "New conversation" }));
+      const empty = within(reopened).getByLabelText("Ask Mosaic request") as HTMLInputElement;
+      expect(empty.value).toBe("");
+      await waitFor(() => expect(document.activeElement).toBe(empty));
+      expect(within(reopened).queryByText("Search filters")).toBeNull();
+    });
+
+    it("sends a typed question without Shop filters across reopening until Shop changes", async () => {
+      await openMonitorSearch();
+      fireEvent.click(screen.getByRole("button", { name: "Send request" }));
+      expect(vi.mocked(api.agentStream).mock.calls[0]?.[1]).toMatchObject(monitor.filters);
+      fireEvent.click(screen.getByRole("button", { name: "New conversation" }));
+      const panel = screen.getByRole("complementary", { name: "Ask Mosaic" });
+      fireEvent.click(within(panel).getByRole("button", { name: "Close Ask Mosaic" }));
+      openAskMosaic();
+      const question = "Which headphones would you compare?";
+      const input = screen.getByLabelText("Ask Mosaic request") as HTMLInputElement;
+      expect.soft(input.value).toBe("");
+      fireEvent.change(input, { target: { value: question } });
+      fireEvent.click(screen.getByRole("button", { name: "Send request" }));
+      expect(vi.mocked(api.agentStream).mock.calls[1]?.slice(0, 2)).toEqual([question, {}]);
+      expect(screen.queryByText("Search filters")).toBeNull();
+      expect(new URLSearchParams(window.location.search).get("category_key")).toBe("monitor");
+      expect(api.search).toHaveBeenCalledTimes(1);
+      expect(screen.queryByText("Ask Mosaic picks")).toBeNull();
+
+      const headphones = shopSearchExamples.find((example) => example.id === "keyword-headphones")!;
+      fireEvent.click(screen.getByRole("button", { name: headphones.label }));
+      await waitFor(() =>
+        expect((screen.getByLabelText("Ask Mosaic request") as HTMLInputElement).value).toBe(headphones.query)
+      );
+      expect(screen.getByText("Search filters")).toBeTruthy();
+      fireEvent.click(screen.getByRole("button", { name: "Send request" }));
+      expect(vi.mocked(api.agentStream).mock.calls[2]?.slice(0, 2)).toEqual([
+        headphones.query, expect.objectContaining(headphones.filters),
+      ]);
+    });
+
+    it("lets the shopper discard the seed before sending any question", async () => {
+      const input = await openMonitorSearch();
+      expect(input.value).toBe(monitor.query);
+      fireEvent.click(screen.getByRole("button", { name: "New conversation" }));
+      expect((screen.getByLabelText("Ask Mosaic request") as HTMLInputElement).value).toBe("");
+      expect(screen.queryByText("Search filters")).toBeNull();
+      expect(api.agentStream).not.toHaveBeenCalled();
+    });
   });
 
   it("aborts an in-flight request when the conversation is cleared", async () => {
